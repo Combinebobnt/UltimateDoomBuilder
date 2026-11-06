@@ -833,6 +833,7 @@ namespace CodeImp.DoomBuilder.Controls
 			bool tabiseditable = (t != null && !t.IsReadOnly); //mxd
 
 			buttonsave.Enabled = (tabiseditable && t.ExplicitSave && t.IsChanged);
+			menusave.Enabled = buttonsave.Enabled; // A stale-enabled menu shortcut steals Ctrl+S from Compile on Mono
 			buttonsaveall.Enabled = (explicitsavescripts > 0);
 			buttoncompile.Enabled = (tabiseditable && t.Config.Compiler != null);
 			buttonsearch.Enabled = (t != null); //mxd
@@ -1402,6 +1403,7 @@ namespace CodeImp.DoomBuilder.Controls
 				if(curtab != null)
 				{
 					buttonsave.Enabled = (curtab.ExplicitSave && curtab.IsChanged);
+					menusave.Enabled = buttonsave.Enabled;
 					buttonundo.Enabled = curtab.Editor.Scintilla.CanUndo;
 					buttonredo.Enabled = curtab.Editor.Scintilla.CanRedo;
 				}

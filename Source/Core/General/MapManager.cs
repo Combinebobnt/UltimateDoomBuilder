@@ -844,6 +844,11 @@ namespace CodeImp.DoomBuilder
 					else
 						General.ShowErrorMessage("Unknown compiler error while compiling scripts!", MessageBoxButtons.OK);
 				}
+				else if (errors.Count > 0 && purpose != SavePurpose.Testing)
+				{
+					// The compile ran but failed, so BEHAVIOR keeps its last good build
+					ReportScriptCompileErrors();
+				}
 
 				// Show script window if there are any errors and we are going to test the map
 				// and always update the errors on the scripts window.
@@ -1168,6 +1173,15 @@ namespace CodeImp.DoomBuilder
 			return (changed || scriptschanged || CheckScriptChanged() || options.LevelNameChanged || newfilepathname != filepathname || purpose != SavePurpose.Normal);
 		}
 
+		// Logs the last compile's errors as one save error, also when an up-to-date map skips the save
+		internal void ReportScriptCompileErrors()
+		{
+			if(errors.Count == 0) return;
+			ScriptConfiguration acscfg = General.GetScriptConfiguration(ScriptType.ACS);
+			General.ErrorLogger.Add(ErrorType.Error, DescribeScriptCompileErrors(errors, acscfg != null ? acscfg.Description : null));
+			General.ErrorLogger.IsErrorAdded = true;
+		}
+
 		//mxd. Saves .dbs file
 		internal bool SaveSettingsFile(string newfilepathname)
 		{
@@ -1464,6 +1478,9 @@ namespace CodeImp.DoomBuilder
 
 			//mxd. Mark the map as changed (will also update the title)
 			IsChanged = true;
+
+			// The caller clears the editor's dirty flag, so SaveMap must still know to recompile
+			scriptschanged = true;
 		}
 
 		// This checks if the specified lump exists in the temp file
@@ -2142,6 +2159,23 @@ namespace CodeImp.DoomBuilder
 			return success;
 		}
 
+		internal static string DescribeScriptCompileErrors(List<CompilerError> errors, string compilerdescription)
+		{
+			CompilerError first = errors[0];
+			string location = string.Empty;
+			if(!string.IsNullOrEmpty(first.filename))
+				location = (first.filename.StartsWith("?") ? first.filename.Substring(1) : Path.GetFileName(first.filename));
+			if(first.linenumber != CompilerError.NO_LINE_NUMBER)
+				location = (location.Length > 0 ? location + " " : string.Empty) + "line " + (first.linenumber + 1);
+
+			string description = (first.description ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+			string result = "Scripts failed to compile (" + errors.Count + (errors.Count == 1 ? " error" : " errors") + "; first: "
+				+ (location.Length > 0 ? location + ": " : string.Empty) + description.Trim() + "). "
+				+ "Saving keeps the edited script text, but BEHAVIOR still holds the previous compiled scripts.";
+			if(!string.IsNullOrEmpty(compilerdescription)) result += " Script compiler (Map Options): " + compilerdescription + ".";
+			return result;
+		}
+
 		//mxd. Update script numbers and names, collect loose ACS files.
 		private void LoadACS()
 		{
@@ -2533,6 +2567,7 @@ namespace CodeImp.DoomBuilder
 			General.Editing.DisengageVolatileMode();
 
 			// Show map options dialog
+			string oldscriptcompiler = options.ScriptCompiler;
 			MapOptionsForm optionsform = new MapOptionsForm(options, false);
 			if(optionsform.ShowDialog(General.MainWindow) == DialogResult.OK) 
 			{
@@ -2547,6 +2582,9 @@ namespace CodeImp.DoomBuilder
 
 				// Apply new options
 				this.options = optionsform.Options;
+
+				// A different script compiler must rebuild BEHAVIOR on the next Save Map
+				if(!string.Equals(options.ScriptCompiler, oldscriptcompiler, StringComparison.Ordinal)) scriptschanged = true;
 
 				// Load new game configuration
 				General.WriteLogLine("Loading game configuration \"" + options.ConfigFile + "\"...");

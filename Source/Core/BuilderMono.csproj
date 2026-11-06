@@ -1646,6 +1646,12 @@
       <Visible>false</Visible>
       <IsAsset>true</IsAsset>
     </None>
+    <!-- Upstream's zt-bcc script config on Linux too (compiler cfg in Assets/Linux/Compilers/ZT-BCC) -->
+    <None Include="..\..\Assets\Windows\Scripting\ZT_BCS.cfg" Condition="'$(IsLinux)' == 'true'">
+      <Link>Scripting\ZT_BCS.cfg</Link>
+      <Visible>false</Visible>
+      <IsAsset>true</IsAsset>
+    </None>
     <None Include="..\..\Assets\Linux.$(Platform)\**\*" Condition="'$(IsLinux)' == 'true'">
       <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
       <Visible>false</Visible>

@@ -1482,8 +1482,18 @@ namespace CodeImp.DoomBuilder
 					// Still save settings file
 					result = map.SaveSettingsFile(map.FilePathName);
 					
-					// Display status
-					mainwindow.DisplayStatus(StatusType.Info, "Map is up to date. Updated map settings file.");
+					// Display status, and repeat script compile errors left by the last save
+					errorlogger.IsErrorAdded = false;
+					map.ReportScriptCompileErrors();
+					if(errorlogger.IsErrorAdded)
+					{
+						mainwindow.DisplayStatus(StatusType.Warning, "Map is up to date, but its scripts failed to compile!");
+						if(!delaymainwindow && settings.ShowErrorsWindow) mainwindow.ShowErrors();
+					}
+					else
+					{
+						mainwindow.DisplayStatus(StatusType.Info, "Map is up to date. Updated map settings file.");
+					}
 
 					// All done
 					mainwindow.UpdateInterface();
