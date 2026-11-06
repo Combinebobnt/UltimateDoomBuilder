@@ -160,9 +160,56 @@ namespace CodeImp.DoomBuilder.IO
 			string textmapstr = textmap.OutputConfiguration();
 
 			// Write to stream
-			StreamWriter writer = new StreamWriter(stream, Encoding.ASCII);
-			writer.Write(textmapstr);
+			WriteText(stream, textmapstr);
+		}
+
+		internal static void WriteText(Stream stream, string text)
+		{
+			StreamWriter writer = new StreamWriter(stream, UniversalStreamReader.ENCODING);
+			writer.Write(text);
 			writer.Flush();
+		}
+
+		internal static string MissingUnknownData(string[] textmap, ICollection<UniversalEntry> unknowndata)
+		{
+			if(unknowndata.Count == 0) return null;
+
+			UniversalParser parsed = new UniversalParser();
+			if(!parsed.InputConfiguration(textmap)) return null;
+
+			// Count what the TEXTMAP already holds, compared by the text each entry is written as
+			HashSet<string> keys = new HashSet<string>(StringComparer.Ordinal);
+			foreach(UniversalEntry e in unknowndata) keys.Add(e.Key);
+			Dictionary<string, int> present = new Dictionary<string, int>(StringComparer.Ordinal);
+			foreach(UniversalEntry e in parsed.Root)
+			{
+				if(!keys.Contains(e.Key)) continue;
+				string text = EntryText(e);
+				int count;
+				present.TryGetValue(text, out count);
+				present[text] = count + 1;
+			}
+
+			List<UniversalEntry> missing = new List<UniversalEntry>();
+			foreach(UniversalEntry e in unknowndata)
+			{
+				string text = EntryText(e);
+				int count;
+				if(present.TryGetValue(text, out count) && count > 0) present[text] = count - 1;
+				else missing.Add(e);
+			}
+			if(missing.Count == 0) return null;
+
+			UniversalParser output = new UniversalParser();
+			WriteUnknownData(missing, output);
+			return output.OutputConfiguration();
+		}
+
+		private static string EntryText(UniversalEntry entry)
+		{
+			UniversalParser single = new UniversalParser();
+			WriteUnknownData(new[] { entry }, single);
+			return single.OutputConfiguration();
 		}
 
 		// This adds vertices
@@ -370,7 +417,7 @@ namespace CodeImp.DoomBuilder.IO
 		/// </summary>
 		/// <param name="data">Collection of universal entries.</param>
 		/// <param name="textmap">The map</param>
-		private void WriteUnknownData(ICollection<UniversalEntry> data, UniversalParser textmap)
+		private static void WriteUnknownData(ICollection<UniversalEntry> data, UniversalParser textmap)
 		{
 			foreach (UniversalEntry e in data)
 			{

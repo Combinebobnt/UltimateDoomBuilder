@@ -629,6 +629,7 @@
     <Compile Include="IO\MapSetIO.cs" />
     <Compile Include="IO\UniversalMapSetIO.cs" />
     <Compile Include="IO\WAD.cs" />
+    <Compile Include="IO\WadSaveTransaction.cs" />
     <Compile Include="Windows\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -28,8 +28,9 @@ namespace CodeImp.DoomBuilder.Plugins.VisplaneExplorer
 		[DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
 		private static extern void VPO_DeleteContext(IntPtr handle);
 
-		[DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-		private static extern string VPO_GetError(IntPtr handle);
+		// Returns a pointer into the context's error_buffer, so the marshaler must not free it
+		[DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
+		private static extern IntPtr VPO_GetError(IntPtr handle);
 
 		[DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
 		private static extern int VPO_LoadWAD(IntPtr handle, string filename);
@@ -98,8 +99,8 @@ namespace CodeImp.DoomBuilder.Plugins.VisplaneExplorer
 
 			// Load the map
 			bool isHexen = General.Map.HEXEN;
-			if(VPO_LoadWAD(context, filename) != 0) throw new Exception("VPO is unable to read this file:" + (VPO_GetError(context) ?? "<unknown error>"));
-			if(VPO_OpenMap(context, mapname, ref isHexen) != 0) throw new Exception("VPO is unable to open this map:" + (VPO_GetError(context) ?? "<unknown error>"));
+			if(VPO_LoadWAD(context, filename) != 0) throw new Exception("VPO is unable to read this file:" + (Marshal.PtrToStringAnsi(VPO_GetError(context)) ?? "<unknown error>"));
+			if(VPO_OpenMap(context, mapname, ref isHexen) != 0) throw new Exception("VPO is unable to open this map:" + (Marshal.PtrToStringAnsi(VPO_GetError(context)) ?? "<unknown error>"));
 			VPO_OpenDoorSectors(context, BuilderPlug.InterfaceForm.OpenDoors ? 1 : -1); //mxd
 
 			// Processing

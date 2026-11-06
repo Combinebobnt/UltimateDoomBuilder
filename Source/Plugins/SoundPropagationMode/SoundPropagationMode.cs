@@ -629,10 +629,8 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 
 			leakfinder = new LeakFinder(leakstartsector, leakstartposition, leakendsector, leakendposition, (HashSet<Sector>)e.Argument);
 
-			if (leakfinder.FindLeak() == false)
-				General.ToastManager.ShowToast(ToastMessages.SOUNDPROPAGATIONMODE, ToastType.WARNING, "Sound propagation", "Could not find a leak between the selected start and end positions, even though there should be one. This is weird");
-			else
-				General.Interface.DisplayStatus(StatusType.Info, string.Format(@"Searching for sound leak finished. Elapsed time: {0:mm\:ss\.ff}", sw.Elapsed));
+			// UI updates happen in FindSoundLeakFinished, on the UI thread
+			e.Result = Tuple.Create(leakfinder.FindLeak(), sw.Elapsed);
 		}
 
 
@@ -643,6 +641,16 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		/// <param name="e">The event arguments</param>
 		private void FindSoundLeakFinished(object sender, RunWorkerCompletedEventArgs e)
 		{
+			if (e.Error == null && !e.Cancelled)
+			{
+				Tuple<bool, TimeSpan> result = (Tuple<bool, TimeSpan>)e.Result;
+
+				if (result.Item1 == false)
+					General.ToastManager.ShowToast(ToastMessages.SOUNDPROPAGATIONMODE, ToastType.WARNING, "Sound propagation", "Could not find a leak between the selected start and end positions, even though there should be one. This is weird");
+				else
+					General.Interface.DisplayStatus(StatusType.Info, string.Format(@"Searching for sound leak finished. Elapsed time: {0:mm\:ss\.ff}", result.Item2));
+			}
+
 			General.Interface.RedrawDisplay();
 		}
 

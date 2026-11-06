@@ -805,7 +805,6 @@ namespace CodeImp.DoomBuilder
 				newfilepathname += ".autosave1";
 
 			string settingsfile;
-			WAD targetwad = null;
 			bool includenodes;
 			bool fileexists = File.Exists(newfilepathname); //mxd
 
@@ -973,7 +972,20 @@ namespace CodeImp.DoomBuilder
 
 			// Determine original map name
 			string origmapname = (!string.IsNullOrEmpty(options.PreviousName) && purpose != SavePurpose.IntoFile) ? options.PreviousName : options.CurrentName;
-			string origwadfile = string.Empty; //mxd
+
+			// The map is built in a sibling file and swapped in at the end, so a failure leaves the target intact
+			WadSaveTransaction transaction = null;
+			bool renamefailed = false;
+			bool replacing = (purpose != SavePurpose.IntoFile) && (newfilepathname != filepathname);
+
+			// [ZZ] We really want to tell apart saving into current archive from saving into a new one.
+			//      Treat "save as" into the current archive as normal save.
+			bool isSaveAs = (purpose == SavePurpose.AsNewFile) && (newfilepathname != filepathname);
+
+			// Save As rebuilds from the current file, other saves into a different file start empty
+			string basefile = null;
+			if(isSaveAs) { if(File.Exists(filepathname)) basefile = filepathname; }
+			else if(!replacing && File.Exists(newfilepathname)) basefile = newfilepathname;
 
 			try 
 			{
@@ -993,7 +1005,39 @@ namespace CodeImp.DoomBuilder
 							return false;
 						}
 					}
+				}
 
+				transaction = new WadSaveTransaction(newfilepathname, basefile);
+
+				// Copy map lumps to target file
+				if(!CopyLumpsByType(tempwadreader.WadFile, TEMP_MAP_HEADER, transaction.Wad, origmapname, true, true, includenodes, true, true))
+					throw new IOException("the map was not found in the temporary file");
+
+				// mxd. Was the map renamed?
+				if(options.LevelNameChanged && purpose != SavePurpose.IntoFile)
+				{
+					General.WriteLogLine("Changing map name from \"" + options.PreviousName + "\" to \"" + options.CurrentName + "\"");
+
+					// Find the map header in target
+					int index = transaction.Wad.FindLumpIndex(options.PreviousName);
+					if(index > -1)
+					{
+						// Rename the map lump name
+						transaction.Wad.Lumps[index].Rename(options.CurrentName);
+					}
+					else
+					{
+						// Houston, we've got a problem!
+						General.ShowErrorMessage("Error renaming map lump name: the original map lump could not be found!", MessageBoxButtons.OK);
+						renamefailed = true;
+					}
+				}
+
+				transaction.Seal();
+
+				// Rotate backups and autosaves only once the new file is complete
+				if(fileexists)
+				{
 					if (purpose == SavePurpose.Autosave)
 					{
 						string autosavefilepathname = Path.Combine(Path.GetDirectoryName(newfilepathname), Path.GetFileNameWithoutExtension(newfilepathname));
@@ -1011,118 +1055,70 @@ namespace CodeImp.DoomBuilder
 					}
 					else
 					{
-						// Backup existing file, if any
-						if (File.Exists(newfilepathname + ".backup3")) File.Delete(newfilepathname + ".backup3");
-						if (File.Exists(newfilepathname + ".backup2")) File.Move(newfilepathname + ".backup2", newfilepathname + ".backup3");
-						if (File.Exists(newfilepathname + ".backup1")) File.Move(newfilepathname + ".backup1", newfilepathname + ".backup2");
-						File.Copy(newfilepathname, newfilepathname + ".backup1");
+						// Backup existing file, if any. Copy first, so a failed copy ages no backup
+						string newbackup = newfilepathname + ".backup.new";
+						try
+						{
+							File.Copy(newfilepathname, newbackup, true);
+							if (File.Exists(newfilepathname + ".backup3")) File.Delete(newfilepathname + ".backup3");
+							if (File.Exists(newfilepathname + ".backup2")) File.Move(newfilepathname + ".backup2", newfilepathname + ".backup3");
+							if (File.Exists(newfilepathname + ".backup1")) File.Move(newfilepathname + ".backup1", newfilepathname + ".backup2");
+							File.Move(newbackup, newfilepathname + ".backup1");
+						}
+						catch
+						{
+							try { if(File.Exists(newbackup)) File.Delete(newbackup); }
+							catch(IOException) { }
+							catch(UnauthorizedAccessException) { }
+							throw;
+						}
 					}
 				}
 
-				// Except when saving INTO another file,
-				// kill the target file if it is different from source file
-				if ((purpose != SavePurpose.IntoFile) && (newfilepathname != filepathname))
-				{
-					// Kill target file
-					if(File.Exists(newfilepathname)) File.Delete(newfilepathname);
-
-					// Kill .dbs settings file
-					settingsfile = newfilepathname.Substring(0, newfilepathname.Length - 4) + ".dbs";
-					if(File.Exists(settingsfile)) File.Delete(settingsfile);
-				}
-
-                // [ZZ] We really want to tell apart saving into current archive from saving into a new one.
-                //      Treat "save as" into the current archive as normal save.
-                bool isSaveAs = (purpose == SavePurpose.AsNewFile) && (newfilepathname != filepathname);
-				// On Save AS we have to copy the previous file to the new file
-				if (isSaveAs)
-				{
-					// Copy if original file still exists
-					if (File.Exists(filepathname))
-						File.Copy(filepathname, newfilepathname, true);
-				}
-
-				if (File.Exists(newfilepathname))
-				{
-					// If the target file exists, we need to rebuild it
-					// biwa. This somewhat restores the behavior that was change with commit b996d8a380056ed9cb3a3f90f3c534e29e77e53c
-					// Not rebuilding the WAD can cause issues with WADs that do not have their directory at the bottom.
-					// See https://github.com/jewalky/UltimateDoomBuilder/issues/531
-					origwadfile = newfilepathname + ".temp";
-					File.Move(newfilepathname, origwadfile);
-
-					// Open original file
-					WAD origwad = new WAD(origwadfile, true);
-
-					// Create new target file
-					targetwad = new WAD(newfilepathname) { IsIWAD = origwad.IsIWAD }; //mxd. Let's preserve wad type
-
-					CopyAllLumps(origwad, targetwad);
-
-					// Close original file and delete it
-					origwad.Dispose();
-					File.Delete(origwadfile);
-				}
-				else
-				{
-					// Create new target file
-					targetwad = new WAD(newfilepathname);
-				}
-			} 
-			catch(Exception e) 
+				transaction.Swap();
+			}
+			catch(Exception e)
 			{
-				General.ShowErrorMessage("Unable to write the map to target file \"" + newfilepathname + "\":\n" + e.Message, MessageBoxButtons.OK);
-				if(!string.IsNullOrEmpty(origwadfile) && File.Exists(origwadfile))
+				// Resume before the dialog, so an autosave during it finds the resources open
+				try
 				{
-					//mxd. Clean-up
-					if(File.Exists(newfilepathname))
-					{
-						//mxd. We MAY've just deleted the map from the target file. Let's pretend this never happened
-						if(targetwad != null) targetwad.Dispose();
-						File.Delete(newfilepathname);
-						File.Move(origwadfile, newfilepathname);
-					}
-					else
-					{
-						File.Delete(origwadfile); 
-					}
+					if(transaction != null) transaction.Dispose();
+				}
+				finally
+				{
+					data.Resume();
 				}
 
-				data.Resume();
 				General.WriteLogLine("Map saving failed: " + e.Message);
+				General.ShowErrorMessage("Unable to write the map to target file \"" + newfilepathname + "\":\n" + e.Message, MessageBoxButtons.OK);
 				return false;
 			}
 
-			// Copy map lumps to target file
-			CopyLumpsByType(tempwadreader.WadFile, TEMP_MAP_HEADER, targetwad, origmapname, true, true, includenodes, true, true);
+			// The save has succeeded, so nothing from here on may report a failure
+			transaction.Dispose();
+			if(!string.IsNullOrEmpty(transaction.MetadataWarning)) General.WriteLogLine("Warning: " + transaction.MetadataWarning);
 
-			// mxd. Was the map renamed?
-			if(options.LevelNameChanged) 
+			// Kill the replaced target's .dbs settings file
+			if(replacing)
 			{
-				if(purpose != SavePurpose.IntoFile) 
+				settingsfile = newfilepathname.Substring(0, newfilepathname.Length - 4) + ".dbs";
+				try
 				{
-					General.WriteLogLine("Changing map name from \"" + options.PreviousName + "\" to \"" + options.CurrentName + "\"");
-
-					// Find the map header in target
-					int index = targetwad.FindLumpIndex(options.PreviousName);
-					if(index > -1) 
-					{
-						// Rename the map lump name
-						targetwad.Lumps[index].Rename(options.CurrentName);
-					} 
-					else 
-					{
-						// Houston, we've got a problem!
-						General.ShowErrorMessage("Error renaming map lump name: the original map lump could not be found!", MessageBoxButtons.OK);
-						options.CurrentName = options.PreviousName;
-					}
+					if(File.Exists(settingsfile)) File.Delete(settingsfile);
 				}
-
-				options.PreviousName = string.Empty;
+				catch(Exception e)
+				{
+					General.WriteLogLine("Warning: could not delete \"" + settingsfile + "\": " + e.Message);
+				}
 			}
 
-			// Done with the target file
-			targetwad.Dispose();
+			// Rename state changes only now, so a failed save keeps the rename for the next one.
+			// A test or autosave copy isn't the map's file, so the rename stays pending for the next real save
+			if(options.LevelNameChanged && purpose != SavePurpose.Testing && purpose != SavePurpose.Autosave)
+			{
+				if(renamefailed) options.CurrentName = options.PreviousName;
+				options.PreviousName = string.Empty;
+			}
 
 			// Resume data resources
 			data.Resume();
@@ -1365,6 +1361,9 @@ namespace CodeImp.DoomBuilder
 						// Copy nodebuilder lumps to temp file
 						General.WriteLogLine("Copying nodebuilder lumps to temporary file...");
 						CopyLumpsByType(buildwad, BUILD_MAP_HEADER, tempwadreader.WadFile, TEMP_MAP_HEADER, false, false, true, false);
+
+						// zdbsp's TEXTMAP replaces ours without the UDMF blocks it doesn't know, so put those back
+						if(io is UniversalMapSetIO) RestoreUnknownUDMFData(tempwadreader.WadFile, TEMP_MAP_HEADER);
 					}
 					else 
 					{
@@ -1403,6 +1402,29 @@ namespace CodeImp.DoomBuilder
 				// Return result
 				return lumpscomplete;
 			}
+		}
+
+		private void RestoreUnknownUDMFData(WAD wad, string mapheader)
+		{
+			if(map.UnknownUDMFData.Count == 0) return;
+
+			int headerindex = wad.FindLumpIndex(mapheader);
+			int lumpindex = (headerindex > -1) ? FindSpecificLump(wad, "TEXTMAP", headerindex, mapheader, config.MapLumps) : -1;
+			if(lumpindex < 0) return;
+
+			Lump lump = wad.Lumps[lumpindex];
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			string missing = UniversalStreamWriter.MissingUnknownData(UniversalStreamReader.ReadLines(lump.Stream), map.UnknownUDMFData);
+			if(missing == null) return;
+
+			General.WriteLogLine("Restoring UDMF data the nodebuilder dropped from TEXTMAP...");
+			byte[] olddata = lump.Stream.ReadAllBytes();
+			byte[] extra = UniversalStreamReader.ENCODING.GetBytes("\r\n" + missing);
+			wad.RemoveAt(lumpindex);
+			Lump newlump = wad.Insert("TEXTMAP", lumpindex, olddata.Length + extra.Length);
+			newlump.Stream.Seek(0, SeekOrigin.Begin);
+			newlump.Stream.Write(olddata, 0, olddata.Length);
+			newlump.Stream.Write(extra, 0, extra.Length);
 		}
 
 		// This verifies if the nodebuilder lumps exist in a WAD file
@@ -1672,26 +1694,6 @@ namespace CodeImp.DoomBuilder
             if (writeheaders) target.WriteHeaders();
             return tgtheaderindex;
         }
-
-		/// <summary>
-		/// Copies all lumps from one WAD to another
-		/// </summary>
-		/// <param name="source">Source WAD</param>
-		/// <param name="target">Target WAD</param>
-		private static void CopyAllLumps(WAD source, WAD target)
-		{
-			// Go for all lumps
-			for (int i = 0; i < source.Lumps.Count; i++)
-			{
-				Lump srclump = source.Lumps[i];
-
-				// Copy lump over!
-				Lump tgtlump = target.Insert(srclump.Name, target.Lumps.Count, srclump.Length, false);
-				srclump.CopyTo(tgtlump);
-			}
-
-			target.WriteHeaders();
-		}
 
 		// This copies specific map lumps from one WAD to another
 		private bool CopyLumpsByType(WAD source, string sourcemapname,

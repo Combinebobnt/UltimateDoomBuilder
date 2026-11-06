@@ -36,6 +36,9 @@ namespace CodeImp.DoomBuilder.IO
 		// Name of the UDMF configuration file
 		private const string UDMF_CONFIG_NAME = "UDMF.cfg";
 
+		// Latin-1 maps every byte to one char and back, so bytes above 127 survive a save
+		internal static readonly Encoding ENCODING = Encoding.GetEncoding(28591);
+
 		#endregion
 
 		#region ================== Variables
@@ -134,16 +137,11 @@ namespace CodeImp.DoomBuilder.IO
 		// This reads from a stream
 		public void Read(MapSet map, Stream stream)
 		{
-			StreamReader reader = new StreamReader(stream, Encoding.ASCII);
 			UniversalParser textmap = new UniversalParser();
 			textmap.StrictChecking = strictchecking;
-			
-			// Read UDMF from stream
-			List<string> data = new List<string>(1000);
-			while(!reader.EndOfStream) data.Add(reader.ReadLine());
 
-			// Parse it
-			textmap.InputConfiguration(data.ToArray());
+			// Read UDMF from stream and parse it
+			textmap.InputConfiguration(ReadLines(stream));
 
 			// Check for errors
 			if(textmap.ErrorResult != 0)
@@ -630,6 +628,14 @@ namespace CodeImp.DoomBuilder.IO
 			}
 
 			return list;
+		}
+
+		internal static string[] ReadLines(Stream stream)
+		{
+			StreamReader reader = new StreamReader(stream, ENCODING);
+			List<string> data = new List<string>(1000);
+			while(!reader.EndOfStream) data.Add(reader.ReadLine());
+			return data.ToArray();
 		}
 
 		/// <summary>

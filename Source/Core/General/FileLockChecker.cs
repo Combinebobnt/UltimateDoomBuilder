@@ -102,6 +102,11 @@ namespace CodeImp.DoomBuilder
 					int errorcode = Marshal.GetHRForException(e) & ((1 << 16) - 1);
 					locked = (errorcode == 32 || errorcode == 33);
 				}
+				// A user-owned file on a read-only mount passes the IsReadOnly check in MapManager
+				catch(UnauthorizedAccessException e)
+				{
+					return new FileLockCheckResult { Error = "Unable to save the map: " + e.Message };
+				}
 
 				return new FileLockCheckResult { Error = (locked ? "Unable to save the map. Map file is locked by another process." : string.Empty) };
 			}

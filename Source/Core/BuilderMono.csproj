@@ -620,6 +620,7 @@
     <Compile Include="IO\MapSetIO.cs" />
     <Compile Include="IO\UniversalMapSetIO.cs" />
     <Compile Include="IO\WAD.cs" />
+    <Compile Include="IO\WadSaveTransaction.cs" />
     <Compile Include="Windows\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -683,6 +684,7 @@
       <HintPath>..\..\Assets\Common\SharpCompress.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Mono.Posix" />
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>

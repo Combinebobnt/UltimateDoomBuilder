@@ -20,6 +20,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 
 #endregion
@@ -193,23 +195,32 @@ namespace CodeImp.DoomBuilder.IO
 			// Not already disposed?
 			if(!isdisposed)
 			{
-				// Only possible when not read-only
-				if(!isreadonly)
-				{
-					// Flush writing changes
-					if(writer != null) writer.Flush();
-					if(file != null) file.Flush();
-				}
-				
-				// Clean up
-				if(lumps != null) foreach(Lump l in lumps) l.Dispose();
-				if(writer != null) writer.Close();
-				if(reader != null) reader.Close();
-				if(file != null) file.Dispose();
-				
-				// Done
+				// Set first, so a failed flush below can't make a second Dispose throw
 				isdisposed = true;
 				GC.SuppressFinalize(this); //mxd
+
+				// Clean up
+				if(lumps != null) foreach(Lump l in lumps) l.Dispose();
+
+				// Close every handle even when a flush fails, then report the first failure
+				Exception failure = null;
+				if(!isreadonly && writer != null) CloseStep(writer.Flush, ref failure);
+				if(writer != null) CloseStep(writer.Close, ref failure);
+				if(reader != null) CloseStep(reader.Close, ref failure);
+				if(file != null) CloseStep(file.Dispose, ref failure);
+				if(failure != null) ExceptionDispatchInfo.Capture(failure).Throw();
+			}
+		}
+
+		private static void CloseStep(Action step, ref Exception failure)
+		{
+			try
+			{
+				step();
+			}
+			catch(Exception e)
+			{
+				if(failure == null) failure = e;
 			}
 		}
 
@@ -441,17 +452,43 @@ namespace CodeImp.DoomBuilder.IO
 		}
 		
 		// This flushes writing changes
-		/*public void Flush()
+		internal void FlushToDisk()
 		{
 			// Only possible when not read-only
-			if(!isreadonly)
+			if(isreadonly || isdisposed) return;
+
+			writer.Flush();
+			SyncToDisk(file);
+		}
+
+		private static void SyncToDisk(FileStream stream)
+		{
+#if MONO_WINFORMS
+			// Mono's Flush(true) ignores what fsync returns, so check it directly
+			try
 			{
-				// Flush writing changes
-				if(writer != null) writer.Flush();
-				if(file != null) file.Flush();
+				PosixFsync(stream);
+				return;
 			}
-		}*/
-		
+			catch(DllNotFoundException) { }
+			catch(EntryPointNotFoundException) { }
+			catch(TypeLoadException) { }
+			catch(FileNotFoundException) { }
+#endif
+			stream.Flush(true);
+		}
+
+#if MONO_WINFORMS
+		// Kept apart so a missing Mono.Posix fails at this call, inside the catch above
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		private static void PosixFsync(FileStream stream)
+		{
+			int fd = (int)stream.SafeFileHandle.DangerousGetHandle();
+			if(Mono.Unix.Native.Syscall.fsync(fd) == -1)
+				throw new IOException("Unable to sync \"" + stream.Name + "\" to disk: " + Mono.Unix.Native.Stdlib.GetLastError());
+		}
+#endif
+
 		#endregion
 		
 		#region ================== Lumps

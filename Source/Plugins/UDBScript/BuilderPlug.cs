@@ -160,8 +160,7 @@ namespace CodeImp.DoomBuilder.UDBScript
 			// Methods called by LoadScripts might sleep for some time, so call LoadScripts asynchronously
 			new Task(LoadScripts).Start();
 
-			if (watcher != null)
-				watcher.EnableRaisingEvents = true;
+			StartWatcher();
 		}
 
 		public override void OnMapOpenEnd()
@@ -171,8 +170,24 @@ namespace CodeImp.DoomBuilder.UDBScript
 			// Methods called by LoadScripts might sleep for some time, so call LoadScripts asynchronously
 			new Task(LoadScripts).Start();
 
-			if (watcher != null)
+			StartWatcher();
+		}
+
+		// Running out of inotify instances or watches must not abort the map open
+		private void StartWatcher()
+		{
+			if (watcher == null)
+				return;
+
+			try
+			{
 				watcher.EnableRaisingEvents = true;
+			}
+			catch (Exception e)
+			{
+				General.ErrorLogger.Add(ErrorType.Warning, "Unable to watch the script folder for changes: " + e.Message);
+				General.WriteLogLine("Unable to watch the script folder for changes: " + e.Message);
+			}
 		}
 
 		public override void OnMapCloseBegin()
