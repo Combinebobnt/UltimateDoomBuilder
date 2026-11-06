@@ -14,6 +14,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Parsers:** DECORATE `Goto` and state-end fixes, UTF-8 BOMs, correct line numbers on LF files, TEXTURES numeric `Blend` under Zandronum configs, and SNDINFO/TERRAIN conditional blocks.
 - **Game configurations:** `forceheight`/`forcewidth` thing properties (documented in Help), Zandronum configs targeting Zandronum 3.3, engine archive checks (`requiredarchives`), GZDoom/UZDoom `filter/` folders, and DnD (Death and Decay) configurations built on the Zandronum 3.3 configuration.
 - **Editing:** arg0str survives bulk edits, the Undo panel previews on single click, a discarded redo branch stays restorable, draw tools withdraw a failed draw cleanly, and pasting from another program's clipboard no longer hangs.
+- **Visual mode placeholders:** the missing, unknown and still-loading texture placeholders are 64x64 grids labelled MISSING, UNKNOWN and LOADING.
 - **Resource loading:** faster PK3 file lookups, and a PK3 image that fails to read is marked failed instead of breaking the background loader.
 - **Diagnostics:** set `UDB_GEOMETRY_LOG=1` to log texture browser window geometry, or `UDB_DOCKER_TRACE=1` to trace side panel state.
 
