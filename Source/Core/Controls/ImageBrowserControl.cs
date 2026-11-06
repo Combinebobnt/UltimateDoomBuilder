@@ -89,6 +89,16 @@ namespace CodeImp.DoomBuilder.Controls
 		public bool HideInputBox { get { return splitter.Panel2Collapsed; } set { splitter.Panel2Collapsed = value; } }
 		public List<ImageBrowserItem> SelectedItems { get { return list.SelectedItems; } } //mxd
 		public ImageBrowserItem SelectedItem { get { return (list.SelectedItems.Count > 0 ? list.SelectedItems[0] : null); } }
+
+		// Geometry log only: tells "list never got the width" from "items laid out against a stale width"
+		internal Rectangle GeomDebugListBounds { get { return list.Bounds; } }
+		internal int GeomDebugListClientWidth { get { return list.ClientRectangle.Width; } }
+		internal int GeomDebugListFlowWidth { get { return list.GeomDebugLastFlowWidth; } }
+		internal int GeomDebugListFlowCallCount { get { return list.GeomDebugLastFlowCallCount; } }
+		internal int GeomDebugListContentRight { get { return list.GeomDebugContentRight; } }
+		internal int GeomDebugListItemCount { get { return list.GeomDebugItemCount; } }
+		internal int GeomDebugListGroupCount { get { return list.GeomDebugGroupCount; } }
+		internal bool GeomDebugListClassicView { get { return list.GeomDebugClassicView; } }
 		public string ElementName //mxd
 		{
 			set

@@ -37,10 +37,111 @@ namespace CodeImp.DoomBuilder.Windows
 		// Variables
 		protected readonly string configname; //mxd
 
-		//mxd. Stored window size and location. Tracks location and size of FormWindowState.Normal window 
+		//mxd. Stored window size and location. Tracks location and size of FormWindowState.Normal window
 		private Size windowsize = Size.Empty;
 		private Point windowlocation = Point.Empty;
-		
+
+		#region ================== Window geometry debug logging
+
+		// Diagnoses a rare Mono/X11 bug where the texture browser opens at the wrong frame size.
+		// Logs to its own file because UDBuilder.log is replaced on every startup. Start reading
+		// at the one-line-per-open `GEOMSUMMARY` records; the surrounding block has the detail.
+		private static readonly string[] GEOMDEBUG_FORMS = { "texturebrowserform" };
+		private const string GEOMDEBUG_FILE = "UDBuilder.geometry.log";
+		private const long GEOMDEBUG_MAXBYTES = 5 * 1024 * 1024;
+
+		// Off unless UDB_GEOMETRY_LOG is set to a non-empty value other than "0"
+		internal static readonly bool GeomDebugLogging = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("UDB_GEOMETRY_LOG"))
+			&& Environment.GetEnvironmentVariable("UDB_GEOMETRY_LOG") != "0";
+
+		private bool GeomDebugEnabled
+		{
+			get
+			{
+				if(!GeomDebugLogging || string.IsNullOrEmpty(configname)) return false;
+				return Array.IndexOf(GEOMDEBUG_FORMS, configname) >= 0;
+			}
+		}
+
+		// One id per form instance, so interleaved opens stay separable in the log
+		private readonly int geomdebugid = System.Threading.Interlocked.Increment(ref geomdebugcounter);
+		private static int geomdebugcounter;
+
+		// Size we asked for in OnLoad, compared against what we actually got once the window
+		// manager has answered. A bad open then tags itself in the log, so finding one is a
+		// grep for GEOMDEBUG-MISMATCH rather than eyeballing hundreds of correct opens.
+		private Size geomdebugrequested = Size.Empty;
+		private bool geomdebugshown;
+
+		// Inputs the summary line reports, so a bad open can be read without cross-referencing
+		// the settings file (which the same open may already have rewritten by then).
+		private string geomdebugsettings = "?";
+		private string geomdebugnote = "";
+		private bool geomdebuguserresized;
+		private int geomdebuglateresizes;
+		private bool geomdebugsummarised;
+
+		// Free-form context a subclass wants attached to this open, e.g. which dialog was the
+		// parent, or which branch a layout value came from. Appended to the summary line.
+		internal void GeomDebugAddNote(string note)
+		{
+			if(!GeomDebugEnabled || string.IsNullOrEmpty(note)) return;
+			geomdebugnote = (geomdebugnote.Length > 0 ? geomdebugnote + " " : "") + note;
+		}
+
+		// The log is never deleted on startup, so cap it. Months of ordinary use would otherwise
+		// leave a file too large to be worth reading when the bug finally shows up.
+		private static void GeomDebugRotate(string path)
+		{
+			try
+			{
+				System.IO.FileInfo fi = new System.IO.FileInfo(path);
+				if(!fi.Exists || fi.Length < GEOMDEBUG_MAXBYTES) return;
+
+				string previous = path + ".1";
+				if(System.IO.File.Exists(previous)) System.IO.File.Delete(previous);
+				System.IO.File.Move(path, previous);
+			}
+			catch(Exception)
+			{
+				// Never let instrumentation break the editor
+			}
+		}
+
+		private void GeomDebug(string stage)
+		{
+			if(!GeomDebugEnabled) return;
+
+			try
+			{
+				SizeF current;
+				try { current = this.CurrentAutoScaleDimensions; }
+				catch { current = SizeF.Empty; }
+
+				string line = string.Format(
+					"{0:yyyy-MM-dd HH:mm:ss.fff} [{1}#{2}] {3,-22} Size={4}x{5} Client={6}x{7} Bounds={8} Restore={9} State={10} Min={11}x{12} Max={13}x{14} AutoScale={15}/{16} Dpi={17} HandleCreated={18} Visible={19} Opacity={20:0.##} VScreen={21}",
+					DateTime.Now, configname, geomdebugid, stage,
+					this.Size.Width, this.Size.Height,
+					this.ClientSize.Width, this.ClientSize.Height,
+					this.Bounds, this.RestoreBounds, this.WindowState,
+					this.MinimumSize.Width, this.MinimumSize.Height,
+					this.MaximumSize.Width, this.MaximumSize.Height,
+					this.AutoScaleDimensions, current, MainForm.DPIScaler,
+					this.IsHandleCreated, this.Visible, this.Opacity,
+					SystemInformation.VirtualScreen);
+
+				string path = System.IO.Path.Combine(General.SettingsPath, GEOMDEBUG_FILE);
+				GeomDebugRotate(path);
+				System.IO.File.AppendAllText(path, line + Environment.NewLine);
+			}
+			catch(Exception)
+			{
+				// Never let instrumentation break the editor
+			}
+		}
+
+		#endregion
+
 		// Constructor
 		protected DelayedForm()
 		{
@@ -67,7 +168,19 @@ namespace CodeImp.DoomBuilder.Windows
 			base.OnLoad(e);
 
 			if(this.DesignMode) return;
-			
+
+			GeomDebug("OnLoad:entry");
+			if(GeomDebugEnabled)
+			{
+				geomdebugsettings = "state=" + General.Settings.ReadSetting("windows." + configname + ".windowstate", -1)
+								  + " w=" + General.Settings.ReadSetting("windows." + configname + ".sizewidth", -1)
+								  + " h=" + General.Settings.ReadSetting("windows." + configname + ".sizeheight", -1)
+								  + " x=" + General.Settings.ReadSetting("windows." + configname + ".positionx", int.MaxValue)
+								  + " y=" + General.Settings.ReadSetting("windows." + configname + ".positiony", int.MaxValue)
+								  + " border=" + this.FormBorderStyle + " maxbox=" + this.MaximizeBox;
+				GeomDebug("OnLoad:settings " + geomdebugsettings);
+			}
+
 			// Restore location and size
 			this.SuspendLayout();
 
@@ -83,6 +196,9 @@ namespace CodeImp.DoomBuilder.Windows
 				this.Size = new Size(General.Settings.ReadSetting("windows." + configname + ".sizewidth", this.Size.Width),
 									 General.Settings.ReadSetting("windows." + configname + ".sizeheight", this.Size.Height));
 			}
+
+			geomdebugrequested = this.Size;
+			GeomDebug("OnLoad:after-size");
 
 			// Restore location
 			Point validlocation = Point.Empty;
@@ -115,19 +231,90 @@ namespace CodeImp.DoomBuilder.Windows
 				this.Location = validlocation;
 			}
 
+			GeomDebug("OnLoad:after-location");
+
 			// Show the form if needed
 			if(this.Opacity < 1.0) this.Opacity = 1.0;
 
+			GeomDebug("OnLoad:after-opacity");
+
 			this.ResumeLayout();
+
+			GeomDebug("OnLoad:after-resumelayout");
+		}
+
+		//mxd. Instrumentation only - see the geometry debug region above.
+		protected override void OnShown(EventArgs e)
+		{
+			base.OnShown(e);
+
+			GeomDebug("OnShown");
+			geomdebugshown = true;
+
+			// Sample again once the window manager has had a chance to answer our resize request.
+			// This is what separates "we asked for the wrong size" from "we asked correctly and
+			// the WM overrode us via a late ConfigureNotify". Two samples, because a WM that
+			// answers late is the leading suspect and 250ms may simply be too early to see it.
+			if(GeomDebugEnabled)
+			{
+				GeomDebugSample(250, false);
+				GeomDebugSample(1500, true);
+			}
+		}
+
+		// One delayed geometry sample. The last one also writes the per-open summary line.
+		private void GeomDebugSample(int delay, bool summarise)
+		{
+			Timer t = new Timer { Interval = delay };
+			t.Tick += delegate
+			{
+				t.Stop();
+				t.Dispose();
+
+				bool mismatch = GeomDebugMismatched;
+				GeomDebug((mismatch ? "GEOMDEBUG-MISMATCH " : "") + "PostShown+" + delay + "ms requested="
+						  + geomdebugrequested.Width + "x" + geomdebugrequested.Height);
+
+				if(summarise) GeomDebugSummary();
+			};
+			t.Start();
+		}
+
+		// One line per open, whichever comes first: the last delayed sample, or the window
+		// closing. A quick open-and-pick disposes the form before the 1500ms sample ticks, and
+		// that is exactly the case a bad open is most likely to be - the user shuts a
+		// wrong-sized window straight away rather than working in it.
+		private void GeomDebugSummary()
+		{
+			if(!GeomDebugEnabled || geomdebugsummarised) return;
+			geomdebugsummarised = true;
+
+			GeomDebug("GEOMSUMMARY " + (GeomDebugMismatched ? "BAD  " : "ok   ")
+					  + "requested=" + geomdebugrequested.Width + "x" + geomdebugrequested.Height
+					  + " final=" + this.Size.Width + "x" + this.Size.Height
+					  + " state=" + this.WindowState
+					  + " settings(" + geomdebugsettings + ")"
+					  + (geomdebugnote.Length > 0 ? " " + geomdebugnote : ""));
+		}
+
+		private bool GeomDebugMismatched
+		{
+			get
+			{
+				return !geomdebugrequested.IsEmpty && this.Size != geomdebugrequested
+					   && this.WindowState == FormWindowState.Normal;
+			}
 		}
 
 		//mxd. When form is closing
 		protected override void OnClosing(CancelEventArgs e)
 		{
 			if(e.Cancel) return;
-			
+
 			// Let the base class know
 			base.OnClosing(e);
+
+			GeomDebugSummary();
 
 			// Determine window state to save
 			if(this.MaximizeBox)
@@ -159,6 +346,10 @@ namespace CodeImp.DoomBuilder.Windows
 				General.Settings.WriteSetting("windows." + configname + ".positionx", location.X);
 				General.Settings.WriteSetting("windows." + configname + ".positiony", location.Y);
 			}
+
+			GeomDebug("OnClosing tracked=" + windowsize.Width + "x" + windowsize.Height
+					  + " loc=" + windowlocation.X + "," + windowlocation.Y
+					  + " -> saved " + location.X + "," + location.Y);
 		}
 
 		//mxd. Also triggered when the window is dragged.
@@ -173,7 +364,32 @@ namespace CodeImp.DoomBuilder.Windows
 				windowlocation = this.Location;
 			}
 
+			// A drag-resize ends here. Past this point every size differs from the one we asked
+			// for by design, so stop treating a post-shown resize as evidence of anything.
+			geomdebuguserresized = true;
+			GeomDebug("OnResizeEnd tracked=" + windowsize.Width + "x" + windowsize.Height);
+
 			base.OnResizeEnd(e);
+		}
+
+		//mxd. Instrumentation only - a spurious Resize during show would be the tell for a
+		//window manager overriding the size we asked for in OnLoad. Before OnShown everything
+		//is logged; afterwards only resizes that move us off the requested size, which keeps
+		//drag-resize noise out while still catching a late override.
+		protected override void OnResize(EventArgs e)
+		{
+			base.OnResize(e);
+
+			if(!geomdebugshown)
+			{
+				GeomDebug("OnResize");
+			}
+			else if(!geomdebuguserresized && geomdebuglateresizes < 5 && GeomDebugMismatched)
+			{
+				geomdebuglateresizes++;
+				GeomDebug("GEOMDEBUG-LATERESIZE OnResize:post-shown requested="
+						  + geomdebugrequested.Width + "x" + geomdebugrequested.Height);
+			}
 		}
 
 		//mxd. Special handling to call "save screenshot" actions from any form, 

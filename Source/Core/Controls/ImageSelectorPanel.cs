@@ -27,6 +27,16 @@ namespace CodeImp.DoomBuilder.Controls
 		private List<ImageBrowserItem> selection;
 		private List<Rectangle> rectangles;
 		private ImageBrowserItem lastselecteditem;
+
+		// Diagnostic-only: the width UpdateRectangles() actually flowed items against, captured
+		// at the moment it ran - distinct from reading ClientRectangle.Width afterward, which
+		// only shows the current size, not what was used for the (possibly stale) last layout.
+		internal int GeomDebugLastFlowWidth { get; private set; }
+		internal int GeomDebugLastFlowCallCount { get; private set; }
+		internal int GeomDebugContentRight { get; private set; }
+		internal int GeomDebugItemCount { get { return items.Count; } }
+		internal int GeomDebugGroupCount { get { return itemgroups.Count; } }
+		internal bool GeomDebugClassicView { get { return classicview; } }
 		private int imagesize = 128;
         private bool classicview = false;
         private bool usedtexturesfirst = false;
@@ -568,6 +578,8 @@ namespace CodeImp.DoomBuilder.Controls
 		internal void UpdateRectangles()
 		{
 			int w = ClientRectangle.Width - scrollbar.Width;
+			GeomDebugLastFlowWidth = w;
+			GeomDebugLastFlowCallCount++;
 			int padhorz = classicview?13:2;
             int padvert = 2;
 			int font = 4 + SystemFonts.MessageBoxFont.Height;
@@ -612,6 +624,16 @@ namespace CodeImp.DoomBuilder.Controls
 					rectangles.Add(rect);
 					cx += wid;
 				}
+			}
+
+			// Diagnostic-only: how far right items actually got laid out, vs the width they were
+			// flowed against (GeomDebugLastFlowWidth) - distinguishes "items didn't fill the
+			// available width" from "items filled it and the visual gap is something else"
+			// (e.g. few enough items that a full-width row was never reached).
+			GeomDebugContentRight = 0;
+			foreach(Rectangle r in rectangles)
+			{
+				if(r.Right > GeomDebugContentRight) GeomDebugContentRight = r.Right;
 			}
 
 			if(rectangles.Count > 0)

@@ -185,7 +185,8 @@ namespace CodeImp.DoomBuilder.Windows
 
 			//mxd. Looks like SplitterDistance is unaffected by DPI scaling. Let's fix that...
 			int splitterdistance = General.Settings.ReadSetting("windows." + configname + ".splitterdistance", int.MinValue);
-			if(splitterdistance == int.MinValue)
+			bool splitterdefaulted = (splitterdistance == int.MinValue);
+			if(splitterdefaulted)
 			{
 				splitterdistance = 210;
 				if(MainForm.DPIScaler.Width != 1.0f)
@@ -193,6 +194,10 @@ namespace CodeImp.DoomBuilder.Windows
 					splitterdistance = (int)Math.Round(splitterdistance * MainForm.DPIScaler.Width);
 				}
 			}
+
+			// Instrumentation: which branch ran, not just the result. The DPI multiply above was
+			// reasoned away as a suspect for the wrong-size bug; this makes it a measured one.
+			GeomDebugAddNote("splitter=" + (splitterdefaulted ? "defaulted" : "saved") + ":" + splitterdistance);
 
 			splitter.SplitPosition = splitterdistance;
 		}
@@ -444,6 +449,15 @@ namespace CodeImp.DoomBuilder.Windows
 		public static string Browse(IWin32Window parent, string select, bool browseflats)
 		{
 			TextureBrowserForm browser = new TextureBrowserForm(select, browseflats);
+
+			// Instrumentation: which call site this open came from. Most real opens are parented
+			// to an edit dialog rather than the main window, which changes the WM's transient-for
+			// placement and the CenterParent fallback in DelayedForm.OnLoad.
+			Form parentform = parent as Form;
+			browser.GeomDebugAddNote("parent=" + (parentform != null
+				? parentform.GetType().Name + parentform.Bounds
+				: (parent == null ? "none" : parent.GetType().Name)));
+
 			return (browser.ShowDialog(parent) == DialogResult.OK ? browser.SelectedName : select);
 		}
 
@@ -579,8 +593,30 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private void TextureBrowserForm_Shown(object sender, EventArgs e)
 		{
+			// Geometry log: child control bounds, to tell "the list never got the width" from
+			// "items were flowed against a stale width" (logged again after FillImagesList()).
+			if(GeomDebugLogging)
+				GeomDebugAddNote("panels tvTextureSets=" + tvTextureSets.Bounds + " panel=" + panel.Bounds
+					+ " splitterPanel2=" + splitter.Panel2.Bounds + " splitter=" + splitter.Bounds
+					+ " splitterPanel1=" + splitter.Panel1.Bounds + " browser=" + browser.Bounds
+					+ " listBounds=" + browser.GeomDebugListBounds
+					+ " listClientWidth=" + browser.GeomDebugListClientWidth
+					+ " listFlowWidth=" + browser.GeomDebugListFlowWidth
+					+ " listFlowCalls=" + browser.GeomDebugListFlowCallCount
+					+ " client=" + this.ClientSize);
+
 			//mxd. Calling FillImagesList() from constructor results in TERRIBLE load times. Why? I have no sodding idea...
 			if(selectedset != null) FillImagesList();
+
+			if(GeomDebugLogging)
+				GeomDebugAddNote("postfill listBounds=" + browser.GeomDebugListBounds
+					+ " listClientWidth=" + browser.GeomDebugListClientWidth
+					+ " listFlowWidth=" + browser.GeomDebugListFlowWidth
+					+ " listFlowCalls=" + browser.GeomDebugListFlowCallCount
+					+ " contentRight=" + browser.GeomDebugListContentRight
+					+ " items=" + browser.GeomDebugListItemCount
+					+ " groups=" + browser.GeomDebugListGroupCount
+					+ " classicView=" + browser.GeomDebugListClassicView);
 			
 			// Select texture
 			if(selecttextureonfill != 0)
