@@ -1287,7 +1287,7 @@ namespace CodeImp.DoomBuilder
 			openfile.CheckFileExists = true;
 			openfile.Multiselect = false;
 			openfile.ValidateNames = true;
-			if(openfile.ShowDialog(mainwindow) == DialogResult.OK)
+			if(NativeFileDialogs.Show(openfile, mainwindow) == DialogResult.OK)
 			{
 				// Update main window
 				mainwindow.Update();
@@ -1593,7 +1593,7 @@ namespace CodeImp.DoomBuilder
 				savefile.InitialDirectory = Path.GetDirectoryName(map.FilePathName);
 			}
 
-			if(savefile.ShowDialog(mainwindow) == DialogResult.OK)
+			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK)
 			{
 				// Check if we're saving to the same file as the original.
 				// Because some muppets use Save As even when saving to the same file.
@@ -1683,7 +1683,7 @@ namespace CodeImp.DoomBuilder
 			savefile.CheckPathExists = true;
 			savefile.OverwritePrompt = false;
 			savefile.ValidateNames = true;
-			if(savefile.ShowDialog(mainwindow) == DialogResult.OK)
+			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK)
 			{
 				// Display status
 				mainwindow.DisplayStatus(StatusType.Busy, "Saving map file...");

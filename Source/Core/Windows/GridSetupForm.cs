@@ -116,7 +116,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void selectfile_Click(object sender, EventArgs e)
 		{
 			// Browse for file
-			if(browsefile.ShowDialog(this) == DialogResult.OK)
+			if(NativeFileDialogs.Show(browsefile, this) == DialogResult.OK)
 			{
 				// Set this file as background
 				backgroundname = browsefile.FileName;

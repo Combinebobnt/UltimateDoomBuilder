@@ -452,7 +452,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			
 			// Browse for test program
-			if(testprogramdialog.ShowDialog() == DialogResult.OK)
+			if(NativeFileDialogs.Show(testprogramdialog) == DialogResult.OK)
 			{
 				// Apply
 				testapplication.Text = testprogramdialog.FileName;
@@ -749,7 +749,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			// Browse for test program
-			if(testprogramdialog.ShowDialog() == DialogResult.OK)
+			if(NativeFileDialogs.Show(testprogramdialog) == DialogResult.OK)
 			{
 				preventchanges = true;
 
@@ -853,7 +853,7 @@ namespace CodeImp.DoomBuilder.Windows
 		/// <param name="e">The event arguments</param>
 		private void importtexturesets_Click(object sender, EventArgs e)
 		{
-			if (importtexturesetdialog.ShowDialog() != DialogResult.OK)
+			if (NativeFileDialogs.Show(importtexturesetdialog) != DialogResult.OK)
 				return;
 
 			int numnewsets = 0;
@@ -1000,7 +1000,7 @@ namespace CodeImp.DoomBuilder.Windows
 				return;
 			}
 
-			if (exporttexturesetdialog.ShowDialog() != DialogResult.OK)
+			if (NativeFileDialogs.Show(exporttexturesetdialog) != DialogResult.OK)
 				return;
 
 			Configuration cfg = new Configuration(true);

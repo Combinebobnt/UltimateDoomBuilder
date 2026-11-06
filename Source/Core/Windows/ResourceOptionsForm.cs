@@ -451,7 +451,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void browsewad_Click(object sender, EventArgs e)
 		{
 			// Browse for WAD File
-			if(wadfiledialog.ShowDialog(this) == DialogResult.OK)
+			if(NativeFileDialogs.Show(wadfiledialog, this) == DialogResult.OK)
 			{
 				// Use this file
 				wadlocation.Text = wadfiledialog.FileName;
@@ -493,7 +493,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void browsepk3_Click(object sender, EventArgs e)
 		{
 			// Browse for PK3 File
-			if(pk3filedialog.ShowDialog(this) == DialogResult.OK)
+			if(NativeFileDialogs.Show(pk3filedialog, this) == DialogResult.OK)
 			{
 				// Use this file
 				pk3location.Text = pk3filedialog.FileName;

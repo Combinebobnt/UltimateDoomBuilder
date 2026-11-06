@@ -80,7 +80,7 @@ namespace CodeImp.DoomBuilder.UDBScript
 
 		private void btnSelectExe_Click(object sender, EventArgs e)
 		{
-			if(filedialog.ShowDialog() == DialogResult.OK)
+			if(NativeFileDialogs.Show(filedialog) == DialogResult.OK)
 			{
 				exepath.Text = filedialog.FileName;
 			}

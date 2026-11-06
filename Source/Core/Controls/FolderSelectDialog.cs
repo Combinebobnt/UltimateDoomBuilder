@@ -319,7 +319,12 @@ namespace CodeImp.DoomBuilder.Controls
                 fbd.Description = this.Title;
                 fbd.SelectedPath = this.InitialDirectory;
                 fbd.ShowNewFolderButton = false;
+#if MONO_WINFORMS
+                IWin32Window owner = (IWin32Window)Control.FromHandle(hWndOwner) ?? new WindowWrapper(hWndOwner);
+                if (CodeImp.DoomBuilder.Windows.NativeFileDialogs.Show(fbd, owner) != DialogResult.OK) return false;
+#else
                 if (fbd.ShowDialog(new WindowWrapper(hWndOwner)) != DialogResult.OK) return false;
+#endif
                 ofd.FileName = fbd.SelectedPath;
                 flag = true;
 #if !MONO_WINFORMS

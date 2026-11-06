@@ -1149,7 +1149,7 @@ namespace CodeImp.DoomBuilder.Controls
 				// Setup save dialog
 				string scriptfilter = t.Config.Description + "|*." + string.Join(";*.", t.Config.Extensions);
 				savefile.Filter = scriptfilter + "|All files|*.*";
-				if(savefile.ShowDialog(this.ParentForm) == DialogResult.OK)
+				if(NativeFileDialogs.Show(savefile, this.ParentForm) == DialogResult.OK)
 				{
 					// Save to new filename
 					t.SaveAs(savefile.FileName);

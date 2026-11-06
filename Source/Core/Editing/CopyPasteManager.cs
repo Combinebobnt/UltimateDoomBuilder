@@ -546,7 +546,7 @@ namespace CodeImp.DoomBuilder.Editing
 					savefile.CheckPathExists = true;
 					savefile.OverwritePrompt = true;
 					savefile.ValidateNames = true;
-					if(savefile.ShowDialog(General.MainWindow) == DialogResult.OK)
+					if(NativeFileDialogs.Show(savefile, General.MainWindow) == DialogResult.OK)
 					{
 						try
 						{
@@ -608,7 +608,7 @@ namespace CodeImp.DoomBuilder.Editing
 						openfile.CheckFileExists = true;
 						openfile.Multiselect = false;
 						openfile.ValidateNames = true;
-						if(openfile.ShowDialog(General.MainWindow) == DialogResult.OK)
+						if(NativeFileDialogs.Show(openfile, General.MainWindow) == DialogResult.OK)
 						{
 							FileStream stream = null;
 

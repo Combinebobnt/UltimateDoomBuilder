@@ -1384,7 +1384,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private void browsescreenshotsdir_Click(object sender, EventArgs e) 
 		{
-			if(browseScreenshotsFolderDialog.ShowDialog(General.MainWindow) == DialogResult.OK) 
+			if(NativeFileDialogs.Show(browseScreenshotsFolderDialog, General.MainWindow) == DialogResult.OK) 
 				screenshotsfolderpath.Text = browseScreenshotsFolderDialog.SelectedPath;
 		}
 

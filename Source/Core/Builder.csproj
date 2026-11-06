@@ -197,6 +197,7 @@
       <DependentUpon>ExternalCommandControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Controls\FolderSelectDialog.cs" />
+    <Compile Include="Windows\NativeFileDialogs.cs" />
     <Compile Include="Controls\PlaceholderToolStripTextBox.cs">
       <SubType>Component</SubType>
     </Compile>

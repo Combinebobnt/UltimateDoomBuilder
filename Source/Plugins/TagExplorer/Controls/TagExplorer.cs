@@ -1118,7 +1118,7 @@ namespace CodeImp.DoomBuilder.TagExplorer
 			string path = Path.GetDirectoryName(General.Map.FilePathName);
 			saveFileDialog.InitialDirectory = path;
 			saveFileDialog.FileName = Path.GetFileNameWithoutExtension(General.Map.FileTitle) + "_info.txt";
-			if(saveFileDialog.ShowDialog(this) == DialogResult.Cancel) return;
+			if(NativeFileDialogs.Show(saveFileDialog, this) == DialogResult.Cancel) return;
 
 			// Generate stuff
 			StringBuilder sb = new StringBuilder();

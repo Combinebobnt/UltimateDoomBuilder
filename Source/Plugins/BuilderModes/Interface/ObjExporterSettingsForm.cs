@@ -28,7 +28,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		}
 
 		private void browse_Click(object sender, EventArgs e) {
-			if(saveFileDialog.ShowDialog() == DialogResult.OK) {
+			if(CodeImp.DoomBuilder.Windows.NativeFileDialogs.Show(saveFileDialog) == DialogResult.OK) {
 				tbExportPath.Text = saveFileDialog.FileName;
 			}
 		}

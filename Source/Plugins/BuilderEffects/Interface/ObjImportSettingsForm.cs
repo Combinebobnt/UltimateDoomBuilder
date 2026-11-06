@@ -55,7 +55,7 @@ namespace CodeImp.DoomBuilder.BuilderEffects
 
 		private void browse_Click(object sender, EventArgs e) 
 		{
-			if(openFileDialog.ShowDialog() == DialogResult.OK) tbImportPath.Text = openFileDialog.FileName;
+			if(NativeFileDialogs.Show(openFileDialog) == DialogResult.OK) tbImportPath.Text = openFileDialog.FileName;
 		}
 
 		private void import_Click(object sender, EventArgs e) 
