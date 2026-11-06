@@ -5,6 +5,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 ## Differences from upstream
 
 - **Linux build and launch:** `make linux` builds the editor and its native library, and `builder.sh` runs it from the checkout or from `Build/`.
+- **Linux node builder:** the bundled zdbsp is rebuilt from the ZDBSP 1.19 source release (Release build, zlib linked statically), so it runs on glibc 2.34 instead of 2.38.
 - **Crash handling:** crash dialogs that work on Mono, a map backup before the dialog, worker and timer exceptions reported instead of killing the editor, and the previous log kept as `UDBuilder.log.1`.
 - **Responsiveness on Mono:** no more UI deadlocks from blocking invokes, Map Analysis no longer freezes on large result counts, and models load on the UI thread.
 - **Mono UI fixes:** blank button text (font remap), Map Analysis and help panels, Mode menu rows, the About dialog, side panel (docker) pages, the unsaved-map title marker, and Preferences slider steps.
@@ -25,4 +26,4 @@ Still being tested: the crash handler rework, the Mono UI action queue, side pan
 ## Linux requirements beyond upstream's
 
 - BCS scripts need zt-bcc installed as `/usr/bin/bcc`.
-- The bundled Linux zdbsp node builder needs glibc 2.38 or newer.
+- The bundled Linux zdbsp node builder needs glibc 2.34 or newer.
