@@ -172,16 +172,26 @@ namespace CodeImp.DoomBuilder.Editing
 		#region ================== Methods
 		
 		// This cancels a volatile mode, as if the user presses cancel
+		// Returns true only when the cancel left the volatile mode (continuous drawing stays in it)
 		public bool CancelVolatileMode()
 		{
 			// Volatile mode?
 			if((General.Map != null) & (mode != null) && mode.Attributes.Volatile && !disengaging)
 			{
 				// Cancel
+				EditMode cancelled = mode;
 				disengaging = true;
-				General.Plugins.OnEditCancel();
-				mode.OnCancel();
-				return true;
+				try
+				{
+					General.Plugins.OnEditCancel();
+					mode.OnCancel();
+				}
+				finally
+				{
+					// ChangeMode clears this too, but not when the mode stays or the change is vetoed
+					disengaging = false;
+				}
+				return mode != cancelled;
 			}
 			else
 			{
@@ -198,7 +208,15 @@ namespace CodeImp.DoomBuilder.Editing
 			{
 				// Change back to normal mode
 				disengaging = true;
-				ChangeMode(prevstablemode.Name);
+				try
+				{
+					ChangeMode(prevstablemode.Name);
+				}
+				finally
+				{
+					// Left set if a plugin vetoes the change or no mode is made
+					disengaging = false;
+				}
 				return true;
 			}
 			else

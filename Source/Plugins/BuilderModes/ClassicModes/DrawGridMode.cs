@@ -104,7 +104,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				General.Interface.DisplayStatus(StatusType.Action, "Created " + a + word + " grid.");
 
 				List<Sector> newsectors = new List<Sector>();
-				foreach(DrawnVertex[] shape in gridpoints) 
+				bool failed = false;
+				foreach(DrawnVertex[] shape in gridpoints)
 				{
 					if(Tools.DrawLines(shape, true, BuilderPlug.Me.AutoAlignTextureOffsetsOnCreate))
 					{
@@ -121,27 +122,37 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 						//mxd. Outer sectors may require some splittin...
 						if(General.Settings.SplitJoinedSectors) Tools.SplitOuterSectors(General.Map.Map.GetMarkedLinedefs(true));
-
-						// Edit new sectors?
-						if(BuilderPlug.Me.EditNewSector && (newsectors.Count > 0))
-							General.Interface.ShowEditSectors(newsectors);
-
-						// Update the used textures
-						General.Map.Data.UpdateUsedTextures();
-
-						//mxd
-						General.Map.Renderer2D.UpdateExtraFloorFlag();
-
-						// Map is changed
-						General.Map.IsChanged = true;
 					}
 					else
 					{
 						// Drawing failed
-						// NOTE: I have to call this twice, because the first time only cancels this volatile mode
 						General.Map.UndoRedo.WithdrawUndo();
-						General.Map.UndoRedo.WithdrawUndo();
+						failed = true;
+
+						// The grid's undo level is gone; further cells would have no undo
+						break;
 					}
+				}
+
+				if(!failed)
+				{
+					// Edit new sectors? One dialog after every cell drew, like the other draw modes
+					if(BuilderPlug.Me.EditNewSector)
+					{
+						// HashSet dedupe: the file has no System.Linq using
+						List<Sector> edit = new List<Sector>(new HashSet<Sector>(newsectors));
+						edit.RemoveAll(s => s.IsDisposed);
+						if(edit.Count > 0) General.Interface.ShowEditSectors(edit);
+					}
+
+					// Update the used textures
+					General.Map.Data.UpdateUsedTextures();
+
+					//mxd
+					General.Map.Renderer2D.UpdateExtraFloorFlag();
+
+					// Map is changed
+					General.Map.IsChanged = true;
 				}
 			}
 

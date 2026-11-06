@@ -597,7 +597,7 @@ namespace CodeImp.DoomBuilder.Windows
 				if(!action.Empty) t.Action = action.Value;
 
 				//mxd. Apply args
-				argscontrol.Apply(t, offset);
+				argscontrol.Apply(t, offset, action.Empty);
 
 				//mxd. Custom fields
 				fieldslist.Apply(t.Fields);

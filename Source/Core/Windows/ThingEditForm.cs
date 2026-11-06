@@ -441,7 +441,7 @@ namespace CodeImp.DoomBuilder.Windows
 				if(!action.Empty) t.Action = action.Value;
 
 				//mxd. Apply args
-				argscontrol.Apply(t, offset);
+				argscontrol.Apply(t, offset, action.Empty);
 				
 				// Update settings
 				t.UpdateConfiguration();

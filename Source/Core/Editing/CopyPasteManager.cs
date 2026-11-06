@@ -41,6 +41,9 @@ namespace CodeImp.DoomBuilder.Editing
 		
 		private const string CLIPBOARD_DATA_FORMAT = "GZDOOM_BUILDER_GEOMETRY";
 		private const string CLIPBOARD_DATA_FORMAT_DB2 = "DOOM_BUILDER_GEOMETRY";
+		#if MONO_WINFORMS
+		private const int CLIPBOARD_READ_TIMEOUT_MS = 2000;
+		#endif
 
 		#endregion
 		
@@ -51,7 +54,11 @@ namespace CodeImp.DoomBuilder.Editing
 		
 		// Last inserted prefab
 		private string lastprefabfile;
-		
+
+		#if MONO_WINFORMS
+		private static bool justcopied;
+		#endif
+
 		#endregion
 		
 		#region ================== Properties
@@ -225,6 +232,14 @@ namespace CodeImp.DoomBuilder.Editing
 		}
 		
 		// This performs the copy. Returns false when copy was cancelled.
+		#if MONO_WINFORMS
+		private static void ClearJustCopied(object sender, EventArgs e)
+		{
+			Application.Idle -= ClearJustCopied;
+			justcopied = false;
+		}
+		#endif
+
 		public static bool DoCopySelection(string desc)
 		{
 			// Check if possible to copy/paste
@@ -262,6 +277,13 @@ namespace CodeImp.DoomBuilder.Editing
 							Clipboard.SetDataObject(copydata, true, 5, 200);
 							#else
 							Clipboard.SetText(CLIPBOARD_DATA_FORMAT + Convert.ToBase64String(memstream.ToArray()));
+
+							// Until the next idle, a second X connection may still see the old owner (copy then paste in one handler)
+							if(!justcopied)
+							{
+								justcopied = true;
+								Application.Idle += ClearJustCopied;
+							}
 							#endif
 						}
 						catch(ExternalException)
@@ -305,17 +327,29 @@ namespace CodeImp.DoomBuilder.Editing
 				bool havepastedata = Clipboard.ContainsData(CLIPBOARD_DATA_FORMAT); //mxd
 				bool havedb2pastedata = Clipboard.ContainsData(CLIPBOARD_DATA_FORMAT_DB2); //mxd
 				#else
-				bool havepastedata = false;
+				// Mono's Clipboard can hang forever on an external INCR owner, so read those on a private connection (upstream #1377)
 				bool havedb2pastedata = false;
-				try
+				string cliptext = null;
+				ClipboardReadResult readresult = justcopied ? ClipboardReadResult.SelfOwned : X11ClipboardReader.Read(CLIPBOARD_DATA_FORMAT, CLIPBOARD_READ_TIMEOUT_MS, out cliptext);
+				switch(readresult)
 				{
-					string clipText = Clipboard.GetText();
-					havepastedata = clipText.Length > CLIPBOARD_DATA_FORMAT.Length && clipText.StartsWith(CLIPBOARD_DATA_FORMAT);
+					case ClipboardReadResult.Busy:
+						General.Interface.DisplayStatus(StatusType.Warning, "Failed to perform a Clipboard operation...");
+						return;
+
+					case ClipboardReadResult.SelfOwned:
+					case ClipboardReadResult.Unavailable:
+						try
+						{
+							cliptext = Clipboard.GetText();
+						}
+						catch(Exception)
+						{
+							cliptext = null;
+						}
+						break;
 				}
-				catch(Exception)
-				{
-					havepastedata = false;
-				}
+				bool havepastedata = cliptext != null && cliptext.Length > CLIPBOARD_DATA_FORMAT.Length && cliptext.StartsWith(CLIPBOARD_DATA_FORMAT, StringComparison.Ordinal);
 				#endif
 				
 				// Anything to paste?
@@ -343,7 +377,7 @@ namespace CodeImp.DoomBuilder.Editing
 								#if !MONO_WINFORMS
 								using(Stream memstream = (Stream)Clipboard.GetData(CLIPBOARD_DATA_FORMAT))
 								#else
-								using(Stream memstream = new MemoryStream(Convert.FromBase64String(((string)Clipboard.GetData(DataFormats.Text)).Substring(CLIPBOARD_DATA_FORMAT.Length))))
+								using(Stream memstream = new MemoryStream(Convert.FromBase64String(cliptext.Substring(CLIPBOARD_DATA_FORMAT.Length))))
 								#endif
 								{
 									if (memstream == null) return;

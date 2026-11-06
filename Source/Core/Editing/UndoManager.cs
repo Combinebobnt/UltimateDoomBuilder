@@ -81,6 +81,9 @@ namespace CodeImp.DoomBuilder.Editing
 		private List<UndoSnapshot> undos;
 		private List<UndoSnapshot> redos;
 
+		// Redo levels an edit discarded, kept restorable. Locked like the stacks.
+		private UndoBranchStash<UndoSnapshot> branch;
+
 		// Grouping
 		private Plugin lastgroupplugin;
 		private int lastgroupid;
@@ -157,7 +160,26 @@ namespace CodeImp.DoomBuilder.Editing
 		/// After undo or redo, this returns if things were added/removed. This does not include thing property changes.
 		/// </summary>
 		public bool PopulationChanged { get { return populationchanged; } }
-		
+
+		/// <summary>
+		/// True while redo levels discarded by an edit can be brought back with RestoreDiscardedBranch.
+		/// </summary>
+		public bool HasDiscardedBranch { get { return branch.HasBranch; } }
+
+		/// <summary>
+		/// Number of levels RestoreDiscardedBranch would bring back.
+		/// </summary>
+		public int DiscardedBranchCount { get { return branch.Count; } }
+
+		#endregion
+
+		#region ================== Events
+
+		/// <summary>
+		/// Raised after the discarded branch is stashed, swapped or dropped.
+		/// </summary>
+		public event EventHandler BranchChanged;
+
 		#endregion
 
 		#region ================== Constructor / Disposer
@@ -169,7 +191,8 @@ namespace CodeImp.DoomBuilder.Editing
 			ticketid = 1;
 			undos = new List<UndoSnapshot>(MAX_UNDO_LEVELS + 1);
 			redos = new List<UndoSnapshot>(MAX_UNDO_LEVELS + 1);
-			
+			branch = new UndoBranchStash<UndoSnapshot>();
+
 			// Bind any methods
 			General.Actions.BindMethods(this);
 
@@ -201,6 +224,7 @@ namespace CodeImp.DoomBuilder.Editing
 				// Clean up
 				ClearUndos();
 				ClearRedos();
+				foreach(UndoSnapshot u in branch.Invalidate()) u.Dispose();
 				General.WriteLogLine("All undo and redo levels cleared.");
 
 				//mxd
@@ -268,6 +292,84 @@ namespace CodeImp.DoomBuilder.Editing
 			}
 		}
 
+		private int UndoLevelCount { get { return undos.Count + ((!isundosnapshot && (snapshot != null)) ? 1 : 0); } }
+		private int RedoLevelCount { get { return redos.Count + ((isundosnapshot && (snapshot != null)) ? 1 : 0); } }
+
+		// Moves the redo levels, in-flight one first, into the branch stash instead of disposing them.
+		// The caller raises BranchChanged once its own state change is complete.
+		private bool StashRedos()
+		{
+			bool changed = ValidateBranch();
+			List<UndoSnapshot> discarded = new List<UndoSnapshot>();
+			lock(redos)
+			{
+				if(isundosnapshot && (snapshot != null))
+				{
+					FinishRecording();
+					discarded.Add(snapshot);
+					snapshot = null;
+					stream = null;
+					isundosnapshot = false;
+				}
+				discarded.AddRange(redos);
+				redos.Clear();
+			}
+
+			if(discarded.Count == 0) return changed;
+
+			// An ordinary undo-then-edit must not replace a larger branch that is still reachable
+			if(branch.KeepsOver(discarded.Count))
+			{
+				foreach(UndoSnapshot u in discarded) u.Dispose();
+				General.WriteLogLine("Disposed " + discarded.Count + " discarded redo levels, keeping the larger restorable branch of " + branch.Count + ".");
+				if(discarded.Count > 1)
+				{
+					string dropnotice = discarded.Count + " undone changes dropped; " + branch.Count + " older ones still restorable.";
+					General.MainWindow.BeginInvoke(new MethodInvoker(() => General.Interface.DisplayStatus(StatusType.Warning, dropnotice)));
+				}
+				return changed;
+			}
+
+			foreach(UndoSnapshot u in discarded) u.StoreOnDisk = true;
+			List<UndoSnapshot> replaced;
+			lock(branch) replaced = branch.Stash(discarded);
+			foreach(UndoSnapshot u in replaced) u.Dispose();
+			dobackgroundwork = true;
+
+			General.WriteLogLine("Stashed " + discarded.Count + " discarded redo levels as a restorable branch" + (replaced.Count > 0 ? ", dropping the previous " + replaced.Count : "") + ".");
+			// Posted, so the edit's own "Created ..." status, set after CreateUndo returns, doesn't hide it.
+			// Kept short: the status label clips early in a narrow (~1000 px) window.
+			if(discarded.Count > 1)
+			{
+				string notice = discarded.Count + " undone changes kept: Edit > Restore Discarded Changes.";
+				General.MainWindow.BeginInvoke(new MethodInvoker(() => General.Interface.DisplayStatus(StatusType.Info, notice)));
+			}
+			return true;
+		}
+
+		// Drops the stashed branch. Returns true when there was one.
+		private bool DropBranch(string reason)
+		{
+			List<UndoSnapshot> dropped;
+			lock(branch) dropped = branch.Invalidate();
+			if(dropped.Count == 0) return false;
+			foreach(UndoSnapshot u in dropped) u.Dispose();
+			General.WriteLogLine("Dropped the discarded undo branch (" + dropped.Count + " levels): " + reason + ".");
+			return true;
+		}
+
+		// Drops the branch once its branch point is no longer reachable (the level limit trimmed it)
+		private bool ValidateBranch()
+		{
+			if(!branch.HasBranch || branch.IsValid(UndoLevelCount, RedoLevelCount)) return false;
+			return DropBranch("branch point out of reach, depth " + branch.Depth);
+		}
+
+		private void RaiseBranchChanged()
+		{
+			if(BranchChanged != null) BranchChanged(this, EventArgs.Empty);
+		}
+
 		// Background thread
 		private void BackgroundThread()
 		{
@@ -322,6 +424,25 @@ namespace CodeImp.DoomBuilder.Editing
 
 						// Next
 						redolevel++;
+					}
+
+					int branchlevel = 0;
+					while(true)
+					{
+						lock(branch)
+						{
+							if(branchlevel < branch.Count)
+								us = branch[branchlevel];
+							else
+								break;
+						}
+
+						if(us.StoreOnDisk && !us.IsOnDisk)
+							us.WriteToFile();
+						else if(!us.StoreOnDisk && us.IsOnDisk)
+							us.RestoreFromFile();
+
+						branchlevel++;
 					}
 				}
 
@@ -477,17 +598,26 @@ namespace CodeImp.DoomBuilder.Editing
 			return list;
 		}
 		
-		// This clears all redos
+		// This clears all redos. Plugins call it before CreateUndo, so the levels are stashed, not disposed.
 		public void ClearAllRedos()
 		{
-			ClearRedos();
+			if(StashRedos()) RaiseBranchChanged();
 			General.MainWindow.UpdateInterface();
 		}
 
 		// This clears all undos (mxd)
-		internal void ClearAllUndos() 
+		internal void ClearAllUndos()
 		{
 			ClearUndos();
+			if(DropBranch("undo history cleared")) RaiseBranchChanged();
+			General.MainWindow.UpdateInterface();
+		}
+
+		// Clears the redos without stashing them and drops the branch, which belongs to the previous map
+		internal void ClearAllRedosAndBranch()
+		{
+			ClearRedos();
+			if(DropBranch("undo history cleared")) RaiseBranchChanged();
 			General.MainWindow.UpdateInterface();
 		}
 
@@ -548,11 +678,14 @@ namespace CodeImp.DoomBuilder.Editing
 					}
 				}
 
+				// Keep the redo levels this edit discards as a restorable branch. This also takes
+				// the in-flight redo snapshot, which StartRecording used to replace without a trace.
+				bool branchchanged = StashRedos();
+
 				StartRecording(description);
 				isundosnapshot = false;
-
-				// Clear all redos
-				ClearRedos();
+				lock(branch) branch.LevelCreated();
+				if(ValidateBranch()) branchchanged = true;
 
 				// Keep grouping info
 				lastgroupplugin = p;
@@ -564,9 +697,10 @@ namespace CodeImp.DoomBuilder.Editing
 
 				// Update
 				dobackgroundwork = true;
+				if(branchchanged) RaiseBranchChanged();
 				General.Plugins.OnUndoCreated();
 				General.MainWindow.UpdateInterface();
-				
+
 				// Done
 				return ticketid;
 			}
@@ -583,8 +717,29 @@ namespace CodeImp.DoomBuilder.Editing
 			// an entire snapshot of the map. With the new progressive undo system, you cannot ignore
 			// any changes, so we have to actually perform the undo and trash the redo it creates.
 			PerformUndo(1, false);
-			ClearAllRedos();
-			
+
+			// The withdrawn level's redo is not user work, so it is disposed rather than stashed
+			ClearRedos();
+
+			// Back at the branch point with no redos (a cancelled edit dialog), the branch is exactly
+			// the next redo levels again. Below it, the common levels just disposed invalidate it.
+			if(branch.HasBranch && (branch.Depth == 0))
+			{
+				lock(redos)
+				{
+					lock(branch) redos.AddRange(branch.Invalidate());
+					for(int i = 0; i < redos.Count; i++) redos[i].StoreOnDisk = (i > 0);
+				}
+				dobackgroundwork = true;
+				General.WriteLogLine("Withdrawn undo returned to the branch point: " + redos.Count + " discarded levels are redo levels again.");
+				RaiseBranchChanged();
+			}
+			else if(ValidateBranch())
+			{
+				RaiseBranchChanged();
+			}
+			General.MainWindow.UpdateInterface();
+
 			General.Plugins.OnUndoWithdrawn();
 		}
 		
@@ -700,6 +855,7 @@ namespace CodeImp.DoomBuilder.Editing
 							// Done with this snapshot
 							u = null;
 							levelsundone++;
+							lock(branch) branch.LevelUndone();
 						}
 							
 						General.Map.Map.EndAddRemove();
@@ -729,6 +885,7 @@ namespace CodeImp.DoomBuilder.Editing
 						General.Editing.Mode.UpdateSelectionInfo(); //mxd
 						General.MainWindow.RedrawDisplay(); //mxd
 						dobackgroundwork = true;
+						if(ValidateBranch()) RaiseBranchChanged();
 						General.MainWindow.UpdateInterface();
 					}
 				}
@@ -744,7 +901,8 @@ namespace CodeImp.DoomBuilder.Editing
 			PerformRedo(1);
 		}
 		
-		public void PerformRedo(int levels)
+		public void PerformRedo(int levels) { PerformRedo(levels, true); }
+		private void PerformRedo(int levels, bool showmessage)
 		{
 			UndoSnapshot r = null;
 			Cursor oldcursor = Cursor.Current;
@@ -761,7 +919,7 @@ namespace CodeImp.DoomBuilder.Editing
 					if(General.Editing.Mode.OnRedoBegin())
 					{
 						// Cancel volatile mode, if any
-						// This returns false when mode was not volatile
+						// This returns false when mode was not volatile, or stayed engaged after the cancel
 						if(!General.Editing.CancelVolatileMode())
 						{
 							geometrychanged = false;
@@ -826,7 +984,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 								General.WriteLogLine("Performing redo \"" + r.Description + "\", Ticket ID " + r.TicketID + "...");
 
-								if(levels == 1)
+								if((levels == 1) && showmessage)
 									General.Interface.DisplayStatus(StatusType.Action, r.Description + " redone.");
 
 								StartRecording(r.Description);
@@ -843,11 +1001,12 @@ namespace CodeImp.DoomBuilder.Editing
 								// Done with this snapshot
 								r = null;
 								levelsundone++;
+								lock(branch) branch.LevelRedone();
 							}
-							
+
 							General.Map.Map.EndAddRemove();
-							
-							if(levels > 1)
+
+							if((levels > 1) && showmessage)
 								General.Interface.DisplayStatus(StatusType.Action, "Redone " + levelsundone + " changes.");
 							
 							// Remove selection
@@ -872,15 +1031,99 @@ namespace CodeImp.DoomBuilder.Editing
 							General.MainWindow.RedrawDisplay(); //mxd
 							General.Editing.Mode.UpdateSelectionInfo(); //mxd
 							dobackgroundwork = true;
+							if(ValidateBranch()) RaiseBranchChanged();
 							General.MainWindow.UpdateInterface();
 						}
 					}
 				}
 			}
-			
+
 			Cursor.Current = oldcursor;
 		}
-		
+
+		/// <summary>
+		/// Brings back the redo levels the last edit after undoing discarded, keeping the newer levels
+		/// as the branch instead, so running it again switches back.
+		/// </summary>
+		[BeginAction("undobranchrestore")]
+		public void RestoreDiscardedBranch()
+		{
+			if(ValidateBranch()) RaiseBranchChanged();
+			if(!branch.HasBranch)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "There are no discarded changes to restore.");
+				return;
+			}
+
+			// Undo would cancel it anyway, and redo refuses to run at all while one is active
+			General.Editing.CancelVolatileMode();
+
+			// Return to the branch point
+			int depth = branch.Depth;
+			if(depth > 0) PerformUndo(depth, false);
+			else if(depth < 0) PerformRedo(-depth, false);
+
+			if(!branch.HasBranch || (branch.Depth != 0))
+			{
+				General.WriteLogLine("Restoring the discarded undo branch stopped: depth " + depth + " became " + branch.Depth + ".");
+				General.Interface.DisplayStatus(StatusType.Warning, "Could not reach the branch point. Nothing restored.");
+				return;
+			}
+
+			List<UndoSnapshot> newer;
+			List<UndoSnapshot> older;
+			lock(redos)
+			{
+				// The in-flight redo snapshot becomes a plain redo level, so the swap moves every level above here
+				if(isundosnapshot && (snapshot != null))
+				{
+					FinishRecording();
+					redos.Insert(0, snapshot);
+					LimitUndoRedoLevel(redos);
+					snapshot = null;
+					stream = null;
+				}
+
+				lock(branch)
+				{
+					newer = new List<UndoSnapshot>(redos);
+					older = branch.Swap(newer);
+					redos.Clear();
+					redos.AddRange(older);
+				}
+
+				foreach(UndoSnapshot u in newer) u.StoreOnDisk = true;
+				for(int i = 0; i < redos.Count; i++) redos[i].StoreOnDisk = (i > 0);
+			}
+
+			dobackgroundwork = true;
+			General.WriteLogLine("Restoring the discarded undo branch: " + older.Count + " levels back in, " + newer.Count + " newer levels stashed (depth was " + depth + ").");
+
+			// Land where the user was before the levels were discarded
+			PerformRedo(older.Count, false);
+			int redone = older.Count - RedoLevelCount;
+			RaiseBranchChanged();
+
+			if(redone < older.Count)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Restored " + older.Count + " changes as redo levels only.");
+			}
+			else if(newer.Count > 0)
+			{
+				// Short: the status label clips early in a narrow (~1000 px) window
+				string back = "Restore again";
+				if(General.Actions.Exists("builder_undobranchrestore") && (General.Actions.GetActionByName("builder_undobranchrestore").ShortcutKey != 0))
+					back = CodeImp.DoomBuilder.Actions.Action.GetShortcutKeyDesc("builder_undobranchrestore");
+				General.Interface.DisplayStatus(StatusType.Action, "Restored " + older.Count + " changes. " + back + " to switch back.");
+			}
+			else
+			{
+				General.Interface.DisplayStatus(StatusType.Action, "Restored " + older.Count + " changes.");
+			}
+
+			General.MainWindow.UpdateInterface();
+		}
+
 		#endregion
 		
 		#region ================== Record and Playback

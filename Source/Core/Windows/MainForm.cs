@@ -2916,7 +2916,11 @@ namespace CodeImp.DoomBuilder.Windows
 				itemredo.Text = "Redo " + General.Map.UndoRedo.NextRedo.Description;
 			else
 				itemredo.Text = "Redo";
-			
+
+			// Discarded redo branch
+			itemundobranch.Enabled = (General.Map != null) && General.Map.UndoRedo.HasDiscardedBranch;
+			itemundobranch.Text = itemundobranch.Enabled ? "Restore Discarded Changes (" + General.Map.UndoRedo.DiscardedBranchCount + ")" : "Restore Discarded Changes";
+
 			// Toolbar icons
 			buttonundo.Enabled = itemundo.Enabled;
 			buttonredo.Enabled = itemredo.Enabled;
@@ -4035,7 +4039,8 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd. Show linedef info and highlight given sidedef
 		public void ShowLinedefInfo(Linedef l, Sidedef highlightside)
 		{
-			if(l.IsDisposed)
+			// A sidedef removed in the edit dialog has a null Line by the time Visual Mode refreshes its info
+			if(l == null || l.IsDisposed)
 			{
 				HideInfo();
 				return;

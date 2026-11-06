@@ -69,6 +69,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.menuedit = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemundo = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemredo = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemundobranch = new System.Windows.Forms.ToolStripMenuItem();
 			this.seperatoreditundo = new System.Windows.Forms.ToolStripSeparator();
 			this.itemcut = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemcopy = new System.Windows.Forms.ToolStripMenuItem();
@@ -546,6 +547,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.menuedit.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
 			this.itemundo,
 			this.itemredo,
+			this.itemundobranch,
 			this.seperatoreditundo,
 			this.itemcut,
 			this.itemcopy,
@@ -599,6 +601,14 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemredo.Tag = "builder_redo";
 			this.itemredo.Text = "&Redo";
 			this.itemredo.Click += new System.EventHandler(this.InvokeTaggedAction);
+			//
+			// itemundobranch
+			//
+			this.itemundobranch.Name = "itemundobranch";
+			this.itemundobranch.Size = new System.Drawing.Size(219, 22);
+			this.itemundobranch.Tag = "builder_undobranchrestore";
+			this.itemundobranch.Text = "Restore Discarded Changes";
+			this.itemundobranch.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// seperatoreditundo
 			// 
@@ -2959,6 +2969,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ToolStripStatusLabel poscommalabel;
 		private System.Windows.Forms.ToolStripMenuItem itemundo;
 		private System.Windows.Forms.ToolStripMenuItem itemredo;
+		private System.Windows.Forms.ToolStripMenuItem itemundobranch;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonundo;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonredo;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonsnaptogrid;

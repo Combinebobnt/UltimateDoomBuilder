@@ -29,7 +29,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void InitializeComponent()
 		{
 			this.list = new CodeImp.DoomBuilder.Controls.OptimizedListView();
+			this.components = new System.ComponentModel.Container();
 			this.coldescription = new System.Windows.Forms.ColumnHeader();
+			this.tooltip = new System.Windows.Forms.ToolTip(this.components);
+			this.restorebranch = new System.Windows.Forms.Button();
 			this.SuspendLayout();
 			// 
 			// list
@@ -50,18 +53,33 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.list.Resize += new System.EventHandler(this.list_Resize);
 			this.list.SelectedIndexChanged += new System.EventHandler(this.list_SelectedIndexChanged);
 			this.list.MouseUp += new System.Windows.Forms.MouseEventHandler(this.list_MouseUp);
+			this.list.MouseLeave += new System.EventHandler(this.list_MouseLeave);
 			this.list.KeyUp += new System.Windows.Forms.KeyEventHandler(this.list_KeyUp);
+			this.tooltip.SetToolTip(this.list, "Click to preview, double-click to jump");
 			// 
 			// coldescription
 			// 
 			this.coldescription.Text = "Description";
 			this.coldescription.Width = 238;
-			// 
+			//
+			// restorebranch
+			//
+			this.restorebranch.Dock = System.Windows.Forms.DockStyle.Bottom;
+			this.restorebranch.Name = "restorebranch";
+			this.restorebranch.Size = new System.Drawing.Size(390, 26);
+			this.restorebranch.TabIndex = 2;
+			this.restorebranch.Text = "Restore Discarded Changes";
+			this.restorebranch.UseVisualStyleBackColor = true;
+			this.restorebranch.Visible = false;
+			this.restorebranch.Click += new System.EventHandler(this.restorebranch_Click);
+			this.tooltip.SetToolTip(this.restorebranch, "Bring back the undone changes your last edit discarded");
+			//
 			// UndoRedoPanel
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.Controls.Add(this.list);
+			this.Controls.Add(this.restorebranch);
 			this.Name = "UndoRedoPanel";
 			this.Size = new System.Drawing.Size(390, 548);
 			this.ResumeLayout(false);
@@ -72,5 +90,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private CodeImp.DoomBuilder.Controls.OptimizedListView list;
 		private System.Windows.Forms.ColumnHeader coldescription;
+		private System.Windows.Forms.ToolTip tooltip;
+		private System.Windows.Forms.Button restorebranch;
 	}
 }

@@ -272,6 +272,7 @@
     <Compile Include="Editing\GridSetup.cs" />
     <Compile Include="Editing\NullThingsFilter.cs" />
     <Compile Include="Editing\ThingsFilter.cs" />
+    <Compile Include="Editing\UndoBranchStash.cs" />
     <Compile Include="Editing\UndoManager.cs" />
     <Compile Include="Editing\UndoSnapshot.cs" />
     <Compile Include="Editing\ClassicMode.cs" />
@@ -1141,6 +1142,7 @@
       <DependentUpon>TagStatisticsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="IO\ClipboardStreamReader.cs" />
+    <Compile Include="IO\X11ClipboardReader.cs" />
     <Compile Include="IO\DoomColormapReader.cs" />
     <Compile Include="IO\ClipboardStreamWriter.cs" />
     <Compile Include="Map\GroupInfo.cs" />

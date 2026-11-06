@@ -1346,7 +1346,7 @@ namespace CodeImp.DoomBuilder
 
 			// Clear undo history
 			map.UndoRedo.ClearAllUndos();
-			map.UndoRedo.ClearAllRedos();
+			map.UndoRedo.ClearAllRedosAndBranch();
 
 			settings.FindDefaultDrawSettings(); //mxd
 

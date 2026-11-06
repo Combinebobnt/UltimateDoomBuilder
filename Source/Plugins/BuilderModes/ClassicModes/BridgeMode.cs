@@ -236,9 +236,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.ClassicModes
 						if(!Tools.DrawLines(drawShapes[i][c], false, true)) 
 						{
 							// Drawing failed
-							// NOTE: I have to call this twice, because the first time only cancels this volatile mode
 							General.Interface.DisplayStatus(StatusType.Warning, "Failed to create a Bezier Path...");
-							General.Map.UndoRedo.WithdrawUndo();
 							General.Map.UndoRedo.WithdrawUndo();
 							return;
 						}

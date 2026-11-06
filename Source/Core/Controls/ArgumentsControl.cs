@@ -1,6 +1,7 @@
 ﻿#region ================== Namespaces
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -42,6 +43,8 @@ namespace CodeImp.DoomBuilder.Controls
 
 		private string arg0strval;
 		private bool havearg0str;
+		private bool arg0strreset; // An action change blanked the name box, so a blank name means clear it
+		private readonly Dictionary<object, KeyValuePair<int, int>> setupstate = new Dictionary<object, KeyValuePair<int, int>>(); // Each element's action and type at Setup
 		private int action;
 		private ArgumentInfo[] arginfo;
 		private ArgZeroMode argzeromode;
@@ -81,18 +84,34 @@ namespace CodeImp.DoomBuilder.Controls
 
 		public void SetValue(Linedef l, bool first)
 		{
+			RememberSetup(l, first, l.Action, 0);
 			SetValue(l.Fields, l.Args, first);
 		}
 
 		public void SetValue(Thing t, bool first)
 		{
+			RememberSetup(t, first, t.Action, t.Type);
 			SetValue(t.Fields, t.Args, first);
+		}
+
+		private void RememberSetup(object element, bool first, int elementaction, int elementtype)
+		{
+			if(first) setupstate.Clear();
+			setupstate[element] = new KeyValuePair<int, int>(elementaction, elementtype);
+		}
+
+		private bool ChangedSinceSetup(object element, int elementaction, int elementtype)
+		{
+			KeyValuePair<int, int> s;
+			if(!setupstate.TryGetValue(element, out s)) return true;
+			return (s.Key != elementaction || s.Value != elementtype);
 		}
 
 		private void SetValue(UniFields fields, int[] args, bool first)
 		{
 			if(first)
 			{
+				arg0strreset = false;
 				if(General.Map.UDMF)
 				{
 					arg0strval = fields.GetValue("arg0str", string.Empty);
@@ -130,7 +149,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 		#region ================== Apply
 
-		public void Apply(Linedef l, int step)
+		public void Apply(Linedef l, int step, bool actionempty)
 		{
             //mxd. Script name/number handling
             // We can't rely on control visibility here, because all controlls will be invisible if ArgumentsControl is invisible
@@ -140,16 +159,7 @@ namespace CodeImp.DoomBuilder.Controls
 			{
 				// Apply arg0str
 				case ArgZeroMode.STRING:
-                    if (isacs)
-                    {
-                        if (!string.IsNullOrEmpty(arg0named.Text))
-                            l.Fields["arg0str"] = new UniValue(UniversalType.String, arg0named.Text);
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrEmpty(arg0str.Text))
-                            l.Fields["arg0str"] = new UniValue(UniversalType.String, arg0str.Text);
-                    }
+					ApplyArg0Str(l.Fields, isacs);
 					break;
 
 				// Apply script number
@@ -164,14 +174,14 @@ namespace CodeImp.DoomBuilder.Controls
 						else if(!int.TryParse(arg0int.Text.Trim(), out l.Args[0]))
 							l.Args[0] = 0;
 
-						if(l.Fields.ContainsKey("arg0str")) l.Fields.Remove("arg0str");
+						RemoveArg0Str(l.Fields, actionempty, ChangedSinceSetup(l, l.Action, 0), l.Action, null);
 					}
 					break;
 
 				// Apply classic arg
 				case ArgZeroMode.DEFAULT:
 					l.Args[0] = arg0.GetResult(l.Args[0], step);
-					if(l.Fields.ContainsKey("arg0str")) l.Fields.Remove("arg0str");
+					RemoveArg0Str(l.Fields, actionempty, ChangedSinceSetup(l, l.Action, 0), l.Action, null);
 					break;
 
 				default: throw new NotImplementedException("Unknown ArgZeroMode");
@@ -184,7 +194,7 @@ namespace CodeImp.DoomBuilder.Controls
 			l.Args[4] = arg4.GetResult(l.Args[4], step);
 		}
 
-		public void Apply(Thing t, int step)
+		public void Apply(Thing t, int step, bool actionempty)
 		{
             //mxd. Script name/number handling
             // We can't rely on control visibility here, because all controlls will be invisible if ArgumentsControl is invisible
@@ -194,16 +204,7 @@ namespace CodeImp.DoomBuilder.Controls
             {
                 // Apply arg0str
                 case ArgZeroMode.STRING:
-                    if (isacs)
-                    {
-                        if (!string.IsNullOrEmpty(arg0named.Text))
-                            t.Fields["arg0str"] = new UniValue(UniversalType.String, arg0named.Text);
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrEmpty(arg0str.Text))
-                            t.Fields["arg0str"] = new UniValue(UniversalType.String, arg0str.Text);
-                    }
+                    ApplyArg0Str(t.Fields, isacs);
                     break;
 
                 // Apply script number
@@ -218,14 +219,14 @@ namespace CodeImp.DoomBuilder.Controls
                         else if (!int.TryParse(arg0int.Text.Trim(), out t.Args[0]))
                             t.Args[0] = 0;
 
-                        if (t.Fields.ContainsKey("arg0str")) t.Fields.Remove("arg0str");
+                        RemoveArg0Str(t.Fields, actionempty, ChangedSinceSetup(t, t.Action, t.Type), t.Action, General.Map.Data.GetThingInfoEx(t.Type));
                     }
                     break;
 
                 // Apply classic arg
                 case ArgZeroMode.DEFAULT:
                     t.Args[0] = arg0.GetResult(t.Args[0], step);
-                    if (t.Fields.ContainsKey("arg0str")) t.Fields.Remove("arg0str");
+                    RemoveArg0Str(t.Fields, actionempty, ChangedSinceSetup(t, t.Action, t.Type), t.Action, General.Map.Data.GetThingInfoEx(t.Type));
                     break;
 
                 default: throw new NotImplementedException("Unknown ArgZeroMode");
@@ -236,6 +237,23 @@ namespace CodeImp.DoomBuilder.Controls
 			t.Args[2] = arg2.GetResult(t.Args[2], step);
 			t.Args[3] = arg3.GetResult(t.Args[3], step);
 			t.Args[4] = arg4.GetResult(t.Args[4], step);
+		}
+
+		private void ApplyArg0Str(UniFields fields, bool isacs)
+		{
+			string text = (isacs ? arg0named.Text : arg0str.Text);
+			switch(Arg0StrPolicy.ForNameBox(text, arg0strreset))
+			{
+				case Arg0StrPolicy.NameBox.Write: fields["arg0str"] = new UniValue(UniversalType.String, text); break;
+				case Arg0StrPolicy.NameBox.Clear: fields.Remove("arg0str"); break;
+			}
+		}
+
+		private void RemoveArg0Str(UniFields fields, bool actionempty, bool elementchanged, int elementaction, ThingTypeInfo elementinfo)
+		{
+			if(!fields.ContainsKey("arg0str")) return;
+			if(Arg0StrPolicy.ShouldRemove(actionempty, Arg0Mode == ArgZeroMode.INT, elementchanged, GetArgInfo(elementaction, elementinfo)[0].Str))
+				fields.Remove("arg0str");
 		}
 
 		#endregion
@@ -257,8 +275,7 @@ namespace CodeImp.DoomBuilder.Controls
 			if(General.Map.Config.LinedefActions.ContainsKey(action)) showaction = action;
 			
 			// Update argument infos
-			if((showaction == 0) && (info != null)) arginfo = info.Args;
-			else arginfo = General.Map.Config.LinedefActions[showaction].Args;
+			arginfo = GetArgInfo(showaction, info);
 
 			// Don't update action args when thing type is changed
 			if(info != null && showaction != 0 && this.action == showaction) return;
@@ -294,15 +311,23 @@ namespace CodeImp.DoomBuilder.Controls
 					arg3.SetValue(0);
 					arg4.SetValue(0);
 				}
-                // arg0str currently can't have any default
-                arg0named.Text = arg0strval = " ";
-                arg0str.Text = arg0strval = " ";
+                // arg0str has no default, so it resets to none
+                arg0named.Text = arg0str.Text = arg0strval = string.Empty;
+                arg0strreset = true;
             }
 
 			// Store current action
 			this.action = showaction;
 
 			this.EndUpdate();
+		}
+
+		private static ArgumentInfo[] GetArgInfo(int action, ThingTypeInfo info)
+		{
+			// An unknown action shows as none, and a thing with none takes its args from its type
+			if(!General.Map.Config.LinedefActions.ContainsKey(action)) action = 0;
+			if((action == 0) && (info != null)) return info.Args;
+			return General.Map.Config.LinedefActions[action].Args;
 		}
 
 		public void UpdateScriptControls()
@@ -569,4 +594,26 @@ namespace CodeImp.DoomBuilder.Controls
 
         }
     }
+
+	// Apart from the control so tests can reach it without WinForms or a loaded map
+	internal static class Arg0StrPolicy
+	{
+		internal static bool ShouldRemove(bool actionempty, bool numberchosen, bool elementchanged, bool elementtakesstr)
+		{
+			// A number chosen in a set action box (incl. the string checkbox unticked) replaces the name.
+			// Otherwise only an element whose own action or type changed to one without a string arg loses it.
+			if(numberchosen && !actionempty) return true;
+			return (elementchanged && !elementtakesstr);
+		}
+
+		internal enum NameBox { Leave, Write, Clear }
+
+		internal static NameBox ForNameBox(string text, bool resetbyaction)
+		{
+			// A blank box keeps each element's own name (mixed selections), unless an action
+			// change reset it: then the name goes, as the other args go to their defaults.
+			if(!string.IsNullOrWhiteSpace(text)) return NameBox.Write;
+			return (resetbyaction ? NameBox.Clear : NameBox.Leave);
+		}
+	}
 }

@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Editing;
+using CodeImp.DoomBuilder.Windows;
 
 #endregion
 
@@ -40,7 +41,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private int currentselection;
 		private int addindex;
 		private string begindescription;
-		
+		private bool previewing; // rows are recoloured for a target other than the current level
+		private int pendingindex = -1; // row whose second click within DoubleClickTime applies the jump
+		private int pendingtime;
+		private UndoManager watchedundo; // raises BranchChanged for the restore button
+
 		#endregion
 		
 		#region ================== Constructor
@@ -60,13 +65,32 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			begindescription = description;
 		}
-		
+
+		// Follows the open map's discarded undo branch; called on map new/open, and with null on close
+		public void WatchUndoManager(UndoManager undoredo)
+		{
+			if(watchedundo != null) watchedundo.BranchChanged -= undoredo_BranchChanged;
+			watchedundo = undoredo;
+			if(watchedundo != null) watchedundo.BranchChanged += undoredo_BranchChanged;
+		}
+
+		// Shows the restore button only while there is a branch to restore
+		private void UpdateRestoreButton()
+		{
+			bool show = (General.Map != null) && !General.Map.IsDisposed && (General.Map.UndoRedo != null) && General.Map.UndoRedo.HasDiscardedBranch;
+			if(show) restorebranch.Text = "Restore Discarded Changes (" + General.Map.UndoRedo.DiscardedBranchCount + ")";
+			restorebranch.Visible = show;
+		}
+
 		// This refills the list
 		public void UpdateList()
 		{
 			ignoreevents = true;
 			currentselection = -1;
-			
+			previewing = false;
+			pendingindex = -1;
+			UpdateRestoreButton();
+
 			// Check we have undo/redo capability
 			if((General.Map == null) || General.Map.IsDisposed || (General.Map.UndoRedo == null))
 			{
@@ -254,55 +278,107 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						}
 					}
 					list.EndUpdate();
+					previewing = true;
 				}
 			}
 
 			General.Interface.FocusDisplay();
-			
+
 			ignoreevents = false;
 		}
-		
-		// Mouse released
+
+		// Mouse released. A single click only previews; a second click on the same row applies the jump.
 		private void list_MouseUp(object sender, MouseEventArgs e)
 		{
 			ignoreevents = true;
-			
-			// We must have something selected
-			if(list.SelectedIndices.Count > 0)
+
+			ListViewItem hit = list.GetItemAt(e.X, e.Y);
+			bool selectedhit = (hit != null) && (list.SelectedIndices.Count > 0) && (list.SelectedIndices[0] == hit.Index);
+
+			if(!selectedhit)
 			{
-				// Not the same as last selected?
-				int selectedindex = list.SelectedIndices[0];
-				if(selectedindex != currentselection)
-				{
-					// Perform the undo/redos, the list will be updated automatically
-					int delta = currentselection - selectedindex;
-					if(delta < 0)
-						General.Map.UndoRedo.PerformRedo(-delta);
-					else
-						General.Map.UndoRedo.PerformUndo(delta);
-				}
-				else
-				{
-					list.SelectedIndices.Clear();
-				}
+				pendingindex = -1;
+			}
+			else if(hit.Index == currentselection)
+			{
+				// Clicking the current level cancels any preview
+				list.SelectedIndices.Clear();
+				if(previewing) UpdateList();
+				pendingindex = -1;
+			}
+			else if((hit.Index == pendingindex) && (unchecked(Environment.TickCount - pendingtime) <= SystemInformation.DoubleClickTime))
+			{
+				pendingindex = -1;
+				ApplyJump(hit.Index);
+			}
+			else
+			{
+				pendingindex = hit.Index;
+				pendingtime = Environment.TickCount;
 			}
 
 			General.Interface.FocusDisplay();
-			
+
 			ignoreevents = false;
 		}
-		
+
+		// Performs the undo/redos to reach the given row; the list is updated automatically
+		private void ApplyJump(int targetindex)
+		{
+			string origin = list.Items[currentselection].Text;
+			int delta = currentselection - targetindex;
+			int redosbefore = General.Map.UndoRedo.GetRedoList().Count;
+
+			if(delta < 0)
+				General.Map.UndoRedo.PerformRedo(-delta);
+			else
+				General.Map.UndoRedo.PerformUndo(delta);
+
+			// Measured, since a plugin or mode can refuse the undo
+			int moved = Math.Abs(General.Map.UndoRedo.GetRedoList().Count - redosbefore);
+			if(moved > 1)
+			{
+				bool undone = (delta > 0);
+				string backaction = undone ? "builder_redo" : "builder_undo";
+				// Kept short, key hint last: the status label clips early in a narrow (~1000 px) window
+				string text = (undone ? "Undone " : "Redone ") + moved + " changes. Back: double-click \"" + origin + "\"";
+				if(General.Actions.Exists(backaction) && (General.Actions.GetActionByName(backaction).ShortcutKey != 0))
+					text += " or " + Actions.Action.GetShortcutKeyDesc(backaction) + " x" + moved;
+				General.Interface.DisplayStatus(StatusType.Action, text + ".");
+			}
+		}
+
+		// Moving off the list drops a preview that was never applied
+		private void list_MouseLeave(object sender, EventArgs e)
+		{
+			pendingindex = -1;
+			if(previewing) UpdateList();
+		}
+
 		// Key released
 		private void list_KeyUp(object sender, KeyEventArgs e)
 		{
 			ignoreevents = true;
-			
+
 			list.SelectedIndices.Clear();
+			pendingindex = -1;
 			General.Interface.FocusDisplay();
-			
+
 			ignoreevents = false;
 		}
-		
+
+		// A swap changes which levels are the grey redo rows, not only the button
+		private void undoredo_BranchChanged(object sender, EventArgs e)
+		{
+			UpdateList();
+		}
+
+		private void restorebranch_Click(object sender, EventArgs e)
+		{
+			General.Actions.InvokeAction("builder_undobranchrestore");
+			General.Interface.FocusDisplay();
+		}
+
 		#endregion
 	}
 }

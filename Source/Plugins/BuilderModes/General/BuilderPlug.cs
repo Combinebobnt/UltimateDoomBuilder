@@ -522,6 +522,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			base.OnMapNewEnd();
 			undoredopanel.SetBeginDescription("New Map");
+			undoredopanel.WatchUndoManager(General.Map.UndoRedo);
 			undoredopanel.UpdateList();
 
 			//mxd
@@ -536,6 +537,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			base.OnMapOpenEnd();
 			undoredopanel.SetBeginDescription("Opened Map");
+			undoredopanel.WatchUndoManager(General.Map.UndoRedo);
 			undoredopanel.UpdateList();
 
 			//mxd
@@ -549,6 +551,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd
 		public override void OnMapCloseBegin()
 		{
+			undoredopanel.WatchUndoManager(null);
 			drawingOverridesPanel.Terminate();
 			General.Interface.RemoveDocker(drawingOverridesDocker);
 		}

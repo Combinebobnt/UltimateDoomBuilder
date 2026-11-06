@@ -398,7 +398,7 @@ namespace CodeImp.DoomBuilder.Windows
 				if(!action.Empty) l.Action = action.Value;
 
 				//mxd. Apply args
-				argscontrol.Apply(l, offset);
+				argscontrol.Apply(l, offset, action.Empty);
 				
 				// Remove front side?
 				if((l.Front != null) && (frontside.CheckState == CheckState.Unchecked))

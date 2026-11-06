@@ -496,8 +496,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				else
 				{
 					// Drawing failed
-					// NOTE: I have to call this twice, because the first time only cancels this volatile mode
-					General.Map.UndoRedo.WithdrawUndo();
 					General.Map.UndoRedo.WithdrawUndo();
 				}
 			}

@@ -107,6 +107,7 @@ namespace CodeImp.DoomBuilder.Editing
 			{
 				if(isdisposed) return;
 				if(isondisk) return;
+				if(!storeondisk) return; // became the next level while the thread waited; it may be playing back now
 				isondisk = true;
 				
 				// Compress data
@@ -133,15 +134,17 @@ namespace CodeImp.DoomBuilder.Editing
 			{
 				if(isdisposed) return;
 				if(!isondisk) return;
-				isondisk = false;
 
 				// Read the file data
 				MemoryStream instream = new MemoryStream(File.ReadAllBytes(filename));
-				
+
 				// Decompress data
 				MemoryStream outstream = SharpCompressHelper.DecompressStream(instream); //mxd
 				recstream = new MemoryStream(outstream.ToArray());
-				
+
+				// Only after a good read, so a failed one leaves the snapshot on disk for a retry
+				isondisk = false;
+
 				// Clean up
 				instream.Dispose();
 				File.Delete(filename);
