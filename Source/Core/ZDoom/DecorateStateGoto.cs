@@ -15,7 +15,16 @@
 
             // This is a bitch to parse because for some bizarre reason someone thought it
             // was funny to allow quotes here. Read the whole line and start parsing this manually.
-            string line = parser.ReadLine();
+            long linestart;
+            string line = parser.ReadLine(out linestart) ?? "";
+
+            // A closing brace or an unclosed block comment after the target belongs to the tokenizer: put it back
+            int lineend = FindLineEnd(line);
+            if (lineend > -1)
+            {
+                parser.DataStream.Position = linestart + lineend;
+                line = line.Substring(0, lineend);
+            }
 
             // Skip whitespace
             while ((cindex < line.Length) && ((line[cindex] == ' ') || (line[cindex] == '\t')))
@@ -108,6 +117,10 @@
 
             if (offsetreached)
             {
+                // Skip whitespace after the + sign
+                while ((cindex < line.Length) && ((line[cindex] == ' ') || (line[cindex] == '\t')))
+                    cindex++;
+
                 // Parse offset
                 while (cindex < line.Length)
                 {
@@ -155,6 +168,39 @@
 
             if ((classname == "super") && (actor.BaseClass != null))
                 classname = actor.BaseClass.ClassName;
+        }
+
+        private static int FindLineEnd(string line)
+        {
+            bool quoted = false;
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (line[i] == '"')
+                {
+                    quoted = !quoted;
+                }
+                else if (!quoted && (line[i] == '}'))
+                {
+                    return i;
+                }
+                else if (!quoted && (line[i] == '/') && (i + 1 < line.Length))
+                {
+                    if (line[i + 1] == '/')
+                        return -1;
+
+                    if (line[i + 1] == '*')
+                    {
+                        // A block comment that doesn't end on this line goes on into the lines below
+                        int commentend = line.IndexOf("*/", i + 2, System.StringComparison.Ordinal);
+                        if (commentend == -1)
+                            return i;
+
+                        i = commentend + 1;
+                    }
+                }
+            }
+
+            return -1;
         }
 
         #endregion

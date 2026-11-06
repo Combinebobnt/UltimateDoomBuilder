@@ -189,6 +189,13 @@ namespace CodeImp.DoomBuilder.ZDoom
 								parser.ReportError("Unsupported patch blend definition");
 								return;
 							}
+
+							// Zandronum always eats one comma after b, so its alpha needs a second one ("r, g, b, , alpha")
+							if(parser.ZandronumTextureBlend && !parser.NextTokenIs(",", false))
+							{
+								parser.ReportError("Zandronum requires a comma after the blend color (\"Blend r, g, b, , alpha\" sets an alpha)");
+								return;
+							}
 						}
 
 						// Alpha block?

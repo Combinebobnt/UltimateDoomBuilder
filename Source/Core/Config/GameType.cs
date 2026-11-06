@@ -20,5 +20,11 @@ namespace CodeImp.DoomBuilder.Config
 			{ STRIFE, "STRFDEFS" },
 			{ CHEX, "DOOMDEFS" }, // Is that so?..
 		};
+
+		// Mirrors the engine's CheckGame(name, true), which SNDINFO and TERRAIN if<game> blocks use: Chex counts as Doom
+		public static bool BlockMatches(string blockgame, string basegame)
+		{
+			return blockgame == basegame || (blockgame == DOOM && basegame == CHEX);
+		}
 	}
 }

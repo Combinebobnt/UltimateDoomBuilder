@@ -1414,27 +1414,45 @@ namespace CodeImp.DoomBuilder.Data
 			return counter;
 		}
 		
+		// [ZZ] A newer container's sprite frame shadows that base+frame in older ones (per frame, approximating the engine's per-rotation fill).
+		// Known gaps: older rotations the newer frame lacks are dropped, and a kept mirror name (PLAYA2G8) can still serve a shadowed frame.
+		internal static HashSet<string> MergeSpriteNames(IList<IEnumerable<string>> containers)
+		{
+			HashSet<string> spritenames = new HashSet<string>(StringComparer.Ordinal);
+			HashSet<string> claimedframes = new HashSet<string>(StringComparer.Ordinal);
+			for(int i = containers.Count - 1; i >= 0; i--)
+			{
+				if(containers[i] == null) continue;
+				List<string> names = containers[i].ToList();
+
+				// Keep a name while any of its frames is still unclaimed by a newer container
+				foreach(string name in names)
+				{
+					if(name.Length != 6 && name.Length != 8)
+						spritenames.Add(name);
+					else if(!claimedframes.Contains(name.Substring(0, 5)) || (name.Length == 8 && !claimedframes.Contains(name.Substring(0, 4) + name[6])))
+						spritenames.Add(name);
+				}
+
+				// Claim after the pass, so a container never shadows its own rotations
+				foreach(string name in names)
+				{
+					if(name.Length != 6 && name.Length != 8) continue;
+					claimedframes.Add(name.Substring(0, 5));
+					if(name.Length == 8) claimedframes.Add(name.Substring(0, 4) + name[6]);
+				}
+			}
+
+			return spritenames;
+		}
+
 		// This loads the sprites that we really need for things
 		private int LoadThingSprites()
 		{
 			//mxd. Get all sprite names
-			HashSet<string> spritenames = new HashSet<string>(StringComparer.Ordinal);
-            // [ZZ] in order to properly replace different rotation count, we need more complex processing here.
-            HashSet<string> loadedspritenames = new HashSet<string>(StringComparer.Ordinal);
-            for (int i = containers.Count-1; i >= 0; i--)
-            {
-                IEnumerable<string> result = containers[i].GetSpriteNames();
-                if (result != null)
-                {
-                    // remove old sprites with this name
-                    result = result.Where(str => !loadedspritenames.Contains(str.Substring(0, 4))); // only sprites that we still don't have. remember, reverse iteration!
-                    // add new sprites with this name
-                    spritenames.UnionWith(result);
-                    // remember
-                    foreach (string spr in result)
-                        loadedspritenames.Add(spr.Substring(0, 4));
-                }
-            }
+			List<IEnumerable<string>> containernames = new List<IEnumerable<string>>(containers.Count);
+			foreach(DataReader dr in containers) containernames.Add(dr.GetSpriteNames());
+			HashSet<string> spritenames = MergeSpriteNames(containernames);
 
 			//mxd. Add sprites from sprites collection (because GetSpriteNames() doesn't return TEXTURES sprites)
 			foreach(ImageData data in sprites.Values)

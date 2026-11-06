@@ -50,6 +50,9 @@ namespace CodeImp.DoomBuilder.ZDoom
 		public RolloffType Rolloff;
 		public float RolloffFactor;
 
+		// Defined by $playercompat: plays the linked player sound, so it has no lump of its own
+		internal bool PlayerCompat;
+
 		#endregion
 
 		#region ================== Constructor

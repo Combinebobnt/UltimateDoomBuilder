@@ -25,12 +25,12 @@ namespace CodeImp.DoomBuilder.ZDoom
                     // [ZZ] sometimes "fail" is a sprite name... (Skulltag, Zandronum)
                     //      probably the same can happen to other single-word flow control keywords.
                         
-                    // check if next token is newline.
+                    // check if next token is newline or the end of the scope.
                     long cpos = parser.DataStream.Position;
                     parser.SkipWhitespace(false);
                     string newline = parser.ReadToken();
                     parser.DataStream.Position = cpos;
-                    if (newline == "\n") // this is actually a loop/stop/wait/fail directive and not a sprite name or something
+                    if (newline == "\n" || newline == "}") // this is actually a loop/stop/wait/fail directive and not a sprite name or something
                     {
                         lasttoken = token;
                         continue;

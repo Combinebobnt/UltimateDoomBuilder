@@ -54,6 +54,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 		public IEnumerable<TextureStructure> WallTextures { get { return walltextures.Values; } }
 		public IEnumerable<TextureStructure> Flats { get { return flats.Values; } }
 		public IEnumerable<TextureStructure> Sprites { get { return sprites.Values; } }
+		public bool ZandronumTextureBlend { get; set; }
 		
 		#endregion
 		
@@ -71,6 +72,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 			walltextures = new Dictionary<string, TextureStructure>(StringComparer.Ordinal);
 			flats = new Dictionary<string, TextureStructure>(StringComparer.Ordinal);
 			sprites = new Dictionary<string, TextureStructure>(StringComparer.Ordinal);
+			if(General.Map != null && General.Map.Config != null) ZandronumTextureBlend = General.Map.Config.ZandronumTextureBlend;
 		}
 		
 		#endregion

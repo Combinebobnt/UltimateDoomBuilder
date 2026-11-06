@@ -77,7 +77,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 				if(string.IsNullOrEmpty(token)) continue;
 
 				// Skipping block for different game?
-				if(currentgametype != GameType.UNKNOWN && currentgametype != General.Map.Config.BaseGame)
+				if(currentgametype != GameType.UNKNOWN && !GameType.BlockMatches(currentgametype, General.Map.Config.BaseGame))
 				{
 					// Should we stop skipping?
 					if(token == "$endif") currentgametype = GameType.UNKNOWN;
@@ -100,7 +100,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 					case "$pitchshift": if(!SkipTokens(2)) return false; break;
 					case "$pitchshiftrange": if(!SkipTokens(1)) return false; break;
 					case "$playeralias": if(!SkipTokens(4)) return false; break;
-					case "$playercompat": if(!SkipTokens(4)) return false; break;
+					case "$playercompat": if(!ParsePlayerCompat()) return false; break;
 					case "$playersound": if(!SkipTokens(4)) return false; break;
 					case "$playersounddup": if(!SkipTokens(4)) return false; break;
 					case "$random": if(!ParseRandom()) return false; break;
@@ -114,6 +114,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 					case "$ifheretic": currentgametype = GameType.HERETIC; break;
 					case "$ifhexen": currentgametype = GameType.HEXEN; break;
 					case "$ifstrife": currentgametype = GameType.STRIFE; break;
+					case "$endif": currentgametype = GameType.UNKNOWN; break;
 
 					// Should be logicalname lumpname pair...
 					default: if(!ParseSoundAssignment(token)) return false; break;
@@ -394,6 +395,20 @@ namespace CodeImp.DoomBuilder.ZDoom
 			return true;
 		}
 
+		// $playercompat <player class> <gender> <logical name> <compat sound name>
+		private bool ParsePlayerCompat()
+		{
+			if(!SkipTokens(3)) return false;
+
+			// The engine defines the compat name as a sound linked to the player sound
+			if(!SkipWhitespace(true)) return false;
+			string compatname = StripTokenQuotes(ReadToken());
+			if(string.IsNullOrEmpty(compatname)) return false;
+			GetSoundInfo(compatname).PlayerCompat = true;
+
+			return true;
+		}
+
 		// Reads logicalname lumpname pair
 		private bool ParseSoundAssignment(string logicalname)
 		{
@@ -512,7 +527,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 			switch(info.Type)
 			{
 				case SoundInfo.SoundInfoType.SOUND:
-					return !string.IsNullOrEmpty(info.LumpName) || General.Map.Config.InternalSoundNames.Contains(info.Name);
+					return !string.IsNullOrEmpty(info.LumpName) || info.PlayerCompat || General.Map.Config.InternalSoundNames.Contains(info.Name);
 
 				case SoundInfo.SoundInfoType.GROUP_RANDOM:
 					foreach(SoundInfo child in info.Children)

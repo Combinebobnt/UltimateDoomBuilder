@@ -134,6 +134,10 @@ namespace CodeImp.DoomBuilder.ZDoom
 			datalocation = parsedata.SourceLocation;
 			datastream.Seek(0, SeekOrigin.Begin);
 
+			// Skip a UTF-8 BOM, which would otherwise stick to the first token
+			if(datastream.Length >= 3 && datastream.ReadByte() == 0xEF && datastream.ReadByte() == 0xBB && datastream.ReadByte() == 0xBF) return true;
+			datastream.Seek(0, SeekOrigin.Begin);
+
 			return true;
 		}
 
@@ -509,7 +513,14 @@ namespace CodeImp.DoomBuilder.ZDoom
 		// Returns null when the end of the stream has been reached
 		protected internal string ReadLine()
 		{
+			long linestart;
+			return ReadLine(out linestart);
+		}
+
+		protected internal string ReadLine(out long linestart)
+		{
 			string token = "";
+			linestart = datastream.Position;
 
 			// Return null when the end of the stream has been reached
 			if(datastream.Position == datastream.Length) return null;
@@ -527,7 +538,10 @@ namespace CodeImp.DoomBuilder.ZDoom
 					break;
 			}
 
-			return token.Trim();
+			// linestart is where the returned line begins: the reader yields one char per byte, so trimmed chars are bytes
+			string line = token.TrimStart();
+			linestart += token.Length - line.Length;
+			return line.TrimEnd();
 		}
 
 		//mxd
@@ -765,24 +779,25 @@ namespace CodeImp.DoomBuilder.ZDoom
 		{
 			long pos = datastream.Position;
 			long finishpos = (prevstreamposition >= 0 ? Math.Min(prevstreamposition, pos) : pos);
-			long readpos = 0;
-			int linenumber = -1;
+			int linenumber = 0;
 
-			// Find the line on which we found this error
+			// Count the line breaks before finishpos (CRLF, LF or a lone CR, as ReadLine splits them)
 			datastream.Seek(0, SeekOrigin.Begin);
-			StreamReader textreader = new StreamReader(datastream, Encoding.ASCII);
-			while(readpos < finishpos + 1) 
+			int prev = -1;
+			for(long i = 0; i <= finishpos; i++)
 			{
-				string line = textreader.ReadLine();
-				if(line == null) break;
-				readpos += line.Length + 2;
-				linenumber++;
+				int b = datastream.ReadByte();
+				if(prev == '\r' && b != '\n') linenumber++;
+				if(b == -1 && (prev == '\n' || prev == '\r') && linenumber > 0) linenumber--; // ReadLine has no empty line after a trailing break
+				if(b == -1 || i == finishpos) break;
+				if(b == '\n') linenumber++;
+				prev = b;
 			}
 
 			// Return to original position
 			datastream.Seek(pos, SeekOrigin.Begin);
 
-			return Math.Max(linenumber, 0);
+			return linenumber;
 		}
 
 		//mxd. This converts given path to be relative to "filename"
