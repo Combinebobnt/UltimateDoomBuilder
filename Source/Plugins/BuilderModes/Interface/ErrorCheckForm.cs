@@ -17,7 +17,9 @@
 #region ================== Namespaces
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -37,16 +39,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 	{
 		#region ================== Constants
 
+		private const int CHECKER_LOG_ATTEMPTS = 10;
+		private const int FLUSH_MAX_RESULTS = 2000;
+		private const int START_GUARD_MS = 500;
+
 		#endregion
 
-		#region ================== Delegates
-
-		private delegate void CallVoidMethodDeletage();
-		private delegate void CallIntMethodDelegate(int i);
-		private delegate void CallResultMethodDelegate(ErrorResult r);
-		
-		#endregion
-		
 		#region ================== Variables
 		
 		private volatile bool running;
@@ -56,7 +54,20 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private List<ErrorResult> resultslist; //mxd 
 		private List<Type> hiddentresulttypes; //mxd 
 		private bool bathselectioninprogress; //mxd
-		
+
+		// Checker threads queue results and progress here; flushtimer moves them into the controls in batches
+		private readonly object pendinglock = new object();
+		private List<ErrorResult> pendingresults = new List<ErrorResult>();
+		private int pendingprogress;
+		private int pendingmaximum = -1;
+		private int progressvalue;
+		private System.Windows.Forms.Timer flushtimer;
+		private Stopwatch stoppedwatch;
+#if MONO_WINFORMS
+		private readonly Dictionary<ErrorResult, string> resultkeys = new Dictionary<ErrorResult, string>();
+		private int widestresult;
+#endif
+
 		#endregion
 
 		#region ================== Properties
@@ -85,6 +96,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			// Initialize
 			InitializeComponent();
+#if MONO_WINFORMS
+			results.Sorted = false;
+			results.DrawMode = DrawMode.OwnerDrawFixed;
+			results.DrawItem += results_DrawItem;
+#endif
 			
 			// Find all error checkers
 			Type[] checkertypes = BuilderPlug.Me.FindClasses(typeof(ErrorChecker));
@@ -132,6 +148,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			initialsize = this.Size;
 			resultslist = new List<ErrorResult>();
 			hiddentresulttypes = new List<Type>();
+
+			flushtimer = new System.Windows.Forms.Timer(components);
+			flushtimer.Interval = 100;
+			flushtimer.Tick += (sender, e) => FlushPending(false);
 		}
 		
 		// This shows the window
@@ -148,6 +168,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			
 			// Close results part
 			resultspanel.Visible = false;
+#if MONO_WINFORMS
+			// Mono fix: Control.SetBoundsCore no-ops (skipping the anchor engine's refresh of its
+			// cached distance-to-parent-bottom baseline) when a size assignment exactly matches the
+			// control's current size. Without this, if resultspanel is already at its "open" height
+			// from a previous cycle, StartChecking()'s size assignment becomes a no-op and the anchor
+			// baseline is never refreshed - a later automatic relayout pass then recomputes the panel's
+			// height from that stale baseline, pushing resultinfo's help text off-screen. Forcing a real
+			// size change here, while the panel is still invisible, guarantees StartChecking()'s
+			// assignment always refreshes the baseline.
+			resultspanel.Size = new Size(resultspanel.Width, 0);
+#endif
 			this.Size = new Size(initialsize.Width, this.Height - this.ClientSize.Height + resultspanel.Top);
 			this.MinimumSize = this.Size; //mxd
 			this.MaximumSize = this.Size; //mxd
@@ -160,93 +191,168 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		
 		#region ================== Thread Calls
 
+		// A blocking Invoke per result serialized every checker on the UI thread, and each single Add
+		// re-sorts the whole sorted list under Mono, so many results froze the editor
 		public void SubmitResult(ErrorResult result)
 		{
-			if(results.InvokeRequired)
-			{
-				CallResultMethodDelegate d = SubmitResult;
-				try { progress.Invoke(d, result); }
-				catch(ThreadInterruptedException) { }
-			}
-			else
-			{
-				if(!result.IsHidden && !hiddentresulttypes.Contains(result.GetType())) //mxd
-				{
-					results.Items.Add(result);
-				}
-				resultslist.Add(result); //mxd
-				UpdateTitle();
-			}
+			lock(pendinglock) pendingresults.Add(result);
 		}
 
 		private void SetProgressMaximum(int maximum)
 		{
-			if(progress.InvokeRequired)
-			{
-				CallIntMethodDelegate d = SetProgressMaximum;
-				try { progress.Invoke(d, maximum); }
-				catch(ThreadInterruptedException) { }
-			}
-			else
-			{
-				progress.Maximum = maximum;
-			}
+			Interlocked.Exchange(ref pendingmaximum, maximum);
 		}
 
 		public void AddProgressValue(int value)
 		{
-			if(progress.InvokeRequired)
+			Interlocked.Add(ref pendingprogress, value);
+		}
+
+		// UI thread only
+		private void FlushPending(bool all)
+		{
+			List<ErrorResult> batch = null;
+			lock(pendinglock)
 			{
-				CallIntMethodDelegate d = AddProgressValue;
-				try { progress.Invoke(d, value); }
-				catch(ThreadInterruptedException) { }
+				if(pendingresults.Count > 0)
+				{
+					if(all || pendingresults.Count <= FLUSH_MAX_RESULTS)
+					{
+						batch = pendingresults;
+						pendingresults = new List<ErrorResult>();
+					}
+					else
+					{
+						batch = pendingresults.GetRange(0, FLUSH_MAX_RESULTS);
+						pendingresults.RemoveRange(0, FLUSH_MAX_RESULTS);
+					}
+				}
 			}
-			else
+
+			int maximum = Interlocked.Exchange(ref pendingmaximum, -1);
+			if(maximum >= 0) progress.Maximum = maximum;
+			progressvalue += Interlocked.Exchange(ref pendingprogress, 0);
+			progress.Value = Math.Min(progressvalue, progress.Maximum);
+
+			if(batch == null) return;
+
+			List<ErrorResult> visible = new List<ErrorResult>(batch.Count);
+			foreach(ErrorResult result in batch)
 			{
-				progress.Value += value;
+				if(!result.IsHidden && !hiddentresulttypes.Contains(result.GetType())) visible.Add(result); //mxd
+			}
+
+#if MONO_WINFORMS
+			AddResultsMono(batch, visible);
+#else
+			if(visible.Count > 0)
+			{
+				results.BeginUpdate();
+				results.Items.AddRange(visible.ToArray());
+				results.EndUpdate();
+			}
+#endif
+
+			resultslist.AddRange(batch); //mxd
+			UpdateTitle();
+		}
+
+#if MONO_WINFORMS
+		private string GetResultKey(ErrorResult result)
+		{
+			string key;
+			if(!resultkeys.TryGetValue(result, out key)) resultkeys[result] = key = result.ToString();
+			return key;
+		}
+
+		private void AddResultsMono(List<ErrorResult> batch, List<ErrorResult> visible)
+		{
+			foreach(ErrorResult result in batch) GetResultKey(result);
+			if(visible.Count == 0) return;
+			foreach(ErrorResult result in visible)
+				widestresult = Math.Max(widestresult, TextRenderer.MeasureText(GetResultKey(result), results.Font).Width);
+
+			ErrorResult[] listed = new ErrorResult[results.Items.Count];
+			results.Items.CopyTo(listed, 0);
+			int[] selected = new int[results.SelectedIndices.Count];
+			results.SelectedIndices.CopyTo(selected, 0);
+			int top = results.TopIndex;
+			int[] oldtonew;
+			List<ErrorResult> merged = SortedMerge.Merge(listed, visible, GetResultKey, out oldtonew);
+
+			bathselectioninprogress = true;
+			results.BeginUpdate();
+			try
+			{
+				results.Items.Clear();
+				results.Items.AddRange(merged.ToArray());
+				results.HorizontalExtent = widestresult + 4;
+				ArrayList selection = GetMonoSelectionList();
+				foreach(int index in selected)
+				{
+					if(selection != null) selection.Add(oldtonew[index]);
+					else results.SelectedIndices.Add(oldtonew[index]);
+				}
+				if(top >= 0 && top < oldtonew.Length) results.TopIndex = oldtonew[top];
+			}
+			finally
+			{
+				results.EndUpdate();
+				bathselectioninprogress = false;
 			}
 		}
+
+		private void results_DrawItem(object sender, DrawItemEventArgs e)
+		{
+			if(e.Index < 0 || e.Index >= results.Items.Count) return;
+			Color backcolor = ((e.State & DrawItemState.Selected) != 0 ? SystemColors.Highlight : e.BackColor);
+			using(Brush background = new SolidBrush(backcolor)) e.Graphics.FillRectangle(background, e.Bounds);
+			using(Brush foreground = new SolidBrush(e.ForeColor))
+			using(StringFormat format = new StringFormat(StringFormatFlags.NoWrap))
+				e.Graphics.DrawString(GetResultKey((ErrorResult)results.Items[e.Index]), e.Font, foreground, e.Bounds, format);
+			if((e.State & DrawItemState.Focus) != 0) ControlPaint.DrawFocusRectangle(e.Graphics, e.Bounds, e.ForeColor, backcolor);
+		}
+#endif
 
 		//mxd
 		private void UpdateTitle()
 		{
 			int hiddencount = resultslist.Count - results.Items.Count;
 			string title = "Map Analysis [" + resultslist.Count + " results";
-			if(hiddencount > 0) title += hiddencount + " hidden";
+			if(hiddencount > 0) title += ", " + hiddencount + " hidden";
 			title += ", " + results.SelectedItems.Count + " selected";
 			this.Text = title + @"]";
 		}
 		
-		// This stops checking (only called from the checking management thread)
-		private void StopChecking()
+		// This stops checking (UI thread; owner is the management thread that ran the checks)
+		private void StopChecking(Thread owner)
 		{
-			if(this.InvokeRequired)
+			// Stale call queued by a run CloseWindow already finished
+			if(!running || checksthread != owner) return;
+
+			flushtimer.Stop();
+			FlushPending(true);
+			checksthread = null;
+			progress.Value = 0;
+			buttoncheck.Text = "Start Analysis";
+			Cursor.Current = Cursors.Default;
+			running = false;
+			blockmap.Dispose();
+			blockmap = null;
+
+			// When no results found, show "no results" and disable the list
+			if(resultslist.Count == 0)
 			{
-				CallVoidMethodDeletage d = StopChecking;
-				this.Invoke(d);
+				results.Items.Add(new ResultNoErrors());
+				results.Enabled = false;
+				UpdateTitle(); //mxd
 			}
 			else
 			{
-				checksthread = null;
-				progress.Value = 0;
-				buttoncheck.Text = "Start Analysis";
-				Cursor.Current = Cursors.Default;
-				running = false;
-				blockmap.Dispose();
-				blockmap = null;
-				
-				// When no results found, show "no results" and disable the list
-				if(resultslist.Count == 0) 
-				{
-					results.Items.Add(new ResultNoErrors());
-					results.Enabled = false;
-					UpdateTitle(); //mxd
-				} 
-				else 
-				{ 
-					ClearSelectedResult(); //mxd
-				}
+				ClearSelectedResult(); //mxd
 			}
+			if(stoppedwatch == null) stoppedwatch = new Stopwatch();
+			stoppedwatch.Restart();
 		}
 		
 		// This starts checking
@@ -266,16 +372,33 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			blockmap.AddVerticesSet(General.Map.Map.Vertices); //mxd
 			
 			//mxd. Open the results panel
-			if(!resultspanel.Visible) 
+			if(!resultspanel.Visible)
 			{
 				this.MinimumSize = new Size();
+#if MONO_WINFORMS
+				// Mono fix: XplatUIX11.SetWindowMinMax reads the window's existing X11 size hints and
+				// only ever ORs new PMinSize/PMaxSize flags in - passing Size.Empty here never clears a
+				// previously-set PMaxSize, so the stale collapsed-window maximum (set by Show()) stays in
+				// effect and the window manager clamps the resize below, leaving this panel 0px tall.
+				this.MaximumSize = new Size(10000, 10000);
+#else
 				this.MaximumSize = new Size();
+#endif
 				this.Size = initialsize;
 				resultspanel.Size = new Size(resultspanel.Width, this.ClientSize.Height - resultspanel.Top);
 				resultspanel.Visible = true;
 			}
 			progress.Value = 0;
+			progressvalue = 0;
+			pendingprogress = 0;
+			pendingmaximum = -1;
+			lock(pendinglock) pendingresults.Clear();
 			results.Items.Clear();
+#if MONO_WINFORMS
+			resultkeys.Clear();
+			widestresult = 0;
+			results.HorizontalExtent = 0;
+#endif
 			results.Enabled = true;
 			resultslist = new List<ErrorResult>(); //mxd
 			ClearSelectedResult();
@@ -288,6 +411,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			checksthread.Name = "Error Checking Management";
 			checksthread.Priority = ThreadPriority.Normal;
 			checksthread.Start();
+			flushtimer.Start();
 			
 			Cursor.Current = Cursors.Default;
 		}
@@ -303,13 +427,21 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(running)
 			{
 				Cursor.Current = Cursors.WaitCursor;
-				checksthread.Interrupt();
+				Thread owner = checksthread;
+				owner.Interrupt();
+
+				// Wait so no checker still reads the map once the mode lets editing resume
+				if(owner.Join(5000)) StopChecking(owner);
+				Cursor.Current = Cursors.Default;
 			}
 
 			ClearSelectedResult();
 			
 			//mxd. Clear results 
 			resultslist.Clear();
+#if MONO_WINFORMS
+			resultkeys.Clear();
+#endif
 			results.Items.Clear();
 
 			// Write checked status of checks to the config
@@ -402,7 +534,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				while((threads.Count < maxthreads) && (nextchecker < checkers.Count))
 				{
 					ErrorChecker c = checkers[nextchecker++];
-					Thread t = new Thread(c.Run);
+					Thread t = new Thread(() => RunChecker(c));
 					t.Name = "Error Checker '" + c.GetType().Name + "'";
 					t.Priority = ThreadPriority.BelowNormal;
 					t.Start();
@@ -435,8 +567,43 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 			}
 			
-			// Done
-			StopChecking();
+			// Done. Async, so CloseWindow can Join this thread from the UI thread without deadlocking
+			Thread self = Thread.CurrentThread;
+			try { BeginInvoke(new MethodInvoker(() => StopChecking(self))); }
+			catch(InvalidOperationException) { } // Window handle already gone
+		}
+
+		// An exception escaping a checker thread reaches the AppDomain handler, whose dialog on this thread crashes Mono
+		private static void RunChecker(ErrorChecker checker)
+		{
+			try
+			{
+				checker.Run();
+			}
+			catch(ThreadInterruptedException) { }
+			catch(Exception e)
+			{
+				// The log goes first: during abort a contended lock in ErrorLogger.Add throws ThreadInterruptedException
+				WriteCheckerFailure(checker, e);
+				try { General.ErrorLogger.Add(ErrorType.Error, "Map Analysis check \"" + checker.GetType().Name + "\" failed: " + e.GetType().Name + ": " + e.Message); }
+				catch(ThreadInterruptedException) { }
+				catch(Exception adderror) { WriteCheckerFailure(checker, adderror); }
+			}
+		}
+
+		private static void WriteCheckerFailure(ErrorChecker checker, Exception e)
+		{
+			// Retried since the stop loop in RunChecks interrupts every millisecond or so, and this must never throw
+			for(int attempt = 0; attempt < CHECKER_LOG_ATTEMPTS; attempt++)
+			{
+				try
+				{
+					General.WriteLogLine("Map Analysis check \"" + checker.GetType().Name + "\" failed: " + e);
+					return;
+				}
+				catch(ThreadInterruptedException) { }
+				catch(Exception) { return; }
+			}
 		}
 
 		//mxd
@@ -463,6 +630,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			//mxd. Clear results 
 			resultslist.Clear();
+#if MONO_WINFORMS
+			resultkeys.Clear();
+#endif
 			results.Items.Clear();
 			
 			// If the user closes the form, then just cancel the mode
@@ -485,6 +655,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 			else
 			{
+				// A queued Abort must not become a Start when the final flush finishes first.
+				if(stoppedwatch != null && stoppedwatch.ElapsedMilliseconds < START_GUARD_MS) return;
 				StartChecking();
 			}
 		}
@@ -702,7 +874,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			
 			// Restore items
 			results.Items.Clear();
+#if MONO_WINFORMS
+			List<ErrorResult> sorted = new List<ErrorResult>(resultslist);
+			sorted.Sort((a, b) => string.Compare(GetResultKey(a), GetResultKey(b), StringComparison.CurrentCulture));
+			foreach(ErrorResult result in sorted)
+				widestresult = Math.Max(widestresult, TextRenderer.MeasureText(GetResultKey(result), results.Font).Width);
+			results.HorizontalExtent = widestresult + 4;
+			results.Items.AddRange(sorted.ToArray());
+#else
 			results.Items.AddRange(resultslist.ToArray());
+#endif
 			hiddentresulttypes.Clear();
 
 			// Do the obvious
@@ -711,19 +892,26 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void resulthidecurrent_Click(object sender, EventArgs e) 
 		{
-			// Collect results to hide
-			List<ErrorResult> tohide = new List<ErrorResult>();
+			// Mark results to hide
 			foreach(var ro in results.SelectedItems)
 			{
 				ErrorResult r = ro as ErrorResult;
 				if(r == null) return;
 				r.Hide(true);
-				tohide.Add(r);
 			}
 			
-			// Remove from the list
+			// Under Mono, Items.Remove re-sorts the list per row and can throw invalidating a selected row past the end
+			List<ErrorResult> remaining = new List<ErrorResult>(results.Items.Count);
+			foreach(ErrorResult result in results.Items)
+			{
+				if(!result.IsHidden) remaining.Add(result);
+			}
+
+			int top = results.TopIndex;
 			results.BeginUpdate();
-			foreach(ErrorResult r in tohide) results.Items.Remove(r);
+			results.Items.Clear();
+			results.Items.AddRange(remaining.ToArray());
+			results.TopIndex = Math.Min(top, Math.Max(remaining.Count - 1, 0));
 			results.EndUpdate();
 
 			// Do the obvious
@@ -809,36 +997,63 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// Select all?
 			else if(e.Control && e.KeyCode == Keys.A)
 			{
-				results.SelectedItems.Clear();
-
-				bathselectioninprogress = true; //mxd
-				results.BeginUpdate(); //mxd
-				for(int i = 0; i < results.Items.Count; i++) results.SelectedItems.Add(results.Items[i]);
-				results.EndUpdate(); //mxd
-				bathselectioninprogress = false; //mxd
-
-				results_SelectedIndexChanged(this, EventArgs.Empty); //trigger update manually
+				List<int> indices = new List<int>(results.Items.Count);
+				for(int i = 0; i < results.Items.Count; i++) indices.Add(i);
+				SelectResults(indices);
 			}
 		}
 
 		private void resultselectcurrenttype_Click(object sender, EventArgs e)
 		{
 			Dictionary<Type, bool> toselect = GetSelectedTypes();
-			results.SelectedItems.Clear();
-
-			bathselectioninprogress = true; //mxd
-			results.BeginUpdate(); //mxd
-
-			for(int i = 0; i < results.Items.Count; i++) 
+			List<int> indices = new List<int>();
+			for(int i = 0; i < results.Items.Count; i++)
 			{
-				if(toselect.ContainsKey(results.Items[i].GetType())) results.SelectedItems.Add(results.Items[i]);
+				if(toselect.ContainsKey(results.Items[i].GetType())) indices.Add(i);
 			}
 
-			results.EndUpdate(); //mxd
-			bathselectioninprogress = false; //mxd
-
-			results_SelectedIndexChanged(this, EventArgs.Empty); //trigger update manually
+			SelectResults(indices);
 		}
+
+		// Indices must be ascending
+		private void SelectResults(List<int> indices)
+		{
+			// Set first, so the Clear below doesn't redraw as well
+			bathselectioninprogress = true;
+			results.SelectedItems.Clear();
+
+#if MONO_WINFORMS
+			// Mono's AddCore scrolls to every added row, and BeginUpdate doesn't stop it
+			ArrayList selection = GetMonoSelectionList();
+			if(selection != null)
+			{
+				foreach(int i in indices) selection.Add(i);
+				results.Invalidate();
+			}
+			else
+#endif
+			{
+				results.BeginUpdate();
+				foreach(int i in indices) results.SelectedIndices.Add(i);
+				results.EndUpdate();
+			}
+
+			bathselectioninprogress = false;
+			results_SelectedIndexChanged(this, EventArgs.Empty);
+		}
+
+#if MONO_WINFORMS
+		// Mono's ListBox.selected_indices.selection, the sorted list behind SelectedIndices; null if renamed
+		private ArrayList GetMonoSelectionList()
+		{
+			const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+			FieldInfo indicesfield = typeof(ListBox).GetField("selected_indices", flags);
+			object indices = (indicesfield != null ? indicesfield.GetValue(results) : null);
+			if(indices == null) return null;
+			FieldInfo selectionfield = indices.GetType().GetField("selection", flags);
+			return (selectionfield != null ? selectionfield.GetValue(indices) as ArrayList : null);
+		}
+#endif
 
 		#endregion
 

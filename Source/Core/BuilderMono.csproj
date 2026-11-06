@@ -239,6 +239,7 @@
     <Compile Include="General\AutoSaver.cs" />
     <Compile Include="General\Hasher.cs" />
     <Compile Include="General\MultiDictionary.cs" />
+    <Compile Include="General\SortedMerge.cs" />
     <Compile Include="General\SHA256Hash.cs" />
     <Compile Include="General\ToastManager.cs" />
     <Compile Include="GZBuilder\Models\GZModel.cs" />
@@ -1039,6 +1040,7 @@
     <Compile Include="General\ErrorItem.cs" />
     <Compile Include="General\ErrorLogger.cs" />
     <Compile Include="General\FileLockChecker.cs" />
+    <Compile Include="General\UIActionQueue.cs" />
     <Compile Include="General\MD5Hash.cs" />
     <Compile Include="General\MurmurHash2.cs" />
     <Compile Include="General\SavePurpose.cs" />

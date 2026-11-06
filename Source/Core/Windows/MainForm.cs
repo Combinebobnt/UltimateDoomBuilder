@@ -3591,7 +3591,7 @@ namespace CodeImp.DoomBuilder.Windows
 			errform.ShowDialog(this);
 			errform.Dispose();
 			//mxd
-			SetWarningsCount(General.ErrorLogger.ErrorsCount, false);
+			UpdateWarningsCount(false);
 		}
 		
 		// Game Configuration action
@@ -4475,22 +4475,12 @@ namespace CodeImp.DoomBuilder.Windows
 
         #region ================== Threadsafe updates
 
-        object syncobject = new object();
-        List<System.Action> queuedActions = new List<System.Action>();
+        UIActionQueue queuedActions = new UIActionQueue();
 
         internal void ProcessQueuedUIActions()
         {
-            List<System.Action> queue;
-            lock (syncobject)
-            {
-                queue = queuedActions;
-                queuedActions = new List<System.Action>();
-            }
-
-            foreach (System.Action action in queue)
-            {
-                action();
-            }
+            // The log only: ErrorLogger.Add takes a lock, and its warnings update may be the action that failed
+            queuedActions.Process(e => General.WriteLogLine("Queued UI action failed: " + e));
         }
 
         public void RunOnUIThread(System.Action action)
@@ -4501,16 +4491,14 @@ namespace CodeImp.DoomBuilder.Windows
             }
             else
             {
-                bool notify;
-                lock (syncobject)
-                {
-                    notify = queuedActions.Count == 0;
-                    queuedActions.Add(action);
-                }
-
-                if (notify)
-                    General.InvokeUIActions(this);
+                queuedActions.Add(action, () => General.InvokeUIActions(this));
             }
+        }
+
+        // Blocks until the UI thread has run work. The caller must hold no lock the UI thread takes
+        internal T RunOnUIThreadAndWait<T>(Func<T> work)
+        {
+            return InvokeRequired ? (T)Invoke(work) : work();
         }
 
         public void UpdateStatus()
@@ -4584,11 +4572,13 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 
 		//mxd. Warnings panel
-		private delegate void SetWarningsCountCallback(int count, bool blink);
-		internal void SetWarningsCount(int count, bool blink) 
+		internal void UpdateWarningsCount(bool blink)
 		{
             RunOnUIThread(() =>
             {
+                // Read it here: a worker's queued update can run after a newer one from this thread
+                int count = General.ErrorLogger.ErrorsCount;
+
                 // Update icon, start annoying blinking if necessary
                 if (count > 0)
                 {

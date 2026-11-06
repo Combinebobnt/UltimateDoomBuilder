@@ -75,9 +75,9 @@ namespace CodeImp.DoomBuilder
 
 	internal static void InvokeUIActions(MainForm mainform)
     {
-		// This implementation really should work universally, but it seemed to hang sometimes on Windows.
-		// Let's hope the mono implementation of Winforms works better.
-		mainform.Invoke(new System.Action(() => { mainform.ProcessQueuedUIActions(); }));
+		// Never a blocking Invoke: callers can hold locks the UI thread waits on (ErrorLogger, PK3Reader).
+		// Exceptions from BeginInvoke vanish with no ThreadException, so ProcessQueuedUIActions logs them.
+		mainform.BeginInvoke(new System.Action(() => { mainform.ProcessQueuedUIActions(); }));
 	}
 
 	internal static bool MessageBeep(MessageBeepType type)

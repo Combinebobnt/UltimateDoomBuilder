@@ -827,6 +827,12 @@ namespace CodeImp.DoomBuilder.Data
         //mxd. This loads a model
         internal bool ProcessModel(int type) 
 		{
+			// Loading creates GL objects and needs ImageData's UI-thread finish to have run
+			return General.MainWindow.RunOnUIThreadAndWait(() => ProcessModelOnUIThread(type));
+		}
+
+		private bool ProcessModelOnUIThread(int type)
+		{
 			if(modeldefentries[type].LoadState != ModelLoadState.None) return true;
 
 			//create models
