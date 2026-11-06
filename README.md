@@ -1,5 +1,7 @@
 # Ultimate Doom Builder
 
+> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) that makes it dependable on Linux under Mono; its changes, experimental areas and extra Linux requirements are in [CHANGELOG.md](CHANGELOG.md).
+
 ## System requirements
 - 2.4 GHz CPU or faster (multi-core recommended)
 - Windows 7, 8, 10, or 11
