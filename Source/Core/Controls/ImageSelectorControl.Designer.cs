@@ -33,7 +33,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.togglefullname = new System.Windows.Forms.Button();
 			this.labelSize = new CodeImp.DoomBuilder.Controls.TransparentLabel();
 			this.imagebox = new CodeImp.DoomBuilder.Controls.ConfigurablePictureBox();
-			this.timer = new System.Windows.Forms.Timer(this.components);
+			this.timer = new GuardedTimer(this.components);
 			this.tooltip = new System.Windows.Forms.ToolTip(this.components);
 			this.name = new CodeImp.DoomBuilder.Controls.AutoSelectTextbox();
 			this.preview.SuspendLayout();

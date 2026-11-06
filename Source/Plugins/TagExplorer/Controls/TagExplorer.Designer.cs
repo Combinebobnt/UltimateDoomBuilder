@@ -31,7 +31,7 @@
 			this.tbSearch = new System.Windows.Forms.TextBox();
 			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
 			this.bExportToFile = new System.Windows.Forms.Button();
-			this.updatetimer = new System.Windows.Forms.Timer(this.components);
+			this.updatetimer = new GuardedTimer(this.components);
 			this.saveFileDialog = new System.Windows.Forms.SaveFileDialog();
 			this.groupBox1.SuspendLayout();
 			this.SuspendLayout();

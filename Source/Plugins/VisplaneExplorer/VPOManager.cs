@@ -95,59 +95,75 @@ namespace CodeImp.DoomBuilder.Plugins.VisplaneExplorer
 		// The thread!
 		private void ProcessingThread()
 		{
-			IntPtr context = VPO_NewContext();
-
-			// Load the map
-			bool isHexen = General.Map.HEXEN;
-			if(VPO_LoadWAD(context, filename) != 0) throw new Exception("VPO is unable to read this file:" + (Marshal.PtrToStringAnsi(VPO_GetError(context)) ?? "<unknown error>"));
-			if(VPO_OpenMap(context, mapname, ref isHexen) != 0) throw new Exception("VPO is unable to open this map:" + (Marshal.PtrToStringAnsi(VPO_GetError(context)) ?? "<unknown error>"));
-			VPO_OpenDoorSectors(context, BuilderPlug.InterfaceForm.OpenDoors ? 1 : -1); //mxd
-
-			// Processing
-			Queue<TilePoint> todo = new Queue<TilePoint>(POINTS_PER_ITERATION);
-			Queue<PointData> done = new Queue<PointData>(POINTS_PER_ITERATION);
-			while(true)
+			IntPtr context = IntPtr.Zero;
+			try
 			{
-				lock(points)
+				// Throws DllNotFoundException when the native library is missing
+				context = VPO_NewContext();
+
+				// Load the map
+				bool isHexen = General.Map.HEXEN;
+				if(VPO_LoadWAD(context, filename) != 0) throw new Exception("VPO is unable to read this file:" + (Marshal.PtrToStringAnsi(VPO_GetError(context)) ?? "<unknown error>"));
+				if(VPO_OpenMap(context, mapname, ref isHexen) != 0) throw new Exception("VPO is unable to open this map:" + (Marshal.PtrToStringAnsi(VPO_GetError(context)) ?? "<unknown error>"));
+				VPO_OpenDoorSectors(context, BuilderPlug.InterfaceForm.OpenDoors ? 1 : -1); //mxd
+
+				// Processing
+				Queue<TilePoint> todo = new Queue<TilePoint>(POINTS_PER_ITERATION);
+				Queue<PointData> done = new Queue<PointData>(POINTS_PER_ITERATION);
+				while(true)
 				{
-					// Wait for work
-					if (points.Count == 0 && !stopflag)
-						Monitor.Wait(points);
-
-					// Flush done points to the results
-					int numdone = done.Count;
-					for(int i = 0; i < numdone; i++)
-						results.Enqueue(done.Dequeue());
-
-					if (stopflag)
-						break;
-
-					// Get points from the waiting queue into my todo queue for processing
-					int numtodo = Math.Min(POINTS_PER_ITERATION, points.Count);
-					for(int i = 0; i < numtodo; i++)
-						todo.Enqueue(points.Dequeue());
-				}
-					
-				// Process the points
-				while(todo.Count > 0)
-				{
-					TilePoint p = todo.Dequeue();
-					PointData pd = new PointData();
-					pd.point = p;
-
-					for(int i = 0; i < TEST_ANGLES.Length; i++)
+					lock(points)
 					{
-						pd.result = (PointResult)VPO_TestSpot(context, p.x, p.y, BuilderPlug.InterfaceForm.ViewHeight, TEST_ANGLES[i],
-							ref pd.visplanes, ref pd.drawsegs, ref pd.openings, ref pd.solidsegs);
+						// Wait for work
+						if (points.Count == 0 && !stopflag)
+							Monitor.Wait(points);
+
+						// Flush done points to the results
+						int numdone = done.Count;
+						for(int i = 0; i < numdone; i++)
+							results.Enqueue(done.Dequeue());
+
+						if (stopflag)
+							break;
+
+						// Get points from the waiting queue into my todo queue for processing
+						int numtodo = Math.Min(POINTS_PER_ITERATION, points.Count);
+						for(int i = 0; i < numtodo; i++)
+							todo.Enqueue(points.Dequeue());
 					}
 
-					done.Enqueue(pd);
+					// Process the points
+					while(todo.Count > 0)
+					{
+						TilePoint p = todo.Dequeue();
+						PointData pd = new PointData();
+						pd.point = p;
+
+						for(int i = 0; i < TEST_ANGLES.Length; i++)
+						{
+							pd.result = (PointResult)VPO_TestSpot(context, p.x, p.y, BuilderPlug.InterfaceForm.ViewHeight, TEST_ANGLES[i],
+								ref pd.visplanes, ref pd.drawsegs, ref pd.openings, ref pd.solidsegs);
+						}
+
+						done.Enqueue(pd);
+					}
 				}
 			}
-
-			VPO_CloseMap(context);
-			VPO_FreeWAD(context);
-			VPO_DeleteContext(context);
+			catch(Exception e)
+			{
+				// Report and leave: an exception escaping a worker ends the whole editor
+				General.WriteLogLine(Thread.CurrentThread.Name + " failed: " + e);
+				General.ErrorLogger.Add(ErrorType.Error, "Visplane Explorer failed. " + e.GetType().Name + ": " + e.Message);
+			}
+			finally
+			{
+				if(context != IntPtr.Zero)
+				{
+					VPO_CloseMap(context);
+					VPO_FreeWAD(context);
+					VPO_DeleteContext(context);
+				}
+			}
 		}
 
 		#endregion

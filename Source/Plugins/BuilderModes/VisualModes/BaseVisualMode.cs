@@ -184,7 +184,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			
 			//mxd
 			this.copybuffer = new List<ThingCopyData>();
-			this.selectioninfoupdatetimer = new Timer();
+			this.selectioninfoupdatetimer = new GuardedTimer();
 			selectioninfoupdatetimer.Interval = 100;
 			selectioninfoupdatetimer.Tick += SelectioninfoupdatetimerOnTick;
 			

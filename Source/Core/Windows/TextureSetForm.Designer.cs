@@ -40,7 +40,7 @@ namespace CodeImp.DoomBuilder.Windows
             this.addfilter = new System.Windows.Forms.Button();
             this.removefilter = new System.Windows.Forms.Button();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.filterstimer = new System.Windows.Forms.Timer(this.components);
+            this.filterstimer = new GuardedTimer(this.components);
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.nomatchesbutton = new System.Windows.Forms.RadioButton();
             this.matchesbutton = new System.Windows.Forms.RadioButton();

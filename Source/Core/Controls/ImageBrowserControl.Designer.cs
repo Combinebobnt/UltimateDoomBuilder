@@ -47,7 +47,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.filterWidth = new CodeImp.DoomBuilder.Controls.ButtonsNumericTextbox();
 			this.texturetypecombo = new System.Windows.Forms.ComboBox();
 			this.objectname = new System.Windows.Forms.TextBox();
-			this.refreshtimer = new System.Windows.Forms.Timer(this.components);
+			this.refreshtimer = new GuardedTimer(this.components);
 			((System.ComponentModel.ISupportInitialize)(this.splitter)).BeginInit();
 			this.splitter.Panel1.SuspendLayout();
 			this.splitter.Panel2.SuspendLayout();

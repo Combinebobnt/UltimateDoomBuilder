@@ -33,7 +33,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.copyselected = new System.Windows.Forms.Button();
 			this.clearlist = new System.Windows.Forms.Button();
 			this.close = new System.Windows.Forms.Button();
-			this.checkerrors = new System.Windows.Forms.Timer(this.components);
+			this.checkerrors = new GuardedTimer(this.components);
 			this.checkshow = new System.Windows.Forms.CheckBox();
 			this.grid = new System.Windows.Forms.DataGridView();
 			this.iconcolumn = new System.Windows.Forms.DataGridViewImageColumn();

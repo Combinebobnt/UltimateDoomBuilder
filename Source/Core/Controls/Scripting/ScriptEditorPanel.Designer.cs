@@ -65,8 +65,8 @@ namespace CodeImp.DoomBuilder.Controls
 			this.statuslabel = new System.Windows.Forms.ToolStripStatusLabel();
 			this.positionlabel = new System.Windows.Forms.ToolStripStatusLabel();
 			this.scripttype = new System.Windows.Forms.ToolStripStatusLabel();
-			this.statusflasher = new System.Windows.Forms.Timer(this.components);
-			this.statusresetter = new System.Windows.Forms.Timer(this.components);
+			this.statusflasher = new GuardedTimer(this.components);
+			this.statusresetter = new GuardedTimer(this.components);
 			this.menustrip = new System.Windows.Forms.MenuStrip();
 			this.filemenuitem = new System.Windows.Forms.ToolStripMenuItem();
 			this.menusave = new System.Windows.Forms.ToolStripMenuItem();

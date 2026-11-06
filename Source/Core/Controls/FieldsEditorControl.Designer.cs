@@ -37,7 +37,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.fieldname = new System.Windows.Forms.DataGridViewTextBoxColumn();
 			this.fieldtype = new System.Windows.Forms.DataGridViewComboBoxColumn();
 			this.fieldvalue = new System.Windows.Forms.DataGridViewTextBoxColumn();
-			this.deleterowstimer = new System.Windows.Forms.Timer(this.components);
+			this.deleterowstimer = new GuardedTimer(this.components);
 			this.browsebutton = new System.Windows.Forms.Button();
 			this.enumscombo = new System.Windows.Forms.ComboBox();
 			((System.ComponentModel.ISupportInitialize)(this.fieldslist)).BeginInit();

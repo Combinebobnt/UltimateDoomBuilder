@@ -37,7 +37,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		OK,
 		Canceled,
 		OutOfMemory,
-		ImageTooBig
+		ImageTooBig,
+		Failed
 	}
 
 	public partial class ImageExportSettingsForm : Form
@@ -199,6 +200,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 					MessageBox.Show("Exporting failed. There's likely not enough consecutive free memory to create the image. Try a lower color depth or file format", "Export failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				else if(ier == ImageExportResult.ImageTooBig)
 					MessageBox.Show("Exporting failed. The image is likely too big for the current settings. Try a lower color depth or file format", "Export failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				else if(ier == ImageExportResult.Failed)
+					MessageBox.Show("Exporting failed. See the Errors and Warnings window for details.", "Export failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 
 			exporting = false;
@@ -253,12 +256,12 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		/// <param name="settings">Export settings</param>
 		private void RunExport(ImageExportSettings settings)
 		{
-			ICollection<Sector> sectors = General.Map.Map.SelectedSectorsCount == 0 ? General.Map.Map.Sectors : General.Map.Map.GetSelectedSectors(true);
-
-			ImageExporter exporter = new ImageExporter(sectors, settings, AddProgress, ShowPhase, CheckCancelExport);
-
 			try
 			{
+				ICollection<Sector> sectors = General.Map.Map.SelectedSectorsCount == 0 ? General.Map.Map.Sectors : General.Map.Map.GetSelectedSectors(true);
+
+				ImageExporter exporter = new ImageExporter(sectors, settings, AddProgress, ShowPhase, CheckCancelExport);
+
 				exporter.Export();
 			}
 			catch (ArgumentException) // Happens if there's not enough consecutive memory to create the file
@@ -274,6 +277,14 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			catch(ImageExportImageTooBigException)
 			{
 				StopExport(ImageExportResult.ImageTooBig);
+				return;
+			}
+			catch(Exception e)
+			{
+				// Anything else, an unwritable path included. Uncaught, it ends the editor
+				General.WriteLogLine("Image export failed: " + e);
+				General.ErrorLogger.Add(ErrorType.Error, "Image export failed. " + e.GetType().Name + ": " + e.Message);
+				StopExport(ImageExportResult.Failed);
 				return;
 			}
 

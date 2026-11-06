@@ -110,7 +110,7 @@ namespace CodeImp.DoomBuilder
 			this.bindcontrol = bindcontrol;
 
 			// Create the timer that will handle moving the toasts. Do not start it, though
-			timer = new Timer();
+			timer = new GuardedTimer();
 			timer.Interval = 1; // Actually only called every 1/64 second, because Windows
 			timer.Tick += UpdateEvent;
 

@@ -52,7 +52,7 @@ namespace CodeImp.DoomBuilder
 			if (General.Settings.Autosave)
 			{
 				lasttime = Clock.CurrentTime;
-				timer = new System.Windows.Forms.Timer() { Interval = 1000 };
+				timer = new GuardedTimer() { Interval = 1000 };
 				timer.Tick += TryAutosave;
 				timer.Enabled = true;
 			}

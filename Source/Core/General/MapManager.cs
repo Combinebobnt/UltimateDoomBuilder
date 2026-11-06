@@ -64,6 +64,8 @@ namespace CodeImp.DoomBuilder
 		private bool changed;
 		private bool scriptschanged;
 		private bool maploading; //mxd
+		private volatile bool issaving;
+		private string restoredbackup; // Deleted only once the load that restored it is done
 
 		// Map information
 		private string filetitle;
@@ -110,6 +112,9 @@ namespace CodeImp.DoomBuilder
 		public DataManager Data { get { return data; } }
 		public bool IsChanged { get { return changed | CheckScriptChanged(); } set { changed |= value; if(!maploading) General.MainWindow.UpdateMapChangedStatus(); } }
 		public bool IsDisposed { get { return isdisposed; } }
+		// changed, not IsChanged: the backup holds no scripts, and an unchanged map must not raise a restore prompt
+		internal bool ShouldBackupOnCrash { get { return changed && !maploading && !isdisposed; } }
+		internal bool IsSaving { get { return issaving; } }
 		internal RenderDevice Graphics { get { return graphics; } }
 		public IRenderer2D Renderer2D { get { return renderer2d; } }
 		public IRenderer3D Renderer3D { get { return renderer3d; } }
@@ -485,6 +490,7 @@ namespace CodeImp.DoomBuilder
 			// Success
 			this.changed = maprestored; //mxd
 			this.maploading = false; //mxd
+			DeleteRestoredBackup();
 			General.WriteLogLine("Map loading done");
 			General.MainWindow.UpdateMapChangedStatus(); //mxd
 			return true;
@@ -603,6 +609,7 @@ namespace CodeImp.DoomBuilder
 			// Success
 			this.changed = maprestored;
 			this.maploading = false;
+			DeleteRestoredBackup();
 			General.WriteLogLine("Map switching done");
 			General.MainWindow.UpdateMapChangedStatus();
 			return true;
@@ -612,6 +619,7 @@ namespace CodeImp.DoomBuilder
 		private bool CreateMapSet(MapSet newmap, string filepathname, MapOptions options, out bool maprestored)
 		{
 			maprestored = false;
+			restoredbackup = null;
 			string wadname = Path.GetFileNameWithoutExtension(filepathname);
 			if(!string.IsNullOrEmpty(wadname))
 			{
@@ -637,8 +645,8 @@ namespace CodeImp.DoomBuilder
 							// Restore map
 							newmap.Deserialize(SharpCompressHelper.DecompressStream(new MemoryStream(File.ReadAllBytes(backuppath))));
 
-							// Delete the backup
-							File.Delete(backuppath);
+							// Deleted after the load, so a crash during it keeps the backup
+							restoredbackup = backuppath;
 						}
 						catch(Exception e) 
 						{
@@ -797,8 +805,16 @@ namespace CodeImp.DoomBuilder
 			return true;
 		}
 
+		// IsSaving holds the crash handler's kill off while the target file is being rewritten
+		internal bool SaveMap(string newfilepathname, SavePurpose purpose)
+		{
+			issaving = true;
+			try { return SaveMapBody(newfilepathname, purpose); }
+			finally { issaving = false; }
+		}
+
 		// Initializes for an existing map
-		internal bool SaveMap(string newfilepathname, SavePurpose purpose) 
+		private bool SaveMapBody(string newfilepathname, SavePurpose purpose)
 		{
 			// Add the autosave suffix. As all existing autosave will be shifted up this is static
 			if (purpose == SavePurpose.Autosave)
@@ -1220,7 +1236,7 @@ namespace CodeImp.DoomBuilder
 					// Export map
 					MemoryStream ms = map.Serialize();
 					ms.Seek(0, SeekOrigin.Begin);
-					File.WriteAllBytes(backuppath, SharpCompressHelper.CompressStream(ms).ToArray());
+					WriteBackupFile(backuppath, SharpCompressHelper.CompressStream(ms).ToArray());
 
 					// Log it
 					General.WriteLogLine("Map backup saved to \"" + backuppath + "\"");
@@ -1238,6 +1254,24 @@ namespace CodeImp.DoomBuilder
 				General.WriteLogLine("Map backup saving failed: " + e.Source + ": " + e.Message);
 			}
 #endif
+		}
+
+		// Writes beside the target and swaps it in, so a failed write never leaves a truncated backup
+		internal static void WriteBackupFile(string path, byte[] data)
+		{
+			string temp = path + ".tmp";
+			File.WriteAllBytes(temp, data);
+			if(File.Exists(path)) File.Replace(temp, path, null);
+			else File.Move(temp, path);
+		}
+
+		private void DeleteRestoredBackup()
+		{
+			if(restoredbackup == null) return;
+			string path = restoredbackup;
+			restoredbackup = null;
+			try { File.Delete(path); }
+			catch(Exception e) { General.WriteLogLine("Unable to delete the restored map backup \"" + path + "\": " + e.GetType().Name + ": " + e.Message); }
 		}
 
 		#endregion

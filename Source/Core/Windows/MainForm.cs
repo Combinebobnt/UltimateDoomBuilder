@@ -752,7 +752,7 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 
 				// If we call General.OpenMapFile here, it will lock the source window in the waiting state untill OpenMapOptionsForm is closed.
-				Timer t = new Timer { Tag = filepaths[0], Interval = 10 };
+				Timer t = new GuardedTimer { Tag = filepaths[0], Interval = 10 };
 				t.Tick += OnDragDropTimerTick;
 				t.Start();
 			}
@@ -1099,8 +1099,8 @@ namespace CodeImp.DoomBuilder.Windows
 			// Map opened?
 			if(General.Map != null)
 			{
-				// Display was resized?
-				if(displayresized)
+				// Display was resized? Skip the projection while a map load hasn't created its DataManager yet
+				if(displayresized && General.Map.Data != null)
 				{
 					//mxd. Aspect ratio may've been changed
 					General.Map.CRenderer3D.CreateProjection();

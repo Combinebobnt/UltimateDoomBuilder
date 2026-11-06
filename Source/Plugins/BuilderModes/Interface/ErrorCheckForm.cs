@@ -149,7 +149,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			resultslist = new List<ErrorResult>();
 			hiddentresulttypes = new List<Type>();
 
-			flushtimer = new System.Windows.Forms.Timer(components);
+			flushtimer = new GuardedTimer(components);
 			flushtimer.Interval = 100;
 			flushtimer.Tick += (sender, e) => FlushPending(false);
 		}

@@ -373,82 +373,97 @@ namespace CodeImp.DoomBuilder.Editing
 		// Background thread
 		private void BackgroundThread()
 		{
-			while(true)
+			// Dispose's Interrupt can land on any lock or Sleep in here
+			try
 			{
-				if(dobackgroundwork)
+				while(true)
 				{
-					// First set dobackgroundwork to false before performing the work so
-					// that it can be set to true again when another pass is needed
-					dobackgroundwork = false;
-
-					int undolevel = 0;
-					UndoSnapshot us;
-					while(true)
+					if(dobackgroundwork)
 					{
-						// Get the next snapshot or leave
-						lock(undos)
+						// First set dobackgroundwork to false before performing the work so
+						// that it can be set to true again when another pass is needed
+						dobackgroundwork = false;
+
+						try
 						{
-							if(undolevel < undos.Count)
-								us = undos[undolevel];
-							else
-								break;
+							int undolevel = 0;
+							UndoSnapshot us;
+							while(true)
+							{
+								// Get the next snapshot or leave
+								lock(undos)
+								{
+									if(undolevel < undos.Count)
+										us = undos[undolevel];
+									else
+										break;
+								}
+
+								// Write to file or load from file, if needed
+								if(us.StoreOnDisk && !us.IsOnDisk)
+									us.WriteToFile();
+								else if(!us.StoreOnDisk && us.IsOnDisk)
+									us.RestoreFromFile();
+
+								// Next
+								undolevel++;
+							}
+
+							int redolevel = 0;
+							while(true)
+							{
+								// Get the next snapshot or leave
+								lock(redos)
+								{
+									if(redolevel < redos.Count)
+										us = redos[redolevel];
+									else
+										break;
+								}
+
+								// Write to file or load from file, if needed
+								if(us.StoreOnDisk && !us.IsOnDisk)
+									us.WriteToFile();
+								else if(!us.StoreOnDisk && us.IsOnDisk)
+									us.RestoreFromFile();
+
+								// Next
+								redolevel++;
+							}
+
+							int branchlevel = 0;
+							while(true)
+							{
+								lock(branch)
+								{
+									if(branchlevel < branch.Count)
+										us = branch[branchlevel];
+									else
+										break;
+								}
+
+								if(us.StoreOnDisk && !us.IsOnDisk)
+									us.WriteToFile();
+								else if(!us.StoreOnDisk && us.IsOnDisk)
+									us.RestoreFromFile();
+
+								branchlevel++;
+							}
 						}
-
-						// Write to file or load from file, if needed
-						if(us.StoreOnDisk && !us.IsOnDisk)
-							us.WriteToFile();
-						else if(!us.StoreOnDisk && us.IsOnDisk)
-							us.RestoreFromFile();
-
-						// Next
-						undolevel++;
+						// Eating the interrupt here would leave Dispose's Join waiting forever
+						catch(ThreadInterruptedException) { throw; }
+						catch(Exception e)
+						{
+							// A snapshot that failed to move stays where it was, so carry on
+							General.WriteLogLine("Undo snapshot compressor failed: " + e);
+							General.ErrorLogger.Add(ErrorType.Error, "Undo snapshot compressor failed. " + e.GetType().Name + ": " + e.Message);
+						}
 					}
 
-					int redolevel = 0;
-					while(true)
-					{
-						// Get the next snapshot or leave
-						lock(redos)
-						{
-							if(redolevel < redos.Count)
-								us = redos[redolevel];
-							else
-								break;
-						}
-
-						// Write to file or load from file, if needed
-						if(us.StoreOnDisk && !us.IsOnDisk)
-							us.WriteToFile();
-						else if(!us.StoreOnDisk && us.IsOnDisk)
-							us.RestoreFromFile();
-
-						// Next
-						redolevel++;
-					}
-
-					int branchlevel = 0;
-					while(true)
-					{
-						lock(branch)
-						{
-							if(branchlevel < branch.Count)
-								us = branch[branchlevel];
-							else
-								break;
-						}
-
-						if(us.StoreOnDisk && !us.IsOnDisk)
-							us.WriteToFile();
-						else if(!us.StoreOnDisk && us.IsOnDisk)
-							us.RestoreFromFile();
-
-						branchlevel++;
-					}
+					Thread.Sleep(30);
 				}
-
-				try { Thread.Sleep(30); }
-				catch(ThreadInterruptedException) { break; }
 			}
+			catch(ThreadInterruptedException) { }
 		}
 		
 		// This starts a new recording

@@ -68,7 +68,7 @@ namespace CodeImp.DoomBuilder.Controls
 			highlighttab = -1;
 
 			//mxd. Tab notify anmimation
-			notifytimer = new Timer { Interval = 500 };
+			notifytimer = new GuardedTimer { Interval = 500 };
 			notifytimer.Tick += NotifyTimerOnTick;
 		}
 		

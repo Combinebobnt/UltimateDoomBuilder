@@ -291,7 +291,7 @@ namespace CodeImp.DoomBuilder.UDBScript
 
 			// The timer ticks ever 100ms. The method it runs checks how long the script is running
 			// and makes the form visible if the runtime threshold has been reached
-			timer = new System.Windows.Forms.Timer();
+			timer = new GuardedTimer();
 			timer.Interval = 100;
 			timer.Tick += timerShow_Tick;
 			timer.Start();

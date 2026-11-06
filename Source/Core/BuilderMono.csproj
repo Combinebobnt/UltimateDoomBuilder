@@ -237,6 +237,8 @@
     <Compile Include="Data\FlatImage.cs" />
     <Compile Include="Data\ImageLoadState.cs" />
     <Compile Include="General\AutoSaver.cs" />
+    <Compile Include="General\CrashHandler.cs" />
+    <Compile Include="General\GuardedTimer.cs" />
     <Compile Include="General\Hasher.cs" />
     <Compile Include="General\MultiDictionary.cs" />
     <Compile Include="General\SortedMerge.cs" />
@@ -1042,6 +1044,7 @@
     <Compile Include="General\CRC.cs" />
     <Compile Include="General\ErrorItem.cs" />
     <Compile Include="General\ErrorLogger.cs" />
+    <Compile Include="General\ExceptionReport.cs" />
     <Compile Include="General\FileLockChecker.cs" />
     <Compile Include="General\UIActionQueue.cs" />
     <Compile Include="General\MD5Hash.cs" />

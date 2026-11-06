@@ -627,8 +627,7 @@ namespace CodeImp.DoomBuilder
 			#else
 				debugbuild = false;
 				//mxd. Custom exception dialog.
-				AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
-				Application.ThreadException += Application_ThreadException;
+				CrashHandler.Install();
 			#endif
 
 #if MONO_WINFORMS
@@ -692,8 +691,8 @@ namespace CodeImp.DoomBuilder
 				commithash = "0000000";
 			}
 			
-			// Remove the previous log file and start logging
-			if(File.Exists(logfile)) File.Delete(logfile);
+			// Keep the previous log as .1 and start logging
+			RotateLogFile(logfile);
             string platform = Environment.Is64BitProcess ? "x64" : "x86";
 			General.WriteLogLine("Ultimate Doom Builder R" + thisasm.GetName().Version.Revision + " (" + platform + ", " + commithash + ") startup"); //mxd
 			General.WriteLogLine("Application path:        \"" + apppath + "\"");
@@ -788,6 +787,10 @@ namespace CodeImp.DoomBuilder
 				General.WriteLogLine("Creating types manager...");
 				types = new TypesManager();
 				
+				// Prepare autosaving. Must come before the delayed auto map load below:
+				// MapManager.InitializeOpenMap calls General.AutoSaver.InitializeTimer().
+				autosaver = new AutoSaver();
+
 				// Do auto map loading when window is delayed
 				if(delaymainwindow) mainwindow.PerformAutoMapLoading();
 				
@@ -822,7 +825,7 @@ namespace CodeImp.DoomBuilder
 				//mxd. Check backup files
 				if(Directory.Exists(restorepath))
 				{
-					foreach(string backup in Directory.GetFiles(restorepath, "*.restore"))
+					foreach(string backup in Directory.GetFiles(restorepath, "*.restore*"))
 					{
 						// Remove if created more than a month ago
 						if((DateTime.Now - File.GetLastWriteTime(backup)).TotalDays > 30)
@@ -837,9 +840,6 @@ namespace CodeImp.DoomBuilder
 #if !NO_UPDATER
 				if(General.Settings.CheckForUpdates) UpdateChecker.PerformCheck(false);
 #endif
-
-				// Prepare autosaving
-				autosaver = new AutoSaver();
 
 				// Run application from the main window
 				Application.Run(mainwindow);
@@ -1800,6 +1800,23 @@ namespace CodeImp.DoomBuilder
 			Terminate(false);
 		}
 		
+		// Moves path to path.1, one generation. Never throws: a read-only settings dir must not stop startup
+		internal static void RotateLogFile(string path)
+		{
+			try
+			{
+				if(!File.Exists(path)) return;
+				string previous = path + ".1";
+				if(File.Exists(previous)) File.Delete(previous);
+				File.Move(path, previous);
+			}
+			catch(Exception)
+			{
+				try { if(File.Exists(path)) File.Delete(path); }
+				catch(Exception) { }
+			}
+		}
+
 		// This outputs log information
 		public static void WriteLogLine(string line)
 		{
@@ -2310,71 +2327,6 @@ namespace CodeImp.DoomBuilder
 			return plugins.GetPluginAssemblies();
 		}
 		
-#endregion
-
-#region ==================  mxd. Uncaught exceptions handling
-
-		// In some cases the program can remain operational after these
-		private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e) 
-		{
-			try 
-			{
-				// Try handling it in user-friendy way...
-				ExceptionDialog dlg = new ExceptionDialog(e);
-				dlg.Setup();
-				if(dlg.ShowDialog() == DialogResult.Cancel) Terminate(false);
-			} 
-			catch
-			{
-				string exceptionmsg;
-
-				// Try getting exception details...
-				try { exceptionmsg = "Fatal Windows Forms error occurred: " + e.Exception.Message + "\n\nStack Trace:\n" + e.Exception.StackTrace; }
-				catch(Exception exc) { exceptionmsg = "Failed to get initial exception details: " + exc.Message + "\n\nStack Trace:\n" + exc.StackTrace; }
-
-				// Try logging it...
-				try { WriteLogLine(exceptionmsg); } catch { }
-
-				// Try displaying it to the user...
-				try { MessageBox.Show(exceptionmsg, "Fatal Windows Forms Error", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
-				finally { Process.GetCurrentProcess().Kill(); }
-			}
-		}
-
-		// These are usually unrecoverable
-		private static void CurrentDomainOnUnhandledException(object sender, UnhandledExceptionEventArgs e) 
-		{
-			try
-			{
-				// Try handling it in user-friendy way...
-				ExceptionDialog dlg = new ExceptionDialog(e);
-				dlg.Setup();
-				if(dlg.ShowDialog() == DialogResult.Cancel) Terminate(false);
-			}
-			catch
-			{
-				string exceptionmsg;
-
-				// Try getting exception details...
-				try
-				{
-					Exception ex = (Exception)e.ExceptionObject;
-					exceptionmsg = "Fatal Non-UI error:\n" + ex.Message + "\n\nStack Trace:\n" + ex.StackTrace;
-				}
-				catch(Exception exc)
-				{
-					exceptionmsg = "Failed to get initial exception details:\n" + exc.Message + "\n\nStack Trace:\n" + exc.StackTrace;
-				}
-
-				// Try logging it...
-				try { WriteLogLine(exceptionmsg); } catch {}
-
-				// Try displaying it to the user...
-				try { MessageBox.Show(exceptionmsg, "Fatal Non-UI Error", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
-				finally { Process.GetCurrentProcess().Kill(); }
-			}
-		}
-
 #endregion
 
 	}

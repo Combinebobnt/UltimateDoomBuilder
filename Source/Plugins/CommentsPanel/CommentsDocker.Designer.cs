@@ -23,7 +23,7 @@ namespace CodeImp.DoomBuilder.CommentsPanel
 			this.grid = new System.Windows.Forms.DataGridView();
 			this.iconcolumn = new System.Windows.Forms.DataGridViewImageColumn();
 			this.textcolumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
-			this.updatetimer = new System.Windows.Forms.Timer(this.components);
+			this.updatetimer = new GuardedTimer(this.components);
 			this.contextmenu = new System.Windows.Forms.ContextMenuStrip(this.components);
 			this.editobjectitem = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
@@ -34,7 +34,7 @@ namespace CodeImp.DoomBuilder.CommentsPanel
 			this.addcomment = new System.Windows.Forms.Button();
 			this.addcommentgroup = new System.Windows.Forms.GroupBox();
 			this.addcommenttext = new System.Windows.Forms.TextBox();
-			this.enabledtimer = new System.Windows.Forms.Timer(this.components);
+			this.enabledtimer = new GuardedTimer(this.components);
 			this.optionsgroup.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
 			this.contextmenu.SuspendLayout();

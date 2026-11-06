@@ -265,7 +265,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// One delayed geometry sample. The last one also writes the per-open summary line.
 		private void GeomDebugSample(int delay, bool summarise)
 		{
-			Timer t = new Timer { Interval = delay };
+			Timer t = new GuardedTimer { Interval = delay };
 			t.Tick += delegate
 			{
 				t.Stop();

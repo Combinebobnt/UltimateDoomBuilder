@@ -108,8 +108,7 @@ namespace CodeImp.DoomBuilder.Editing
 				if(isdisposed) return;
 				if(isondisk) return;
 				if(!storeondisk) return; // became the next level while the thread waited; it may be playing back now
-				isondisk = true;
-				
+
 				// Compress data
 				recstream.Seek(0, SeekOrigin.Begin);
 				MemoryStream outstream = SharpCompressHelper.CompressStream(recstream); //mxd
@@ -119,6 +118,9 @@ namespace CodeImp.DoomBuilder.Editing
 
 				// Write data to file
 				File.WriteAllBytes(filename, outstream.ToArray());
+
+				// Only now: a failed write must leave the snapshot readable from memory
+				isondisk = true;
 
 				// Remove data from memory
 				recstream.Dispose();

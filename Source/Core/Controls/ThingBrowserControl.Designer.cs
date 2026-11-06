@@ -47,7 +47,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.label1 = new System.Windows.Forms.Label();
 			this.tbFilter = new System.Windows.Forms.TextBox();
 			this.bClear = new System.Windows.Forms.Button();
-			this.updatetimer = new System.Windows.Forms.Timer(this.components);
+			this.updatetimer = new GuardedTimer(this.components);
 			this.typelist = new CodeImp.DoomBuilder.Controls.MultiSelectTreeview();
 			this.infopanel.SuspendLayout();
 			this.spritepanel.SuspendLayout();
