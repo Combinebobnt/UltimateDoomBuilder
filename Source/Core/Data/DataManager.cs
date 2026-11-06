@@ -791,7 +791,17 @@ namespace CodeImp.DoomBuilder.Data
                             Monitor.Wait(syncobject);
                     }
 
-					image?.BackgroundLoadImage();
+					try
+					{
+						image?.BackgroundLoadImage();
+					}
+					catch(ThreadInterruptedException)
+					{
+						// Stopped mid-image: unmark it, or QueueLoadImage never loads it again
+						if(image.ImageState == ImageLoadState.Loading) image.ImageState = ImageLoadState.None;
+						if(image.PreviewState == ImageLoadState.Loading) image.PreviewState = ImageLoadState.None;
+						throw;
+					}
                 }
 			}
 			catch(ThreadInterruptedException) { }

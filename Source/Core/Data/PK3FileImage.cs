@@ -19,6 +19,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 using CodeImp.DoomBuilder.IO;
 
 #endregion
@@ -114,9 +115,20 @@ namespace CodeImp.DoomBuilder.Data
             // Load file data
             Bitmap bitmap = null;
             string error = null;
-			MemoryStream filedata = datareader.LoadFile(filepathname); //mxd
+			MemoryStream filedata;
 
             isBadForLongTextureNames = false;
+
+			// Outside batch mode the archive is reopened per file, so it may have vanished or been truncated since
+			try
+			{
+				filedata = datareader.LoadFile(filepathname); //mxd
+			}
+			catch(ThreadInterruptedException) { throw; }
+			catch(Exception e)
+			{
+				return new LocalLoadResult(null, "Image file \"" + filepathname + "\" could not be read from archive \"" + datareader.Location.GetDisplayName() + "\", while loading texture \"" + this.Name + "\" (" + e.GetType().Name + ": " + e.Message + "). Consider reloading resources.");
+			}
 
             if (filedata != null)
 			{

@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using CodeImp.DoomBuilder.Compilers;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.IO;
@@ -144,6 +145,7 @@ namespace CodeImp.DoomBuilder.Data
 					}
 				}
 			}
+			catch(ThreadInterruptedException) { throw; }
 			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading patch \"" + pname + "\" from directory: " + e.Message);
@@ -195,6 +197,7 @@ namespace CodeImp.DoomBuilder.Data
 					}
 				}
 			}
+			catch(ThreadInterruptedException) { throw; }
 			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading texture \"" + pname + "\" from directory: " + e.Message);
@@ -228,6 +231,7 @@ namespace CodeImp.DoomBuilder.Data
 					return LoadFile(filename);
 				}
 			}
+			catch(ThreadInterruptedException) { throw; }
 			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading HiRes texture \"" + name + "\" from directory: " + e.Message);
@@ -261,6 +265,7 @@ namespace CodeImp.DoomBuilder.Data
 					return LoadFile(filename);
 				}
 			}
+			catch(ThreadInterruptedException) { throw; }
 			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading colormap \"" + pname + "\" from directory: " + e.Message);
@@ -298,6 +303,7 @@ namespace CodeImp.DoomBuilder.Data
 					return LoadFile(filename);
 				}
 			}
+			catch(ThreadInterruptedException) { throw; }
 			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading sprite \"" + pname + "\" from directory: " + e.Message);
@@ -385,6 +391,7 @@ namespace CodeImp.DoomBuilder.Data
 					return LoadFile(filename);
 				}
 			}
+			catch(ThreadInterruptedException) { throw; }
 			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading voxel \"" + name + "\" from directory: " + e.Message);
@@ -501,7 +508,9 @@ namespace CodeImp.DoomBuilder.Data
 					s = new MemoryStream(File.ReadAllBytes(Path.Combine(location.location, casecorrectfilename)));
 				}
 			} 
-			catch(Exception e) 
+			// A background loader interrupted on the lock must see it, or StopBackgroundLoader hangs in Join
+			catch(ThreadInterruptedException) { throw; }
+			catch(Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, "Unable to load file: " + e.Message);
 			}

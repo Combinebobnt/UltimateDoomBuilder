@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using CodeImp.DoomBuilder.Compilers;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.IO;
@@ -41,6 +42,7 @@ namespace CodeImp.DoomBuilder.Data
 		private /*readonly*/ Dictionary<string, byte[]> sevenzipentries; //mxd
 		private bool batchmode = true; //mxd
 		private FileStream filestream;
+		private Dictionary<string, IArchiveEntry> entryindex; // Belongs to the open archive, so it goes when that closes
 
 		#endregion
 
@@ -138,6 +140,7 @@ namespace CodeImp.DoomBuilder.Data
             // Get rid of archive
             archive.Dispose();
             archive = null;
+            entryindex = null;
 
 			filestream.Dispose();
 			filestream = null;
@@ -172,6 +175,7 @@ namespace CodeImp.DoomBuilder.Data
 				{
 					archive.Dispose();
 					archive = null;
+					entryindex = null;
 				}
 
 				if(filestream != null)
@@ -218,12 +222,23 @@ namespace CodeImp.DoomBuilder.Data
 					// Take the detour with a FileStream because SharpCompress doesn't directly support opening files as read-only
 					filestream = File.Open(location.location, FileMode.OpenOrCreate, access, share);
 
-					archive = ArchiveFactory.Open(filestream);
+					// A truncated file fails here, and every later load would leak another handle
+					try
+					{
+						archive = ArchiveFactory.Open(filestream);
+					}
+					catch
+					{
+						filestream.Dispose();
+						filestream = null;
+						throw;
+					}
 				}
 				else if (!enable && !batchmode && archive != null)
 				{
 					archive.Dispose();
 					archive = null;
+					entryindex = null;
 
 					filestream.Dispose();
 					filestream = null;
@@ -485,6 +500,7 @@ namespace CodeImp.DoomBuilder.Data
 					return LoadFile(filename);
 				}
 			}
+			catch (ThreadInterruptedException) { throw; } // StopBackgroundLoader's interrupt, swallowing it hangs Join
 			catch (Exception e)
 			{
 				if (!Silent) General.ErrorLogger.Add(ErrorType.Error, e.GetType().Name + " while loading voxel \"" + name + "\" from PK3: " + e.Message);
@@ -600,44 +616,37 @@ namespace CodeImp.DoomBuilder.Data
 				{
 					UpdateArchive(true);
 
-					foreach (var entry in archive.Entries)
+					// Scanning the entries for every file under this lock is what made first loads crawl on large PK3s
+					if (entryindex == null) entryindex = BuildEntryIndex();
+
+					// Is this an entry we have?
+					IArchiveEntry entry;
+					if (entryindex.TryGetValue(fn, out entry))
 					{
-						if (entry.IsDirectory) continue;
+						filedata = new MemoryStream();
 
-						// As per ZIP specification, forward slashes are used as directory separators, but programs may create them with backslashes
-						// See https://github.com/UltimateDoomBuilder/UltimateDoomBuilder/issues/1281
-						string entryname = entry.Key.Replace('\\', '/');
-
-						// Is this the entry we are looking for?
-						if (string.Compare(entryname, fn, true) == 0)
+						try
 						{
-							filedata = new MemoryStream();
+							entry.WriteTo(filedata);
+						}
+						catch(SharpCompress.Compressors.Deflate.ZlibException)
+						{
+							// This happens when the PK3 was modified externally and the resources were not reloaded
+							if (!Silent) General.ErrorLogger.Add(ErrorType.Error, "Cannot load the file \"" + filename + "\" from archive \"" + location.GetDisplayName() + "\". Did you modify the archive without reloading the resouces?");
 
-							try
-							{
-								entry.WriteTo(filedata);
-							}
-							catch(SharpCompress.Compressors.Deflate.ZlibException)
-							{
-								// This happens when the PK3 was modified externally and the resources were not reloaded
-								if (!Silent) General.ErrorLogger.Add(ErrorType.Error, "Cannot load the file \"" + filename + "\" from archive \"" + location.GetDisplayName() + "\". Did you modify the archive without reloading the resouces?");
+							filedata.Dispose();
+							filedata = null;
 
-								filedata.Dispose();
-								filedata = null;
+							return null;
+						}
+						catch(NotSupportedException e)
+						{
+							if (!Silent) General.ErrorLogger.Add(ErrorType.Error, "Cannot load the file \"" + filename + "\" from archive \"" + location.GetDisplayName() + "\". " + e.Message);
 
-								return null;
-							}
-							catch(NotSupportedException e)
-							{
-								if (!Silent) General.ErrorLogger.Add(ErrorType.Error, "Cannot load the file \"" + filename + "\" from archive \"" + location.GetDisplayName() + "\". " + e.Message);
+							filedata.Dispose();
+							filedata = null;
 
-								filedata.Dispose();
-								filedata = null;
-
-								return null;
-							}
-
-							break;
+							return null;
 						}
 					}
 
@@ -655,6 +664,25 @@ namespace CodeImp.DoomBuilder.Data
 
 			filedata.Position = 0; //mxd. rewind before use
 			return filedata;
+		}
+
+		private Dictionary<string, IArchiveEntry> BuildEntryIndex()
+		{
+			Dictionary<string, IArchiveEntry> index = new Dictionary<string, IArchiveEntry>(StringComparer.OrdinalIgnoreCase);
+
+			foreach (IArchiveEntry entry in archive.Entries)
+			{
+				if (entry.IsDirectory) continue;
+
+				// As per ZIP specification, forward slashes are used as directory separators, but programs may create them with backslashes
+				// See https://github.com/UltimateDoomBuilder/UltimateDoomBuilder/issues/1281
+				string entryname = entry.Key.Replace('\\', '/');
+
+				// The first of several entries with the same name is the one that gets loaded
+				if (!index.ContainsKey(entryname)) index.Add(entryname, entry);
+			}
+
+			return index;
 		}
 
 		//mxd
