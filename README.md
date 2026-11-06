@@ -1,6 +1,6 @@
 # Ultimate Doom Builder
 
-> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) primarily for Linux fixes, but maybe with some extra spices. Works on my machine 8-). See [CHANGELOG.md](CHANGELOG.md).
+> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) primarily for Linux fixes, but maybe with some extra spices. Works on my machine 😎. See [CHANGELOG.md](CHANGELOG.md).
 
 ## System requirements
 - 2.4 GHz CPU or faster (multi-core recommended)
