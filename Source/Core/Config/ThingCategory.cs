@@ -59,7 +59,9 @@ namespace CodeImp.DoomBuilder.Config
 		private readonly bool fixedrotation; //mxd
 		private readonly bool absolutez;
 		private readonly float spritescale;
-		
+		private readonly bool forceheight; //mxd. When true, DECORATE/ZScript Height does not override the game config height
+		private readonly bool forcewidth; //mxd. When true, DECORATE/ZScript Radius does not override the game config width
+
 		// Disposing
 		private bool isdisposed;
 
@@ -84,6 +86,8 @@ namespace CodeImp.DoomBuilder.Config
 		public int Arrow { get { return arrow; } }
 		public float Radius { get { return radius; } }
 		public float Height { get { return height; } }
+		public bool ForceHeight { get { return forceheight; } } //mxd
+		public bool ForceWidth { get { return forcewidth; } } //mxd
 		public int Hangs { get { return hangs; } }
 		public int Blocking { get { return blocking; } }
 		public int ErrorCheck { get { return errorcheck; } }
@@ -127,6 +131,8 @@ namespace CodeImp.DoomBuilder.Config
 				this.fixedrotation = parent.fixedrotation;
 				this.absolutez = parent.absolutez;
 				this.spritescale = parent.spritescale;
+				this.forceheight = parent.forceheight; //mxd
+				this.forcewidth = parent.forcewidth; //mxd
                 this.optional = parent.optional;
 			}
 			// Set default properties
@@ -147,6 +153,8 @@ namespace CodeImp.DoomBuilder.Config
 				this.fixedrotation = false; //mxd
 				this.absolutez = false;
 				this.spritescale = 1.0f;
+				this.forceheight = false; //mxd
+				this.forcewidth = false; //mxd
                 this.optional = false;
 			}
 
@@ -181,8 +189,9 @@ namespace CodeImp.DoomBuilder.Config
 			//mxd. If current block has no settings, it should be a grouping block, not a thing category.
 			if(this.title == name)
 			{
-				string[] props = new[] { "sprite", "sort", "color", "alpha", "renderstyle", "arrow", "width", 
-					"height", "hangs", "blocking", "error", "fixedsize", "fixedrotation", "absolutez", "spritescale" };
+				string[] props = new[] { "sprite", "sort", "color", "alpha", "renderstyle", "arrow", "width",
+					"height", "hangs", "blocking", "error", "fixedsize", "fixedrotation", "absolutez", "spritescale",
+					"forcewidth", "forceheight" };
 
 				isinvalid = true;
 				foreach(string prop in props)
@@ -205,8 +214,27 @@ namespace CodeImp.DoomBuilder.Config
 				this.alpha = cfg.ReadSetting("thingtypes." + name + ".alpha", parent.alpha);
 				this.renderstyle = cfg.ReadSetting("thingtypes." + name + ".renderstyle", parent.renderstyle).ToLower();
 				this.arrow = cfg.ReadSetting("thingtypes." + name + ".arrow", parent.arrow);
-				this.radius = cfg.ReadSetting("thingtypes." + name + ".width", parent.radius);
-				this.height = cfg.ReadSetting("thingtypes." + name + ".height", parent.height);
+				//mxd. forcewidth/forceheight take the dimension value directly and replace width=/height= when used
+				if(cfg.SettingExists("thingtypes." + name + ".forcewidth"))
+				{
+					this.radius = cfg.ReadSetting("thingtypes." + name + ".forcewidth", 0);
+					this.forcewidth = true;
+				}
+				else
+				{
+					this.radius = cfg.ReadSetting("thingtypes." + name + ".width", parent.radius);
+					this.forcewidth = parent.forcewidth;
+				}
+				if(cfg.SettingExists("thingtypes." + name + ".forceheight"))
+				{
+					this.height = cfg.ReadSetting("thingtypes." + name + ".forceheight", 0);
+					this.forceheight = true;
+				}
+				else
+				{
+					this.height = cfg.ReadSetting("thingtypes." + name + ".height", parent.height);
+					this.forceheight = parent.forceheight;
+				}
 				this.hangs = cfg.ReadSetting("thingtypes." + name + ".hangs", parent.hangs);
 				this.blocking = cfg.ReadSetting("thingtypes." + name + ".blocking", parent.blocking);
 				this.errorcheck = cfg.ReadSetting("thingtypes." + name + ".error", parent.errorcheck);
@@ -224,8 +252,27 @@ namespace CodeImp.DoomBuilder.Config
 				this.alpha = General.Clamp(cfg.ReadSetting("thingtypes." + name + ".alpha", 1f), 0f, 1f);
 				this.renderstyle = cfg.ReadSetting("thingtypes." + name + ".renderstyle", "normal").ToLower();
 				this.arrow = cfg.ReadSetting("thingtypes." + name + ".arrow", 0);
-				this.radius = cfg.ReadSetting("thingtypes." + name + ".width", 10);
-				this.height = cfg.ReadSetting("thingtypes." + name + ".height", 20);
+				//mxd. forcewidth/forceheight take the dimension value directly and replace width=/height= when used
+				if(cfg.SettingExists("thingtypes." + name + ".forcewidth"))
+				{
+					this.radius = cfg.ReadSetting("thingtypes." + name + ".forcewidth", 0);
+					this.forcewidth = true;
+				}
+				else
+				{
+					this.radius = cfg.ReadSetting("thingtypes." + name + ".width", 10);
+					this.forcewidth = false;
+				}
+				if(cfg.SettingExists("thingtypes." + name + ".forceheight"))
+				{
+					this.height = cfg.ReadSetting("thingtypes." + name + ".forceheight", 0);
+					this.forceheight = true;
+				}
+				else
+				{
+					this.height = cfg.ReadSetting("thingtypes." + name + ".height", 20);
+					this.forceheight = false;
+				}
 				this.hangs = cfg.ReadSetting("thingtypes." + name + ".hangs", 0);
 				this.blocking = cfg.ReadSetting("thingtypes." + name + ".blocking", 0);
 				this.errorcheck = cfg.ReadSetting("thingtypes." + name + ".error", 1);

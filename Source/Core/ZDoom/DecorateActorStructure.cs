@@ -430,10 +430,10 @@ namespace CodeImp.DoomBuilder.ZDoom
 
                                 //properties
                                 if (!props.ContainsKey("height"))
-                                    props["height"] = new List<string> { ti.Value.Height.ToString() };
+                                    props["height"] = new List<string> { ti.Value.Height.ToString(CultureInfo.InvariantCulture) };
 
                                 if (!props.ContainsKey("radius"))
-                                    props["radius"] = new List<string> { ti.Value.Radius.ToString() };
+                                    props["radius"] = new List<string> { ti.Value.Radius.ToString(CultureInfo.InvariantCulture) };
                             }
 
                             // [ZZ] inherit arguments from game configuration
@@ -456,7 +456,7 @@ namespace CodeImp.DoomBuilder.ZDoom
                     }
 
                     if (baseclass == null)
-                        parser.LogWarning("Unable to find \"" + inheritclass + "\" class to inherit from, while parsing \"" + classname + ":" + doomednum + "\"");
+                        parser.LogUnresolvedClass(inheritclass, "Unable to find \"" + inheritclass + "\" class to inherit from, while parsing \"" + classname + ":" + doomednum + "\"");
                 }
             }
         }

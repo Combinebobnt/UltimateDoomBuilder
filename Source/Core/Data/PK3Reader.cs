@@ -597,11 +597,28 @@ namespace CodeImp.DoomBuilder.Data
 			return files.GetFirstFile(path, title, subfolders, ext);
 		}
 
+		protected override List<string> FilterFiles(IList<string> names)
+		{
+			return files.ApplyFilters(names);
+		}
+
+		internal override string GetVirtualPath(string filename)
+		{
+			return files.GetVirtualPath(filename);
+		}
+
+		// Readers built without a file list (tests) load by real name only
+		protected override string ResolveFileName(string name)
+		{
+			return (files != null ? files.Resolve(name) : null) ?? name;
+		}
+
 		// This loads an entire file in memory and returns the stream
 		// NOTE: Callers are responsible for disposing the stream!
 		internal override MemoryStream LoadFile(string filename)
 		{
 			MemoryStream filedata = null;
+			filename = ResolveFileName(filename);
 			string fn = filename.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); //mxd
 
 			//mxd. This works waaaaaay faster with 7z archive

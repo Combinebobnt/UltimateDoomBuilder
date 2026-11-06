@@ -183,16 +183,25 @@ namespace CodeImp.DoomBuilder.ZDoom
 		/// </summary>
 		public float GetPropertyValueFloat(string propname, int valueindex)
 		{
+			float fvalue;
+			TryGetPropertyValueFloat(propname, valueindex, out fvalue);
+			return fvalue;
+		}
+
+		/// <summary>
+		/// This returns a specific value of a specific property as a float. Returns false when the value is missing or does
+		/// not parse as a number (for example a ZScript expression such as "16*2"), so the caller can tell that apart from
+		/// a genuine value of 0 and keep whatever it already had instead of silently replacing it with 0.
+		/// </summary>
+		public bool TryGetPropertyValueFloat(string propname, int valueindex, out float fvalue)
+		{
 			string str = GetPropertyValueString(propname, valueindex, false);
 
 			//mxd. It can be negative...
 			if(str == "-" && props.Count > valueindex + 1)
 				str += GetPropertyValueString(propname, valueindex + 1, false);
 
-			float fvalue;
-			if(float.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out fvalue))
-				return fvalue;
-			return 0.0f;
+			return float.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out fvalue);
 		}
 
 		/// <summary>

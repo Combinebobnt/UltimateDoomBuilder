@@ -263,6 +263,7 @@
     <Compile Include="Data\UnknownImage.cs" />
     <Compile Include="Data\PatchNames.cs" />
     <Compile Include="Data\PK3Reader.cs" />
+    <Compile Include="Data\LumpFilters.cs" />
     <Compile Include="Data\Playpal.cs" />
     <Compile Include="Data\ResourceImage.cs" />
     <Compile Include="Data\SimpleTextureImage.cs" />
@@ -1036,6 +1037,7 @@
     <Compile Include="Data\PK3FileImage.cs" />
     <Compile Include="Data\PK3StructuredReader.cs" />
     <Compile Include="Data\DynamicBitmapImage.cs" />
+    <Compile Include="Data\EngineArchiveFold.cs" />
     <Compile Include="Data\VoxelImage.cs" />
     <Compile Include="Dehacked\DehackedData.cs" />
     <Compile Include="Dehacked\DehackedFrame.cs" />
@@ -1524,6 +1526,7 @@
     <None Include="Resources\Splash3_trans.png" />
     <None Include="Resources\Splash3_small.png" />
     <EmbeddedResource Include="Resources\UDMF.cfg" />
+    <EmbeddedResource Include="Resources\iwadinfo.txt" />
     <EmbeddedResource Include="Controls\AngleControl.resx">
       <SubType>Designer</SubType>
       <DependentUpon>AngleControl.cs</DependentUpon>

@@ -21,6 +21,8 @@
 
 #endregion
 
+using System.Collections.Generic;
+
 namespace CodeImp.DoomBuilder.ZDoom
 {
 	class IWadInfo
@@ -28,12 +30,18 @@ namespace CodeImp.DoomBuilder.ZDoom
 		#region ================== Variables
 
 		private string autoname;
+		private string name;
+		private string game;
+		private List<string> mustcontain = new List<string>();
 
 		#endregion
 
 		#region ================== Properties
 
 		public string AutoName { get { return autoname; } internal set { autoname = value; } }
+		public string Name { get { return name; } internal set { name = value; } }
+		public string Game { get { return game; } internal set { game = value; } }
+		public List<string> MustContain { get { return mustcontain; } }
 
 		#endregion
 

@@ -66,6 +66,7 @@ namespace CodeImp.DoomBuilder.Config
 		// General settings
 		private readonly string configname;
 		private readonly string enginename;
+		private readonly bool uselumpfilters;
 		private readonly float defaulttexturescale;
 		private readonly float defaultflatscale;
 		private readonly string defaultwalltexture; //mxd
@@ -236,6 +237,7 @@ namespace CodeImp.DoomBuilder.Config
 		// General settings
 		public string Name { get { return configname; } }
 		public string EngineName { get { return enginename; } }
+		public bool UseLumpFilters { get { return uselumpfilters; } }
 		public string DefaultSaveCompiler { get { return defaultsavecompiler; } }
 		public string DefaultTestCompiler { get { return defaulttestcompiler; } }
 		public float DefaultTextureScale { get { return defaulttexturescale; } }
@@ -455,6 +457,7 @@ namespace CodeImp.DoomBuilder.Config
 			}
 
 			enginename = cfg.ReadSetting("engine", "");
+			uselumpfilters = cfg.ReadSetting("lumpfilters", false);
 			defaultsavecompiler = cfg.ReadSetting("defaultsavecompiler", "");
 			defaulttestcompiler = cfg.ReadSetting("defaulttestcompiler", "");
 			defaulttexturescale = cfg.ReadSetting("defaulttexturescale", 1f);

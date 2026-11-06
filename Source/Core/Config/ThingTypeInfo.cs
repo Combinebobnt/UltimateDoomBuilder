@@ -86,6 +86,8 @@ namespace CodeImp.DoomBuilder.Config
 		private bool xybillboard; //mxd
 		private SizeF spritescale;
 		private readonly bool locksprite; //mxd
+		private readonly bool forceheight; //mxd. When true, DECORATE/ZScript Height does not override the game config height
+		private readonly bool forcewidth; //mxd. When true, DECORATE/ZScript Radius does not override the game config width
 		private bool obsolete; //mxd
 		private string obsoletemessage; //mxd
 		private Dictionary<string, Dictionary<string, string>> flagsrename; //mxd. <MapSetIOName, <flag, title>>
@@ -195,6 +197,8 @@ namespace CodeImp.DoomBuilder.Config
 			this.absolutez = false;
 			this.xybillboard = false;
 			this.locksprite = false; //mxd
+			this.forceheight = false; //mxd. No category to inherit from
+			this.forcewidth = false; //mxd. No category to inherit from
 			this.flagsrename = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase); //mxd
 			this.thinglink = 0;
             this.optional = false; // [ZZ]
@@ -226,8 +230,27 @@ namespace CodeImp.DoomBuilder.Config
 			this.alphabyte = (byte)(this.alpha * 255); //mxd
 			this.renderstyle = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".renderstyle", cat.RenderStyle).ToLower(); //mxd
 			this.arrow = (cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".arrow", cat.Arrow) != 0);
-			this.radius = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".width", cat.Radius);
-			this.height = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".height", cat.Height);
+			//mxd. forcewidth/forceheight take the dimension value directly and replace width=/height= when used
+			if(cfg.SettingExists("thingtypes." + cat.Name + "." + key + ".forcewidth"))
+			{
+				this.radius = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".forcewidth", 0);
+				this.forcewidth = true;
+			}
+			else
+			{
+				this.radius = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".width", cat.Radius);
+				this.forcewidth = cat.ForceWidth;
+			}
+			if(cfg.SettingExists("thingtypes." + cat.Name + "." + key + ".forceheight"))
+			{
+				this.height = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".forceheight", 0);
+				this.forceheight = true;
+			}
+			else
+			{
+				this.height = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".height", cat.Height);
+				this.forceheight = cat.ForceHeight;
+			}
 			this.hangs = (cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".hangs", cat.Hangs) != 0);
 			this.blocking = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".blocking", cat.Blocking);
 			this.errorcheck = cfg.ReadSetting("thingtypes." + cat.Name + "." + key + ".error", cat.ErrorCheck);
@@ -325,6 +348,8 @@ namespace CodeImp.DoomBuilder.Config
 			this.absolutez = cat.AbsoluteZ;
 			this.spritescale = new SizeF(cat.SpriteScale, cat.SpriteScale);
 			this.locksprite = false; //mxd
+			this.forceheight = cat.ForceHeight; //mxd
+			this.forcewidth = cat.ForceWidth; //mxd
 			this.flagsrename = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase); //mxd
 			this.adduniversalfields = new List<string>();
 
@@ -372,12 +397,14 @@ namespace CodeImp.DoomBuilder.Config
 			this.fixedrotation = cat.FixedRotation; //mxd
 			this.absolutez = cat.AbsoluteZ;
 			this.spritescale = new SizeF(cat.SpriteScale, cat.SpriteScale);
+			this.forceheight = cat.ForceHeight; //mxd
+			this.forcewidth = cat.ForceWidth; //mxd
 			this.flagsrename = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase); //mxd
 			this.adduniversalfields = new List<string>();
 
 			// Safety
 			if(this.hangs && this.absolutez) this.hangs = false; //mxd
-			
+
 			// Apply settings from actor
 			ModifyByDecorateActor(actor);
 
@@ -423,6 +450,8 @@ namespace CodeImp.DoomBuilder.Config
 			this.fixedrotation = cat.FixedRotation; //mxd
 			this.absolutez = cat.AbsoluteZ;
 			this.spritescale = new SizeF(cat.SpriteScale, cat.SpriteScale);
+			this.forceheight = cat.ForceHeight; //mxd
+			this.forcewidth = cat.ForceWidth; //mxd
 			this.flagsrename = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase); //mxd
 			this.adduniversalfields = new List<string>();
 
@@ -468,6 +497,8 @@ namespace CodeImp.DoomBuilder.Config
 			this.arrow = other.arrow;
 			this.radius = other.radius;
 			this.height = other.height;
+			this.forceheight = other.forceheight; //mxd. Must travel with height, since ThingTypeInfo(cat, actor, other) applies DECORATE to a copy
+			this.forcewidth = other.forcewidth; //mxd. Must travel with radius, same reasoning as forceheight
 			this.distancechecksq = other.distancechecksq; //mxd
 			this.hangs = other.hangs;
 			this.blocking = other.blocking;
@@ -507,6 +538,8 @@ namespace CodeImp.DoomBuilder.Config
 		{
 			category = cat;
 
+			//mxd. forcewidth/forceheight are inherited from other (via the copy ctor), not from cat, since
+			// width/height themselves also come from other here rather than from cat.Radius/cat.Height
 			ModifyByDecorateActor(actor);
 		}
 
@@ -576,17 +609,22 @@ namespace CodeImp.DoomBuilder.Config
 			//mxd. Create sprite frame
 			this.spriteframe = new[] { new SpriteFrameInfo { Sprite = sprite, SpriteLongName = Lump.MakeLongName(sprite, true) } };
 			
+			//mxd. Reused below. Only assign when the value actually parsed, so an unparseable value
+			//     (e.g. a ZScript expression) keeps whatever value was already set instead of becoming 0
+			float propvalue;
+
 			// Set sprite scale (mxd. Scale is translated to xscale and yscale in ActorStructure)
-			if(actor.HasPropertyWithValue("xscale"))
-				this.spritescale.Width = actor.GetPropertyValueFloat("xscale", 0);
-			
-			if(actor.HasPropertyWithValue("yscale"))
-				this.spritescale.Height = actor.GetPropertyValueFloat("yscale", 0);
-			
+			if(actor.HasPropertyWithValue("xscale") && actor.TryGetPropertyValueFloat("xscale", 0, out propvalue))
+				this.spritescale.Width = propvalue;
+
+			if(actor.HasPropertyWithValue("yscale") && actor.TryGetPropertyValueFloat("yscale", 0, out propvalue))
+				this.spritescale.Height = propvalue;
+
 			// Size
-			if(actor.HasPropertyWithValue("radius")) radius = actor.GetPropertyValueFloat("radius", 0);
-			if(actor.HasPropertyWithValue("height")) height = actor.GetPropertyValueFloat("height", 0);
-			if (actor.HasPropertyWithValue("renderradius")) renderradius = actor.GetPropertyValueFloat("renderradius", 0);
+			//mxd. forcewidth/forceheight let the game config declare that its width/height win over DECORATE/ZScript
+			if(!forcewidth && actor.HasPropertyWithValue("radius") && actor.TryGetPropertyValueFloat("radius", 0, out propvalue)) radius = propvalue;
+			if(!forceheight && actor.HasPropertyWithValue("height") && actor.TryGetPropertyValueFloat("height", 0, out propvalue)) height = propvalue;
+			if(actor.HasPropertyWithValue("renderradius") && actor.TryGetPropertyValueFloat("renderradius", 0, out propvalue)) renderradius = propvalue;
 			if (renderradius == 0)
 				renderradius = radius;
 

@@ -133,6 +133,10 @@ namespace CodeImp.DoomBuilder.Data
 		private DecorateParser decorate;
         private ZScriptParser zscript;
         private Dictionary<string, ActorStructure> zdoomclasses;
+
+		// Folds engine class and light messages while a requiredarchives entry isn't loaded
+		private EngineArchiveFold enginefold;
+		private EngineNames enginenames;
 		private List<ThingCategory> thingcategories;
 		private Dictionary<int, ThingTypeInfo> thingtypes;
 
@@ -358,6 +362,7 @@ namespace CodeImp.DoomBuilder.Data
 			knowncolors = new Dictionary<string, PixelColor>(StringComparer.OrdinalIgnoreCase);
 			cvars = new CvarsCollection();
 			ambientsounds = new Dictionary<int, AmbientSoundInfo>();
+			enginefold = new EngineArchiveFold(General.ErrorLogger.Add);
 
 			// Load texture sets
 			foreach(DefinedTextureSet ts in General.Map.ConfigSettings.TextureSets)
@@ -433,6 +438,9 @@ namespace CodeImp.DoomBuilder.Data
 				}
 			}
 
+			// Engine filter/<name>/ content, before anything reads the containers
+			if(General.Map.Config.UseLumpFilters) ApplyLumpFilters();
+
 			// Load stuff
 			LoadX11R6RGB(); //mxd
 			LoadPalette();
@@ -458,6 +466,7 @@ namespace CodeImp.DoomBuilder.Data
 			LoadDehackedThings();
             LoadZScriptThings();
             LoadDecorateThings();
+			enginefold.Decide(CheckEngineArchives(), General.Map.Config.Name, GetEngineNames);
 			ApplyDehackedThings();
 			FixRenamedDehackedSprites();
             int thingcount = ApplyZDoomThings(spawnnums, doomednums);
@@ -571,6 +580,7 @@ namespace CodeImp.DoomBuilder.Data
 			foreach (Thing t in General.Map.Map.Things) t.UpdateCache();
 
 			LoadGldefs(actorsbyclass);
+			enginefold.Emit();
 
 			// Sort things
 			foreach (ThingCategory tc in thingcategories) tc.SortIfNeeded();
@@ -1769,7 +1779,7 @@ namespace CodeImp.DoomBuilder.Data
         private void LoadZScriptThings()
         {
             // Create new parser
-            zscript = new ZScriptParser { OnInclude = LoadZScriptFromLocation };
+            zscript = new ZScriptParser { OnInclude = LoadZScriptFromLocation, UnresolvedClassSink = enginefold.OnUnresolvedClass };
 
             // Only load these when the game configuration supports the use of decorate
             if (!string.IsNullOrEmpty(General.Map.Config.DecorateGames))
@@ -1820,7 +1830,7 @@ namespace CodeImp.DoomBuilder.Data
 		private void LoadDecorateThings()
 		{
 			// Create new parser
-			decorate = new DecorateParser(zscript.AllActorsByClass) { OnInclude = LoadDecorateFromLocation };
+			decorate = new DecorateParser(zscript.AllActorsByClass) { OnInclude = LoadDecorateFromLocation, UnresolvedClassSink = enginefold.OnUnresolvedClass };
 
 			// Only load these when the game configuration supports the use of decorate
 			if(!string.IsNullOrEmpty(General.Map.Config.DecorateGames))
@@ -1853,6 +1863,33 @@ namespace CodeImp.DoomBuilder.Data
 
             if (decorate.HasError)
                 decorate.ClearActors();
+		}
+
+		// The config's requiredarchives no loaded resource provides: every class must be a parsed actor, every lump a file
+		private List<RequiredArchive> CheckEngineArchives()
+		{
+			// A parse error clears the actors, which would make every archive look missing
+			if(string.IsNullOrEmpty(General.Map.Config.DecorateGames) || zscript.HasError || decorate.HasError) return new List<RequiredArchive>();
+
+			return EngineArchiveFold.FindMissing(General.Map.Config.RequiredArchives,
+				name => decorate.GetArchivedActorByName(name) != null,
+				lump => containers.Any(c => c.FileExists(lump)));
+		}
+
+		// Read once per DataManager, and only when an engine archive is missing
+		private EngineNames GetEngineNames()
+		{
+			if(enginenames == null)
+			{
+				enginenames = EngineNames.Load(Path.Combine(General.ConfigsPath, "Includes", "Engine_names.cfg"), out string error);
+				if(enginenames == null)
+				{
+					General.ErrorLogger.Add(ErrorType.Warning, error);
+					enginenames = new EngineNames(new string[0], new string[0]);
+				}
+			}
+
+			return enginenames;
 		}
 
 		/// <summary>
@@ -2419,7 +2456,10 @@ namespace CodeImp.DoomBuilder.Data
 			if(string.IsNullOrEmpty(General.Map.Config.DecorateGames)) return;
 
 			General.MainWindow.DisplayStatus(StatusType.Busy, "Reloading model definitions...");
+			// As in ReloadGldefs: fold against Load's decision, then report this pass's count
+			enginefold.ResetCount();
 			LoadModeldefs(CreateActorsByClassList());
+			enginefold.Emit();
 
 			General.MainWindow.DisplayStatus(StatusType.Busy, "Reloading voxel definitions...");
 			LoadVoxels();
@@ -2445,7 +2485,10 @@ namespace CodeImp.DoomBuilder.Data
 
 			try 
 			{
+				// Keeps Load's decision on the engine archive, but counts this pass's messages only
+				enginefold.ResetCount();
 				LoadGldefs(CreateActorsByClassList());
+				enginefold.Emit();
 			} 
 			catch(ArgumentNullException) 
 			{
@@ -2472,7 +2515,7 @@ namespace CodeImp.DoomBuilder.Data
 			// Abort if no classnames are defined in DECORATE or game config...
 			if(actorsbyclass.Count == 0) return;
 
-			ModeldefParser parser = new ModeldefParser(actorsbyclass) { OnInclude = LoadModeldefFromLocation };
+			ModeldefParser parser = new ModeldefParser(actorsbyclass) { OnInclude = LoadModeldefFromLocation, UnresolvedClassSink = enginefold.OnUnresolvedClass };
 			foreach(DataReader dr in containers)
 			{
 				currentreader = dr;
@@ -2592,7 +2635,7 @@ namespace CodeImp.DoomBuilder.Data
 			// Skip if no actors defined in DECORATE or game config...
 			if(actorsbyclass.Count == 0) return;
 
-			GldefsParser parser = new GldefsParser { OnInclude = ParseFromLocation };
+			GldefsParser parser = new GldefsParser { OnInclude = ParseFromLocation, UnresolvedClassSink = enginefold.OnUnresolvedClass };
 
 			// Load gldefs from resources
 			foreach(DataReader dr in containers) 
@@ -2637,7 +2680,8 @@ namespace CodeImp.DoomBuilder.Data
 					else
 					{
 						//INFO: Lights CAN be defiend after Objects, so we can't perform any object->light matching checks while parsing
-						General.ErrorLogger.Add(ErrorType.Error, "GLDEFS object \"" + e.Key + "\" references undefined light \"" + e.Value + "\"");
+						ErrorItem item = new ErrorItem(ErrorType.Error, "GLDEFS object \"" + e.Key + "\" references undefined light \"" + e.Value + "\"");
+						if(!enginefold.Route(EngineNameKind.Light, e.Value, item)) General.ErrorLogger.Add(item);
 					}
 				}
 			}
@@ -2649,7 +2693,10 @@ namespace CodeImp.DoomBuilder.Data
 				if(parser.LightsByName.ContainsKey(info.LightName))
 					gldefsentries[info.Index] = parser.LightsByName[info.LightName];
 				else
-					General.ErrorLogger.Add(ErrorType.Error, "Actor \"" + info.Title + "\":" + info.Index + " references undefined light \"" + info.LightName + "\"");
+				{
+					ErrorItem item = new ErrorItem(ErrorType.Error, "Actor \"" + info.Title + "\":" + info.Index + " references undefined light \"" + info.LightName + "\"");
+					if(!enginefold.Route(EngineNameKind.Light, info.LightName, item)) General.ErrorLogger.Add(item);
+				}
 			}
 
 			// Grab them glowy flats!
@@ -3203,6 +3250,14 @@ namespace CodeImp.DoomBuilder.Data
 		// Returns false when not found
 		public bool FindFirstIWAD(out DataLocation result)
 		{
+			DataReader dr = FindFirstIWADReader();
+			result = (dr != null ? dr.Location : new DataLocation());
+			return (dr != null);
+		}
+
+		// This finds the first IWAD or IPK3 container, else null
+		private DataReader FindFirstIWADReader()
+		{
 			// Go for all data containers
 			foreach(DataReader dr in containers)
 			{
@@ -3211,27 +3266,42 @@ namespace CodeImp.DoomBuilder.Data
 				{
 					// Check if it is an IWAD
 					WADReader wr = dr as WADReader;
-					if(wr.IsIWAD)
-					{
-						// Return location!
-						result = wr.Location;
-						return true;
-					}
+					if(wr.IsIWAD) return wr;
 				}
 				else if(dr is PK3Reader)
 				{
 					PK3Reader pk3r = dr as PK3Reader;
-					if(pk3r.GetIWadInfos().Count == 1)
-					{
-						result = pk3r.Location;
-						return true;
-					}
+					if(pk3r.GetIWadInfos().Count == 1) return pk3r;
 				}
 			}
 
 			// No IWAD found
-			result = new DataLocation();
-			return false;
+			return null;
+		}
+
+		// Applies the engine's filter/<name>/ rules (LumpFilters) to every PK3 and directory container
+		private void ApplyLumpFilters()
+		{
+			// Each loaded IWADINFO in load order, then UZDoom's stock table, so a mod's IWADINFO can't hide the stock IWADs
+			List<IWadInfo> table = new List<IWadInfo>();
+			foreach(DataReader dr in containers) table.AddRange(dr.GetIWadInfos());
+			table.AddRange(LumpFilters.GetBundledIWadInfos());
+
+			// An IPK3 with one IWADINFO entry names it (d_iwad.cpp CheckIWADInfo); only a WAD IWAD is scanned
+			DataReader iwadreader = FindFirstIWADReader();
+			IWadInfo iwad = null;
+			if(iwadreader is PK3Reader) iwad = iwadreader.GetIWadInfos()[0];
+			else if(iwadreader != null) iwad = LumpFilters.IdentifyIWad(iwadreader.GetIWadScanNames(), table);
+
+			string game = (iwad != null ? LumpFilters.GameFromBaseGame(iwad.Game) : null) ?? LumpFilters.GameFromBaseGame(General.Map.Config.BaseGame);
+			List<string> names = LumpFilters.BuildFilterNames(game, (iwad != null ? iwad.AutoName : null));
+
+			foreach(DataReader dr in containers)
+				if(dr is PK3StructuredReader) ((PK3StructuredReader)dr).ApplyLumpFilters(names);
+
+			General.WriteLogLine("Lump filters: " + string.Join(", ", names) + (iwad != null
+				? " (IWAD \"" + iwadreader.Location.GetDisplayName() + "\" identified as \"" + iwad.Name + "\")"
+				: " (no IWAD identified)"));
 		}
 
 		// This signals the background thread to update the

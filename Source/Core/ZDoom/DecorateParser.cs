@@ -201,7 +201,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 								if(GetArchivedActorByName(actor.ReplacesClass) != null)
 									archivedactors[actor.ReplacesClass.ToLowerInvariant()] = actor;
 								else
-									LogWarning("Unable to find \"" + actor.ReplacesClass + "\" class to replace, while parsing \"" + actor.ClassName + "\"");
+									LogUnresolvedClass(actor.ReplacesClass, "Unable to find \"" + actor.ReplacesClass + "\" class to replace, while parsing \"" + actor.ClassName + "\"");
 							
 								if(actor.CheckActorSupported() && GetActorByName(actor.ReplacesClass) != null)
 									actors[actor.ReplacesClass.ToLowerInvariant()] = actor;

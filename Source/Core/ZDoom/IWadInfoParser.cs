@@ -171,13 +171,30 @@ namespace CodeImp.DoomBuilder.ZDoom
 				if (!GetKeyValuesPair(out key, out values))
 					return false;
 
+				// ReadToken keeps the quotes
 				switch(key)
 				{
 					case "autoname":
 						if (values.Count == 0)
 							ReportError("'autoname' property has no value");
 						else
-							iwad.AutoName = values[0];
+							iwad.AutoName = StripQuotes(values[0]);
+						break;
+
+					case "name":
+						if (values.Count > 0) iwad.Name = StripQuotes(values[0]);
+						break;
+
+					case "game":
+						if (values.Count > 0) iwad.Game = StripQuotes(values[0]);
+						break;
+
+					case "mustcontain":
+						foreach (string value in values)
+						{
+							string lump = StripQuotes(value);
+							if (!string.IsNullOrEmpty(lump)) iwad.MustContain.Add(lump);
+						}
 						break;
 				}
 			}

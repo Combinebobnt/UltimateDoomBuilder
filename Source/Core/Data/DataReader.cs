@@ -259,6 +259,9 @@ namespace CodeImp.DoomBuilder.Data
 		// When implemented, this returns the list of IWAD infos
 		public abstract List<IWadInfo> GetIWadInfos();
 
+		// The names IWADINFO's MustContain is matched against
+		public virtual ICollection<string> GetIWadScanNames() { return new List<string>(); }
+
 		#endregion
 
 		#region ================== Load/Save (mxd)

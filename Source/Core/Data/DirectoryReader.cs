@@ -416,11 +416,12 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			switch(imagetype)
 			{
+				// Named by the root-relative path of a filtered file, loaded by its real one
 				case ImageDataFormat.DOOMFLAT:
-					return new FileImage(filename, Path.Combine(location.location, filename), true);
-				
+					return new FileImage(files.GetVirtualPath(filename), Path.Combine(location.location, filename), true);
+
 				case ImageDataFormat.DOOMPICTURE:
-					return new FileImage(filename, Path.Combine(location.location, filename), false);
+					return new FileImage(files.GetVirtualPath(filename), Path.Combine(location.location, filename), false);
 					
 				case ImageDataFormat.DOOMCOLORMAP:
 					return new ColormapImage(Path.GetFileNameWithoutExtension(filename));
@@ -486,6 +487,21 @@ namespace CodeImp.DoomBuilder.Data
 			string ext = Path.GetExtension(beginswith);
 			ext = (!string.IsNullOrEmpty(ext) && ext.Length > 1 ? ext.Substring(1) : string.Empty);
 			return files.GetFirstFile(path, title, subfolders, ext);
+		}
+
+		protected override List<string> FilterFiles(IList<string> names)
+		{
+			return files.ApplyFilters(names);
+		}
+
+		internal override string GetVirtualPath(string filename)
+		{
+			return files.GetVirtualPath(filename);
+		}
+
+		protected override string ResolveFileName(string name)
+		{
+			return files.Resolve(name) ?? name;
 		}
 		
 		// This loads an entire file in memory and returns the stream

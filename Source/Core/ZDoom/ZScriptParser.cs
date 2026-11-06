@@ -2,6 +2,7 @@
 using CodeImp.DoomBuilder.Data;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -147,7 +148,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 							if (Parser.GetArchivedActorByName(Actor.ReplacesClass, false) != null)
 								Parser.archivedactors[Actor.ReplacesClass.ToLowerInvariant()] = Actor;
 							else
-								Parser.LogWarning("Unable to find \"" + Actor.ReplacesClass + "\" class to replace, while parsing \"" + Actor.ClassName + "\"");
+								Parser.LogUnresolvedClass(Actor.ReplacesClass, "Unable to find \"" + Actor.ReplacesClass + "\" class to replace, while parsing \"" + Actor.ClassName + "\"");
 
 							if (Actor.CheckActorSupported() && Parser.GetActorByName(Actor.ReplacesClass) != null)
 								Parser.actors[Actor.ReplacesClass.ToLowerInvariant()] = Actor;
@@ -1357,10 +1358,10 @@ namespace CodeImp.DoomBuilder.ZDoom
 
 									//properties
 									if (!actor.props.ContainsKey("height"))
-										actor.props["height"] = new List<string> { ti.Value.Height.ToString() };
+										actor.props["height"] = new List<string> { ti.Value.Height.ToString(CultureInfo.InvariantCulture) };
 
 									if (!actor.props.ContainsKey("radius"))
-										actor.props["radius"] = new List<string> { ti.Value.Radius.ToString() };
+										actor.props["radius"] = new List<string> { ti.Value.Radius.ToString(CultureInfo.InvariantCulture) };
 								}
 
 								// [ZZ] inherit arguments from game configuration
@@ -1383,7 +1384,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 							}
 
 							if (actor.baseclass == null && !thingfound)
-								LogWarning("Unable to find \"" + inheritclass + "\" class to inherit from, while parsing \"" + cls.ClassName + "\"");
+								LogUnresolvedClass(inheritclass, "Unable to find \"" + inheritclass + "\" class to inherit from, while parsing \"" + cls.ClassName + "\"");
 						}
 					}
 

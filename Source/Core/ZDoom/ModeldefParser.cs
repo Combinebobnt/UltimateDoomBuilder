@@ -161,7 +161,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 				// Check if actor exists
 				bool haveplaceableactor = actorsbyclass.ContainsKey(classname);
 				if(!haveplaceableactor && (General.Map.Data.GetZDoomActor(classname) == null))
-					LogWarning("DECORATE class \"" + classname + "\" does not exist");
+					LogUnresolvedClass(classname, "DECORATE class \"" + classname + "\" does not exist");
 				
 				// Now find opening brace
 				if(!NextTokenIs("{")) return false;

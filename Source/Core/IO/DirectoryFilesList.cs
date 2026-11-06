@@ -57,7 +57,12 @@ namespace CodeImp.DoomBuilder.IO
 
 		private Dictionary<string, DirectoryFileEntry> entries; //mxd
 		private List<string> wadentries; //mxd
-		
+
+		// Lump filters (ApplyFilters): the entries before any filter, and real <-> root-relative names
+		private List<DirectoryFileEntry> unfiltered;
+		private Dictionary<string, string> virtualpaths;
+		private Dictionary<string, string> virtualtoreal;
+
 		#endregion
 
 		#region ================== Properties
@@ -174,18 +179,85 @@ namespace CodeImp.DoomBuilder.IO
 			}
 		}
 
+		// Makes filter/<name>/ groups for the given names root content, after the real root files and in name order,
+		// and drops every other filter/ entry. Keys and filepathname stay real. Returns the matched WADs it skipped.
+		public List<string> ApplyFilters(IList<string> names)
+		{
+			// Always rebuild from the unfiltered entries, so this can run again on the same list
+			if(unfiltered == null) unfiltered = new List<DirectoryFileEntry>(entries.Values);
+
+			string filterdir = "filter" + Path.DirectorySeparatorChar;
+			var filtered = new Dictionary<string, DirectoryFileEntry>(unfiltered.Count, new PathEqualityComparer());
+			virtualpaths = new Dictionary<string, string>(new PathEqualityComparer());
+			virtualtoreal = new Dictionary<string, string>(new PathEqualityComparer());
+			List<string> skippedwads = new List<string>();
+
+			// Plain Add in this order: enumeration order is what makes root files come first
+			foreach(DirectoryFileEntry e in unfiltered)
+				if(!e.path.StartsWith(filterdir, StringComparison.Ordinal)) filtered.Add(e.filepathname, e);
+
+			// An entry belongs to the first name that matches it, like the engine moving each group only once
+			bool[] claimed = new bool[unfiltered.Count];
+			foreach(string name in names)
+			{
+				string prefix = filterdir + name.ToLowerInvariant() + Path.DirectorySeparatorChar;
+				for(int i = 0; i < unfiltered.Count; i++)
+				{
+					DirectoryFileEntry e = unfiltered[i];
+					if(claimed[i] || !e.path.StartsWith(prefix, StringComparison.Ordinal)) continue;
+					claimed[i] = true;
+
+					DirectoryFileEntry v = e;
+					v.path = e.path.Substring(prefix.Length);
+					string virtualname = e.filepathname.Substring(prefix.Length);
+
+					// WADs are opened at construction, from the real root only
+					if(v.extension == "wad" && v.path.Length == 0)
+					{
+						skippedwads.Add(e.filepathname);
+						continue;
+					}
+
+					filtered.Add(e.filepathname, v);
+					virtualpaths[e.filepathname] = virtualname;
+					virtualtoreal[virtualname] = e.filepathname;
+				}
+			}
+
+			entries = filtered;
+			return skippedwads;
+		}
+
+		// The root-relative name of a filtered entry, else the name itself
+		public string GetVirtualPath(string filepathname)
+		{
+			string virtualname;
+			if(virtualpaths != null && virtualpaths.TryGetValue(filepathname, out virtualname)) return virtualname;
+			return filepathname;
+		}
+
+		// The real name for a real or root-relative name, root files first, else null
+		public string Resolve(string name)
+		{
+			if(entries.ContainsKey(name)) return name;
+
+			string realname;
+			if(virtualtoreal != null && virtualtoreal.TryGetValue(name, out realname)) return realname;
+			return null;
+		}
+
 		// This checks if a given file exists
 		// The given file path must not be absolute
 		public bool FileExists(string filepathname)
 		{
-			return entries.ContainsKey(filepathname.ToLowerInvariant());
+			return Resolve(filepathname.ToLowerInvariant()) != null;
 		}
 
 		// This returns file information for the given file
 		// The given file path must not be absolute
 		public DirectoryFileEntry GetFileInfo(string filepathname)
 		{
-			return entries[filepathname];
+			return entries[Resolve(filepathname) ?? filepathname];
 		}
 
 		//mxd. This returns a list of all wad files (filepathname)

@@ -804,6 +804,13 @@ namespace CodeImp.DoomBuilder.Data
 
 		#region ================== Methods
 
+		// Applies the engine's filter/<name>/ rules for the given names (LumpFilters) to this resource's files
+		internal void ApplyLumpFilters(IList<string> names)
+		{
+			foreach(string wad in FilterFiles(names))
+				General.WriteLogLine("Lump filters: skipped \"" + wad + "\" in \"" + location.GetDisplayName() + "\", WADs inside filter folders are not supported");
+		}
+
 		// This loads the images in this directory
 		private ICollection<ImageData> LoadDirectoryImages(string path, int imagetype, bool includesubdirs)
 		{
@@ -842,7 +849,8 @@ namespace CodeImp.DoomBuilder.Data
 
 			if (FileExists(fullname))
 			{
-				return new string[1] { fullname };
+				// The real name, so a filtered file saves back to where it came from
+				return new string[1] { ResolveFileName(fullname) };
 			}
 			else
 			{
@@ -893,6 +901,15 @@ namespace CodeImp.DoomBuilder.Data
 		// This must create a temp file for the speciied file and return the absolute path to the temp file
 		// NOTE: Callers are responsible for removing the temp file when done!
 		protected abstract string CreateTempFile(string filename);
+
+		// This must apply lump filters to the file list and return the matched WADs it skipped
+		protected abstract List<string> FilterFiles(IList<string> names);
+
+		// This must return the root-relative name of a filtered file, else the name itself
+		internal abstract string GetVirtualPath(string filename);
+
+		// This must return the real name for a real or root-relative name, else the name itself
+		protected abstract string ResolveFileName(string name);
 
 		// This makes the path relative to the directory, if needed
 		protected virtual string MakeRelativePath(string anypath)

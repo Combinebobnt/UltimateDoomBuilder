@@ -81,6 +81,9 @@ namespace CodeImp.DoomBuilder.ZDoom
 		internal abstract ScriptType ScriptType { get; } //mxd
 		internal Dictionary<string, ScriptResource> ScriptResources { get { return scriptresources; } } //mxd
 
+		// Gets "class not found" warnings with the bare class name; returns true when it took the item
+		internal Func<string, ErrorItem, bool> UnresolvedClassSink;
+
 		#endregion
 		
 		#region ================== Constructor / Disposer
@@ -731,7 +734,18 @@ namespace CodeImp.DoomBuilder.ZDoom
 		protected internal void LogWarning(string message) { LogWarning(message, CompilerError.NO_LINE_NUMBER); }
 		protected internal virtual void LogWarning(string message, int linenumber)
 		{
-			// Add a warning
+			General.ErrorLogger.Add(MakeWarning(message, linenumber));
+		}
+
+		// A warning about a missing class, which UnresolvedClassSink may take instead of the log
+		protected internal void LogUnresolvedClass(string name, string message)
+		{
+			if(UnresolvedClassSink == null || !UnresolvedClassSink(name, MakeWarning(message, CompilerError.NO_LINE_NUMBER)))
+				LogWarning(message);
+		}
+
+		private TextResourceErrorItem MakeWarning(string message, int linenumber)
+		{
 			int errline = (linenumber != CompilerError.NO_LINE_NUMBER 
 				? linenumber 
 				: (datastream != null ? GetCurrentLineNumber() : CompilerError.NO_LINE_NUMBER));
@@ -742,12 +756,10 @@ namespace CodeImp.DoomBuilder.ZDoom
 			          + (errline != CompilerError.NO_LINE_NUMBER ? "\", line " + (errline + 1) : "\"") + ". "
 			          + message + ".";
 
-			TextResourceErrorItem error = new TextResourceErrorItem(ErrorType.Warning,
+			return new TextResourceErrorItem(ErrorType.Warning,
 				ScriptType, datalocation,
 				(sourcename.StartsWith("?") ? sourcename.Substring(1) : sourcename),
 				sourcelumpindex, errline, message);
-
-			General.ErrorLogger.Add(error);
 		}
 
 		//mxd. This adds an error to the ErrorLogger

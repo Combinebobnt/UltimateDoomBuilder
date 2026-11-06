@@ -1056,6 +1056,13 @@ namespace CodeImp.DoomBuilder.Data
 			return parser.IWads;
 		}
 
+		public override ICollection<string> GetIWadScanNames()
+		{
+			List<string> names = new List<string>(file.Lumps.Count);
+			foreach(Lump lump in file.Lumps) names.Add(lump.Name);
+			return names;
+		}
+
 		#endregion
 
 		// This finds and returns DECORATE streams

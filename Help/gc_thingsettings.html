@@ -119,9 +119,15 @@ thingrenderstyles
     Sets the width to use when rendering  things in Classic and Visual modes.<br />
     Default value is <strong>10</strong>.<br />
     <br />
+    <b class="fat">forcewidth</b> (integer) - <span class="red">GZDB only</span>.<br />
+    Situationally replaces <b class="fat">width</b>: sets the width to use, and forces it to be used even if a DECORATE or ZScript actor definition of this thing declares a different Radius. Can be set on a category or on an individual thing, and takes precedence over <b class="fat">width</b> when both are set.<br />
+    <br />
     <b class="fat">height</b> (integer)<br />
     Sets the height to use when rendering  things in Classic and Visual modes.<br />
     Default value is <strong>20</strong>.<br />
+    <br />
+    <b class="fat">forceheight</b> (integer) - <span class="red">GZDB only</span>.<br />
+    Situationally replaces <b class="fat">height</b>: sets the height to use, and forces it to be used even if a DECORATE or ZScript actor definition of this thing declares a different Height. Can be set on a category or on an individual thing, and takes precedence over <b class="fat">height</b> when both are set.<br />
     <br />
     <b class="fat">hangs</b> (integer) [0 .. 1]<br />
     When set to 1, the thing will be aligned to ceiling instead of floor in Visual mode.<br />

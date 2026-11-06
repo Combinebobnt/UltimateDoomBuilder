@@ -61,7 +61,9 @@ namespace CodeImp.DoomBuilder.Data
 				this.scale.y = General.Map.Config.DefaultTextureScale;
 			}
 
-            SetName(filepathname);
+            // Named by the root-relative path of a filtered file, loaded by its real one
+            SetName(datareader.GetVirtualPath(filepathname));
+            this.filepathname = filepathname;
 
             // We have no destructor
             GC.SuppressFinalize(this);
