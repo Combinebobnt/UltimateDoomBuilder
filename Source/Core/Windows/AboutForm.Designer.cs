@@ -173,6 +173,7 @@ namespace CodeImp.DoomBuilder.Windows
             // gitlink
             // 
             this.gitlink.AutoSize = true;
+            this.gitlink.BackColor = System.Drawing.Color.Transparent;
             this.gitlink.LinkColor = System.Drawing.Color.White;
             this.gitlink.Location = new System.Drawing.Point(174, 225);
             this.gitlink.Name = "gitlink";
@@ -185,6 +186,7 @@ namespace CodeImp.DoomBuilder.Windows
             // label2
             // 
             this.label2.AutoSize = true;
+            this.label2.BackColor = System.Drawing.Color.Transparent;
             this.label2.ForeColor = System.Drawing.Color.White;
             this.label2.Location = new System.Drawing.Point(19, 65);
             this.label2.Name = "label2";
@@ -195,6 +197,7 @@ namespace CodeImp.DoomBuilder.Windows
             // zdoomorglink
             // 
             this.zdoomorglink.AutoSize = true;
+            this.zdoomorglink.BackColor = System.Drawing.Color.Transparent;
             this.zdoomorglink.LinkColor = System.Drawing.Color.White;
             this.zdoomorglink.Location = new System.Drawing.Point(19, 225);
             this.zdoomorglink.Name = "zdoomorglink";

@@ -469,7 +469,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.mouseselectionthreshold.AllowExpressions = false;
 			this.mouseselectionthreshold.AllowNegative = false;
 			this.mouseselectionthreshold.AllowRelative = false;
-			this.mouseselectionthreshold.ButtonStep = 5;
+			this.mouseselectionthreshold.ButtonStep = 1;
 			this.mouseselectionthreshold.ButtonStepBig = 10F;
 			this.mouseselectionthreshold.ButtonStepFloat = 1F;
 			this.mouseselectionthreshold.ButtonStepSmall = 0.1F;
@@ -506,7 +506,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.splitlinedefsrange.AllowExpressions = false;
 			this.splitlinedefsrange.AllowNegative = false;
 			this.splitlinedefsrange.AllowRelative = false;
-			this.splitlinedefsrange.ButtonStep = 5;
+			this.splitlinedefsrange.ButtonStep = 1;
 			this.splitlinedefsrange.ButtonStepBig = 10F;
 			this.splitlinedefsrange.ButtonStepFloat = 1F;
 			this.splitlinedefsrange.ButtonStepSmall = 0.1F;
@@ -524,7 +524,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.stitchrange.AllowExpressions = false;
 			this.stitchrange.AllowNegative = false;
 			this.stitchrange.AllowRelative = false;
-			this.stitchrange.ButtonStep = 5;
+			this.stitchrange.ButtonStep = 1;
 			this.stitchrange.ButtonStepBig = 10F;
 			this.stitchrange.ButtonStepFloat = 1F;
 			this.stitchrange.ButtonStepSmall = 0.1F;
@@ -542,7 +542,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.highlightthingsrange.AllowExpressions = false;
 			this.highlightthingsrange.AllowNegative = false;
 			this.highlightthingsrange.AllowRelative = false;
-			this.highlightthingsrange.ButtonStep = 5;
+			this.highlightthingsrange.ButtonStep = 1;
 			this.highlightthingsrange.ButtonStepBig = 10F;
 			this.highlightthingsrange.ButtonStepFloat = 1F;
 			this.highlightthingsrange.ButtonStepSmall = 0.1F;
@@ -560,7 +560,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.highlightrange.AllowExpressions = false;
 			this.highlightrange.AllowNegative = false;
 			this.highlightrange.AllowRelative = false;
-			this.highlightrange.ButtonStep = 5;
+			this.highlightrange.ButtonStep = 1;
 			this.highlightrange.ButtonStepBig = 10F;
 			this.highlightrange.ButtonStepFloat = 1F;
 			this.highlightrange.ButtonStepSmall = 0.1F;

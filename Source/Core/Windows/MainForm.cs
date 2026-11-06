@@ -266,7 +266,10 @@ namespace CodeImp.DoomBuilder.Windows
 			toolbarContextMenu.KeyUp += toolbarContextMenu_KeyUp;
 			linedefcolorpresets.DropDown.MouseLeave += linedefcolorpresets_MouseLeave;
 			this.MouseCaptureChanged += MainForm_MouseCaptureChanged;
-			
+#if MONO_WINFORMS
+			dockerspanel.CollapsedWidthChanged += dockerspanel_CollapsedWidthChanged;
+#endif
+
 			// Apply shortcut keys
 			ApplyShortcutKeys();
 			
@@ -430,6 +433,9 @@ namespace CodeImp.DoomBuilder.Windows
 			UpdateHelpMenu();
 		}
 
+		// Marco drew a blank caption for the U+25CF title on Mono/X11, so use ASCII there
+		private static readonly string ChangedTitleMarker = (Environment.OSVersion.Platform == PlatformID.Unix ? "* " : "\u25CF ");
+
 		//mxd
 		private void UpdateTitle()
 		{
@@ -445,7 +451,7 @@ namespace CodeImp.DoomBuilder.Windows
 				string maptitle = (!string.IsNullOrEmpty(General.Map.Data.MapInfo.Title) ? ": " + General.Map.Data.MapInfo.Title : "");
 				
 				// Show map name and filename in caption
-				this.Text = (mapchanged ? "\u25CF " : "") + General.Map.FileTitle + " (" + General.Map.Options.CurrentName + maptitle + ") - " + programname;
+				this.Text = (mapchanged ? ChangedTitleMarker : "") + General.Map.FileTitle + " (" + General.Map.Options.CurrentName + maptitle + ") - " + programname;
 			}
 			else
 			{
@@ -1995,8 +2001,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void AddButton(ToolStripItem button, ToolbarSection section, Plugin plugin)
 		{
 			// Fix tags to full action names
-			ToolStripItemCollection items = new ToolStripItemCollection(toolbar, new ToolStripItem[0]);
-			items.Add(button);
+			ToolStripItem[] items = { button };
 			RenameTagsToFullActions(items, plugin);
 
 			// Add to the list so we can update it as needed
@@ -2038,8 +2043,7 @@ namespace CodeImp.DoomBuilder.Windows
 			button.Margin = new Padding();
 			
 			// Fix tags to full action names
-			ToolStripItemCollection items = new ToolStripItemCollection(toolbar, new ToolStripItem[0]);
-			items.Add(button);
+			ToolStripItem[] items = { button };
 			RenameTagsToFullActions(items, General.Plugins.FindPluginByAssembly(Assembly.GetCallingAssembly()));
 
 			// Add to the list so we can update it as needed
@@ -2533,8 +2537,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void AddMenu(ToolStripItem menu, MenuSection section, Plugin plugin)
 		{
 			// Fix tags to full action names
-			ToolStripItemCollection items = new ToolStripItemCollection(this.menumain, new ToolStripItem[0]);
-			items.Add(menu);
+			ToolStripItem[] items = { menu };
 			RenameTagsToFullActions(items, plugin);
 			
 			// Insert the menu in the right location
@@ -2573,9 +2576,9 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd
 		public void AddModesMenu(ToolStripItem menu, string group) 
 		{
-			// Fix tags to full action names
-			ToolStripItemCollection items = new ToolStripItemCollection(this.menumain, new ToolStripItem[0]);
-			items.Add(menu);
+			// Fix tags to full action names. A plain array, since Mono's ToolStripItemCollection.Add re-owns
+			// the item without removing it from its strip, leaving a stale copy (blank menu rows)
+			ToolStripItem[] items = { menu };
 			RenameTagsToFullActions(items, General.Plugins.FindPluginByAssembly(Assembly.GetCallingAssembly()));
 			
 			//find the separator we need
@@ -2614,7 +2617,7 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 		
 		// This sets the shortcut keys on menu items
-		private static void ApplyShortcutKeys(ToolStripItemCollection items)
+		private static void ApplyShortcutKeys(System.Collections.IEnumerable items)
 		{
 			// Go for all controls to find menu items
 			foreach(ToolStripItem item in items)
@@ -2657,7 +2660,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		// This fixes short action names to fully qualified
 		// action names on menu item tags
-		private static void RenameTagsToFullActions(ToolStripItemCollection items, Plugin plugin)
+		private static void RenameTagsToFullActions(System.Collections.IEnumerable items, Plugin plugin)
 		{
 			// Go for all controls to find menu items
 			foreach(ToolStripItem item in items)
@@ -4836,7 +4839,18 @@ namespace CodeImp.DoomBuilder.Windows
 				dockerspanel.Left = dockersspace.Left;
 			}
 		}
-		
+
+#if MONO_WINFORMS
+		// The collapsed strip got its real width after a pre-handle collapse, so widen the reserved space too
+		private void dockerspanel_CollapsedWidthChanged(object sender, EventArgs e)
+		{
+			if(!General.Settings.CollapseDockers || General.Settings.DockersPosition == 2) return;
+			int w = dockerspanel.GetCollapsedWidth();
+			if(General.Settings.DockersWidth < w) General.Settings.DockersWidth = w;
+			dockersspace.Width = w;
+		}
+#endif
+
 		#endregion
 
 		#region ================== Updater (mxd)

@@ -16,6 +16,7 @@
 
 #region ================== Namespaces
 
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -32,6 +33,10 @@ namespace CodeImp.DoomBuilder.Controls
 		#region ================== Variables
 
 		private ToolTip tooltip; //mxd
+
+		#if MONO_WINFORMS && !DEBUG
+		private bool paintfaultpending;
+		#endif
 
 		#endregion
 
@@ -75,6 +80,46 @@ namespace CodeImp.DoomBuilder.Controls
 		protected override bool IsInputChar(char charCode)
 		{
 			return true;
+		}
+		#endif
+
+		#if MONO_WINFORMS && !DEBUG
+		// Mono's NativeWindow.WndProc hides a control whose WM_PAINT throws, so faults must not leave it
+		protected override void OnPaint(PaintEventArgs e)
+		{
+			try { base.OnPaint(e); }
+			catch(Exception ex) { ReportPaintFault(ex); }
+		}
+
+		protected override void OnPaintBackground(PaintEventArgs e)
+		{
+			try { base.OnPaintBackground(e); }
+			catch(Exception ex) { ReportPaintFault(ex); }
+		}
+
+		// Reported after WM_PAINT returns, one at a time; faults while one is pending are only logged
+		private void ReportPaintFault(Exception ex)
+		{
+			if(paintfaultpending)
+			{
+				General.WriteLogLine("Paint exception suppressed while another is reported: " + ex.Message);
+				return;
+			}
+
+			paintfaultpending = true;
+			try
+			{
+				BeginInvoke(new Action(() =>
+				{
+					try { Application.OnThreadException(ex); }
+					finally { paintfaultpending = false; }
+				}));
+			}
+			catch(Exception)
+			{
+				paintfaultpending = false;
+				Application.OnThreadException(ex);
+			}
 		}
 		#endif
 		

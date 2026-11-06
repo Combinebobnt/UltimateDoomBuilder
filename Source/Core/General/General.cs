@@ -66,6 +66,18 @@ namespace CodeImp.DoomBuilder
 				gridview.RowsDefaultCellStyle.Padding = new System.Windows.Forms.Padding(0,0,0,0);
 			}
 		}
+
+		// Mono's "Microsoft Sans Serif" fallback can have taller line metrics than Font.Height,
+		// which makes Mono's built-in MessageBox/FileDialog buttons render with no text. Remap it
+		// to the bundled Arimo font before any Font is measured. Must run before EnableVisualStyles().
+		public static void ApplyMonoFontConfigFix()
+		{
+			if (Environment.GetEnvironmentVariable("FONTCONFIG_FILE") != null) return;
+
+			string exedir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+			string fontsconf = Path.Combine(exedir, "..", "Fonts", "fonts-native.conf");
+			if (File.Exists(fontsconf)) Environment.SetEnvironmentVariable("FONTCONFIG_FILE", fontsconf);
+		}
 #else
 		public static void ApplyMonoListViewFix(System.Windows.Forms.ListView listview) {}
 		public static void ApplyDataGridViewFix(System.Windows.Forms.DataGridView gridview) {}
@@ -618,6 +630,10 @@ namespace CodeImp.DoomBuilder
 				AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
 				Application.ThreadException += Application_ThreadException;
 			#endif
+
+#if MONO_WINFORMS
+			ApplyMonoFontConfigFix();
+#endif
 
 			// Enable OS visual styles
 			Application.EnableVisualStyles();

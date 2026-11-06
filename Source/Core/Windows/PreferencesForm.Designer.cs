@@ -1210,13 +1210,13 @@ namespace CodeImp.DoomBuilder.Windows
 			this.fieldofview.BackColor = System.Drawing.Color.Transparent;
 			this.fieldofview.LargeChange = 1;
 			this.fieldofview.Location = new System.Drawing.Point(116, 20);
-			this.fieldofview.Maximum = 17;
-			this.fieldofview.Minimum = 5;
+			this.fieldofview.Maximum = 34;
+			this.fieldofview.Minimum = 10;
 			this.fieldofview.Name = "fieldofview";
 			this.fieldofview.Size = new System.Drawing.Size(150, 45);
 			this.fieldofview.TabIndex = 0;
 			this.fieldofview.TickStyle = System.Windows.Forms.TickStyle.TopLeft;
-			this.fieldofview.Value = 5;
+			this.fieldofview.Value = 10;
 			this.fieldofview.ValueChanged += new System.EventHandler(this.fieldofview_ValueChanged);
 			// 
 			// viewdistancelabel

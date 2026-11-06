@@ -44,7 +44,12 @@ namespace CodeImp.DoomBuilder.Controls
 		private int notifytab;
 		private int notifycounter;
 		private Timer notifytimer;
-		
+
+#if MONO_WINFORMS
+		// Raised once Mono has filled the tab bounds, which it does only after HandleCreated
+		internal event EventHandler TabBoundsReady;
+#endif
+
 		#endregion
 
 		#region ================== Constructor
@@ -152,6 +157,15 @@ namespace CodeImp.DoomBuilder.Controls
 		#endregion
 		
 		#region ================== Events
+
+#if MONO_WINFORMS
+		// Mono's GetTabRect is empty until base.CreateHandle ends with ResizeTabPages
+		protected override void CreateHandle()
+		{
+			base.CreateHandle();
+			if(TabBoundsReady != null) TabBoundsReady(this, EventArgs.Empty);
+		}
+#endif
 
 		//mxd. Stop notify animation if user selects animated tab
 		protected override void OnSelectedIndexChanged(EventArgs e)

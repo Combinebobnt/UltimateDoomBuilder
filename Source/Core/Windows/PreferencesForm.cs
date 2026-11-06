@@ -49,7 +49,10 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly List<int> allactionitemsgroups; //mxd
 
 		private bool reloadresources;
-		
+
+		// Degrees per FOV slider tick; the Designer's Minimum/Maximum are in ticks
+		private const int FOV_STEP = 5;
+
 		#endregion
 
 		#region ================== Properties
@@ -73,7 +76,7 @@ namespace CodeImp.DoomBuilder.Windows
 			inactivethingsalpha.Value = General.Clamp((int)Math.Round((1.0f - General.Settings.InactiveThingsAlpha) * 10.0f), inactivethingsalpha.Minimum, inactivethingsalpha.Maximum); //mxd
 			hiddenthingsalpha.Value = General.Clamp((int)Math.Round((1.0f - General.Settings.HiddenThingsAlpha) * 10.0f), hiddenthingsalpha.Minimum, hiddenthingsalpha.Maximum); //mxd
 			defaultviewmode.SelectedIndex = General.Settings.DefaultViewMode;
-			fieldofview.Value = General.Clamp(General.Settings.VisualFOV / 10, fieldofview.Minimum, fieldofview.Maximum);
+			fieldofview.Value = General.Clamp(General.Settings.VisualFOV / FOV_STEP, fieldofview.Minimum, fieldofview.Maximum);
 			mousespeed.Value = General.Clamp(General.Settings.MouseSpeed / 100, mousespeed.Minimum, mousespeed.Maximum);
 			movespeed.Value = General.Clamp(General.Settings.MoveSpeed / 100, movespeed.Minimum, movespeed.Maximum);
 			vertexScale3D.Value = General.Clamp((int)(General.Settings.GZVertexScale3D * 10), vertexScale3D.Minimum, vertexScale3D.Maximum); //mxd
@@ -335,7 +338,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Settings.InactiveThingsAlpha = 1.0f - (inactivethingsalpha.Value * 0.1f); //mxd
 			General.Settings.HiddenThingsAlpha = 1.0f - (hiddenthingsalpha.Value * 0.1f); //mxd
 			General.Settings.DefaultViewMode = defaultviewmode.SelectedIndex;
-			General.Settings.VisualFOV = fieldofview.Value * 10;
+			General.Settings.VisualFOV = fieldofview.Value * FOV_STEP;
 			General.Settings.MouseSpeed = mousespeed.Value * 100;
 			General.Settings.MoveSpeed = movespeed.Value * 100;
 			General.Settings.GZVertexScale3D = vertexScale3D.Value * 0.1f; //mxd
@@ -535,7 +538,7 @@ namespace CodeImp.DoomBuilder.Windows
 		
 		private void fieldofview_ValueChanged(object sender, EventArgs e)
 		{
-			int value = fieldofview.Value * 10;
+			int value = fieldofview.Value * FOV_STEP;
 			fieldofviewlabel.Text = value.ToString() + (char)176;
 		}
 
