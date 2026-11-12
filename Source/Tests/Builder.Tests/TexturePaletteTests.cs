@@ -138,6 +138,11 @@ namespace Builder.Tests
 			Assert.True(Offset(calls, "BreakExclusiveMouseInput") < Offset(calls, "ReleaseAllKeys"));
 			Assert.True(Offset(calls, "ReleaseAllKeys") < Offset(calls, "ShowDialog"));
 			Assert.True(InFinally(method, Offset(calls, "ResumeExclusiveMouseInput")));
+			Assert.True(InFinally(method, Offset(calls, "Activate")));
+			Assert.True(Offset(calls, "ResumeExclusiveMouseInput") < Offset(calls, "Activate"));
+			Assert.True(Offset(calls, "Activate") < Offset(calls, "FocusDisplay"));
+			Assert.True(Offset(calls, "add_Deactivate") < Offset(calls, "ShowDialog"));
+			Assert.True(InFinally(method, Offset(calls, "remove_Deactivate")));
 			Assert.True(InFinally(method, Offset(calls, "Dispose")));
 			Assert.False(calls.Any(call => call.Value.Name == "EnableProcessing" || call.Value.Name == "DisableProcessing"));
 		}

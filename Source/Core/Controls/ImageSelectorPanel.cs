@@ -44,6 +44,7 @@ namespace CodeImp.DoomBuilder.Controls
 		internal bool GeomDebugClassicView { get { return classicview; } }
 		private int imagesize = 128;
 		private int maximumcolumns;
+		private int minimumitemwidth;
         private bool classicview = false;
         private bool usedtexturesfirst = false;
         private string contenttype = "Textures";
@@ -180,10 +181,16 @@ namespace CodeImp.DoomBuilder.Controls
 
 		#region ================== Constructor / Disposer
 
-		public ImageSelectorPanel()
+		public ImageSelectorPanel() : this(true) { }
+
+		// Mono can't unset VScroll before the handle exists, so a panel without the frame scrollbar must never set it
+		internal ImageSelectorPanel(bool framescrollbar)
 		{
-			VScroll = true;
-			AutoScroll = true;
+			if(framescrollbar)
+			{
+				VScroll = true;
+				AutoScroll = true;
+			}
 			DoubleBuffered = true;
 
 			scrollbar = new VScrollBar { Dock = DockStyle.Right };
@@ -556,6 +563,13 @@ namespace CodeImp.DoomBuilder.Controls
 			set { maximumcolumns = Math.Max(0, value); UpdateRectangles(); }
 		}
 
+		// Lays every item out at least this wide, so a fixed grid keeps even columns
+		public int MinimumItemWidth
+		{
+			get { return minimumitemwidth; }
+			set { minimumitemwidth = Math.Max(0, value); UpdateRectangles(); }
+		}
+
 		protected override void OnMouseUp(MouseEventArgs e)
 		{
 			ImageBrowserItem pressed = presseditem;
@@ -724,7 +738,7 @@ namespace CodeImp.DoomBuilder.Controls
 						previewwidth = Math.Max(1, (int)(ti.Icon.Width * scale));
 						previewheight = Math.Max(1, (int)(ti.Icon.Height * scale));
 					}
-					int wid = Math.Max((imagesize > 0 ? imagesize : previewwidth), ti.TextureNameWidth) + padhorz + padhorz;
+					int wid = Math.Max(Math.Max((imagesize > 0 ? imagesize : previewwidth), ti.TextureNameWidth), minimumitemwidth) + padhorz + padhorz;
 					int hei = (imagesize > 0 ? imagesize : previewheight) + padvert + padvert + font;
 					// if we draw height below, add another font
 					if (General.Settings.ShowTextureSizes && General.Settings.TextureSizesBelow && ti.ItemType == ImageBrowserItemType.IMAGE)

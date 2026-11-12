@@ -4272,12 +4272,25 @@ namespace CodeImp.DoomBuilder.Windows
 			using(SuspendProcessing())
 			{
 				BreakExclusiveMouseInput();
+				bool lostfocus = false;
+				EventHandler ondeactivate = (sender, e) => { if(form.DialogResult == DialogResult.None) lostfocus = true; };
+				form.Deactivate += ondeactivate;
 				try
 				{
 					ReleaseAllKeys();
 					return form.ShowDialog(this);
 				}
-				finally { ResumeExclusiveMouseInput(); }
+				finally
+				{
+					form.Deactivate -= ondeactivate;
+					ResumeExclusiveMouseInput();
+					// The window manager may not hand focus back after a borderless popup; don't steal it from another app
+					if(!lostfocus || windowactive)
+					{
+						Activate();
+						FocusDisplay();
+					}
+				}
 			}
 		}
 

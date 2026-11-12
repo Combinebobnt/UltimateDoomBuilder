@@ -83,7 +83,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 		public TextureHistoryView()
 		{
-			list = new ImageSelectorPanel { Dock = DockStyle.Fill, HideSelection = true, TakeFocusOnClick = false, Title = null };
+			list = new ImageSelectorPanel(false) { Dock = DockStyle.Fill, HideSelection = true, TakeFocusOnClick = false, Title = null };
 			list.ImageSize = Math.Max(1, (int)Math.Round(64 * MainForm.DPIScaler.Width));
 			list.ItemClicked += (item, e) => ClickEntry((Entry)item, e.Button);
 			list.IsFavorite = item => favorites != null && favorites.Contains(((Entry)item).Info.Kind, ((Entry)item).Info.Name);
@@ -142,6 +142,7 @@ namespace CodeImp.DoomBuilder.Controls
 				}
 			}
 			groups = result.Count;
+			list.MinimumItemWidth = CellWidth(result.SelectMany(group => group.Items).Select(item => item.TextureNameWidth), ImageSize);
 			list.SetItems(result, true);
 			if(list.Items.Any(item => !item.IsPreviewLoaded)) timer.Start();
 			if(EntriesChanged != null) EntriesChanged(this, EventArgs.Empty);
@@ -180,13 +181,18 @@ namespace CodeImp.DoomBuilder.Controls
 			columns = Math.Max(1, Math.Min(6, columns));
 			rows = Math.Max(1, Math.Min(3, rows));
 			int padding = list.ClassicView ? 26 : 4;
-			int width = list.Items.Count == 0 ? ImageSize : list.Items.Max(item => Math.Max(ImageSize, item.TextureNameWidth));
+			int width = CellWidth(list.Items.Select(item => item.TextureNameWidth), ImageSize);
 			int font = SystemFonts.MessageBoxFont.Height + 4;
 			int rowheight = ImageSize + 4 + font + (General.Settings.ShowTextureSizes && General.Settings.TextureSizesBelow ? font : 0);
 			int height = PaletteHeight(entrygroups.Select(group => group.Entries.Count), columns, rows, rowheight, font + 18);
 			int widest = entrygroups.Count == 0 ? 1 : entrygroups.Max(group => group.Entries.Count);
 			return new Size(Math.Min(columns, Math.Max(1, widest)) * (width + padding) + SystemInformation.VerticalScrollBarWidth,
 				Math.Max(rowheight, height));
+		}
+
+		internal static int CellWidth(IEnumerable<int> namewidths, int imagesize)
+		{
+			return namewidths.Aggregate(imagesize, Math.Max);
 		}
 
 		internal static int PaletteHeight(IEnumerable<int> counts, int columns, int rows, int rowheight, int headerheight)

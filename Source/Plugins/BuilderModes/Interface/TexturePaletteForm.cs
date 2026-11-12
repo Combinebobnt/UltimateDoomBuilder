@@ -86,9 +86,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		public bool PreFilterMessage(ref Message message)
 		{
-			if(ready && (message.Msg == 0x201 || message.Msg == 0x204 || message.Msg == 0x207 || message.Msg == 0xA1)
-				&& ShouldCancelOutsideClick(Bounds, Cursor.Position, view.OwnsContextMenuInput(message.HWnd))) Cancel();
-			return false;
+			if(!ready || !(message.Msg == 0x201 || message.Msg == 0x204 || message.Msg == 0x207 || message.Msg == 0xA1)
+				|| !ShouldCancelOutsideClick(Bounds, Cursor.Position, view.OwnsContextMenuInput(message.HWnd))) return false;
+			// Swallow the cancelling click so it doesn't also act on the map
+			Cancel();
+			return true;
 		}
 
 		internal static bool ShouldCancelOutsideClick(Rectangle palettebounds, Point cursor, bool ownedmenuinput)

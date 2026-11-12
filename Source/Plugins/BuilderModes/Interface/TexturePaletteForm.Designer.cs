@@ -14,8 +14,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			SuspendLayout();
 			view = new CodeImp.DoomBuilder.Controls.TextureHistoryView { Dock = System.Windows.Forms.DockStyle.Fill, Source = "popup", MaximumColumns = 6 };
-			AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
-			AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
+			AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
 			FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
 			ShowInTaskbar = false;
 			StartPosition = System.Windows.Forms.FormStartPosition.Manual;
