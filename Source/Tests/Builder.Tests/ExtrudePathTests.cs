@@ -164,6 +164,17 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void LoopInsideFollowsWindingAndSign()
+		{
+			List<Vector2D> clockwise = Points(0, 0, 0, 128, 128, 128, 128, 0);
+			Assert.False(ExtrudePath.ExtrudesInside(clockwise, true, 16));
+			Assert.True(ExtrudePath.ExtrudesInside(clockwise, true, -16));
+			clockwise.Reverse();
+			Assert.True(ExtrudePath.ExtrudesInside(clockwise, true, 16));
+			Assert.False(ExtrudePath.ExtrudesInside(Points(0, 0, 0, 128), false, -16));
+		}
+
+		[Fact]
 		public void ValidExtrusionsPass()
 		{
 			Assert.Null(Check(Points(0, 0, 0, 128), false, 64));
@@ -175,15 +186,14 @@ namespace Builder.Tests
 		[Fact]
 		public void ZeroDistanceIsRefused()
 		{
-			Assert.Equal("distance is 0", Check(Points(0, 0, 0, 128), false, 0).Reason);
+			Assert.Equal(ExtrudeProblemKind.ZeroDistance, Check(Points(0, 0, 0, 128), false, 0).Kind);
 		}
 
 		[Fact]
 		public void ConcaveCollapseIsRefused()
 		{
 			ExtrudeProblem problem = Check(Points(0, 0, 100, 0, 100, 40), false, 50);
-			Assert.Equal("the distance collapses a segment", problem.Reason);
-			Assert.Equal(1, problem.Segment);
+			Assert.Equal(ExtrudeProblemKind.Collapse, problem.Kind);
 		}
 
 		[Fact]
@@ -191,7 +201,7 @@ namespace Builder.Tests
 		{
 			// The pocket's last leg comes back down across the first leg's offset
 			ExtrudeProblem problem = Check(Points(0, 0, 100, 0, 100, 100, 20, 100, 20, 10), false, 30);
-			Assert.Equal("the extrusion crosses itself", problem.Reason);
+			Assert.Equal(ExtrudeProblemKind.SelfIntersection, problem.Kind);
 		}
 
 		[Fact]
@@ -199,7 +209,7 @@ namespace Builder.Tests
 		{
 			// A clockwise spiral whose last leg passes over the start's side wall
 			ExtrudeProblem problem = Check(Points(0, 0, 50, 0, 50, -50, -50, -50, -50, 50, 10, 100), false, 95);
-			Assert.Equal("the extrusion crosses the selected lines", problem.Reason);
+			Assert.Equal(ExtrudeProblemKind.CrossesSource, problem.Kind);
 		}
 	}
 }

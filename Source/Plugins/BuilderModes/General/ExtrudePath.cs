@@ -32,17 +32,37 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public int[] End;
 	}
 
+	public enum ExtrudeProblemKind
+	{
+		ZeroDistance,
+		Collapse,
+		SelfIntersection,
+		CrossesSource,
+		EmptyInside,
+	}
+
 	public sealed class ExtrudeProblem
 	{
-		public readonly string Reason;
+		public readonly ExtrudeProblemKind Kind;
 
-		// Source segment the problem was found on, -1 when it applies to the whole chain
-		public readonly int Segment;
-
-		public ExtrudeProblem(string reason, int segment)
+		public string Reason
 		{
-			Reason = reason;
-			Segment = segment;
+			get
+			{
+				switch(Kind)
+				{
+					case ExtrudeProblemKind.ZeroDistance: return "distance is 0";
+					case ExtrudeProblemKind.Collapse: return "the distance collapses a segment";
+					case ExtrudeProblemKind.SelfIntersection: return "the extrusion crosses itself";
+					case ExtrudeProblemKind.CrossesSource: return "the extrusion crosses the selected lines";
+					default: return "a loop can't be extruded into its empty inside";
+				}
+			}
+		}
+
+		public ExtrudeProblem(ExtrudeProblemKind kind)
+		{
+			Kind = kind;
 		}
 	}
 
@@ -256,6 +276,22 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return offset.Points.Count - 1;
 		}
 
+		// Whether a positive or negative distance moves a loop towards its own inside
+		public static bool ExtrudesInside(IList<Vector2D> points, bool closed, double distance)
+		{
+			if(!closed) return false;
+			double area = 0.0;
+			for(int i = 0; i < points.Count; i++)
+			{
+				Vector2D a = points[i];
+				Vector2D b = points[(i + 1) % points.Count];
+				area += a.x * b.y - b.x * a.y;
+			}
+
+			// Counter-clockwise (positive area) has its inside on the left, where positive distances go
+			return area * distance > 0.0;
+		}
+
 		#endregion
 
 		#region ================== Validation
@@ -263,7 +299,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Returns null when the extrusion can be applied
 		public static ExtrudeProblem Validate(IList<Vector2D> points, bool closed, ExtrudeOffset offset, double distance)
 		{
-			if(Math.Abs(distance) < EPSILON) return new ExtrudeProblem("distance is 0", -1);
+			if(Math.Abs(distance) < EPSILON) return new ExtrudeProblem(ExtrudeProblemKind.ZeroDistance);
 
 			int count = points.Count;
 			int segments = (closed ? count : count - 1);
@@ -275,7 +311,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				Vector2D source = points[j] - points[i];
 				Vector2D moved = offset.Points[offset.End[j]] - offset.Points[offset.Start[i]];
 				if(moved.GetLength() < MIN_SEGMENT_LENGTH || Vector2D.DotProduct(moved, source) <= 0.0)
-					return new ExtrudeProblem("the distance collapses a segment", i);
+					return new ExtrudeProblem(ExtrudeProblemKind.Collapse);
 			}
 
 			// The drawn outline: offset polyline, plus side walls for an open chain
@@ -291,7 +327,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				{
 					if(closed && a == 0 && b == outlinesegments - 1) continue;
 					if(SegmentsTouch(outline[a], outline[(a + 1) % outline.Count], outline[b], outline[(b + 1) % outline.Count]))
-						return new ExtrudeProblem("the extrusion crosses itself", SourceSegment(offset, closed, a, segments));
+						return new ExtrudeProblem(ExtrudeProblemKind.SelfIntersection);
 				}
 			}
 
@@ -305,20 +341,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				for(int s = 0; s < segments; s++)
 				{
 					if(SegmentsCross(a1, a2, points[s], points[(s + 1) % count], skipfirst, skiplast))
-						return new ExtrudeProblem("the extrusion crosses the selected lines", SourceSegment(offset, closed, a, segments));
+						return new ExtrudeProblem(ExtrudeProblemKind.CrossesSource);
 				}
 			}
 
 			return null;
-		}
-
-		// Maps an outline segment back to the source segment whose offset it is, else -1
-		private static int SourceSegment(ExtrudeOffset offset, bool closed, int outlinesegment, int segments)
-		{
-			int pointindex = (closed ? outlinesegment : outlinesegment - 1);
-			for(int i = 0; i < segments; i++)
-				if(offset.Start[i] == pointindex) return i;
-			return -1;
 		}
 
 		// Closed-interval segment intersection, touching endpoints included

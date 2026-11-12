@@ -40,6 +40,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			public List<Linedef> Lines;
 			public ExtrudeOffset Offset;
 			public ExtrudeProblem Problem;
+
+			// For a loop: the sector just inside it, null when the inside is empty
+			public Sector Inside;
 		}
 
 		#endregion
@@ -85,6 +88,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					Vector2D a = run.Points[i];
 					Vector2D b = run.Points[(i + 1) % run.Points.Count];
 					walknormals[run.Lines[i]] = (b - a).GetNormal().GetPerpendicular();
+				}
+
+				if(run.Chain.Closed)
+				{
+					double side = (ExtrudePath.ExtrudesInside(run.Points, true, 1.0) ? 0.5 : -0.5);
+					Vector2D probe = run.Lines[0].GetCenterPoint() + walknormals[run.Lines[0]] * side;
+					run.Inside = General.Map.Map.GetSectorByCoordinates(probe);
 				}
 			}
 
@@ -169,6 +179,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				run.Offset = ExtrudePath.Offset(run.Points, run.Chain.Closed, distance, decimals);
 				run.Problem = ExtrudePath.Validate(run.Points, run.Chain.Closed, run.Offset, distance);
+
+				// Draw Lines would fill the ring's middle, not the band next to the loop
+				if(run.Problem == null && run.Inside == null && ExtrudePath.ExtrudesInside(run.Points, run.Chain.Closed, distance))
+					run.Problem = new ExtrudeProblem(ExtrudeProblemKind.EmptyInside);
 				if(first == null) first = run.Problem;
 			}
 
@@ -177,16 +191,28 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			hintlabel.Text = "Distance: " + panel.Distance + (first != null ? " (" + first.Reason + ")" : string.Empty);
 		}
 
-		// Where the preview crosses unselected lines, which Draw Lines will split
+		// Where the preview crosses unselected lines or another run, which Draw Lines will split
 		private void UpdateCrossings()
 		{
 			crossings.Clear();
-			foreach(Run run in runs)
+			List<List<Vector2D>> outlines = new List<List<Vector2D>>();
+			foreach(Run run in runs) outlines.Add(Outline(run));
+			for(int r = 0; r < outlines.Count; r++)
 			{
-				List<Vector2D> outline = Outline(run);
+				List<Vector2D> outline = outlines[r];
 				for(int i = 0; i < outline.Count - 1; i++)
 				{
 					Line2D segment = new Line2D(outline[i], outline[i + 1]);
+					for(int other = r + 1; other < outlines.Count; other++)
+					{
+						for(int j = 0; j < outlines[other].Count - 1; j++)
+						{
+							double u;
+							if(segment.GetIntersection(new Line2D(outlines[other][j], outlines[other][j + 1]), out u) && u >= 0.0 && u <= 1.0)
+								crossings.Add(outlines[other][j] + (outlines[other][j + 1] - outlines[other][j]) * u);
+						}
+					}
+
 					RectangleF box = RectangleF.FromLTRB((float)Math.Min(segment.v1.x, segment.v2.x), (float)Math.Min(segment.v1.y, segment.v2.y),
 														 (float)Math.Max(segment.v1.x, segment.v2.x), (float)Math.Max(segment.v1.y, segment.v2.y));
 					foreach(Linedef ld in unselectedlines)
@@ -288,8 +314,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			double sign = Math.Sign(panel.Distance);
 			List<Vector2D> probes = new List<Vector2D>();
 			List<Sector> before = new List<Sector>();
+			HashSet<Sector> strips = new HashSet<Sector>();
 			foreach(Run run in runs)
 			{
+				// An inward loop splits the inner part off as a new sector, so the old one is the band
+				if(ExtrudePath.ExtrudesInside(run.Points, run.Chain.Closed, panel.Distance))
+				{
+					strips.Add(run.Inside);
+					continue;
+				}
+
 				foreach(Linedef ld in run.Lines)
 				{
 					Vector2D probe = ld.GetCenterPoint() + walknormals[ld] * sign * 0.5;
@@ -343,7 +377,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// Height deltas go to whatever new sector now sits on each source line's extrusion side
 			if(panel.FloorDelta != 0 || panel.CeilingDelta != 0)
 			{
-				HashSet<Sector> strips = new HashSet<Sector>();
 				for(int i = 0; i < probes.Count; i++)
 				{
 					Sector s = General.Map.Map.GetSectorByCoordinates(probes[i]);
@@ -351,6 +384,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 				foreach(Sector s in strips)
 				{
+					if(s.IsDisposed) continue;
 					s.FloorHeight += panel.FloorDelta;
 					s.CeilHeight = Math.Max(s.FloorHeight, s.CeilHeight + panel.CeilingDelta);
 				}
