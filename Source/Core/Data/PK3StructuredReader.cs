@@ -202,6 +202,7 @@ namespace CodeImp.DoomBuilder.Data
 			// Error when suspended
 			if(issuspended) throw new Exception("Data reader is suspended");
 
+			AnimationTextures = new List<ImageData>();
 			Dictionary<long, ImageData> images = new Dictionary<long, ImageData>();
 			IEnumerable<ImageData> collection;
 			
@@ -211,6 +212,7 @@ namespace CodeImp.DoomBuilder.Data
 				PatchNames wadpnames = wads[i].LoadPatchNames(); //mxd
 				collection = wads[i].LoadTextures((wadpnames != null && wadpnames.Length > 0) ? wadpnames : pnames, cachedparsers); //mxd
 				AddImagesToList(images, collection);
+				AnimationTextures.InsertRange(0, wads[i].AnimationTextures);
 			}
 			
 			// Should we load the images in this directory as textures?
@@ -218,6 +220,7 @@ namespace CodeImp.DoomBuilder.Data
 			{
 				collection = LoadDirectoryImages("", ImageDataFormat.DOOMPICTURE, false);
 				AddImagesToList(images, collection);
+				AnimationTextures.AddRange(collection);
 			}
 			
 			// Load TEXTURE1 lump file
@@ -241,6 +244,7 @@ namespace CodeImp.DoomBuilder.Data
 			
 			// Add images from TEXTURE1 and TEXTURE2 lump files
 			AddImagesToList(images, imgset);
+			AnimationTextures.AddRange(imgset);
 			
 			// Load TEXTURES lump files
 			imgset.Clear();
@@ -273,6 +277,14 @@ namespace CodeImp.DoomBuilder.Data
 			//mxd. Add images from texture directory. Textures defined in TEXTURES override ones in "textures" folder
 			collection = LoadDirectoryImages(TEXTURES_DIR, ImageDataFormat.DOOMPICTURE, true);
 			AddImagesToList(images, collection);
+			AnimationTextures.AddRange(collection);
+			AnimationTextures.AddRange(imgset);
+			foreach(ImageData image in AnimationTextures)
+			{
+				if(image.AnimationSource != null) continue;
+				image.AnimationSource = this;
+				image.AnimationUseType = image.TextureNamespace == TextureNamespace.WALLTEXTURE ? 0 : 2;
+			}
 			
 			// Add images to the container-specific texture set
 			foreach(ImageData img in images.Values) textureset.AddTexture(img);
@@ -340,6 +352,7 @@ namespace CodeImp.DoomBuilder.Data
 		// This loads the textures
 		public override IEnumerable<ImageData> LoadFlats(Dictionary<string, TexturesParser> cachedparsers)
 		{
+			AnimationFlats = new List<ImageData>();
 			Dictionary<long, ImageData> images = new Dictionary<long, ImageData>();
 			IEnumerable<ImageData> collection;
 			List<ImageData> imgset = new List<ImageData>();
@@ -353,6 +366,7 @@ namespace CodeImp.DoomBuilder.Data
 			{
 				collection = wads[i].LoadFlats(cachedparsers);
 				AddImagesToList(images, collection);
+				AnimationFlats.InsertRange(0, wads[i].AnimationFlats);
 			}
 			
 			// Should we load the images in this directory as flats?
@@ -360,11 +374,13 @@ namespace CodeImp.DoomBuilder.Data
 			{
 				collection = LoadDirectoryImages("", ImageDataFormat.DOOMFLAT, false);
 				AddImagesToList(images, collection);
+				AnimationFlats.AddRange(collection);
 			}
 
 			// Add images from flats directory
 			collection = LoadDirectoryImages(FLATS_DIR, ImageDataFormat.DOOMFLAT, true);
 			AddImagesToList(images, collection);
+			AnimationFlats.AddRange(collection);
 
 			// Load TEXTURES lump file
 			string[] alltexturefiles = GetAllFilesWhichTitleStartsWith("", "TEXTURES", false); //mxd
@@ -389,6 +405,13 @@ namespace CodeImp.DoomBuilder.Data
 
 			// Add images from TEXTURES lump file
 			AddImagesToList(images, imgset);
+			AnimationFlats.AddRange(imgset);
+			foreach(ImageData image in AnimationFlats)
+			{
+				if(image.AnimationSource != null) continue;
+				image.AnimationSource = this;
+				image.AnimationUseType = 1;
+			}
 
 			// Add images to the container-specific texture set
 			foreach(ImageData img in images.Values) 
@@ -836,6 +859,7 @@ namespace CodeImp.DoomBuilder.Data
 			
 			// Go for all files
 			string[] files = GetAllFiles(path, includesubdirs);
+			Array.Sort(files, CompareAnimationPaths);
 			foreach(string f in files)
 			{
 				if(string.IsNullOrEmpty(Path.GetFileNameWithoutExtension(f))) 
@@ -852,6 +876,11 @@ namespace CodeImp.DoomBuilder.Data
 			
 			// Return result
 			return images;
+		}
+
+		internal static int CompareAnimationPaths(string a, string b)
+		{
+			return string.Compare(a.Replace('\\', '/').ToLowerInvariant(), b.Replace('\\', '/').ToLowerInvariant(), StringComparison.Ordinal);
 		}
 
 		/// <summary>

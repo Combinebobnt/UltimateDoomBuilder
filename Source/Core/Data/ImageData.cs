@@ -137,6 +137,24 @@ namespace CodeImp.DoomBuilder.Data
 		public ImageLoadState ImageState { get { return imagestate; } internal set { imagestate = value; } }
 		public ImageLoadState PreviewState { get { return previewstate; } internal set { previewstate = value; } }
 		public bool UsedInMap { get; internal set; }
+		internal DataReader AnimationSource { get; set; }
+		internal int AnimationUseType { get; set; }
+
+		internal bool IsReadyFor(bool indexed)
+		{
+			if(isdisposed || loadfailed) return false;
+			if(indexed)
+			{
+				wantIndexed = true;
+				if(indexedTexture != null) return true;
+				if(imagestate == ImageLoadState.Ready && loadedbitmap != null && uncorrectedbitmap != null) return true;
+				// Keep an existing colour texture while requesting the data needed for an indexed upload.
+				if(imagestate == ImageLoadState.Ready) imagestate = ImageLoadState.None;
+			}
+			else if(texture != null || (imagestate == ImageLoadState.Ready && loadedbitmap != null)) return true;
+			if(imagestate == ImageLoadState.None) General.Map.Data.QueueLoadImage(this);
+			return false;
+		}
 		public int MipMapLevels { get { return mipmaplevels; } set { mipmaplevels = value; } }
 		public virtual int Width { get { return width; } }
 		public virtual int Height { get { return height; } }
@@ -347,6 +365,8 @@ namespace CodeImp.DoomBuilder.Data
                     uncorrectedbitmap?.Dispose();
                     texture?.Dispose();
                     indexedTexture?.Dispose();
+					texture = null;
+					indexedTexture = null;
                     imagestate = ImageLoadState.Ready;
                     loadedbitmap = loadResult.bitmap;
                     uncorrectedbitmap = loadResult.uncorrected;

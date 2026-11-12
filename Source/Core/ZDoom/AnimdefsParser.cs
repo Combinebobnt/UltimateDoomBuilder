@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Data;
 
@@ -282,7 +283,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 
 		private void ParseAnimation(bool texture)
 		{
-			var anim = new AnimdefsAnimation { IsTexture = texture, Source = sourcename, Line = GetCurrentLineNumber() };
+			var anim = new AnimdefsAnimation { IsTexture = texture, Source = Path.Combine(datalocation.GetDisplayName(), sourcename), Line = GetCurrentLineNumber() };
 			anim.Optional = Take("optional");
 			anim.Name = Required().ToUpperInvariant();
 			bool range = false, pic = false;
@@ -327,7 +328,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 			int line = GetCurrentLineNumber();
 			string kind = Required().ToLowerInvariant();
 			if(kind != "flat" && kind != "texture") throw new FormatException("Expected flat or texture after warp");
-			var warp = new AnimdefsWarp { Name = Required().ToUpperInvariant(), IsTexture = kind == "texture", Style = style, Source = sourcename, Line = line };
+			var warp = new AnimdefsWarp { Name = Required().ToUpperInvariant(), IsTexture = kind == "texture", Style = style, Source = Path.Combine(datalocation.GetDisplayName(), sourcename), Line = line };
 			if(warp.Name.Length > DataManager.CLASIC_IMAGE_NAME_LENGTH) throw new FormatException("Cannot use warp for long texture names");
 			string token = Next();
 			double speed;

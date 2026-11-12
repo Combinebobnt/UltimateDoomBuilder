@@ -492,6 +492,12 @@ namespace CodeImp.DoomBuilder.Data
 			foreach(ImageData img in images) textureset.AddTexture(img);
 
 			// Return result
+			AnimationTextures = images;
+			foreach(ImageData image in images)
+			{
+				image.AnimationSource = this;
+				image.AnimationUseType = image.TextureNamespace == TextureNamespace.WALLTEXTURE ? 0 : 2;
+			}
 			return images;
 		}
 
@@ -807,6 +813,12 @@ namespace CodeImp.DoomBuilder.Data
 			foreach(ImageData img in images) textureset.AddFlat(img);
 
 			// Return result
+			AnimationFlats = images;
+			foreach(ImageData image in images)
+			{
+				image.AnimationSource = this;
+				image.AnimationUseType = 1;
+			}
 			return images;
 		}
 

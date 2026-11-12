@@ -145,6 +145,8 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			// Reader indexes survive; image references belong to the old DataManager.
 			textureset = new ResourceTextureSet(GetTitle(), location);
+			AnimationTextures = null;
+			AnimationFlats = null;
 		}
 
 		// This suspends use of this resource
@@ -258,6 +260,8 @@ namespace CodeImp.DoomBuilder.Data
 		//mxd. When implemented, this returns generic text lump data
 		public abstract IEnumerable<TextResourceData> GetTextLumpData(ScriptType scripttype, bool singular, bool partialtitlematch);
 		public virtual Stream GetAnimatedData() { return null; }
+		internal List<ImageData> AnimationTextures { get; set; }
+		internal List<ImageData> AnimationFlats { get; set; }
 
 		//mxd. When implemented, this returns the list of voxel model names
 		public abstract HashSet<string> GetVoxelNames();

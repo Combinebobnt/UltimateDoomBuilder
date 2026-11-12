@@ -82,6 +82,11 @@ namespace CodeImp.DoomBuilder.Data
 		private AllTextureSet alltextures;
 		private AllTextureSet walltextureset;
 		private AllTextureSet flattextureset;
+		private TextureAnimator animator;
+		private TextureAnimationOrder animationorder;
+		private Dictionary<int, ImageData> animationimages;
+		private Dictionary<ImageData, int> animationkeys;
+		private Dictionary<ImageData, WarpInfo> warps;
 
 		//mxd 
 		private Dictionary<int, ModelData> modeldefentries; //Thing.Type, Model entry
@@ -204,6 +209,7 @@ namespace CodeImp.DoomBuilder.Data
 		internal AllTextureSet AllTextureSet { get { return alltextures; } }
 		internal AllTextureSet WallTextureSet { get { return walltextureset; } }
 		internal AllTextureSet FlatTextureSet { get { return flattextureset; } }
+		internal TextureAnimator Animator { get { return animator; } }
 		
 		public bool IsLoading
 		{
@@ -342,6 +348,11 @@ namespace CodeImp.DoomBuilder.Data
 
 			// Create collections
 			containers = new List<DataReader>();
+			animator = new TextureAnimator();
+			animationorder = new TextureAnimationOrder();
+			animationimages = new Dictionary<int, ImageData>();
+			animationkeys = new Dictionary<ImageData, int>();
+			warps = new Dictionary<ImageData, WarpInfo>();
 			textures = new Dictionary<long, ImageData>();
 			flats = new Dictionary<long, ImageData>();
 			sprites = new Dictionary<long, ImageData>();
@@ -591,7 +602,10 @@ namespace CodeImp.DoomBuilder.Data
 			int hirestexcount = LoadHiResTextures();
 
 			//mxd. Create camera textures. Should be done after loading textures.
-			LoadAnimdefs();
+			animationorder.Seal();
+			AnimdefsParser animdefs = LoadAnimdefs();
+			LoadAnimations(animdefs);
+			foreach(int key in animator.FrameKeys) animationimages[key].IsReadyFor(true);
 
 			//mxd
 			LoadTerrain();
@@ -657,7 +671,7 @@ namespace CodeImp.DoomBuilder.Data
 				thingcount + " decorate things, " + modeldefentries.Count + " model/voxel definitions, " + 
 				gldefsentries.Count + " dynamic light definitions, " + 
 				glowingflats.Count + " glowing flat definitions, " + skyboxes.Count + " skybox definitions, " +
-				reverbs.Count + " sound environment definitions");
+				reverbs.Count + " sound environment definitions, " + animator.Count + " texture animations");
 
 			if (General.ErrorLogger.HasChanged)
 			{
@@ -708,6 +722,12 @@ namespace CodeImp.DoomBuilder.Data
 			foreach(KeyValuePair<long, ImageData> i in textures) i.Value.Dispose();
 			foreach(KeyValuePair<long, ImageData> i in flats) i.Value.Dispose();
 			foreach(KeyValuePair<long, ImageData> i in sprites) i.Value.Dispose();
+			foreach(ImageData image in animationimages.Values) image.Dispose();
+			animationimages.Clear();
+			animationkeys.Clear();
+			warps.Clear();
+			animator = null;
+			animationorder = null;
 			palette = null;
 
 			//mxd. Dispose models
@@ -1044,6 +1064,7 @@ namespace CodeImp.DoomBuilder.Data
 
 				// Load textures
 				IEnumerable<ImageData> images = dr.LoadTextures(pnames, cachedparsers);
+				RecordAnimationImages(dr.AnimationTextures);
 				if(images != null)
 				{
 					// Go for all textures
@@ -1258,6 +1279,7 @@ namespace CodeImp.DoomBuilder.Data
 			{
 				// Load flats
 				IEnumerable<ImageData> images = dr.LoadFlats(cachedparsers);
+				RecordAnimationImages(dr.AnimationFlats);
 				if(images != null)
 				{
 					// Go for all flats
@@ -1404,6 +1426,7 @@ namespace CodeImp.DoomBuilder.Data
 						{
 							HiResImage replacer = new HiResImage(img);
 							replacer.ApplySettings(textures[hash]);
+							ReplaceAnimationImage(textures[hash], replacer);
 							textures[img.LongName] = replacer;
                             //replaced = true;
 
@@ -1416,6 +1439,7 @@ namespace CodeImp.DoomBuilder.Data
 						{
 							HiResImage replacer = new HiResImage(img);
 							replacer.ApplySettings(flats[hash]);
+							ReplaceAnimationImage(flats[hash], replacer);
 							flats[img.LongName] = replacer;
                             //replaced = true;
 
@@ -2971,10 +2995,11 @@ namespace CodeImp.DoomBuilder.Data
 		}
 
 		//mxd. This loads cameratextures from ANIMDEFS
-		private void LoadAnimdefs()
+		private AnimdefsParser LoadAnimdefs()
 		{
 			// Bail out when not supported by current game configuration
-			if(string.IsNullOrEmpty(General.Map.Config.DecorateGames)) return;
+			bool cameras = !string.IsNullOrEmpty(General.Map.Config.DecorateGames);
+			if(!cameras && General.Map.Config.BaseGame != GameType.HEXEN) return null;
 
 			AnimdefsParser parser = new AnimdefsParser();
 			foreach(DataReader dr in containers)
@@ -2993,6 +3018,7 @@ namespace CodeImp.DoomBuilder.Data
 					// Create images
 					foreach(var g in parser.CameraTextures)
 					{
+						if(!cameras) break;
 						// Grab a local copy
 						CameraTextureData camtexdata = g.Value;
 
@@ -3034,6 +3060,149 @@ namespace CodeImp.DoomBuilder.Data
 			//mxd. Add to text resources collection
 			scriptresources[parser.ScriptType] = new HashSet<ScriptResource>(parser.ScriptResources.Values);
 			currentreader = null;
+			return parser;
+		}
+
+		private void RecordAnimationImages(IEnumerable<ImageData> images)
+		{
+			if(images == null) return;
+			foreach(ImageData image in images)
+			{
+				int key = image.GetHashCode();
+				animationkeys[image] = key;
+				animationimages[key] = image;
+				animationorder.Register(key, image.AnimationSource, image.AnimationUseType);
+			}
+		}
+
+		private void ReplaceAnimationImage(ImageData original, ImageData replacement)
+		{
+			int key;
+			if(!animationkeys.TryGetValue(original, out key)) return;
+			replacement.AnimationSource = original.AnimationSource;
+			replacement.AnimationUseType = original.AnimationUseType;
+			animationkeys[replacement] = key;
+			animationimages[key] = replacement;
+		}
+
+		private ImageData FindAnimationImage(string name, bool texture, bool any)
+		{
+			ImageData image = texture ? GetTextureImage(name) : GetFlatImage(name);
+			if(any && image == unknownimage) image = texture ? GetFlatImage(name) : GetTextureImage(name);
+			if(!any && image != unknownimage && (image.AnimationUseType == 1) == texture) return unknownimage;
+			return image;
+		}
+
+		private void LoadAnimations(AnimdefsParser parser)
+		{
+			List<AnimatedEntry> entries = null;
+			foreach(DataReader reader in containers)
+			{
+				using(Stream stream = reader.GetAnimatedData())
+				{
+					if(stream == null) continue;
+					using(var data = new MemoryStream())
+					{
+						stream.CopyTo(data);
+						entries = AnimatedLump.Parse(data.ToArray(), message => General.ErrorLogger.Add(ErrorType.Warning, reader.Location.GetDisplayName() + ": " + message));
+					}
+				}
+			}
+			if(entries == null)
+			{
+				string engine = General.Map.Config.EngineName.ToLowerInvariant();
+				string table = engine == "zandronum" || engine == "zdaemon" ? "zandronum" : General.Map.Config.BaseGame;
+				entries = AnimatedLump.LoadDefaults(table == GameType.CHEX ? GameType.DOOM : table);
+			}
+			AddAnimatedEntries(entries);
+			if(parser == null) return;
+			AnimationType type;
+			foreach(AnimdefsAnimation animation in parser.Animations)
+			{
+				Action<string> warning = message => General.ErrorLogger.Add(ErrorType.Warning, "ANIMDEFS " + animation.Source + ", line " + (animation.Line + 1) + ": " + message);
+				ImageData image = FindAnimationImage(animation.Name, animation.IsTexture, true);
+				int basekey;
+				if(image == unknownimage || !animationkeys.TryGetValue(image, out basekey))
+				{
+					if(!animation.Optional) warning("Can't find " + animation.Name);
+					continue;
+				}
+				var frames = new List<int>();
+				foreach(AnimdefsFrame frame in animation.Frames)
+				{
+					int? key = null;
+					if(frame.Number.HasValue) key = animationorder.Frame(basekey, frame.Number.Value);
+					else
+					{
+						ImageData target = FindAnimationImage(frame.Name, animation.IsTexture, true);
+						int targetkey;
+						if(target != unknownimage && animationkeys.TryGetValue(target, out targetkey)) key = targetkey;
+					}
+					if(!key.HasValue) { warning("Unknown texture " + (frame.Name ?? frame.Number.ToString())); break; }
+					frames.Add(key.Value);
+				}
+				if(frames.Count != animation.Frames.Count) continue;
+				if(animation.Kind == AnimationKind.Range)
+				{
+					bool backward;
+					int[] range = animationorder.Range(basekey, frames[0], out backward);
+					if(range == null) { warning("Range frames must differ and share a resource and use type"); continue; }
+					type = animation.Type;
+					if(backward && type == AnimationType.Forward) type = AnimationType.Backward;
+					if(backward && type == AnimationType.OscillateUp) type = AnimationType.OscillateDown;
+					animator.Add(range[0], new AnimDef(range, new[] { animation.Frames[0].MinMs }, new[] { animation.Frames[0].MaxMs }, false, type), warning);
+				}
+				else animator.Add(basekey, new AnimDef(frames.ToArray(), animation.Frames.Select(f => f.MinMs).ToArray(), animation.Frames.Select(f => f.MaxMs).ToArray(), true, animation.Type), warning);
+			}
+			foreach(AnimdefsWarp warp in parser.Warps)
+			{
+				ImageData image = FindAnimationImage(warp.Name, warp.IsTexture, true);
+				if(image != unknownimage) SetWarp(image, warp.Style, warp.Speed);
+			}
+		}
+
+		internal void AddAnimatedEntries(IEnumerable<AnimatedEntry> entries)
+		{
+			AnimationType type = AnimationType.Forward;
+			foreach(AnimatedEntry entry in entries)
+			{
+				ImageData first = FindAnimationImage(entry.First, entry.IsTexture, false);
+				ImageData last = FindAnimationImage(entry.Last, entry.IsTexture, false);
+				if(first == unknownimage || last == unknownimage) continue;
+				if(entry.Tics > 65535 && !warps.ContainsKey(first)) { SetWarp(first, 2, 1); continue; }
+				int a, b;
+				if(!animationkeys.TryGetValue(first, out a) || !animationkeys.TryGetValue(last, out b)) continue;
+				bool backward;
+				int[] frames = animationorder.Range(a, b, out backward);
+				if(backward) type = AnimationType.Backward;
+				if(frames == null)
+				{
+					General.WriteLogLine("Skipped ANIMATED range " + entry.First + " to " + entry.Last + ": frames must differ and share a resource and use type");
+					continue;
+				}
+				int duration = (int)Math.Min(int.MaxValue, (long)entry.Tics * 1000 / 35);
+				animator.Add(frames[0], new AnimDef(frames, new[] { duration }, new[] { duration }, false, type), message => General.ErrorLogger.Add(ErrorType.Warning, "ANIMATED " + entry.First + ": " + message));
+			}
+		}
+
+		private void SetWarp(ImageData image, int style, double speed)
+		{
+			WarpInfo previous;
+			warps[image] = new WarpInfo { Style = warps.TryGetValue(image, out previous) ? previous.Style : style, Speed = speed };
+		}
+
+		internal ImageData ResolveAnimatedImage(ImageData image, bool indexed)
+		{
+			int key;
+			if(!animationkeys.TryGetValue(image, out key)) return image;
+			ImageData frame = animationimages[animator.Resolve(key)];
+			return frame == image || frame.IsReadyFor(indexed) ? frame : image;
+		}
+
+		internal WarpInfo? GetWarp(ImageData image)
+		{
+			WarpInfo warp;
+			return warps.TryGetValue(image, out warp) ? (WarpInfo?)warp : null;
 		}
 
 		//mxd. This loads TERRAIN

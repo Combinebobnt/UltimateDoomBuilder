@@ -1061,6 +1061,7 @@
     </Compile>
     <Compile Include="Data\BitmapImage.cs" />
     <Compile Include="Data\CameraTextureImage.cs" />
+    <Compile Include="Data\TextureAnimator.cs" />
     <Compile Include="Data\ColorImage.cs" />
     <Compile Include="Data\ColormapImage.cs" />
     <Compile Include="Data\CvarsCollection.cs" />
