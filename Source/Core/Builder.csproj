@@ -1097,6 +1097,7 @@
     <Compile Include="General\InteractionLog.cs" />
     <Compile Include="General\InteractionActionTracker.cs" />
     <Compile Include="General\StageTimer.cs" />
+    <Compile Include="Data\SpriteNameIndex.cs" />
     <Compile Include="General\MD5Hash.cs" />
     <Compile Include="General\MurmurHash2.cs" />
     <Compile Include="General\SavePurpose.cs" />

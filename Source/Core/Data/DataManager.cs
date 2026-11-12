@@ -1627,6 +1627,9 @@ namespace CodeImp.DoomBuilder.Data
 			int framecount = 0;
 			int misses = 0;
 			HashSet<string> distinctmisses = new HashSet<string>(StringComparer.Ordinal);
+			framesetup.Start();
+			SpriteNameIndex spriteindex = new SpriteNameIndex(spritenames);
+			framesetup.Stop();
 
 			// Go for all things
 			foreach(ThingTypeInfo ti in General.Map.Data.ThingTypes)
@@ -1638,7 +1641,7 @@ namespace CodeImp.DoomBuilder.Data
 
 				//mxd. Find all sprite angles
 				framesetup.Start();
-				bool isvoxel = ti.SetupSpriteFrame(spritenames, voxelnames);
+				bool isvoxel = ti.SetupSpriteFrame(spriteindex, voxelnames);
 				framesetup.Stop();
 				framelookup.Start();
 

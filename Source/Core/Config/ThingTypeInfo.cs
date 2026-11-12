@@ -768,6 +768,11 @@ namespace CodeImp.DoomBuilder.Config
         //mxd. This tries to find all possible sprite rotations. Returns true when voxel substitute exists
         internal bool SetupSpriteFrame(HashSet<string> allspritenames, HashSet<string> allvoxelnames)
 		{
+			return SetupSpriteFrame(new SpriteNameIndex(allspritenames), allvoxelnames);
+		}
+
+		internal bool SetupSpriteFrame(SpriteNameIndex spriteindex, HashSet<string> allvoxelnames)
+		{
 			// Empty, invalid or internal sprites don't have rotations
 			// Info: we can have either partial 5-char sprite name from DECORATE parser,
 			// or fully defined 6/8-char sprite name defined in Game configuration or by $Sprite property 
@@ -824,12 +829,7 @@ namespace CodeImp.DoomBuilder.Config
 			// Then try sprites
 			// Find a sprite, which matches sourcename
 			string sourcesprite = string.Empty;
-			HashSet<string> spritenames = new HashSet<string>();
-			foreach(string s in allspritenames)
-			{
-                if (s.StartsWith(sourcename))
-                    spritenames.Add(s);
-			}
+			HashSet<string> spritenames = new HashSet<string>(spriteindex.Matching(sourcename));
 
 			// Find a sprite, which matches baseframe
 			foreach(string s in spritenames)
