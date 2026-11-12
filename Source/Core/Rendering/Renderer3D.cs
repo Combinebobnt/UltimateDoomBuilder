@@ -1197,11 +1197,10 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			});
 
-			ImageData curtexture;
+			ImageData curtexture = null;
 			VisualSector sector = null;
 			RenderPass currentpass = RenderPass.Solid;
 			ResolvedMaterial material = null;
-			long curtexturename = 0;
 			float fogfactor = -1;
 
 			// Begin rendering with this shader
@@ -1296,7 +1295,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				}
 
 				// Change texture?
-				if(g.Texture.LongName != curtexturename)
+				if(!object.ReferenceEquals(g.Texture, curtexture))
 				{
 					curtexture = g.Texture;
 
@@ -1307,7 +1306,6 @@ namespace CodeImp.DoomBuilder.Rendering
 					graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
 					material = BindMaterial(bound, false);
 					
-					curtexturename = g.Texture.LongName;
 				}
 
 				// Changing sector?
@@ -1401,7 +1399,8 @@ namespace CodeImp.DoomBuilder.Rendering
 
 				// Reset vars
 				currentpass = RenderPass.Solid;
-				curtexturename = 0;
+				curtexture = null;
+				material = null;
 				Color4 vertexcolor = new Color4();
 				fogfactor = -1;
 
@@ -1441,7 +1440,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					}
 
 					// Change texture?
-					if(t.Texture.LongName != curtexturename)
+					if(!object.ReferenceEquals(t.Texture, curtexture))
 					{
 						curtexture = t.Texture;
 
@@ -1451,7 +1450,6 @@ namespace CodeImp.DoomBuilder.Rendering
 						graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
 						material = BindMaterial(curtexture, true);
 						
-						curtexturename = t.Texture.LongName;
 					}
 
 					// Only do this sector when a vertexbuffer is created
