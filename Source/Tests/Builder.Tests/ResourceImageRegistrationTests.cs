@@ -9,6 +9,7 @@ using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Data.Scripting;
 using CodeImp.DoomBuilder.GZBuilder.Data;
 using CodeImp.DoomBuilder.IO;
+using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.Windows;
 using CodeImp.DoomBuilder.ZDoom;
 
@@ -25,6 +26,7 @@ namespace Builder.Tests
 		private readonly object previoustemp = typeof(General).GetField("temppath", Static)!.GetValue(null);
 		private readonly object previousassembly = typeof(General).GetField("thisasm", Static)!.GetValue(null);
 		private readonly object previousscripts = typeof(General).GetField("scriptconfigs", Static)!.GetValue(null);
+		private readonly object previoussettings = typeof(General).GetField("settings", Static)!.GetValue(null);
 		private readonly Bitmap bitmap = new Bitmap(1, 1);
 		private readonly Graphics graphics;
 		private readonly List<DataReader> readers = new List<DataReader>();
@@ -42,6 +44,7 @@ namespace Builder.Tests
 			typeof(General).GetField("temppath", Static)!.SetValue(null, directory);
 			typeof(General).GetField("thisasm", Static)!.SetValue(null, typeof(General).Assembly);
 			typeof(General).GetField("scriptconfigs", Static)!.SetValue(null, new Dictionary<string, ScriptConfiguration>());
+			typeof(General).GetField("settings", Static)!.SetValue(null, new ProgramConfiguration { GZAnimateTextures = false, GZDrawMaterials = true });
 			Set(General.Map, "temppath", directory);
 			try { Configure("gzdoom"); }
 			catch { Dispose(); throw; }
@@ -53,6 +56,7 @@ namespace Builder.Tests
 			{
 				var images = Get<Dictionary<int, ImageData>>(data, "animationimages").Values
 					.Concat(Get<Dictionary<string, ImageData>>(data, "fullmaterialimages").Values)
+					.Concat(Get<Dictionary<string, ImageData>>(data, "materialimages").Values)
 					.Concat(Get<Dictionary<ImageData, ImageData>>(data, "shortmaterialimages").Keys)
 					.Concat(Get<Dictionary<ImageData, ImageData>>(data, "shortmaterialimages").Values).Distinct();
 				foreach(ImageData image in images) if(image != null) image.Dispose();
@@ -62,6 +66,7 @@ namespace Builder.Tests
 			typeof(General).GetField("temppath", Static)!.SetValue(null, previoustemp);
 			typeof(General).GetField("thisasm", Static)!.SetValue(null, previousassembly);
 			typeof(General).GetField("scriptconfigs", Static)!.SetValue(null, previousscripts);
+			typeof(General).GetField("settings", Static)!.SetValue(null, previoussettings);
 			graphics.Dispose(); bitmap.Dispose(); map.Dispose();
 			Directory.Delete(directory, true);
 		}
@@ -70,14 +75,19 @@ namespace Builder.Tests
 		private static T Get<T>(object target, string name) => (T)target.GetType().GetField(name, Instance)!.GetValue(target);
 		private static object Call(DataManager target, string name, params object[] args) => typeof(DataManager).GetMethod(name, Instance)!.Invoke(target, args);
 
-		private void Configure(string engine)
+		private void Configure(string engine, bool mix = false)
 		{
 			var config = new Configuration();
-			Assert.True(config.InputConfiguration("basegame = \"doom\"; engine = \"" + engine + "\"; longtexturenames = true; formatinterface = \"DoomMapSetIO\";"));
+			Assert.True(config.InputConfiguration("basegame = \"doom\"; engine = \"" + engine + "\"; longtexturenames = true; formatinterface = \"DoomMapSetIO\"; mixtexturesflats = " + (mix ? "true" : "false") + ";"));
 			Set(General.Map, "config", new GameConfiguration(config));
 		}
 
 		private DataManager Load(params DataReader[] resources)
+		{
+			return Load(null, resources);
+		}
+
+		private DataManager Load(Action<DataManager> beforeseal, params DataReader[] resources)
 		{
 			var data = (DataManager)RuntimeHelpers.GetUninitializedObject(typeof(DataManager));
 			Set(data, "containers", resources.ToList());
@@ -87,6 +97,12 @@ namespace Builder.Tests
 			Set(data, "warps", new Dictionary<ImageData, WarpInfo>());
 			Set(data, "shortmaterialimages", new Dictionary<ImageData, ImageData>());
 			Set(data, "fullmaterialimages", new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase));
+			Set(data, "materials", new Dictionary<ImageData, GldefsMaterial>());
+			Set(data, "resolvedmaterials", new Dictionary<ImageData, ResolvedMaterial>());
+			Set(data, "materialimages", new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase));
+			Set(data, "materialprograms", new Dictionary<string, UserShaderProgram>());
+			Set(data, "sprites", new Dictionary<long, ImageData>());
+			Set(data, "syncobject", new object()); Set(data, "imageque", new Queue<ImageData>());
 			Set(data, "textures", new Dictionary<long, ImageData>()); Set(data, "flats", new Dictionary<long, ImageData>());
 			Set(data, "texturenamesshorttofull", new Dictionary<long, long>()); Set(data, "flatnamesshorttofull", new Dictionary<long, long>());
 			Set(data, "scriptresources", new Dictionary<ScriptType, HashSet<ScriptResource>>());
@@ -94,9 +110,16 @@ namespace Builder.Tests
 			var parsers = new Dictionary<string, TexturesParser>();
 			Call(data, "LoadTextures", Get<Dictionary<long, ImageData>>(data, "textures"), Get<Dictionary<long, long>>(data, "texturenamesshorttofull"), parsers);
 			Call(data, "LoadFlats", Get<Dictionary<long, ImageData>>(data, "flats"), Get<Dictionary<long, long>>(data, "flatnamesshorttofull"), parsers);
+			managers.Add(data);
+			if(General.Map.Config.MixTexturesFlats) foreach(DataReader reader in resources)
+			{
+				reader.TextureSet.MixTexturesAndFlats();
+				foreach(ImageData image in reader.TextureSet.Textures) Get<Dictionary<long, ImageData>>(data, "textures")[image.LongName] = image;
+				foreach(ImageData image in reader.TextureSet.Flats) Get<Dictionary<long, ImageData>>(data, "flats")[image.LongName] = image;
+			}
+			beforeseal?.Invoke(data);
 			Get<TextureAnimationOrder>(data, "animationorder").Seal();
 			Call(data, "SplitMaterialImageIdentities");
-			managers.Add(data);
 			return data;
 		}
 
@@ -112,11 +135,12 @@ namespace Builder.Tests
 		}
 
 		private static KeyValuePair<string, byte[]> Text(string path, string text) => new KeyValuePair<string, byte[]>(path, Encoding.ASCII.GetBytes(text));
-		private static KeyValuePair<string, byte[]> Image(string path)
+		private static KeyValuePair<string, byte[]> Image(string path, int width = 8, int height = 8)
 		{
-			using(var image = new Bitmap(8, 8))
+			using(var image = new Bitmap(width, height))
 			using(var stream = new MemoryStream())
 			{
+				using(var graphics = Graphics.FromImage(image)) graphics.Clear(Color.White);
 				image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
 				return new KeyValuePair<string, byte[]>(path, stream.ToArray());
 			}
@@ -147,6 +171,121 @@ namespace Builder.Tests
 			typeof(General).GetField("mainwindow", Static)!.SetValue(null, null);
 			try { Call(data, "LoadAnimations", parser); }
 			finally { typeof(General).GetField("mainwindow", Static)!.SetValue(null, window); }
+		}
+
+		private static void ReadyPixels(ImageData image)
+		{
+			// Decode real reader bytes without the window's asynchronous image-delivery machinery.
+			Bitmap pixels = image.LocalGetBitmap(false);
+			Assert.NotNull(pixels);
+			Assert.Equal(image.Width, pixels.Width); Assert.Equal(image.Height, pixels.Height);
+			Assert.Equal(Color.White.ToArgb(), pixels.GetPixel(0, 0).ToArgb());
+			typeof(ImageData).GetField("loadedbitmap", Instance)!.SetValue(image, pixels);
+			image.ImageState = ImageLoadState.Ready;
+		}
+
+		private static void ApplyMaterials(DataManager data, DataReader reader)
+		{
+			var parser = new GldefsParser();
+			Assert.True(parser.Parse(new TextResourceData(reader, reader.LoadFile("GLDEFS"), "GLDEFS", true), true), parser.ErrorDescription);
+			var materials = Get<Dictionary<ImageData, GldefsMaterial>>(data, "materials");
+			foreach(GldefsMaterial definition in parser.Materials)
+			{
+				ImageData image = (ImageData)Call(data, "FindMaterialTarget", definition);
+				Assert.NotNull(image);
+				if(!materials.TryGetValue(image, out GldefsMaterial material)) materials[image] = material = new GldefsMaterial();
+				material.Merge(definition);
+			}
+		}
+
+		[Fact]
+		public void SharedHiResImageKeepsExplicitShaderAndBrightmapOnWallAndFloorWithoutAnimation()
+		{
+			Configure("gzdoom", true);
+			var reader = Archive(Image("patches/base.png"), Image("hires/SHARED.png", 32, 32), Image("brightmaps/shared.png"),
+				Text("TEXTURES", "WallTexture SHARED, 16, 8 { XScale 2 YScale 4 Offset 3, 5 Patch \"patches/base.png\", 0, 0 }"),
+				Text("GLDEFS", "HardwareShader texture SHARED { shader \"shaders/shared.fp\" }\nBrightmap texture SHARED { map \"brightmaps/shared.png\" }"),
+				Text("shaders/shared.fp", "vec4 Process(vec4 color) { return color; }"));
+			ImageData original = null;
+			int key = -1;
+			DataManager data = Load(value => {
+				original = value.GetTextureImage("SHARED");
+				Assert.Same(original, value.GetFlatImage("SHARED"));
+				ReadyPixels(original);
+				key = Get<Dictionary<ImageData, int>>(value, "animationkeys")[original];
+				Assert.Equal(2, (int)Call(value, "LoadHiResTextures"));
+			}, reader);
+			ImageData wall = data.GetTextureImage("SHARED"), floor = data.GetFlatImage("SHARED");
+			Assert.False(General.Settings.GZAnimateTextures);
+			Assert.Equal(0, data.Animator.Count);
+			ApplyMaterials(data, reader);
+			ResolvedMaterial wallmaterial = data.GetMaterial(wall), floormaterial = data.GetMaterial(floor);
+			Assert.True(wallmaterial != null, "Wall lost its explicit GLDEFS material after HiRes replacement");
+			Assert.True(floormaterial != null, "Floor lost its explicit GLDEFS material after shared HiRes replacement");
+			Assert.Same(wallmaterial, floormaterial);
+			Assert.Same(wall, floor);
+			Assert.True(wall is HiResImage);
+			Assert.False(ReferenceEquals(original, wall));
+			Assert.Equal("shaders/shared.fp", floormaterial.Definition.Shader);
+			Assert.Equal("brightmaps/shared.png", floormaterial.Definition.Brightmap);
+			Assert.NotNull(floormaterial.Brightmap);
+			using(var pixels = floormaterial.Brightmap.LocalGetBitmap(false))
+			{
+				Assert.Equal(8, pixels.Width);
+				Assert.Equal(Color.White.ToArgb(), pixels.GetPixel(0, 0).ToArgb());
+			}
+			using(var pixels = wall.LocalGetBitmap(false)) Assert.Equal(32, pixels.Width);
+			Assert.Equal(16, wall.Width); Assert.Equal(8, wall.Height);
+			Assert.Equal(original.Scale, wall.Scale);
+			Assert.Equal(3, wall.OffsetX); Assert.Equal(5, wall.OffsetY);
+			Assert.Equal(original.TextureNamespace, wall.TextureNamespace);
+			Assert.Equal(key, Get<Dictionary<ImageData, int>>(data, "animationkeys")[wall]);
+			Assert.Same(wall, Get<Dictionary<int, ImageData>>(data, "animationimages")[key]);
+			Assert.Equal(key, Get<TextureAnimationOrder>(data, "animationorder").Frame(key, 1));
+			Assert.Equal(0, map.Logger.ErrorsCount);
+		}
+
+		[Fact]
+		public void DistinctWallAndFlatHiResImagesKeepTheirOwnSettingsAndExplicitMaterials()
+		{
+			Configure("gzdoom", true);
+			var reader = Archive(Image("patches/base.png"), Image("hires/SPLIT.png", 32, 32), Image("brightmaps/wall.png"), Image("brightmaps/floor.png"),
+				Text("TEXTURES", "WallTexture SPLIT, 16, 8 { XScale 2 Patch \"patches/base.png\", 0, 0 }\nFlat SPLIT, 8, 16 { YScale 4 Patch \"patches/base.png\", 0, 0 }"),
+				Text("GLDEFS", "HardwareShader texture SPLIT { shader \"shaders/wall.fp\" }\nBrightmap texture SPLIT { map \"brightmaps/wall.png\" }\nHardwareShader flat SPLIT { shader \"shaders/floor.fp\" }\nBrightmap flat SPLIT { map \"brightmaps/floor.png\" }"),
+				Text("shaders/wall.fp", "vec4 Process(vec4 color) { return color; }"), Text("shaders/floor.fp", "vec4 Process(vec4 color) { return color; }"));
+			ImageData oldwall = null, oldfloor = null;
+			int wallkey = -1, floorkey = -1;
+			DataManager data = Load(value => {
+				oldwall = value.GetTextureImage("SPLIT"); oldfloor = value.GetFlatImage("SPLIT");
+				Assert.False(ReferenceEquals(oldwall, oldfloor));
+				ReadyPixels(oldwall); ReadyPixels(oldfloor);
+				wallkey = Get<Dictionary<ImageData, int>>(value, "animationkeys")[oldwall];
+				floorkey = Get<Dictionary<ImageData, int>>(value, "animationkeys")[oldfloor];
+				Assert.Equal(2, (int)Call(value, "LoadHiResTextures"));
+			}, reader);
+			ImageData wall = data.GetTextureImage("SPLIT"), floor = data.GetFlatImage("SPLIT");
+			Assert.False(ReferenceEquals(wall, floor));
+			Assert.True(wall is HiResImage && floor is HiResImage);
+			Assert.Equal(16, wall.Width); Assert.Equal(8, wall.Height);
+			Assert.Equal(8, floor.Width); Assert.Equal(16, floor.Height);
+			Assert.Equal(oldwall.Scale, wall.Scale); Assert.Equal(oldfloor.Scale, floor.Scale);
+			Assert.Equal(TextureNamespace.WALLTEXTURE, wall.TextureNamespace); Assert.Equal(TextureNamespace.FLAT, floor.TextureNamespace);
+			Assert.Equal(wallkey, Get<Dictionary<ImageData, int>>(data, "animationkeys")[wall]);
+			Assert.Equal(floorkey, Get<Dictionary<ImageData, int>>(data, "animationkeys")[floor]);
+			Assert.Same(wall, Get<Dictionary<int, ImageData>>(data, "animationimages")[wallkey]);
+			Assert.Same(floor, Get<Dictionary<int, ImageData>>(data, "animationimages")[floorkey]);
+			ApplyMaterials(data, reader);
+			ResolvedMaterial wallmaterial = data.GetMaterial(wall), floormaterial = data.GetMaterial(floor);
+			Assert.NotNull(wallmaterial); Assert.NotNull(floormaterial);
+			Assert.False(ReferenceEquals(wallmaterial, floormaterial));
+			Assert.Equal("shaders/wall.fp", wallmaterial.Definition.Shader);
+			Assert.Equal("shaders/floor.fp", floormaterial.Definition.Shader);
+			Assert.Equal("brightmaps/wall.png", wallmaterial.Definition.Brightmap);
+			Assert.Equal("brightmaps/floor.png", floormaterial.Definition.Brightmap);
+			Assert.NotNull(wallmaterial.Brightmap); Assert.NotNull(floormaterial.Brightmap);
+			Assert.False(General.Settings.GZAnimateTextures);
+			Assert.Equal(0, data.Animator.Count);
+			Assert.Equal(0, map.Logger.ErrorsCount);
 		}
 
 		[Theory]

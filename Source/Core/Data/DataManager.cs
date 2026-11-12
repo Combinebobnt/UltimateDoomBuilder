@@ -1446,13 +1446,16 @@ namespace CodeImp.DoomBuilder.Data
 						//bool replaced = false;
 						
 						// Replace texture?
+						ImageData oldtexture = null;
+						HiResImage texturereplacer = null;
 						long hash = GetFullLongTextureName(img.LongName);
 						if(textures.ContainsKey(hash) && (hash == img.LongName || Path.GetFileNameWithoutExtension(textures[hash].Name).Length <= CLASIC_IMAGE_NAME_LENGTH))
 						{
-							HiResImage replacer = new HiResImage(img);
-							replacer.ApplySettings(textures[hash]);
-							ReplaceAnimationImage(textures[hash], replacer);
-							textures[img.LongName] = replacer;
+							oldtexture = textures[hash];
+							texturereplacer = new HiResImage(img);
+							texturereplacer.ApplySettings(oldtexture);
+							ReplaceAnimationImage(oldtexture, texturereplacer);
+							textures[img.LongName] = texturereplacer;
                             //replaced = true;
 
                             counter++;
@@ -1462,9 +1465,14 @@ namespace CodeImp.DoomBuilder.Data
 						hash = GetFullLongFlatName(img.LongName);
 						if(flats.ContainsKey(hash) && (hash == img.LongName || Path.GetFileNameWithoutExtension(flats[hash].Name).Length <= CLASIC_IMAGE_NAME_LENGTH))
 						{
-							HiResImage replacer = new HiResImage(img);
-							replacer.ApplySettings(flats[hash]);
-							ReplaceAnimationImage(flats[hash], replacer);
+							// Mixed wall/flat references must keep one image-keyed material identity.
+							HiResImage replacer = texturereplacer;
+							if(!ReferenceEquals(flats[hash], oldtexture))
+							{
+								replacer = new HiResImage(img);
+								replacer.ApplySettings(flats[hash]);
+								ReplaceAnimationImage(flats[hash], replacer);
+							}
 							flats[img.LongName] = replacer;
                             //replaced = true;
 
