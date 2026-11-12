@@ -9,7 +9,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Linux node builder:** the bundled zdbsp is rebuilt from the ZDBSP 1.19 source release (Release build, zlib linked statically), so it runs on glibc 2.34 instead of 2.38.
 - **Crash handling:** crash dialogs that work on Mono, a map backup before the dialog, worker and timer exceptions reported instead of killing the editor, and the previous log kept as `UDBuilder.log.1`.
 - **Responsiveness on Mono:** no more UI deadlocks from blocking invokes, Map Analysis no longer freezes on large result counts, models load on the UI thread, and Visual Mode stops redrawing behind edit dialogs after a texture browser was opened from one, while edit dialogs still update the 3D view on each change.
-- **Mono UI fixes:** blank button text (font remap), Map Analysis and help panels, Mode menu rows, the About dialog, side panel (docker) pages, the unsaved-map title marker, Preferences slider steps, and resource-warning resizing in map/configuration dialogs.
+- **Mono UI fixes:** blank button text (font remap), Map Analysis and help panels, Mode menu rows, the About dialog, side panel (docker) pages, the unsaved-map title marker, Preferences slider steps, resource-warning resizing in map/configuration dialogs, and a texture browser list that stayed narrower than its panel after a stale window size.
 - **Native file dialogs on Linux:** file and folder pickers use the GTK chooser through `zenity` when it is installed, falling back to Mono's dialogs.
 - **Map save safety:** maps are saved to a sibling file and swapped in, backups are written atomically, read-only targets are reported, and UDMF text round-trips as Latin-1.
 - **Script compilation:** ACS recompiles on Save Map after a script editor save, a failed compile warns and keeps the map marked unsaved, and BCS compiles with the system zt-bcc.
@@ -22,6 +22,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Key bindings:** each action accepts a primary and an alternate shortcut in Preferences > Controls, with conflicts checked across both and both shown in the command palette and shortcut reference.
 - **Tag ranges:** row/column ordering, start corners, row strides, linedef orientation filtering, and linedef/thing argument targets, with a preview summary and one undo step.
 - **Draw Grid:** the post-draw sector dialog edits every split cell, including triangulated grids, without editing an enclosing pre-existing room.
+- **Extrude Linedefs:** a new Linedefs-mode tool pulls selected linedef chains out along their normals into new sectors, following the mouse live or taking a typed distance; open chains can also move off-axis on the grid, and loops extruded inward get the height change on their new bands.
 - **Dialog loading:** cached font names and batched list fills make repeated Preferences and Game Configurations opens faster.
 - **Visual mode placeholders:** the missing, unknown and still-loading texture placeholders are 64x64 grids labelled MISSING, UNKNOWN and LOADING.
 - **Visual mode animation:** ANIMDEFS and ANIMATED texture/flat frames cycle on geometry, including stock default animations, with a persistent View/toolbar toggle. ANIMDEFS warp/warp2 and SMMU swirls use built-in shaders ahead of hardware shaders; Zandronum warp2 uses the UZDoom formula.
