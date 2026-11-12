@@ -22,6 +22,24 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void RequestAndUsableCarryTrailingProcessingState()
+		{
+			Assert.Equal("proc=0 pc=1 sd=2", UITiming.FormatProcessing(false, 1, 2));
+			Assert.Equal("proc=1 pc=3 sd=0", UITiming.FormatProcessing(true, 3, 0));
+			Assert.Equal("UITIMING LinedefEditFormUDMF#4 request 0.000 0.000 sessionms=10.000 proc=1 pc=1 sd=0",
+				UITiming.FormatLine("LinedefEditFormUDMF#4", "request", 0, 0, 10, UITiming.FormatProcessing(true, 1, 0)));
+			Assert.Equal("UITIMING LinedefEditFormUDMF#4 usable 70.825 1.500 sessionms=80.825 proc=0 pc=1 sd=1",
+				UITiming.FormatLine("LinedefEditFormUDMF#4", "usable", 70.825, 1.5, 80.825, "proc=0 pc=1 sd=1"));
+		}
+
+		[Fact]
+		public void NoProcessingStateLeavesTheLineUnchanged()
+		{
+			Assert.Equal("UITIMING PreferencesForm#1 ctor 0.000 2.500 sessionms=12.500",
+				UITiming.FormatLine("PreferencesForm#1", "ctor", 0, 2.5, 12.5, null));
+		}
+
+		[Fact]
 		public void DecimalFormattingDoesNotFollowTheCurrentCulture()
 		{
 			CultureInfo previous = CultureInfo.CurrentCulture;

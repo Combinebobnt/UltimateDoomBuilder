@@ -143,7 +143,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private IntPtr windowptr;
 		
 		// Processing
-		private int processingcount;
+		private ProcessingGate processinggate;
 		private long lastupdatetime;
 
 		// Updating
@@ -183,7 +183,8 @@ namespace CodeImp.DoomBuilder.Windows
 		public StatusInfo Status { get { return status; } }
 		public static Size ScaledIconSize = new Size(16, 16); //mxd
 		public static SizeF DPIScaler = new SizeF(1.0f, 1.0f); //mxd
-		public int ProcessingCount { get { return processingcount; } }
+		public int ProcessingCount { get { return processinggate.EnableCount; } }
+		internal ProcessingGate Processing { get { return processinggate; } }
 
 		#endregion
 
@@ -209,6 +210,7 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Setup controls
 			InitializeComponent();
+			processinggate = new ProcessingGate(ApplyProcessing);
 
 			//mxd. Resize status labels
 			if(DPIScaler.Width != 1.0f)
@@ -4268,41 +4270,46 @@ namespace CodeImp.DoomBuilder.Windows
 		// Returns the new texture name or the same texture name when cancelled
 		public string BrowseTexture(IWin32Window owner, string initialvalue)
 		{
-
-			DisableProcessing();
-			#if MONO_WINFORMS
-			//Mono's Winforms treat dialogs a little differently
-			//  they don't implicitly take focus from the parent window
-			//  and keyboard input from focus window isn't reset when the dialog takes focus
-			BreakExclusiveMouseInput();
-			ReleaseAllKeys();
-			#endif
-			string tex = TextureBrowserForm.Browse(owner, initialvalue, false);//mxd
-			#if MONO_WINFORMS
-			ResumeExclusiveMouseInput();
-			#endif
-			EnableProcessing();
-			return tex;
+			IDisposable suspend = SuspendProcessing();
+			try
+			{
+				#if MONO_WINFORMS
+				//Mono's Winforms treat dialogs a little differently
+				//  they don't implicitly take focus from the parent window
+				//  and keyboard input from focus window isn't reset when the dialog takes focus
+				BreakExclusiveMouseInput();
+				ReleaseAllKeys();
+				#endif
+				string tex = TextureBrowserForm.Browse(owner, initialvalue, false);//mxd
+				#if MONO_WINFORMS
+				ResumeExclusiveMouseInput();
+				#endif
+				return tex;
+			}
+			finally { suspend.Dispose(); }
 		}
 
 		// This browses for a flat
 		// Returns the new flat name or the same flat name when cancelled
 		public string BrowseFlat(IWin32Window owner, string initialvalue)
 		{
-			DisableProcessing();
-			#if MONO_WINFORMS
-			//Mono's Winforms treat dialogs a little differently
-			//  they don't implicitly take focus from the parent window
-			//  and keyboard input from focus window isn't reset when the dialog takes focus
-			BreakExclusiveMouseInput();
-			ReleaseAllKeys();
-			#endif
-			string tex = TextureBrowserForm.Browse(owner, initialvalue, true); //mxd. was FlatBrowserForm
-			#if MONO_WINFORMS
-			ResumeExclusiveMouseInput();
-			#endif
-			EnableProcessing();
-			return tex;
+			IDisposable suspend = SuspendProcessing();
+			try
+			{
+				#if MONO_WINFORMS
+				//Mono's Winforms treat dialogs a little differently
+				//  they don't implicitly take focus from the parent window
+				//  and keyboard input from focus window isn't reset when the dialog takes focus
+				BreakExclusiveMouseInput();
+				ReleaseAllKeys();
+				#endif
+				string tex = TextureBrowserForm.Browse(owner, initialvalue, true); //mxd. was FlatBrowserForm
+				#if MONO_WINFORMS
+				ResumeExclusiveMouseInput();
+				#endif
+				return tex;
+			}
+			finally { suspend.Dispose(); }
 		}
 		
 		// This browses the lindef types
@@ -4351,23 +4358,24 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Show sector edit dialog
 			VertexEditForm f = new VertexEditForm();
-			DisableProcessing(); //mxd
+			IDisposable suspend = SuspendProcessing();
 			#if NO_WIN32
 			BreakExclusiveMouseInput();
 			f.Closed += (object sender, EventArgs e) => {
 				ResumeExclusiveMouseInput();
-				EnableProcessing(); //mxd
+				suspend.Dispose();
 			};
 			#endif
 			f.Setup(vertices, allowPositionChange);
 			#if !NO_WIN32
-			EnableProcessing(); //mxd
+			suspend.Dispose();
 			#endif
 			f.OnValuesChanged += EditForm_OnValuesChanged;
 			editformopen = true; //mxd
 			DialogResult result = f.ShowDialog(this);
 			editformopen = false; //mxd
 			f.Dispose();
+			suspend.Dispose();
 
 			return result;
 		}
@@ -4389,46 +4397,48 @@ namespace CodeImp.DoomBuilder.Windows
 				LinedefEditFormUDMF f;
 				using(UITiming.Request(nameof(LinedefEditFormUDMF)))
 					f = new LinedefEditFormUDMF(selectfront, selectback);
-				DisableProcessing(); //mxd
+				IDisposable suspend = SuspendProcessing();
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
 				f.Closed += (object sender, EventArgs e) => {
 					ResumeExclusiveMouseInput();
-					EnableProcessing(); //mxd
+					suspend.Dispose();
 				};
 				#endif
 				f.Setup(lines, selectfront, selectback);
 				#if !NO_WIN32
-				EnableProcessing();
+				suspend.Dispose();
 				#endif
 				f.OnValuesChanged += EditForm_OnValuesChanged;
 				editformopen = true; //mxd
 				result = f.ShowDialog(this);
 				editformopen = false; //mxd
 				f.Dispose();
+				suspend.Dispose();
 			}
 			else
 			{
 				LinedefEditForm f;
 				using(UITiming.Request(nameof(LinedefEditForm)))
 					f = new LinedefEditForm();
-				DisableProcessing(); //mxd
+				IDisposable suspend = SuspendProcessing();
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
 				f.Closed += (object sender, EventArgs e) => {
 					ResumeExclusiveMouseInput();
-					EnableProcessing(); //mxd
+					suspend.Dispose();
 				};
 				#endif
 				f.Setup(lines);
 				#if !NO_WIN32
-				EnableProcessing();
+				suspend.Dispose();
 				#endif
 				f.OnValuesChanged += EditForm_OnValuesChanged;
 				editformopen = true; //mxd
 				result = f.ShowDialog(this);
 				editformopen = false; //mxd
 				f.Dispose();
+				suspend.Dispose();
 			}
 
 			return result;
@@ -4445,46 +4455,48 @@ namespace CodeImp.DoomBuilder.Windows
 				SectorEditFormUDMF f;
 				using(UITiming.Request(nameof(SectorEditFormUDMF)))
 					f = new SectorEditFormUDMF();
-				DisableProcessing(); //mxd
+				IDisposable suspend = SuspendProcessing();
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
 				f.Closed += (object sender, EventArgs e) => {
 					ResumeExclusiveMouseInput();
-					EnableProcessing(); //mxd
+					suspend.Dispose();
 				};
 				#endif
 				f.Setup(sectors);
 				#if !NO_WIN32
-				EnableProcessing(); //mxd
+				suspend.Dispose();
 				#endif
 				f.OnValuesChanged += EditForm_OnValuesChanged;
 				editformopen = true; //mxd
 				result = f.ShowDialog(this);
 				editformopen = false; //mxd
 				f.Dispose();
+				suspend.Dispose();
 			}
 			else
 			{
 				SectorEditForm f;
 				using(UITiming.Request(nameof(SectorEditForm)))
 					f = new SectorEditForm();
-				DisableProcessing(); //mxd
+				IDisposable suspend = SuspendProcessing();
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
 				f.Closed += (object sender, EventArgs e) => {
 					ResumeExclusiveMouseInput();
-					EnableProcessing(); //mxd
+					suspend.Dispose();
 				};
 				#endif
 				f.Setup(sectors);
 				#if !NO_WIN32
-				EnableProcessing(); //mxd
+				suspend.Dispose();
 				#endif
 				f.OnValuesChanged += EditForm_OnValuesChanged;
 				editformopen = true; //mxd
 				result = f.ShowDialog(this);
 				editformopen = false; //mxd
 				f.Dispose();
+				suspend.Dispose();
 			}
 
 			return result;
@@ -4501,46 +4513,48 @@ namespace CodeImp.DoomBuilder.Windows
 				ThingEditFormUDMF f;
 				using(UITiming.Request(nameof(ThingEditFormUDMF)))
 					f = new ThingEditFormUDMF();
-				DisableProcessing(); //mxd
+				IDisposable suspend = SuspendProcessing();
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
 				f.Closed += (object sender, EventArgs e) => {
 					ResumeExclusiveMouseInput();
-					EnableProcessing(); //mxd
+					suspend.Dispose();
 				};
 				#endif
 				f.Setup(things);
 				#if !NO_WIN32
-				EnableProcessing(); //mxd
+				suspend.Dispose();
 				#endif
 				f.OnValuesChanged += EditForm_OnValuesChanged;
 				editformopen = true; //mxd
 				result = f.ShowDialog(this);
 				editformopen = false; //mxd
 				f.Dispose();
+				suspend.Dispose();
 			} 
 			else 
 			{
 				ThingEditForm f;
 				using(UITiming.Request(nameof(ThingEditForm)))
 					f = new ThingEditForm();
-				DisableProcessing(); //mxd
+				IDisposable suspend = SuspendProcessing();
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
 				f.Closed += (object sender, EventArgs e) => {
 					ResumeExclusiveMouseInput();
-					EnableProcessing(); //mxd
+					suspend.Dispose();
 				};
 				#endif
 				f.Setup(things);
 				#if !NO_WIN32
-				EnableProcessing(); //mxd
+				suspend.Dispose();
 				#endif
 				f.OnValuesChanged += EditForm_OnValuesChanged;
 				editformopen = true; //mxd
 				result = f.ShowDialog(this);
 				editformopen = false; //mxd
 				f.Dispose();
+				suspend.Dispose();
 			}
 
 			return result;
@@ -4751,33 +4765,29 @@ namespace CodeImp.DoomBuilder.Windows
 
 		public void EnableProcessing()
 		{
-			// Increase count
-			processingcount++;
-
-			// If not already enabled, enable processing now
-			if(!processor.Enabled)
-			{
-				processor.Enabled = true;
-				lastupdatetime = Clock.CurrentTime;
-			}
+			processinggate.Enable();
 		}
 
 		public void DisableProcessing()
 		{
-			// Increase count
-			processingcount--;
-			if(processingcount < 0) processingcount = 0;
-			
-			// Turn off
-			if(processor.Enabled && (processingcount == 0))
-				processor.Enabled = false;
+			processinggate.Disable();
+		}
+
+		// Holds processing off across a modal or slow constructor, whatever the enable count.
+		public IDisposable SuspendProcessing()
+		{
+			return processinggate.Suspend();
 		}
 
 		internal void StopProcessing()
 		{
-			// Turn off
-			processingcount = 0;
-			processor.Enabled = false;
+			processinggate.Reset();
+		}
+
+		private void ApplyProcessing(bool turnedon)
+		{
+			processor.Enabled = processinggate.Running;
+			if(turnedon) lastupdatetime = Clock.CurrentTime;
 		}
 
 		//mxd

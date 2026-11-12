@@ -54,7 +54,6 @@ namespace CodeImp.DoomBuilder.Windows
 		public TextureBrowserForm(string selecttexture, bool browseflats)
 		{
 			Cursor.Current = Cursors.WaitCursor;
-			General.Interface.DisableProcessing(); //mxd
 
 			TreeNode item; //mxd
 			long longname = Lump.MakeLongName(selecttexture ?? "");
@@ -436,7 +435,6 @@ namespace CodeImp.DoomBuilder.Windows
 		private void TextureBrowserForm_Activated(object sender, EventArgs e)
 		{
 			Cursor.Current = Cursors.Default;
-			General.Interface.EnableProcessing(); //mxd
 		}
 
 		// Closing
@@ -462,19 +460,25 @@ namespace CodeImp.DoomBuilder.Windows
 		// Static method to browse for texture or flat.
 		public static string Browse(IWin32Window parent, string select, bool browseflats)
 		{
-			TextureBrowserForm browser;
-			using(UITiming.Request(nameof(TextureBrowserForm)))
-				browser = new TextureBrowserForm(select, browseflats);
+			// One suspension for the browser's whole life, nested inside any the caller holds
+			IDisposable suspend = General.Interface.SuspendProcessing();
+			try
+			{
+				TextureBrowserForm browser;
+				using(UITiming.Request(nameof(TextureBrowserForm)))
+					browser = new TextureBrowserForm(select, browseflats);
 
-			// Instrumentation: which call site this open came from. Most real opens are parented
-			// to an edit dialog rather than the main window, which changes the WM's transient-for
-			// placement and the CenterParent fallback in DelayedForm.OnLoad.
-			Form parentform = parent as Form;
-			browser.GeomDebugAddNote("parent=" + (parentform != null
-				? parentform.GetType().Name + parentform.Bounds
-				: (parent == null ? "none" : parent.GetType().Name)));
+				// Instrumentation: which call site this open came from. Most real opens are parented
+				// to an edit dialog rather than the main window, which changes the WM's transient-for
+				// placement and the CenterParent fallback in DelayedForm.OnLoad.
+				Form parentform = parent as Form;
+				browser.GeomDebugAddNote("parent=" + (parentform != null
+					? parentform.GetType().Name + parentform.Bounds
+					: (parent == null ? "none" : parent.GetType().Name)));
 
-			return (browser.ShowDialog(parent) == DialogResult.OK ? browser.SelectedName : select);
+				return (browser.ShowDialog(parent) == DialogResult.OK ? browser.SelectedName : select);
+			}
+			finally { suspend.Dispose(); }
 		}
 
 		// Item double clicked

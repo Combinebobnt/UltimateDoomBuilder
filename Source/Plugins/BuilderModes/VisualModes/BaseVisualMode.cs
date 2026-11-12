@@ -2086,6 +2086,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 
 			UpdateChangedObjects();
+			General.Interface.RedrawDisplay(); // Mono suspends processing under edit dialogs, so nothing else redraws
 			ShowTargetInfo();
 		}
 
@@ -2112,6 +2113,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 			
 			UpdateChangedObjects();
+			General.Interface.RedrawDisplay();
 			ShowTargetInfo();
 		}
 
@@ -2119,6 +2121,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void Interface_OnEditFormValuesChanged(object sender, EventArgs e) 
 		{
 			UpdateChangedObjects();
+			General.Interface.RedrawDisplay();
 			ShowTargetInfo();
 		}
 
