@@ -42,6 +42,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.flipsidedefsitem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.curvelinedefsitem = new System.Windows.Forms.ToolStripMenuItem();
+            this.extrudelinedefsitem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem3 = new System.Windows.Forms.ToolStripSeparator();
             this.splitlinedefsitem = new System.Windows.Forms.ToolStripMenuItem();
             this.changeLindefIndexToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -153,6 +154,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.flipsidedefsitem,
             this.toolStripMenuItem1,
             this.curvelinedefsitem,
+            this.extrudelinedefsitem,
             this.toolStripMenuItem3,
             this.splitlinedefsitem,
             this.changeLindefIndexToolStripMenuItem,
@@ -253,6 +255,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.curvelinedefsitem.Tag = "curvelinesmode";
             this.curvelinedefsitem.Text = "&Curve Linedefs...";
             this.curvelinedefsitem.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // extrudelinedefsitem
+            // 
+            this.extrudelinedefsitem.Name = "extrudelinedefsitem";
+            this.extrudelinedefsitem.Size = new System.Drawing.Size(223, 22);
+            this.extrudelinedefsitem.Tag = "extrudelinedefsmode";
+            this.extrudelinedefsitem.Text = "E&xtrude Linedefs...";
+            this.extrudelinedefsitem.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 
             // toolStripMenuItem3
             // 
@@ -1036,6 +1046,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripMenuItem flipsidedefsitem;
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
 		private System.Windows.Forms.ToolStripMenuItem curvelinedefsitem;
+		private System.Windows.Forms.ToolStripMenuItem extrudelinedefsitem;
 		private System.Windows.Forms.ToolStripMenuItem joinsectorsitem;
 		private System.Windows.Forms.ToolStripMenuItem mergesectorsitem;
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;

@@ -1719,6 +1719,32 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				General.Interface.DisplayStatus(StatusType.Warning, "This action requres a selection!");
 			}
 		}
+
+		[BeginAction("extrudelinedefsmode")]
+		public void ExtrudeLinedefs()
+		{
+			ICollection<Linedef> selected = General.Map.Map.GetSelectedLinedefs(true);
+			if(selected.Count == 0 && highlighted != null)
+			{
+				highlighted.Selected = true;
+				selected.Add(highlighted);
+			}
+
+			if(selected.Count == 0)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "This action requires a selection!");
+				return;
+			}
+
+			string error = ExtrudeLinedefsMode.CheckSelection(selected);
+			if(error != null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, error);
+				return;
+			}
+
+			General.Editing.ChangeMode(new ExtrudeLinedefsMode());
+		}
 		
 		[BeginAction("fliplinedefs")]
 		public void FlipLinedefs()

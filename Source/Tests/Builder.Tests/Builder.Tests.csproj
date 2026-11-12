@@ -37,6 +37,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Builder.csproj" />
     <ProjectReference Include="..\..\Plugins\TagRange\TagRange.csproj" />
+    <ProjectReference Include="..\..\Plugins\BuilderModes\BuilderModes.csproj" />
   </ItemGroup>
 
   <ItemGroup>

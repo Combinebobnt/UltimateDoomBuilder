@@ -117,6 +117,7 @@
     <Compile Include="ClassicModes\ErrorCheckMode.cs" />
     <Compile Include="ClassicModes\EditSelectionMode.cs" />
     <Compile Include="ClassicModes\CurveLinedefsMode.cs" />
+    <Compile Include="ClassicModes\ExtrudeLinedefsMode.cs" />
     <Compile Include="ClassicModes\DragLinedefsMode.cs" />
     <Compile Include="ClassicModes\DragSectorsMode.cs" />
     <Compile Include="ClassicModes\DragGeometryMode.cs" />
@@ -412,6 +413,7 @@
     <Compile Include="FindReplace\FindVertexNumber.cs" />
     <Compile Include="General\HintLabel.cs" />
     <Compile Include="General\BuilderModesTools.cs" />
+    <Compile Include="General\ExtrudePath.cs" />
     <Compile Include="General\SelectionLabel.cs" />
     <Compile Include="General\UndoGroup.cs" />
     <Compile Include="Interface\BridgeModeForm.cs">
@@ -425,6 +427,12 @@
     </Compile>
     <Compile Include="Interface\CurveLinedefsOptionsPanel.Designer.cs">
       <DependentUpon>CurveLinedefsOptionsPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Interface\ExtrudeLinedefsOptionsPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Interface\ExtrudeLinedefsOptionsPanel.Designer.cs">
+      <DependentUpon>ExtrudeLinedefsOptionsPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Interface\DrawCurveOptionsPanel.cs">
       <SubType>UserControl</SubType>
@@ -658,6 +666,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Interface\CurveLinedefsOptionsPanel.resx">
       <DependentUpon>CurveLinedefsOptionsPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Interface\ExtrudeLinedefsOptionsPanel.resx">
+      <DependentUpon>ExtrudeLinedefsOptionsPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Interface\DrawLineOptionsPanel.resx">
       <DependentUpon>DrawLineOptionsPanel.cs</DependentUpon>
