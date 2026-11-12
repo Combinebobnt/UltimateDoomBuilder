@@ -104,8 +104,6 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Build and run x64 tests
         if: matrix.platform == 'x64'
-        # Advisory until the first all-green Windows test run.
-        continue-on-error: true
         shell: pwsh
         run: |
           $project = 'Source\Tests\Builder.Tests\Builder.Tests.csproj'
