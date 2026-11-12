@@ -9,7 +9,7 @@ label=$1
 [[ $label =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die 'Invalid version label'
 [[ $(uname -m) == x86_64 ]] || die 'This package requires an x86_64 Linux build host'
 
-for tool in mono curl sha256sum readlink mktemp install cp tar find sed file objdump dd awk; do
+for tool in mono curl sha256sum readlink mktemp install cp tar find sed file objdump dd awk ldd; do
     command -v "$tool" >/dev/null || die "Required tool not found: $tool"
 done
 
@@ -17,6 +17,21 @@ script_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 repo_dir=$(dirname "$script_dir")
 [[ -f $repo_dir/Build/Builder.exe && -f $repo_dir/Build/libBuilderNative.so ]] ||
     die 'Run make linux before packaging'
+
+# linuxdeploy resolves every bundled ELF's dependencies; fail before downloading anything.
+missing=()
+while IFS= read -r -d '' elf; do
+    [[ $(file -b "$elf") == *'dynamically linked'* ]] || continue
+    while read -r soname; do
+        missing+=("$soname (${elf#"$repo_dir/"})")
+    done < <({ ldd "$elf" 2>/dev/null || true; } | awk '$2 == "=>" && $3 == "not" { print $1 }')
+done < <(find "$repo_dir/Build" -type f -print0)
+if (( ${#missing[@]} )); then
+    printf 'Missing host library: %s\n' "${missing[@]}" >&2
+    [[ ${missing[*]} != *libc++* ]] ||
+        die 'install libc++ (Debian/Ubuntu: libc++1); the bundled elfbsp node builder links against it'
+    die 'Install the missing libraries before packaging'
+fi
 
 mono_prefix=$(dirname "$(dirname "$(readlink -f "$(command -v mono)")")")
 mono_runtime=$mono_prefix/bin/mono-sgen
