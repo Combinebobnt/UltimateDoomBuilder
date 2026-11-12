@@ -1042,12 +1042,7 @@ void GLRenderDevice::DeleteObject(GLTexture* texture)
 {
 	std::unique_lock<std::mutex> lock(GLRenderDevice::GetMutex());
 	if (texture->Device)
-	{
-		auto device = texture->Device;
-		for (int unit = 0; unit < 10; unit++)
-			if (device->mTextureUnit[unit].Tex == texture) device->SetTexture(unit, nullptr);
-		device->mDeleteList.Textures.push_back(texture);
-	}
+		texture->Device->mDeleteList.Textures.push_back(texture);
 	else
 		delete texture;
 }
@@ -1055,6 +1050,11 @@ void GLRenderDevice::DeleteObject(GLTexture* texture)
 void GLRenderDevice::ProcessDeleteList(bool finalize)
 {
 	std::unique_lock<std::mutex> lock(GLRenderDevice::GetMutex());
+
+	// Finalizers only enqueue; bindings and dirty flags belong to the render thread.
+	for (auto texture : mDeleteList.Textures)
+		for (int unit = 0; unit < 10; unit++)
+			if (mTextureUnit[unit].Tex == texture) SetTexture(unit, nullptr);
 
 	if (!finalize)
 	{

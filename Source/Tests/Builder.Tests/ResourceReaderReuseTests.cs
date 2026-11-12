@@ -255,5 +255,14 @@ namespace Builder.Tests
 				Assert.False(reader.IsDisposed);
 			}
 		}
+
+		[Fact]
+		public void DisposedDataManagerDoesNotTryToDetachReaders()
+		{
+			var manager = (DataManager)RuntimeHelpers.GetUninitializedObject(typeof(DataManager));
+			typeof(DataManager).GetField("isdisposed", Instance)!.SetValue(manager, true);
+			using(var pool = manager.DetachReadersForReload())
+				Assert.False(pool.TryTake(CreateArchive(), out _));
+		}
 	}
 }

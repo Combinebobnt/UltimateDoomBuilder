@@ -2463,7 +2463,7 @@ namespace CodeImp.DoomBuilder
 			DebugConsole.Clear();
 #endif
 
-			ReloadResources(true, true);
+			ReloadResources(true, true, true);
 
 			if(General.ErrorLogger.IsErrorAdded)
 			{
@@ -2479,6 +2479,11 @@ namespace CodeImp.DoomBuilder
 		}
 
 		internal void ReloadResources(bool clearerrors, bool runprepostcommands) //mxd. clearerrors flag
+		{
+			ReloadResources(clearerrors, runprepostcommands, false);
+		}
+
+		private void ReloadResources(bool clearerrors, bool runprepostcommands, bool incremental)
 		{
 			StageTimer timing = new StageTimer("Reload");
 
@@ -2507,7 +2512,7 @@ namespace CodeImp.DoomBuilder
 			timing.Mark("pre-command");
 
 			// Clean up
-			using(ResourceReaderPool readers = data.DetachReadersForReload())
+			using(ResourceReaderPool readers = incremental ? data.DetachReadersForReload() : null)
 			{
 				data.Dispose();
 				data = null;

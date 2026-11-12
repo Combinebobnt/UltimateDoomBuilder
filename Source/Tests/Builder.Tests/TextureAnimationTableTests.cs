@@ -80,6 +80,7 @@ namespace Builder.Tests
 		{
 			using(var map = new SndInfoParserTests.FakeMap("doom"))
 			{
+				Set(General.Map.Config, "materialenginename", "gzdoom");
 				Set(General.Map.Config, "enginename", "gzdoom");
 				var images = new[] { new Image("NUKAGE1", 1), new Image("NUKAGE2", 1), new Image("NUKAGE3", 1) };
 				TextureAnimationOrder order;
@@ -141,6 +142,7 @@ namespace Builder.Tests
 		{
 			using(var map = new SndInfoParserTests.FakeMap("doom"))
 			{
+				Set(General.Map.Config, "materialenginename", "gzdoom");
 				Set(General.Map.Config, "enginename", "gzdoom");
 				TextureAnimationOrder order;
 				DataManager data = Data(out order);

@@ -86,6 +86,11 @@ namespace CodeImp.DoomBuilder.Data
 		private TextureAnimationOrder animationorder;
 		private Dictionary<int, ImageData> animationimages;
 		private Dictionary<ImageData, int> animationkeys;
+		private struct MaterialImageRegistration
+		{
+			internal int Resource, Source, Order;
+		}
+		private Dictionary<ImageData, MaterialImageRegistration> materialregistrations;
 		private Dictionary<ImageData, WarpInfo> warps;
 
 		//mxd 
@@ -359,6 +364,7 @@ namespace CodeImp.DoomBuilder.Data
 			animationorder = new TextureAnimationOrder();
 			animationimages = new Dictionary<int, ImageData>();
 			animationkeys = new Dictionary<ImageData, int>();
+			materialregistrations = new Dictionary<ImageData, MaterialImageRegistration>();
 			warps = new Dictionary<ImageData, WarpInfo>();
 			textures = new Dictionary<long, ImageData>();
 			flats = new Dictionary<long, ImageData>();
@@ -708,6 +714,7 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			StopBackgroundLoader();
 			ResourceReaderPool readers = new ResourceReaderPool();
+			if(isdisposed || containers == null) return readers;
 			if(configurationfingerprint == null || !configurationfingerprint.Matches(CaptureConfiguration())) return readers;
 			try
 			{
@@ -739,6 +746,7 @@ namespace CodeImp.DoomBuilder.Data
 			foreach(ImageData image in animationimages.Values) image.Dispose();
 			animationimages.Clear();
 			animationkeys.Clear();
+			materialregistrations.Clear();
 			warps.Clear();
 			animator = null;
 			animationorder = null;
@@ -1079,7 +1087,7 @@ namespace CodeImp.DoomBuilder.Data
 
 				// Load textures
 				IEnumerable<ImageData> images = dr.LoadTextures(pnames, cachedparsers);
-				RecordAnimationImages(dr.AnimationTextures);
+				RecordAnimationImages(dr.AnimationTextures, dr, images);
 				if(images != null)
 				{
 					// Go for all textures
@@ -1295,7 +1303,7 @@ namespace CodeImp.DoomBuilder.Data
 			{
 				// Load flats
 				IEnumerable<ImageData> images = dr.LoadFlats(cachedparsers);
-				RecordAnimationImages(dr.AnimationFlats);
+				RecordAnimationImages(dr.AnimationFlats, dr, images);
 				if(images != null)
 				{
 					// Go for all flats
@@ -2960,6 +2968,12 @@ namespace CodeImp.DoomBuilder.Data
 					animationkeys[copy] = key;
 					animationimages[key] = copy;
 				}
+				MaterialImageRegistration registration;
+				if(materialregistrations.TryGetValue(image, out registration))
+				{
+					materialregistrations.Remove(image);
+					materialregistrations[copy] = registration;
+				}
 			}
 		}
 
@@ -2979,6 +2993,8 @@ namespace CodeImp.DoomBuilder.Data
 				string filename = reader == null ? null : reader.FindMaterialFile(path, false);
 				if(filename == null) continue;
 				image = reader.CreateMaterialImage(filename);
+				image.AnimationSource = reader;
+				image.AnimationUseType = 2;
 				image.AllowUnload = false;
 				fullmaterialimages[path] = image;
 				return image;
@@ -2998,11 +3014,12 @@ namespace CodeImp.DoomBuilder.Data
 			ImageData sprite = null;
 			int spritereader = containers.FindLastIndex(reader => reader.GetSpriteExists(definition.Name));
 			if(spritereader >= 0) sprite = GetSpriteImage(definition.Name);
-			var candidates = animationimages.Values.Where(image => string.Equals(image.ShortName, definition.Name, StringComparison.OrdinalIgnoreCase) || string.Equals(image.Name, definition.Name, StringComparison.OrdinalIgnoreCase))
-				.OrderByDescending(image => containers.IndexOf(image.AnimationSource)).ThenByDescending(image => image.AnimationUseType == 2 ? 3 : image.AnimationUseType).ToList();
+			var candidates = materialregistrations.Keys.Where(image => string.Equals(image.ShortName, definition.Name, StringComparison.OrdinalIgnoreCase) || string.Equals(image.Name, definition.Name, StringComparison.OrdinalIgnoreCase))
+				.OrderByDescending(image => materialregistrations[image].Resource).ThenByDescending(image => materialregistrations[image].Source)
+				.ThenByDescending(image => image.AnimationUseType == 2 ? 3 : image.AnimationUseType).ThenByDescending(image => materialregistrations[image].Order).ToList();
 			if(sprite != null)
 			{
-				int position = candidates.FindIndex(image => containers.IndexOf(image.AnimationSource) <= spritereader && image.AnimationUseType != 2);
+				int position = candidates.FindIndex(image => materialregistrations[image].Resource < spritereader || (materialregistrations[image].Resource == spritereader && image.AnimationUseType != 2));
 				candidates.Insert(position < 0 ? candidates.Count : position, sprite);
 			}
 			return GldefsMaterial.SelectTarget(candidates, definition.Target, gzdoom && definition.Overridable);
@@ -3274,9 +3291,12 @@ namespace CodeImp.DoomBuilder.Data
 			return parser;
 		}
 
-		private void RecordAnimationImages(IEnumerable<ImageData> images)
+		private void RecordAnimationImages(IEnumerable<ImageData> images, DataReader container, IEnumerable<ImageData> effectiveimages)
 		{
 			if(images == null) return;
+			int resource = containers.IndexOf(container);
+			var archive = container as PK3StructuredReader;
+			var effective = (effectiveimages ?? Enumerable.Empty<ImageData>()).ToLookup(image => image.LongName);
 			foreach(ImageData image in images)
 			{
 				if(animationkeys.ContainsKey(image)) continue;
@@ -3284,6 +3304,11 @@ namespace CodeImp.DoomBuilder.Data
 				animationkeys[image] = key;
 				animationimages[key] = image;
 				animationorder.Register(key, image.AnimationSource, image.AnimationUseType);
+				// Keep other namespaces for TryAny, but not an exact-name/type registration the reader shadowed.
+				ImageData winner = effective[image.LongName].LastOrDefault(value => value.AnimationUseType == image.AnimationUseType);
+				// PK3 geometry lookup gives embedded WADs priority over its own entries, later WADs first.
+				int source = archive == null ? 0 : archive.Wads.IndexOf(image.AnimationSource as WADReader) + 1;
+				if(winner == null || winner == image) materialregistrations[image] = new MaterialImageRegistration { Resource = resource, Source = source, Order = key };
 			}
 		}
 
@@ -3293,6 +3318,12 @@ namespace CodeImp.DoomBuilder.Data
 			if(!animationkeys.TryGetValue(original, out key)) return;
 			replacement.AnimationSource = original.AnimationSource;
 			replacement.AnimationUseType = original.AnimationUseType;
+			MaterialImageRegistration registration;
+			if(materialregistrations.TryGetValue(original, out registration))
+			{
+				materialregistrations.Remove(original);
+				materialregistrations[replacement] = registration;
+			}
 			animationkeys[replacement] = key;
 			animationimages[key] = replacement;
 		}
@@ -3302,6 +3333,13 @@ namespace CodeImp.DoomBuilder.Data
 			ImageData image = texture ? GetTextureImage(name) : GetFlatImage(name);
 			if(any && image == unknownimage) image = texture ? GetFlatImage(name) : GetTextureImage(name);
 			if(!any && image != unknownimage && (image.AnimationUseType == 1) == texture) return unknownimage;
+			// Full-path pics are independent of the short-name slot used by ranges and numbered frames.
+			if(any && name.Contains("/") && image != unknownimage && !animationkeys.ContainsKey(image))
+			{
+				int key = animationimages.Count;
+				animationkeys[image] = key;
+				animationimages[key] = image;
+			}
 			return image;
 		}
 
@@ -3322,7 +3360,7 @@ namespace CodeImp.DoomBuilder.Data
 			}
 			if(entries == null)
 			{
-				string engine = General.Map.Config.EngineName.ToLowerInvariant();
+				string engine = General.Map.Config.MaterialEngineName.ToLowerInvariant();
 				string table = engine == "zandronum" || engine == "zdaemon" ? "zandronum" : General.Map.Config.BaseGame;
 				entries = AnimatedLump.LoadDefaults(table == GameType.CHEX ? GameType.DOOM : table);
 			}
