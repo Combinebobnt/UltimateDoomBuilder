@@ -19,6 +19,7 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Actions;
 using Action = CodeImp.DoomBuilder.Actions.Action;
@@ -90,6 +91,54 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			if(!GeomDebugEnabled || string.IsNullOrEmpty(note)) return;
 			geomdebugnote = (geomdebugnote.Length > 0 ? geomdebugnote + " " : "") + note;
+		}
+
+		[DllImport("libX11")] private static extern IntPtr XOpenDisplay(IntPtr name);
+		[DllImport("libX11")] private static extern int XCloseDisplay(IntPtr display);
+		[DllImport("libX11")] private static extern IntPtr XDefaultRootWindow(IntPtr display);
+		[DllImport("libX11")] private static extern bool XQueryPointer(IntPtr display, IntPtr window, out IntPtr root, out IntPtr child, out int rootx, out int rooty, out int winx, out int winy, out uint mask);
+
+		// Pointer position, buttons held and the client area on screen, to tell a border drag from
+		// any other late resize. X11 is asked directly: a press on the window frame never reaches us.
+		private string GeomDebugPointer()
+		{
+			if(!GeomDebugEnabled) return "";
+
+			try
+			{
+				Point pos = Cursor.Position;
+				string buttons = Control.MouseButtons.ToString();
+
+				if(Environment.OSVersion.Platform == PlatformID.Unix)
+				{
+					try
+					{
+						IntPtr display = XOpenDisplay(IntPtr.Zero);
+						if(display != IntPtr.Zero)
+						{
+							IntPtr root, child;
+							int rootx, rooty, winx, winy;
+							uint mask;
+							if(XQueryPointer(display, XDefaultRootWindow(display), out root, out child, out rootx, out rooty, out winx, out winy, out mask))
+							{
+								pos = new Point(rootx, rooty);
+								buttons = "x11:" + ((mask & 0x100) != 0 ? "1" : "") + ((mask & 0x200) != 0 ? "2" : "")
+										  + ((mask & 0x400) != 0 ? "3" : "") + ((mask & 0x700) == 0 ? "none" : "");
+							}
+							XCloseDisplay(display);
+						}
+					}
+					catch(Exception) { }
+				}
+
+				Rectangle client = this.RectangleToScreen(this.ClientRectangle);
+				return " ptr=" + pos.X + "," + pos.Y + " buttons=" + buttons
+					   + " clientscr=" + client.X + "," + client.Y + "," + client.Width + "x" + client.Height;
+			}
+			catch(Exception)
+			{
+				return "";
+			}
 		}
 
 		// The log is never deleted on startup, so cap it. Months of ordinary use would otherwise
@@ -362,7 +411,8 @@ namespace CodeImp.DoomBuilder.Windows
 			if(!GeomDebugEnabled || geomdebugsummarised) return;
 			geomdebugsummarised = true;
 
-			GeomDebug("GEOMSUMMARY " + (GeomDebugMismatched ? "BAD  " : "ok   ")
+			// EXT: the size is off, but only after a resize applied from outside ended (OnResizeEnd)
+			GeomDebug("GEOMSUMMARY " + (!GeomDebugMismatched ? "ok   " : (geomdebuguserresized ? "EXT  " : "BAD  "))
 					  + "requested=" + geomdebugrequested.Width + "x" + geomdebugrequested.Height
 					  + " final=" + this.Size.Width + "x" + this.Size.Height
 					  + " state=" + this.WindowState
@@ -440,7 +490,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// A drag-resize ends here. Past this point every size differs from the one we asked
 			// for by design, so stop treating a post-shown resize as evidence of anything.
 			geomdebuguserresized = true;
-			GeomDebug("OnResizeEnd tracked=" + windowsize.Width + "x" + windowsize.Height);
+			GeomDebug("OnResizeEnd tracked=" + windowsize.Width + "x" + windowsize.Height + GeomDebugPointer());
 
 			base.OnResizeEnd(e);
 		}
@@ -461,7 +511,7 @@ namespace CodeImp.DoomBuilder.Windows
 			{
 				geomdebuglateresizes++;
 				GeomDebug("GEOMDEBUG-LATERESIZE OnResize:post-shown requested="
-						  + geomdebugrequested.Width + "x" + geomdebugrequested.Height);
+						  + geomdebugrequested.Width + "x" + geomdebugrequested.Height + GeomDebugPointer());
 			}
 		}
 
