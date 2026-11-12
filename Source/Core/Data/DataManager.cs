@@ -647,34 +647,38 @@ namespace CodeImp.DoomBuilder.Data
 			timing.Mark("modeldefs thing cache and gldefs");
 
 			// Update the used textures
-			General.Map.Data.UpdateUsedTextures();
-			
+			General.Map.Data.UpdateUsedTextures(timing);
+
 			// Add texture names to texture sets
 			foreach(KeyValuePair<long, ImageData> img in textures)
 			{
-				// Add to all sets
 				foreach(MatchingTextureSet ms in texturesets)
 					ms.AddTexture(img.Value);
-
-				// Add to all
-				alltextures.AddTexture(img.Value);
-				walltextureset.AddTexture(img.Value);
 			}
-			
+
 			// Add flat names to texture sets
 			foreach(KeyValuePair<long, ImageData> img in flats)
 			{
-				// Add to all sets
 				foreach(MatchingTextureSet ms in texturesets)
 					ms.AddFlat(img.Value);
-				
-				// Add to all
+			}
+			timing.Mark("texture set matching");
+
+			// Add to all
+			foreach(KeyValuePair<long, ImageData> img in textures)
+			{
+				alltextures.AddTexture(img.Value);
+				walltextureset.AddTexture(img.Value);
+			}
+			foreach(KeyValuePair<long, ImageData> img in flats)
+			{
 				alltextures.AddFlat(img.Value);
 				flattextureset.AddFlat(img.Value);
 			}
+			timing.Mark("all texture sets");
+			LogTextureSets();
 
 			//mxd. Create skybox texture(s)
-			timing.Mark("used textures and texture sets");
 			SetupSkybox();
 
             // [ZZ] clear texture/flat cache in ImageSelectorPanel
@@ -3849,9 +3853,42 @@ namespace CodeImp.DoomBuilder.Data
 				: " (no IWAD identified)"));
 		}
 
+		// Filter classes and per-set membership, so set contents can be diffed between builds
+		private void LogTextureSets()
+		{
+			int filtercount = 0, exact = 0, prefix = 0, pattern = 0;
+			foreach(MatchingTextureSet ms in texturesets)
+			{
+				foreach(string filter in ms.Filters)
+				{
+					string literal;
+					switch(MatchingTextureSet.ClassifyFilter(filter, out literal))
+					{
+						case MatchingTextureSet.FilterKind.Exact: exact++; break;
+						case MatchingTextureSet.FilterKind.Prefix: prefix++; break;
+						default: pattern++; break;
+					}
+					filtercount++;
+				}
+			}
+
+			General.WriteLogLine("Texture sets: " + texturesets.Count + " sets, " + filtercount + " filters (" +
+				exact + " exact, " + prefix + " prefix, " + pattern + " pattern)");
+			foreach(MatchingTextureSet ms in texturesets)
+			{
+				General.WriteLogLine("Texture set \"" + ms.Name + "\": " + ms.Textures.Count + " textures, " +
+					ms.Flats.Count + " flats, hash " + ms.MembershipHash().ToString("x8"));
+			}
+		}
+
 		// This signals the background thread to update the
 		// used-in-map status on all textures and flats
 		public void UpdateUsedTextures()
+		{
+			UpdateUsedTextures(null);
+		}
+
+		internal void UpdateUsedTextures(StageTimer timing)
 		{
             var usedtextures = new Dictionary<long, bool>();
             var usedflats = new Dictionary<long, bool>();
@@ -3949,6 +3986,7 @@ namespace CodeImp.DoomBuilder.Data
 						usedflats[flatnamesshorttofull[s.LongCeilTexture]] = false;
 				}
 			}
+			timing?.Mark("used textures map scan");
 
 			// Notify the background thread that it needs to update the images
 			if(General.Map.Config.MixTexturesFlats)
@@ -3988,9 +4026,11 @@ namespace CodeImp.DoomBuilder.Data
                     i.Value.UsedInMap = usedflats.ContainsKey(i.Key);
 				}
 			}
+			timing?.Mark("used textures flags");
 
             // Update icon
             General.MainWindow.UpdateStatus();
+			timing?.Mark("used textures status");
         }
 
 #endregion

@@ -28,8 +28,18 @@ namespace CodeImp.DoomBuilder.Config
 {
 	public sealed class MatchingTextureSet : TextureSet, IFilledTextureSet, IComparable<MatchingTextureSet>
 	{
+		#region ================== Constants
+
+		internal enum FilterKind { Exact, Prefix, Pattern }
+
+		private const uint FNV_OFFSET_BASIS = 2166136261;
+		private const uint FNV_PRIME = 16777619;
+		private const byte HASH_LIST_SEPARATOR = 0xFF;
+
+		#endregion
+
 		#region ================== Variables
-		
+
 		// Never stored, only used at run-time
 		private Regex regex;
 		
@@ -188,7 +198,63 @@ namespace CodeImp.DoomBuilder.Config
 		{
 			return string.Compare(this.name, other.name);
 		}
-		
+
+		// Exact and prefix filters are printable ASCII without * ? + or \ (prefix: before one trailing *)
+		internal static FilterKind ClassifyFilter(string filter, out string literal)
+		{
+			string upper = filter.ToUpperInvariant();
+			if(IsLiteralFilterPart(upper, upper.Length))
+			{
+				literal = upper;
+				return FilterKind.Exact;
+			}
+
+			if(upper.Length > 0 && upper[upper.Length - 1] == '*' && IsLiteralFilterPart(upper, upper.Length - 1))
+			{
+				literal = upper.Substring(0, upper.Length - 1);
+				return FilterKind.Prefix;
+			}
+
+			literal = upper;
+			return FilterKind.Pattern;
+		}
+
+		private static bool IsLiteralFilterPart(string upper, int length)
+		{
+			for(int i = 0; i < length; i++)
+			{
+				char c = upper[i];
+				if(c < '\x21' || c > '\x7E' || c == '*' || c == '?' || c == '+' || c == '\\') return false;
+			}
+			return true;
+		}
+
+		internal uint MembershipHash()
+		{
+			return HashLongNames(textures.ConvertAll(i => i.LongName), flats.ConvertAll(i => i.LongName));
+		}
+
+		// FNV-1a over each long name's 8 little-endian bytes, with one separator byte between the lists
+		internal static uint HashLongNames(IEnumerable<long> texturenames, IEnumerable<long> flatnames)
+		{
+			uint hash = FNV_OFFSET_BASIS;
+			foreach(long n in texturenames) hash = HashLong(hash, n);
+			hash = HashByte(hash, HASH_LIST_SEPARATOR);
+			foreach(long n in flatnames) hash = HashLong(hash, n);
+			return hash;
+		}
+
+		private static uint HashLong(uint hash, long value)
+		{
+			for(int i = 0; i < 8; i++) hash = HashByte(hash, (byte)(value >> (i * 8)));
+			return hash;
+		}
+
+		private static uint HashByte(uint hash, byte value)
+		{
+			return unchecked((hash ^ value) * FNV_PRIME);
+		}
+
 		#endregion
 	}
 }
