@@ -30,6 +30,7 @@ namespace CodeImp.DoomBuilder
 			internal bool HeldEnd;
 			internal double EndAt;
 			internal double EndMs;
+			internal string Trigger;
 		}
 
 		private sealed class Trigger
@@ -54,6 +55,12 @@ namespace CodeImp.DoomBuilder
 		}
 
 		internal int Depth { get { return running.Count; } }
+
+		// End with nothing bound and nothing open is a key release with no effect: not worth a line
+		internal bool IsOpen(object action)
+		{
+			return open.ContainsKey(action);
+		}
 
 		// The trigger for the next Begin of this action only
 		internal void SetTrigger(object action, string kind, string key)
@@ -134,7 +141,12 @@ namespace CodeImp.DoomBuilder
 			double now = clock();
 			Entry e;
 			if(open.TryGetValue(action, out e)) open.Remove(action);
-			else e = new Entry { Seq = 0, Name = name };
+			else
+			{
+				Trigger trig;
+				if(triggers.TryGetValue(action, out trig)) triggers.Remove(action);
+				e = new Entry { Seq = 0, Name = name, Trigger = trig != null ? trig.Kind : (ambient ?? "code") };
+			}
 			e.Ended = true;
 			e.EndAt = now;
 			ending[action] = e;
@@ -156,6 +168,7 @@ namespace CodeImp.DoomBuilder
 				"begin_ms", e.BeginMs >= 0 ? Ms(e.BeginMs) : "-", "end_ms", Ms(e.EndMs),
 				"hold_ms", e.Seq > 0 ? Ms(e.EndAt - e.BeginAt) : "-" };
 			if(nested) { f.Add("nested"); f.Add("1"); }
+			if(e.Seq == 0) { f.Add("trig"); f.Add(e.Trigger); }
 			emit("action-end", f.ToArray());
 		}
 

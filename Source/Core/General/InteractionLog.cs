@@ -30,6 +30,7 @@ namespace CodeImp.DoomBuilder
 		private const double STALL_MS = 250.0;
 		private const double SUSPECT_STALL_MS = 30000.0;
 		private const double MODE_STAMP_MAX_MS = 60000.0;
+		private const long LOCK_OFFSET = 1L << 40; // far past any real size, so readers are never blocked
 
 		#endregion
 
@@ -52,6 +53,7 @@ namespace CodeImp.DoomBuilder
 		private static double resourcesstart = -1;
 		private static string resourceswhy;
 		private static double modestamp = -1;
+		private static Type modestamptype;
 		private static int dialogcounter;
 		private static int markcounter;
 		private static bool withdrawing;
@@ -90,7 +92,8 @@ namespace CodeImp.DoomBuilder
 				Write("session", "fmt", FORMAT.ToString(CultureInfo.InvariantCulture),
 					"wall", DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz", CultureInfo.InvariantCulture),
 					"udb", "R" + General.ThisAssembly.GetName().Version.Revision + " " + General.CommitHash,
-					"mono", MonoVersion(), "screen", screen.Width + "x" + screen.Height);
+					"mono", MonoVersion(), "screen", screen.Width + "x" + screen.Height,
+					"pid", Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture));
 			}
 			catch(Exception) { Disable(); }
 		}
@@ -104,8 +107,9 @@ namespace CodeImp.DoomBuilder
 				{
 					CloseWriter();
 					logpath = path;
-					Rotate(path);
-					writer = new StreamWriter(path, true, new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
+					// Lock before rotating, so a second editor instance can't move the first one's file
+					OpenWriter(path);
+					if(writer.BaseStream.Length >= MaxBytes) RotateLocked();
 					linessincecheck = 0;
 					tracker = new InteractionActionTracker(() => Now, Write);
 					enabled = true;
@@ -145,13 +149,28 @@ namespace CodeImp.DoomBuilder
 			writer = null;
 		}
 
-		private static void Rotate(string path)
+		// One writer per file: a second instance's lines would interleave and reuse seq numbers
+		private static void OpenWriter(string path)
 		{
-			FileInfo fi = new FileInfo(path);
-			if(!fi.Exists || fi.Length < MaxBytes) return;
-			string previous = path + ".1";
+			FileStream fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+			try { fs.Lock(LOCK_OFFSET, 1); }
+			catch(IOException)
+			{
+				fs.Dispose();
+				try { General.WriteLogLine("Interaction log is in use by another instance; not logging this one."); }
+				catch(Exception) { }
+				throw;
+			}
+			writer = new StreamWriter(fs, new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
+		}
+
+		private static void RotateLocked()
+		{
+			CloseWriter();
+			string previous = logpath + ".1";
 			if(File.Exists(previous)) File.Delete(previous);
-			File.Move(path, previous);
+			File.Move(logpath, previous);
+			OpenWriter(logpath);
 		}
 
 		private static string MonoVersion()
@@ -187,12 +206,7 @@ namespace CodeImp.DoomBuilder
 					if(++linessincecheck >= ROTATE_CHECK_LINES)
 					{
 						linessincecheck = 0;
-						if(writer.BaseStream.Length >= MaxBytes)
-						{
-							CloseWriter();
-							Rotate(logpath);
-							writer = new StreamWriter(logpath, true, new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
-						}
+						if(writer.BaseStream.Length >= MaxBytes) RotateLocked();
 					}
 				}
 				catch(Exception) { DisableLocked(); }
@@ -219,19 +233,23 @@ namespace CodeImp.DoomBuilder
 			return value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
 		}
 
-		private static readonly Regex digitruns = new Regex("[0-9]+", RegexOptions.Compiled);
-		private static readonly Regex firstword = new Regex("^(N|[A-Za-z][a-z]*(-[a-z]+)*)$", RegexOptions.Compiled);
-		private static readonly Regex laterword = new Regex("^(N|[a-z]+(-[a-z]+)*)$", RegexOptions.Compiled);
+		// Built on first use, so a run with the log off never compiles them
+		private static class Patterns
+		{
+			internal static readonly Regex DigitRuns = new Regex("[0-9]+");
+			internal static readonly Regex FirstWord = new Regex("^(N|[A-Za-z][a-z]*(-[a-z]+)*)$");
+			internal static readonly Regex LaterWord = new Regex("^(N|[a-z]+(-[a-z]+)*)$");
+		}
 
 		// Undo descriptions embed texture and other names: keep only the leading plain words
 		internal static string ReduceDescription(string desc)
 		{
 			if(string.IsNullOrEmpty(desc)) return "";
-			string[] words = digitruns.Replace(desc, "N").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+			string[] words = Patterns.DigitRuns.Replace(desc, "N").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 			List<string> kept = new List<string>(4);
 			foreach(string w in words)
 			{
-				if(kept.Count == 4 || !(kept.Count == 0 ? firstword : laterword).IsMatch(w)) break;
+				if(kept.Count == 4 || !(kept.Count == 0 ? Patterns.FirstWord : Patterns.LaterWord).IsMatch(w)) break;
 				kept.Add(w);
 			}
 			return string.Join(" ", kept.ToArray());
@@ -295,16 +313,20 @@ namespace CodeImp.DoomBuilder
 
 		#region ================== Modes, undo, maps
 
-		internal static void ModeConstructing()
+		internal static void ModeConstructing(Type type)
 		{
 			modestamp = Now;
+			modestamptype = type;
 		}
 
-		internal static double TakeModeStart()
+		// A stamp counts only for the type it was taken for, so a failed construction can't leak into another switch
+		internal static double TakeModeStart(object nextmode)
 		{
 			double now = Now;
-			double start = (modestamp >= 0 && now - modestamp < MODE_STAMP_MAX_MS) ? modestamp : now;
+			bool match = modestamp >= 0 && nextmode != null && nextmode.GetType() == modestamptype && now - modestamp < MODE_STAMP_MAX_MS;
+			double start = match ? modestamp : now;
 			modestamp = -1;
+			modestamptype = null;
 			return start;
 		}
 

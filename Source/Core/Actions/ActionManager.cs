@@ -538,6 +538,7 @@ namespace CodeImp.DoomBuilder.Actions
             Action[] acts = GetActionsByKey(key);
             bool absorbed = acts.Length > 0;
             foreach (Action a in acts) if (!activeactions.Contains(a)) activeactions.Add(a);
+            if (InteractionLog.Enabled) foreach (Action a in acts) if (!a.BeginBound) InteractionLog.KeyTrigger(a, key);
 
             // Invoke actions
             absorbed |= BeginActionByKey(key, repeat);

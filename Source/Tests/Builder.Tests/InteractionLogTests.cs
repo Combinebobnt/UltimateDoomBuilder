@@ -79,11 +79,14 @@ namespace Builder.Tests
 		public void EndWithoutBeginHasNoSeq()
 		{
 			Recorder r = new Recorder();
+			r.Tracker.SetTrigger(ActionA, "key", "Ctrl+P");
+			Assert.False(r.Tracker.IsOpen(ActionA));
 			r.Tracker.EndEnter(ActionA, "a");
 			r.Time = 2;
 			r.Tracker.EndExit(ActionA);
 
 			Assert.Equal(1, r.Lines.Count);
+			Assert.Equal("key", r.Lines[0]["trig"]);
 			Assert.Equal("-", r.Lines[0]["seq"]);
 			Assert.Equal("-", r.Lines[0]["begin_ms"]);
 			Assert.Equal("2.0", r.Lines[0]["end_ms"]);
@@ -228,11 +231,20 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void NotRequestedMeansDisabled()
+		public void RequestFollowsSettingAndEnvironment()
 		{
-			if(Environment.GetEnvironmentVariable("UDB_INTERACTION_LOG") == "1") return;
-			InteractionLog.Start(false);
+			Assert.True(InteractionLog.IsRequested(true));
+			if(Environment.GetEnvironmentVariable("UDB_INTERACTION_LOG") != "1") Assert.False(InteractionLog.IsRequested(false));
+		}
+
+		[Fact]
+		public void UnopenableFileLeavesTheLogDisabled()
+		{
+			string path = Path.Combine(Path.GetTempPath(), "ilogtest-missing-" + Guid.NewGuid().ToString("N"), InteractionLog.FILE_NAME);
+			Assert.False(InteractionLog.Open(path));
 			Assert.False(InteractionLog.Enabled);
+			InteractionLog.Write("mark", "id", "1");
+			Assert.False(File.Exists(path));
 		}
 	}
 }

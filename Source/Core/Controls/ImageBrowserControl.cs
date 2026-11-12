@@ -90,9 +90,11 @@ namespace CodeImp.DoomBuilder.Controls
 		public List<ImageBrowserItem> SelectedItems { get { return list.SelectedItems; } } //mxd
 		public ImageBrowserItem SelectedItem { get { return (list.SelectedItems.Count > 0 ? list.SelectedItems[0] : null); } }
 
-		// Geometry log only: tells "list never got the width" from "items laid out against a stale width"
+		// Interaction log only: the texture browser's close line
 		internal int FilterLength { get { return objectname.Text.Length; } }
 		internal bool UsedFirst { get { return usedtexturesfirst.Checked; } }
+
+		// Geometry log only: tells "list never got the width" from "items laid out against a stale width"
 		internal Rectangle GeomDebugListBounds { get { return list.Bounds; } }
 		internal int GeomDebugListClientWidth { get { return list.ClientRectangle.Width; } }
 		internal int GeomDebugListFlowWidth { get { return list.GeomDebugLastFlowWidth; } }

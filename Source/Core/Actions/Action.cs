@@ -302,7 +302,7 @@ namespace CodeImp.DoomBuilder.Actions
 		// This raises events for this action
 		internal void End()
 		{
-			if(!InteractionLog.Enabled) { RaiseEnd(); return; }
+			if(!InteractionLog.Enabled || (enddelegates.Count == 0 && !InteractionLog.Tracker.IsOpen(this))) { RaiseEnd(); return; }
 			InteractionLog.Tracker.EndEnter(this, name);
 			try { RaiseEnd(); }
 			finally { InteractionLog.Tracker.EndExit(this); }

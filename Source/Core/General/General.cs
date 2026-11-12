@@ -1143,10 +1143,10 @@ namespace CodeImp.DoomBuilder
 		
 #region ================== Management
 		
-		// This creates a new map
 		[BeginAction("interactionlogmark")]
 		internal static void InteractionLogMark() { InteractionLog.Mark(); }
 
+		// This creates a new map
 		[BeginAction("newmap")]
 		internal static void NewMap()
 		{

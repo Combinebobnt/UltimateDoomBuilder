@@ -315,7 +315,7 @@ namespace CodeImp.DoomBuilder.Editing
 		public bool ChangeMode(EditMode nextmode)
 		{
 			EditMode oldmode = mode;
-			double ilogstart = InteractionLog.Enabled ? InteractionLog.TakeModeStart() : 0;
+			double ilogstart = InteractionLog.Enabled ? InteractionLog.TakeModeStart(nextmode) : 0;
 			
 			if(nextmode != null)
 			{

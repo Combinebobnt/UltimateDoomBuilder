@@ -512,7 +512,7 @@ namespace CodeImp.DoomBuilder
 		internal bool InitializeSwitchMap(MapOptions options)
 		{
 			if(!InteractionLog.Enabled) return InitializeSwitchMapCore(options);
-			return InteractionLog.TimeMap("mapswitch", "switch", this, null, () => InitializeSwitchMapCore(options));
+			return InteractionLog.TimeMap("mapswitch", null, this, null, () => InitializeSwitchMapCore(options));
 		}
 
 		private bool InitializeSwitchMapCore(MapOptions options)
