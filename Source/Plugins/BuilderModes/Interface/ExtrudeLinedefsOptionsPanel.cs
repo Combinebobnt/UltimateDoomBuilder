@@ -9,6 +9,9 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 
 		public event EventHandler OnValueChanged;
 
+		// A key typed in the Distance field, before the value commits
+		public event EventHandler OnDistanceTyped;
+
 		#endregion
 
 		#region ================== Variables
@@ -30,6 +33,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		public ExtrudeLinedefsOptionsPanel()
 		{
 			InitializeComponent();
+			distance.KeyDown += (sender, e) => { if(OnDistanceTyped != null) OnDistanceTyped(this, EventArgs.Empty); };
 		}
 
 		#endregion

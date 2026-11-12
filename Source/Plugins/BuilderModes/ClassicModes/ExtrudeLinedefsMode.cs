@@ -321,15 +321,27 @@ namespace CodeImp.DoomBuilder.BuilderModes
 							General.Settings.ReadPluginSetting("extrudelinedefsmode.ceildelta", 0));
 			panel.Register();
 			panel.OnValueChanged += OnValuesChanged;
+			panel.OnDistanceTyped += OnDistanceTyped;
 		}
 
 		private void RemoveInterface()
 		{
 			panel.OnValueChanged -= OnValuesChanged;
+			panel.OnDistanceTyped -= OnDistanceTyped;
 			General.Settings.WritePluginSetting("extrudelinedefsmode.distance", panel.Distance);
 			General.Settings.WritePluginSetting("extrudelinedefsmode.floordelta", panel.FloorDelta);
 			General.Settings.WritePluginSetting("extrudelinedefsmode.ceildelta", panel.CeilingDelta);
 			panel.Unregister();
+		}
+
+		// Typing starts before the value commits, and tracking would overwrite the text meanwhile
+		private void OnDistanceTyped(object sender, EventArgs e)
+		{
+			if(!tracking) return;
+			tracking = false;
+			free = false;
+			UpdateOffsets();
+			General.Interface.RedrawDisplay();
 		}
 
 		private void OnValuesChanged(object sender, EventArgs e)
@@ -582,7 +594,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void UpdateModifiers()
 		{
-			if(!tracking || !anchored) return;
+			if(!tracking || !anchored || !mouseinside) return;
 			if(snaptogrid == (General.Interface.ShiftState ^ General.Interface.SnapToGrid) && locknormal == General.Interface.CtrlState) return;
 			UpdateTracking();
 			General.Interface.RedrawDisplay();
