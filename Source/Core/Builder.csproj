@@ -912,6 +912,7 @@
       <DependentUpon>VertexInfoPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\Actions.cfg" />
+    <EmbeddedResource Include="Resources\DefaultAnimated.cfg" />
     <EmbeddedResource Include="Resources\ThingTexture2D.png" />
   </ItemGroup>
   <ItemGroup>
@@ -1297,6 +1298,7 @@
     </Compile>
     <Compile Include="ZDoom\ActorStructure.cs" />
     <Compile Include="ZDoom\AnimdefsParser.cs" />
+    <Compile Include="ZDoom\AnimatedLump.cs" />
     <Compile Include="ZDoom\CvarInfoParser.cs" />
     <Compile Include="ZDoom\PatchStructure.cs" />
     <Compile Include="ZDoom\ReverbsParser.cs" />

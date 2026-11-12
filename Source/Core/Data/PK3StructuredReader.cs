@@ -806,6 +806,18 @@ namespace CodeImp.DoomBuilder.Data
 			return result;
 		}
 
+		public override Stream GetAnimatedData()
+		{
+			if(issuspended) throw new Exception("Data reader is suspended");
+			for(int i = wads.Count - 1; i >= 0; i--)
+			{
+				Stream data = wads[i].GetAnimatedData();
+				if(data != null) return data;
+			}
+			string name = FindFirstFile("ANIMATED", false);
+			return string.IsNullOrEmpty(name) ? null : LoadFile(name);
+		}
+
 		#endregion
 
 		#region ================== Methods

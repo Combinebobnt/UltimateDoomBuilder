@@ -257,6 +257,7 @@ namespace CodeImp.DoomBuilder.Data
 
 		//mxd. When implemented, this returns generic text lump data
 		public abstract IEnumerable<TextResourceData> GetTextLumpData(ScriptType scripttype, bool singular, bool partialtitlematch);
+		public virtual Stream GetAnimatedData() { return null; }
 
 		//mxd. When implemented, this returns the list of voxel model names
 		public abstract HashSet<string> GetVoxelNames();

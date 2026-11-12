@@ -1148,6 +1148,13 @@ namespace CodeImp.DoomBuilder.Data
 			return (singular ? GetLastLumpData(lumpname) : GetAllLumpsData(lumpname));
 		}
 
+		public override Stream GetAnimatedData()
+		{
+			if(issuspended) throw new Exception("Data reader is suspended");
+			int index = file.FindLastLumpIndex("ANIMATED");
+			return index >= 0 ? file.Lumps[index].GetSafeStream() : null;
+		}
+
 		//mxd
 		private IEnumerable<TextResourceData> GetFirstLumpData(string name)
 		{
