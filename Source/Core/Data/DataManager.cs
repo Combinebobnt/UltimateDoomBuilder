@@ -515,10 +515,13 @@ namespace CodeImp.DoomBuilder.Data
             LoadDecorateThings();
 			timing.Mark("DECORATE");
 			enginefold.Decide(CheckEngineArchives(), General.Map.Config.Name, GetEngineNames);
+			StageTimer thingtiming = new StageTimer("Thing");
 			ApplyDehackedThings();
+			thingtiming.Mark("dehacked apply");
 			FixRenamedDehackedSprites();
-            int thingcount = ApplyZDoomThings(spawnnums, doomednums);
-			int spritecount = LoadThingSprites();
+			thingtiming.Mark("dehacked sprite renames");
+            int thingcount = ApplyZDoomThings(spawnnums, doomednums, thingtiming);
+			int spritecount = LoadThingSprites(thingtiming);
 			timing.Mark("thing apply fixup and sprites");
 			LoadInternalSprites();
 			LoadInternalTextures(); //mxd
@@ -1592,7 +1595,7 @@ namespace CodeImp.DoomBuilder.Data
 		}
 
 		// This loads the sprites that we really need for things
-		private int LoadThingSprites()
+		private int LoadThingSprites(StageTimer timing)
 		{
 			//mxd. Get all sprite names
 			List<IEnumerable<string>> containernames = new List<IEnumerable<string>>(containers.Count);
@@ -1603,7 +1606,8 @@ namespace CodeImp.DoomBuilder.Data
 			foreach(ImageData data in sprites.Values)
 				if(WADReader.IsValidSpriteName(data.Name))
 					spritenames.Add(data.Name);
-			
+			timing.Mark("sprite names");
+
 			//mxd. Get names of all voxel models, which can be used "as is" (these do not require corresponding sprite to work)
 			HashSet<string> voxelnames = new HashSet<string>(StringComparer.Ordinal);
 			foreach(DataReader dr in containers)
@@ -1611,15 +1615,28 @@ namespace CodeImp.DoomBuilder.Data
 				IEnumerable<string> result = dr.GetVoxelNames();
 				if(result != null) voxelnames.UnionWith(result);
 			}
-			
+			timing.Mark("voxel names");
+
+			Stopwatch framesetup = new Stopwatch();
+			Stopwatch framelookup = new Stopwatch();
+			int thingtypecount = 0;
+			int framecount = 0;
+			int misses = 0;
+			HashSet<string> distinctmisses = new HashSet<string>(StringComparer.Ordinal);
+
 			// Go for all things
 			foreach(ThingTypeInfo ti in General.Map.Data.ThingTypes)
 			{
+				thingtypecount++;
+
 				// Valid sprite name?
 				if(ti.Sprite.Length == 0 || ti.Sprite.Length > CLASIC_IMAGE_NAME_LENGTH) continue; //mxd
-					
+
 				//mxd. Find all sprite angles
+				framesetup.Start();
 				bool isvoxel = ti.SetupSpriteFrame(spritenames, voxelnames);
+				framesetup.Stop();
+				framelookup.Start();
 
 				//mxd. Create voxel sprite?
 				if(isvoxel)
@@ -1639,6 +1656,7 @@ namespace CodeImp.DoomBuilder.Data
 					foreach(SpriteFrameInfo info in ti.SpriteFrame)
 					{
 						ImageData image = null;
+						framecount++;
 
 						// Sprite not in our collection yet?
 						if(!sprites.ContainsKey(info.SpriteLongName))
@@ -1668,6 +1686,8 @@ namespace CodeImp.DoomBuilder.Data
 							}
 							else
 							{
+								misses++;
+								distinctmisses.Add(info.Sprite ?? string.Empty);
                                 if (!ti.Optional)
 								    General.ErrorLogger.Add(ErrorType.Error, "Unable to find sprite lump \"" + info.Sprite + "\" used by actor \"" + ti.Title + "\":" + ti.Index + ". Forgot to include required resources?");
 							}
@@ -1678,8 +1698,14 @@ namespace CodeImp.DoomBuilder.Data
 						}
                     }
 				}
+				framelookup.Stop();
 			}
-			
+
+			General.WriteLogLine(StageTimer.FormatLine("Thing", "frame setup", framesetup.Elapsed.TotalMilliseconds));
+			General.WriteLogLine(StageTimer.FormatLine("Thing", "frame lookup", framelookup.Elapsed.TotalMilliseconds));
+			General.WriteLogLine("Thing timing: counts thingtypes=" + thingtypecount + " spritenames=" + spritenames.Count +
+				" voxelnames=" + voxelnames.Count + " frames=" + framecount + " misses=" + misses + " distinctmisses=" + distinctmisses.Count);
+
 			// Output info
 			return sprites.Count;
 		}
@@ -2054,7 +2080,7 @@ namespace CodeImp.DoomBuilder.Data
         }
 
         // [ZZ] this merges in the parsed actor lists from zscript+decorate using the original DECORATE merging code
-        private int ApplyZDoomThings(Dictionary<int, string> spawnnumsoverride, Dictionary<int, string> doomednumsoverride)
+        private int ApplyZDoomThings(Dictionary<int, string> spawnnumsoverride, Dictionary<int, string> doomednumsoverride, StageTimer timing)
         {
             int counter = 0;
 
@@ -2085,6 +2111,7 @@ namespace CodeImp.DoomBuilder.Data
             Dictionary<string, ActorStructure> mergedActorsByClass = decorate.ActorsByClass.Concat(zscript.ActorsByClass.Where(x => !decorate.ActorsByClass.ContainsKey(x.Key))).ToDictionary(k => k.Key, v => v.Value);
             Dictionary<string, ActorStructure> mergedAllActorsByClass = decorate.AllActorsByClass.Concat(zscript.AllActorsByClass.Where(x => !decorate.AllActorsByClass.ContainsKey(x.Key))).ToDictionary(k => k.Key, v => v.Value);
             zdoomclasses = mergedAllActorsByClass;
+			timing.Mark("actor merge");
 
 			// Dictionary of replaced actors that have to be recategorized
 			Dictionary<int, ActorStructure> recategorizeactors = new Dictionary<int, ActorStructure>();
@@ -2160,6 +2187,7 @@ namespace CodeImp.DoomBuilder.Data
 				// Re-add the ThingTypeInfo to the ThingCategory
 				tc.AddThing(thingtypes[i]);
 			}
+			timing.Mark("actor apply");
 
             //mxd. Step 2. Apply DoomEdNum MAPINFO overrides, remove actors disabled in MAPINFO
             if (doomednumsoverride.Count > 0)
@@ -2283,6 +2311,7 @@ namespace CodeImp.DoomBuilder.Data
                         if (ai.Enum.Name == "spawnthing") ai.Enum = newenums;
                 }
             }
+			timing.Mark("mapinfo and spawnids");
 
             return counter;
         }
