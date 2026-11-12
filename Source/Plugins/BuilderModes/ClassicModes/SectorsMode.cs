@@ -96,6 +96,34 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		public override object HighlightedObject { get { return highlighted; } }
 
+		[BeginAction("texturepalette")]
+		public void ShowTexturePalette()
+		{
+			List<Sector> targets = General.Map.Map.GetSelectedSectors(true).ToList();
+			if(targets.Count == 0 && highlighted != null && !highlighted.IsDisposed) targets.Add(highlighted);
+			if(targets.Count == 0)
+			{
+				General.Interface.DisplayStatus(StatusType.Info, "Highlight or select a surface first.");
+				return;
+			}
+			var pick = TexturePaletteForm.Choose(false, true, false);
+			if(pick == null) return;
+			TexturePalette.SetBrush(pick.Name, pick.Kind);
+			ApplyFromPalette(pick.Name, targets, false, pick.Button == MouseButtons.Right);
+		}
+
+		internal void ApplyFromPalette(string name, IEnumerable<Sector> targets, bool walls, bool ceiling)
+		{
+			int count = walls ? TexturePalette.ApplyToSectorWalls(name, targets) : TexturePalette.ApplyToSectors(name, targets, !ceiling, ceiling);
+			if(count == 0) return;
+			General.Map.Renderer2D.UpdateExtraFloorFlag();
+			UpdateEffectLabels();
+			UpdateOverlaySurfaces();
+			UpdateSelectionInfo();
+			General.Interface.RefreshInfo();
+			General.Interface.RedrawDisplay();
+		}
+
 		#endregion
 
 		#region ================== Constructor / Disposer

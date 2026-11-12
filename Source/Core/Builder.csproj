@@ -284,6 +284,13 @@
     <Compile Include="Data\SpriteImage.cs" />
     <Compile Include="Data\TextureImage.cs" />
     <Compile Include="Editing\ClipboardHistory.cs" />
+    <Compile Include="Editing\TextureHistory.cs" />
+    <Compile Include="Data\TextureFavorites.cs" />
+    <Compile Include="Data\TextureNameMatcher.cs" />
+    <Compile Include="Data\ImageColorStats.cs" />
+    <Compile Include="Controls\TextureHistoryView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Editing\CopyPasteManager.cs" />
     <Compile Include="Editing\EditMode.cs" />
     <Compile Include="Editing\EditModeAttribute.cs" />

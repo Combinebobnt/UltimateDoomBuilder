@@ -116,6 +116,7 @@ namespace CodeImp.DoomBuilder.Windows
 		/// </summary>
 		/// <returns>Returns the new texture name or the same texture name when cancelled</returns>
 		string BrowseTexture(IWin32Window owner, string initialvalue);
+		DialogResult ShowPopupDialog(Form form);
 
 		/// <summary>
 		/// This browses for a flat

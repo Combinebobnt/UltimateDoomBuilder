@@ -86,6 +86,32 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		public override bool AlwaysShowVertices { get { return true; } }
 
+		[BeginAction("texturepalette")]
+		public void ShowTexturePalette()
+		{
+			List<Linedef> targets = General.Map.Map.GetSelectedLinedefs(true).ToList();
+			if(targets.Count == 0 && highlighted != null && !highlighted.IsDisposed) targets.Add(highlighted);
+			if(targets.Count == 0)
+			{
+				General.Interface.DisplayStatus(StatusType.Info, "Highlight or select a surface first.");
+				return;
+			}
+			var pick = TexturePaletteForm.Choose(true, false, false);
+			if(pick == null) return;
+			TexturePalette.SetBrush(pick.Name, pick.Kind);
+			ApplyFromPalette(pick.Name, targets);
+		}
+
+		internal void ApplyFromPalette(string name, IEnumerable<Linedef> targets)
+		{
+			if(TexturePalette.ApplyToLinedefs(name, targets) == 0) return;
+			SetupSectorLabels();
+			General.Map.Renderer2D.UpdateExtraFloorFlag();
+			UpdateSelectionInfo();
+			General.Interface.RefreshInfo();
+			General.Interface.RedrawDisplay();
+		}
+
 		#endregion
 
 		#region ================== Constructor / Disposer

@@ -75,6 +75,7 @@ namespace CodeImp.DoomBuilder.Config
 
 		public string Name { get { return name; } }
 		public string Filename { get { return filename; } }
+		internal string SettingsKey { get { return settingskey; } }
 		public string DefaultLumpName { get { return defaultlumpname; } }
 		public string NodebuilderSave { get { return nodebuildersave; } internal set { nodebuildersave = value; } }
 		public string NodebuilderTest { get { return nodebuildertest; } internal set { nodebuildertest = value; } }

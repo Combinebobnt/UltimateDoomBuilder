@@ -2284,6 +2284,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				i.ApplyTexture(texture);
 			}
+			if(objs.Count > 0) General.Map.RecordTextureUse(texture, flat);
 		}
 
         // This returns all selected objects
@@ -3605,6 +3606,30 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			PostAction();
 		}
 
+		[BeginAction("texturepalette")]
+		public void ShowTexturePalette()
+		{
+			PreAction(UndoGroup.None);
+			try
+			{
+				List<IVisualEventReceiver> targets = GetSelectedObjects(true, true, false, false, false);
+				if(targets.Count == 0)
+				{
+					General.Interface.DisplayStatus(StatusType.Info, "Highlight or select a surface first.");
+					return;
+				}
+				var pick = TexturePaletteForm.Choose(targets.Any(i => i is BaseVisualGeometrySidedef), targets.Any(i => i is BaseVisualGeometrySector), true);
+				if(pick == null) return;
+				TexturePalette.SetBrush(pick.Name, pick.Kind);
+				foreach(IVisualEventReceiver target in targets)
+					if(TexturePalette.Accepts(target, pick.Kind, TexturePalette.Mixed)) target.OnPasteTexture();
+				General.Map.Data.UpdateUsedTextures();
+				General.Map.TextureHistory.Touch(pick.Name, pick.Kind);
+				SetActionResult(actionresult.displaystatus + " Brush set to \"" + pick.Name + "\".");
+			}
+			finally { PostAction(); }
+		}
+
 		[BeginAction("textureselect")]
 		public void TextureSelect()
 		{
@@ -3622,6 +3647,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			PreActionNoChange();
 			IVisualEventReceiver i = GetTargetEventReceiver(true);
 			i.OnCopyTexture(); //mxd
+			if(i is BaseVisualGeometrySidedef) General.Map.RecordTextureUse(BuilderPlug.Me.CopiedTexture, false);
+			else if(i is BaseVisualGeometrySector) General.Map.RecordTextureUse(BuilderPlug.Me.CopiedFlat, true);
 			if(!(i is VisualThing)) copybuffer.Clear(); //mxd. Not copying things any more...
 			PostAction();
 		}
@@ -3632,6 +3659,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			PreAction(UndoGroup.None);
 			List<IVisualEventReceiver> objs = GetSelectedObjects(true, true, false, false, false);
 			foreach(IVisualEventReceiver i in objs) i.OnPasteTexture();
+			if(objs.Any(i => i is BaseVisualGeometrySidedef)) General.Map.RecordTextureUse(BuilderPlug.Me.CopiedTexture, false);
+			if(objs.Any(i => i is BaseVisualGeometrySector)) General.Map.RecordTextureUse(BuilderPlug.Me.CopiedFlat, true);
 			PostAction();
 		}
 
@@ -3845,7 +3874,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public void FloodfillTextures()
 		{
 			PreAction(UndoGroup.None);
-			GetTargetEventReceiver(false).OnTextureFloodfill();
+			IVisualEventReceiver target = GetTargetEventReceiver(false);
+			target.OnTextureFloodfill();
+			if(target is BaseVisualGeometrySidedef) General.Map.RecordTextureUse(BuilderPlug.Me.CopiedTexture, false);
+			else if(target is BaseVisualGeometrySector) General.Map.RecordTextureUse(BuilderPlug.Me.CopiedFlat, true);
 			PostAction();
 		}
 

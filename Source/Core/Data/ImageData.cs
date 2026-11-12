@@ -71,6 +71,10 @@ namespace CodeImp.DoomBuilder.Data
         private ImageLoadState previewstate;
         private ImageLoadState imagestate;
         private bool loadfailed;
+		private volatile bool colorstatsrequested;
+		private ImageColorStats colorstats;
+		private bool transparencyknown;
+		private bool previewfailed;
 
         // Alpha test
         private BitArray alphatest;
@@ -105,6 +109,8 @@ namespace CodeImp.DoomBuilder.Data
 		public TextureNamespace TextureNamespace { get { return texturenamespace; } }
 		public bool IsTranslucent { get { return istranslucent; } } //mxd
 		public bool IsMasked { get { return ismasked; } } //mxd
+		internal ImageColorStats ColorStats { get { return colorstats; } }
+		internal bool HasTransparencyInfo { get { return transparencyknown; } }
 		public bool HasPatchWithSameName { get { return hasPatchWithSameName; } } //mxd
 		internal bool HasLongName { get { return hasLongName; } } //mxd
 		public bool UseColorCorrection { get { return usecolorcorrection; } set { usecolorcorrection = value; } }
@@ -329,10 +335,13 @@ namespace CodeImp.DoomBuilder.Data
 
             // Do the loading
             LocalLoadResult loadResult = LocalLoadImage();
+			bool failed = loadResult.bitmap == null || loadResult.messages.Any(x => x.Type == ErrorType.Error);
 
             MakeUncorrectedImage(loadResult);
             ConvertImageFormat(loadResult, usecolorcorrection);
             MakeImagePreview(loadResult);
+			failed |= loadResult.messages.Any(x => x.Type == ErrorType.Error);
+			if(colorstatsrequested) loadResult.colorstats = ComputePreviewColorStats(loadResult.preview, failed);
             MakeAlphaTestImage(loadResult);
 
             // Save memory by disposing the original image immediately if we only used it to load a preview image
@@ -348,6 +357,16 @@ namespace CodeImp.DoomBuilder.Data
 
             General.MainWindow.RunOnUIThread(() =>
             {
+				if(isdisposed)
+				{
+					loadResult.bitmap?.Dispose();
+					loadResult.uncorrected?.Dispose();
+					loadResult.preview?.Dispose();
+					return;
+				}
+				transparencyknown = true;
+				previewfailed = failed;
+				if(loadResult.colorstats != null) colorstats = loadResult.colorstats;
                 if (imagestate == ImageLoadState.Loading && !onlyPreview)
                 {
                     // Log errors and warnings
@@ -423,6 +442,7 @@ namespace CodeImp.DoomBuilder.Data
             public Bitmap bitmap;
             public Bitmap preview;
             public Bitmap uncorrected;
+			internal ImageColorStats colorstats;
             public BitArray alphatest;
             public int alphatestWidth;
             public int alphatestHeight;
@@ -626,6 +646,41 @@ namespace CodeImp.DoomBuilder.Data
 
         // Dimensions of a single preview image
         const int MAX_PREVIEW_SIZE = 256; //mxd
+
+		// Called only by the bounded browser work timer. Never decode synchronously here.
+		internal bool UpdateColorStats()
+		{
+			if(colorstats != null || isdisposed) return true;
+			colorstatsrequested = true;
+			if(previewstate != ImageLoadState.Ready)
+			{
+				if(previewstate == ImageLoadState.None) { bool ready = IsPreviewLoaded; }
+				return false;
+			}
+			colorstats = ComputePreviewColorStats(previewbitmap, loadfailed || previewfailed);
+			return true;
+		}
+
+		private static ImageColorStats ComputePreviewColorStats(Bitmap preview, bool failed)
+		{
+			if(failed || preview == null) return ImageColorStats.Compute(new PixelColor[0]);
+			BitmapData data = null;
+			try
+			{
+				data = preview.LockBits(new Rectangle(0, 0, preview.Width, preview.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+				if(data.Stride == data.Width * sizeof(PixelColor))
+					return ImageColorStats.Compute((PixelColor*)data.Scan0.ToPointer(), data.Width * data.Height);
+				PixelColor[] pixels = new PixelColor[data.Width * data.Height];
+				for(int y = 0; y < data.Height; y++)
+				{
+					PixelColor* row = (PixelColor*)((byte*)data.Scan0.ToPointer() + y * data.Stride);
+					for(int x = 0; x < data.Width; x++) pixels[y * data.Width + x] = row[x];
+				}
+				return ImageColorStats.Compute(pixels);
+			}
+			catch(ArgumentException) { return ImageColorStats.Compute(new PixelColor[0]); }
+			finally { if(data != null) preview.UnlockBits(data); }
+		}
 
         // This makes a copy of the image before color correction
         private void MakeUncorrectedImage(LocalLoadResult loadResult)

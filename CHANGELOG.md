@@ -17,6 +17,8 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Game configurations:** `forceheight`/`forcewidth` thing properties (documented in Help), Zandronum configs targeting Zandronum 3.3 with supported sector-portal choices, engine archive checks (`requiredarchives`), GZDoom/UZDoom `filter/` folders, and DnD (Death and Decay) configurations built on the Zandronum 3.3 configuration.
 - **Editing:** arg0str survives bulk edits, the Undo panel previews on single click, a discarded redo branch stays restorable, draw tools withdraw a failed draw cleanly, and pasting from another program's clipboard no longer hangs.
 - **Clipboard history:** a bounded, in-memory side panel reuses copied or cut geometry across maps without replacing the system clipboard, with duplicate detection, Paste Special and per-entry actions.
+- **Texture history:** a recent-texture docker and bindable key/mouse palette reuse textures and flats, set the texture brush, and apply picks to selected or captured surfaces with one undo step.
+- **Texture selection:** fuzzy and bounded regex search, size and color sorting, color/transparency filters, and per-configuration pinned favorites with Ctrl+D, context-menu pinning, and favorites-only browsing.
 - **Key bindings:** each action accepts a primary and an alternate shortcut in Preferences > Controls, with conflicts checked across both and both shown in the command palette and shortcut reference.
 - **Tag ranges:** row/column ordering, start corners, row strides, linedef orientation filtering, and linedef/thing argument targets, with a preview summary and one undo step.
 - **Draw Grid:** the post-draw sector dialog edits every split cell, including triangulated grids, without editing an enclosing pre-existing room.
@@ -32,7 +34,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 
 ## Experimental
 
-Still being tested: the crash handler rework, the Mono UI action queue, side panel page fixes, the zenity file chooser, the undo branch, clipboard paste/history, incremental reload, visual texture animation/materials, the DnD configurations, and `forceheight`/`forcewidth`.
+Still being tested: the crash handler rework, the Mono UI action queue, side panel page fixes, the zenity file chooser, the undo branch, clipboard paste/history, texture history/palette and texture selection controls, incremental reload, visual texture animation/materials, the DnD configurations, and `forceheight`/`forcewidth`.
 
 ## Linux requirements beyond upstream's
 

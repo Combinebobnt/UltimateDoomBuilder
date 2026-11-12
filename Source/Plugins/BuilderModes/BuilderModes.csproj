@@ -516,6 +516,19 @@
     <Compile Include="Interface\ClipboardHistoryPanel.Designer.cs">
       <DependentUpon>ClipboardHistoryPanel.cs</DependentUpon>
     </Compile>
+    <Compile Include="General\TexturePalette.cs" />
+    <Compile Include="Interface\TexturePaletteForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Interface\TexturePaletteForm.Designer.cs">
+      <DependentUpon>TexturePaletteForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Interface\TextureHistoryPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Interface\TextureHistoryPanel.Designer.cs">
+      <DependentUpon>TextureHistoryPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Interface\UndoRedoPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>

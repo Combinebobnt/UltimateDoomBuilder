@@ -251,6 +251,8 @@ namespace CodeImp.DoomBuilder.Windows
 		#region ================== Methods
 
 		// This sets up the form to edit the given lines
+		private readonly Dictionary<Controls.ImageSelectorControl, string> initialtextures = new Dictionary<Controls.ImageSelectorControl, string>();
+
 		public void Setup(ICollection<Linedef> lines, bool selectfront, bool selectback)
 		{
 			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
@@ -634,6 +636,9 @@ namespace CodeImp.DoomBuilder.Windows
 			lightbackmiddle.FinalizeSetup();
 			lightbacklower.FinalizeSetup();
 			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
+			initialtextures.Clear();
+			foreach(Controls.ImageSelectorControl selector in new[] { fronthigh, frontmid, frontlow, backhigh, backmid, backlow })
+				initialtextures.Add(selector, selector.TextureName);
 		}
 
 		//mxd
@@ -849,6 +854,8 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Map.IsChanged = true;
 			if(OnValuesChanged != null)	OnValuesChanged(this, EventArgs.Empty); //mxd
 			this.DialogResult = DialogResult.OK;
+			foreach(var entry in initialtextures)
+				if(entry.Key.TextureName != entry.Value) General.Map.RecordTextureUse(entry.Key.TextureName, false);
 			this.Close();
 		}
 

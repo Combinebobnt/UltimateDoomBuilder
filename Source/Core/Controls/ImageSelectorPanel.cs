@@ -27,6 +27,11 @@ namespace CodeImp.DoomBuilder.Controls
 		private List<ImageBrowserItem> selection;
 		private List<Rectangle> rectangles;
 		private ImageBrowserItem lastselecteditem;
+		private ImageBrowserItem presseditem;
+		private MouseButtons pressedbutton;
+		private ImageBrowserItem jumpitem;
+		private int jumpindex = -1;
+		internal Func<ImageBrowserItem, bool> IsFavorite { get; set; }
 
 		// Diagnostic-only: the width UpdateRectangles() actually flowed items against, captured
 		// at the moment it ran - distinct from reading ClientRectangle.Width afterward, which
@@ -38,6 +43,7 @@ namespace CodeImp.DoomBuilder.Controls
 		internal int GeomDebugGroupCount { get { return itemgroups.Count; } }
 		internal bool GeomDebugClassicView { get { return classicview; } }
 		private int imagesize = 128;
+		private int maximumcolumns;
         private bool classicview = false;
         private bool usedtexturesfirst = false;
         private string contenttype = "Textures";
@@ -91,6 +97,9 @@ namespace CodeImp.DoomBuilder.Controls
 			if(ItemDoubleClicked != null) ItemDoubleClicked(this, item);
 		}
 
+		public delegate void ItemClickedEventHandler(ImageBrowserItem item, MouseEventArgs e);
+		public event ItemClickedEventHandler ItemClicked;
+
 		#endregion
 
 		#region ================== Properties
@@ -108,6 +117,8 @@ namespace CodeImp.DoomBuilder.Controls
 				}
 			}
 		}
+
+		public bool TakeFocusOnClick { get; set; } = true;
 
 		public bool MultiSelect
 		{
@@ -176,7 +187,7 @@ namespace CodeImp.DoomBuilder.Controls
 			DoubleBuffered = true;
 
 			scrollbar = new VScrollBar { Dock = DockStyle.Right };
-			scrollbar.ValueChanged += (sender, e) => Refresh();
+			scrollbar.ValueChanged += (sender, e) => Invalidate();
 			tooltip = new ToolTip(); //mxd
 			items = new List<ImageBrowserItem>();
 			selection = new List<ImageBrowserItem>();
@@ -200,8 +211,11 @@ namespace CodeImp.DoomBuilder.Controls
 		//mxd. Clears the list without redrawing it
 		public void Clear()
 		{
+			jumpitem = null;
+			presseditem = null;
 			selection.Clear();
 			items.Clear();
+			itemgroups.Clear();
 			lastselecteditem = null;
 			rectangles.Clear();
 		}
@@ -218,6 +232,15 @@ namespace CodeImp.DoomBuilder.Controls
 
 		public void SetItems(IEnumerable<ImageBrowserItemGroup> itemgroups)
 		{
+			SetItems(itemgroups, false);
+		}
+
+		internal void SetItems(IEnumerable<ImageBrowserItemGroup> itemgroups, bool preserveview)
+		{
+			jumpitem = null;
+			List<ImageBrowserItem> oldselection = preserveview ? new List<ImageBrowserItem>(selection) : null;
+			ScrollAnchor anchor = preserveview ? CaptureScrollAnchor() : default(ScrollAnchor);
+			presseditem = null;
 			this.items.Clear();
 			lastselecteditem = null;
 			selection.Clear();
@@ -229,13 +252,75 @@ namespace CodeImp.DoomBuilder.Controls
 				this.itemgroups.Add(ibig);
 			}
 
-			OnSelectionChanged(selection);
+			if(preserveview)
+			{
+				selection.AddRange(oldselection.Where(item => this.items.Contains(item)));
+				lastselecteditem = selection.FirstOrDefault();
+			}
+			else OnSelectionChanged(selection);
 			UpdateRectangles();
+			if(preserveview) RestoreScrollAnchor(anchor);
 
 		}
 
+		internal struct ScrollAnchor
+		{
+			internal ImageBrowserItem Item;
+			internal string GroupTitle;
+			internal int Occurrence;
+			internal int Offset;
+			internal int Scroll;
+		}
+
+		internal ScrollAnchor CaptureScrollAnchor()
+		{
+			ScrollAnchor anchor = new ScrollAnchor { Scroll = scrollbar.Value };
+			for(int i = 0; i < rectangles.Count; i++)
+			{
+				if(rectangles[i].Bottom < scrollbar.Value + titleheight) continue;
+				anchor.Item = items[i];
+				anchor.Offset = rectangles[i].Top - scrollbar.Value;
+				int start = 0;
+				foreach(ImageBrowserItemGroup group in itemgroups)
+				{
+					if(i < start + group.Items.Count)
+					{
+						anchor.GroupTitle = group.Title;
+						for(int j = start; j < i; j++) if(items[j] == anchor.Item) anchor.Occurrence++;
+						break;
+					}
+					start += group.Items.Count;
+				}
+				break;
+			}
+			return anchor;
+		}
+
+		internal void RestoreScrollAnchor(ScrollAnchor anchor)
+		{
+			int target = anchor.Scroll;
+			int start = 0;
+			foreach(ImageBrowserItemGroup group in itemgroups)
+			{
+				if(string.Equals(group.Title, anchor.GroupTitle, StringComparison.Ordinal))
+				{
+					int occurrence = 0;
+					for(int i = 0; i < group.Items.Count; i++)
+					{
+						if(group.Items[i] != anchor.Item || occurrence++ != anchor.Occurrence) continue;
+						target = rectangles[start + i].Top - anchor.Offset;
+						break;
+					}
+					break;
+				}
+				start += group.Items.Count;
+			}
+			scrollbar.Value = Math.Max(0, Math.Min(target, Math.Max(0, scrollbar.Maximum - ClientRectangle.Height)));
+			Invalidate();
+		}
 		public void SetItems(IEnumerable<ImageBrowserItem> items)
 		{
+			presseditem = null;
 			this.items.Clear();
 			lastselecteditem = null;
 			selection.Clear();
@@ -252,12 +337,14 @@ namespace CodeImp.DoomBuilder.Controls
 
 		public void SetSelectedItems(List<ImageBrowserItem> items)
 		{
+			jumpitem = null;
+			List<ImageBrowserItem> visible = items.Where(item => this.items.Contains(item)).ToList();
 			selection.Clear();
-			if(items.Count > 0)
+			if(visible.Count > 0)
 			{
-				selection.AddRange(items);
-				ScrollToItem(items[0]); //mxd
-				Refresh(); //mxd
+				selection.AddRange(visible);
+				ScrollToItem(visible[0]); //mxd
+				Invalidate();
 			}
 			OnSelectionChanged(selection);
 		}
@@ -287,55 +374,43 @@ namespace CodeImp.DoomBuilder.Controls
 				yscroll = rec.Top - titleheight - 3;
 
 			scrollbar.Value = Math.Max(0, Math.Min(yscroll, scrollbar.Maximum - ClientRectangle.Height)); ;
-			Refresh();
+			Invalidate();
 		}
 
 		/// <summary>
-		/// Jumps back and forth between the currently selected texture at the top and in the pile of all textures
+		/// Cycles through every occurrence of the selected image across groups.
 		/// </summary>
 		/// <param name="item">The item to jump back and forth between</param>
 		public void JumpBetweenItems(ImageBrowserItem item)
 		{
-			// The item has to exist twice, once in the used textures at the top and in the pile, so get the indexes
-			int index1 = items.IndexOf(item);
-			int index2 = items.LastIndexOf(item);
-			
-			// Item only exists once, so stop here
-			if (index1 == index2)
-				return;
-
-			Rectangle rect1 = rectangles[index1];
-			Rectangle rect2 = rectangles[index2];
-
-			// Get the distance to the two images. Count from the center of the currently scrolled to position and take the bottom
-			// of the first image and the top of the second image
-			int distance1 = Math.Abs(rect1.Bottom - (scrollbar.Value + ClientRectangle.Height / 2));
-			int distance2 = Math.Abs(rect2.Top - (scrollbar.Value + ClientRectangle.Height / 2));
-
-			int yscroll;
-
-			// Get the y position we want to scroll to
-			if(centeritem)
-				yscroll = (distance1 > distance2 ? (rect1.Top + rect1.Height / 2) : (rect2.Top + rect2.Height / 2)) - ClientRectangle.Height / 2;
-			else
-				yscroll = distance1 > distance2 ? rect1.Top : rect2.Top;
-
-			// The desired y position might be outside of the range we can scroll to, so clamp the value
-			scrollbar.Value = Math.Max(0, Math.Min(yscroll, scrollbar.Maximum - ClientRectangle.Height));
-			Refresh();
+			List<int> occurrences = Enumerable.Range(0, items.Count).Where(index => items[index] == item).ToList();
+			if(occurrences.Count < 2) return;
+			int current = jumpitem == item ? occurrences.IndexOf(jumpindex) : -1;
+			if(current < 0)
+			{
+				int center = scrollbar.Value + ClientRectangle.Height / 2;
+				current = Enumerable.Range(0, occurrences.Count).OrderBy(index => Math.Abs(rectangles[occurrences[index]].Top - center)).First();
+			}
+			jumpitem = item;
+			jumpindex = occurrences[(current + 1) % occurrences.Count];
+			Rectangle rect = rectangles[jumpindex];
+			int target = centeritem ? rect.Top + rect.Height / 2 - ClientRectangle.Height / 2 : rect.Top;
+			scrollbar.Value = Math.Max(0, Math.Min(target, Math.Max(0, scrollbar.Maximum - ClientRectangle.Height)));
+			Invalidate();
 		}
 
 		public void SelectNextItem(SearchDirectionHint dir)
 		{
 			if(!allowselection) return;
 
-			if(selection.Count == 0)
+			int targetindex = selection.Count == 0 ? -1 : items.IndexOf(selection[0]);
+			if(targetindex < 0)
 			{
 				if(items.Count > 0) SetSelectedItem(items[0]);
+				else if(selection.Count > 0) SetSelectedItems(new List<ImageBrowserItem>());
 				return;
 			}
 
-			int targetindex = items.IndexOf(selection[0]);
 			Rectangle rect = rectangles[targetindex];
 			int index, newindex, tx, cx, cy;
 
@@ -418,6 +493,7 @@ namespace CodeImp.DoomBuilder.Controls
 		protected override void OnMouseDoubleClick(MouseEventArgs e)
 		{
 			base.OnMouseDoubleClick(e);
+			if(e.Button != MouseButtons.Left) return;
 			//TODO: testing this on Windows, it looks like General.Interface.CtrlState and 
 			//  General.Interface.ShiftState are always false, because as the main window
 			//  doesn't have focus and won't update these states
@@ -433,7 +509,10 @@ namespace CodeImp.DoomBuilder.Controls
 		protected override void OnMouseDown(MouseEventArgs e)
 		{
 			base.OnMouseDown(e);
-			this.Focus();
+			if(TakeFocusOnClick) this.Focus();
+			int index = GetIndexAt(e.X, scrollbar.Value + e.Y);
+			presseditem = index >= 0 ? items[index] : null;
+			pressedbutton = e.Button;
 
 			if(!allowselection) return;
 			if(!allowmultipleselection || !General.Interface.CtrlState)
@@ -469,6 +548,37 @@ namespace CodeImp.DoomBuilder.Controls
 
 			OnSelectionChanged(selection);
 			Refresh();
+		}
+
+		public int MaximumColumns
+		{
+			get { return maximumcolumns; }
+			set { maximumcolumns = Math.Max(0, value); UpdateRectangles(); }
+		}
+
+		protected override void OnMouseUp(MouseEventArgs e)
+		{
+			ImageBrowserItem pressed = presseditem;
+			presseditem = null;
+			int index = GetIndexAt(e.X, scrollbar.Value + e.Y);
+			if(index >= 0 && pressed == items[index] && pressedbutton == e.Button && ItemClicked != null)
+				ItemClicked(items[index], e);
+			base.OnMouseUp(e);
+		}
+
+		protected override void OnMouseCaptureChanged(EventArgs e)
+		{
+			if(!Capture) presseditem = null;
+			base.OnMouseCaptureChanged(e);
+		}
+
+		internal int GetIndexAt(Point point) { return GetIndexAt(point.X, scrollbar.Value + point.Y); }
+
+		internal Rectangle GetItemRectangle(int index)
+		{
+			Rectangle rect = rectangles[index];
+			rect.Offset(0, -scrollbar.Value);
+			return rect;
 		}
 
 		//mxd
@@ -518,6 +628,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 		private void ScrollByAmount(int value)
 		{
+			jumpitem = null;
 			int newvalue = Math.Max(0, scrollbar.Value + value);
 			scrollbar.Value = Math.Min(newvalue, Math.Max(0, scrollbar.Maximum - ClientRectangle.Height));
 		}
@@ -556,7 +667,7 @@ namespace CodeImp.DoomBuilder.Controls
 				case Keys.End: ScrollByAmount(int.MaxValue); break;
 				case Keys.Home: ScrollByAmount(-int.MaxValue); break;
 
-				case Keys.Enter: if(selection.Count > 0) OnItemDoubleClicked(selection[0]); break;
+				case Keys.Enter: if(selection.Count > 0 && items.Contains(selection[0])) OnItemDoubleClicked(selection[0]); break;
 			}
 			
 			base.OnKeyDown(e);
@@ -584,6 +695,7 @@ namespace CodeImp.DoomBuilder.Controls
             int padvert = 2;
 			int font = 4 + SystemFonts.MessageBoxFont.Height;
 			int cx = 0;
+			int column = 0;
 			int cy = titleheight;
 			int my = 0;
 			rectangles.Clear();
@@ -596,25 +708,33 @@ namespace CodeImp.DoomBuilder.Controls
 				{
 					// new row, also provide space for category name.
 					cx = 0;
+					column = 0;
 					cy += SystemFonts.MessageBoxFont.Height + 6 + my + 16 /* ((ti != firstItem) ? 16 : 0) */;
 					my = 0;
 				}
 
 				foreach (var ti in ibig.Items)
 				{
-					Image preview = GetPreview(ti, imagesize);
-
 					int rw = w - cx;
-					int wid = Math.Max((imagesize > 0 ? imagesize : preview.Width), ti.TextureNameWidth) + padhorz + padhorz;
-					int hei = (imagesize > 0 ? imagesize : preview.Height) + padvert + padvert + font;
+					int previewwidth = ti.Icon.Width > 0 ? Math.Min(256, ti.Icon.Width) : 128;
+					int previewheight = ti.Icon.Height > 0 ? Math.Min(256, ti.Icon.Height) : 128;
+					if(ti.Icon.Width > 0 && ti.Icon.Height > 0)
+					{
+						float scale = Math.Min(1.0f, 256.0f / Math.Max(ti.Icon.Width, ti.Icon.Height));
+						previewwidth = Math.Max(1, (int)(ti.Icon.Width * scale));
+						previewheight = Math.Max(1, (int)(ti.Icon.Height * scale));
+					}
+					int wid = Math.Max((imagesize > 0 ? imagesize : previewwidth), ti.TextureNameWidth) + padhorz + padhorz;
+					int hei = (imagesize > 0 ? imagesize : previewheight) + padvert + padvert + font;
 					// if we draw height below, add another font
 					if (General.Settings.ShowTextureSizes && General.Settings.TextureSizesBelow && ti.ItemType == ImageBrowserItemType.IMAGE)
 						hei += font;
 
-					if (rw < wid)
+					if (rw < wid || (maximumcolumns > 0 && column >= maximumcolumns))
 					{
 						// New row
 						cx = 0;
+						column = 0;
 						cy += my;
 						my = 0;
 					}
@@ -623,6 +743,7 @@ namespace CodeImp.DoomBuilder.Controls
 					var rect = new Rectangle(cx + padhorz, cy + padvert, wid - padhorz - padhorz, hei - padvert - padvert - font);
 					rectangles.Add(rect);
 					cx += wid;
+					column++;
 				}
 			}
 
@@ -653,7 +774,7 @@ namespace CodeImp.DoomBuilder.Controls
 				scrollbar.Visible = false;
 			}
 
-			Refresh();
+			Invalidate();
 		}
 
 		#endregion
@@ -726,7 +847,8 @@ namespace CodeImp.DoomBuilder.Controls
 						if (rec.Top > y + height) break;
 
 						Image bmp = GetPreview(items[i], imagesize);
-						items[i].Draw(g, bmp, rec.X, rec.Y - y, rec.Width, rec.Height, selection.Contains(items[i]), items[i].Icon.UsedInMap, classicview);
+						items[i].Draw(g, bmp, rec.X, rec.Y - y, rec.Width, rec.Height, selection.Contains(items[i]), items[i].Icon.UsedInMap, classicview,
+							IsFavorite != null && IsFavorite(items[i]));
 					}
 				}
 			}

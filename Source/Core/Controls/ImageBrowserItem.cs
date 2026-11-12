@@ -148,7 +148,7 @@ namespace CodeImp.DoomBuilder.Controls
             }
         }
 
-		internal void Draw(Graphics g, Image bmp, int x, int y, int w, int h, bool selected, bool used, bool classicview)
+		internal void Draw(Graphics g, Image bmp, int x, int y, int w, int h, bool selected, bool used, bool classicview, bool favorite = false)
 		{
 			if(bmp == null) return;
 
@@ -197,6 +197,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 			// Image
 			g.DrawImage(bmp, ix, iy, iw, ih);
+			if(favorite && itemtype == ImageBrowserItemType.IMAGE) DrawFavorite(g, x + w - 17, y + 3);
 
 			// Frame
 			if(selected && !classicview)
@@ -270,6 +271,26 @@ namespace CodeImp.DoomBuilder.Controls
 
                     g.DrawString(imagesize, pixelSizeFont, brush, szx, szy);
                 }
+			}
+		}
+
+		internal static void DrawFavorite(Graphics graphics, int x, int y)
+		{
+			PointF[] points = new PointF[10];
+			for(int i = 0; i < points.Length; i++)
+			{
+				double angle = -Math.PI / 2 + i * Math.PI / 5;
+				double radius = i % 2 == 0 ? 7 : 3;
+				points[i] = new PointF(x + 7 + (float)(Math.Cos(angle) * radius), y + 7 + (float)(Math.Sin(angle) * radius));
+			}
+			using(GraphicsPath path = new GraphicsPath())
+			using(Pen halo = new Pen(Color.White, 3))
+			using(Pen outline = new Pen(Color.Black, 1))
+			{
+				path.AddPolygon(points);
+				graphics.DrawPath(halo, path);
+				graphics.FillPath(Brushes.Gold, path);
+				graphics.DrawPath(outline, path);
 			}
 		}
 

@@ -679,7 +679,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// which results in setting Cursor.Clip not taking effect.
 		private void MainForm_MouseCaptureChanged(object sender, EventArgs e)
 		{
-			if(mouseexclusive && windowactive && mouseinside && Cursor.Clip != display.RectangleToScreen(display.ClientRectangle))
+			if(mouseexclusive && mouseexclusivebreaklevel == 0 && windowactive && mouseinside && Cursor.Clip != display.RectangleToScreen(display.ClientRectangle))
 				Cursor.Clip = display.RectangleToScreen(display.ClientRectangle);
 		}
 
@@ -4265,6 +4265,21 @@ namespace CodeImp.DoomBuilder.Windows
 		#endregion
 
 		#region ================== Dialogs
+
+		public DialogResult ShowPopupDialog(Form form)
+		{
+			if(form == null) throw new ArgumentNullException("form");
+			using(SuspendProcessing())
+			{
+				BreakExclusiveMouseInput();
+				try
+				{
+					ReleaseAllKeys();
+					return form.ShowDialog(this);
+				}
+				finally { ResumeExclusiveMouseInput(); }
+			}
+		}
 
 		// This browses for a texture
 		// Returns the new texture name or the same texture name when cancelled

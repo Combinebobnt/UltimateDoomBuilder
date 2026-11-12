@@ -48,6 +48,18 @@ namespace CodeImp.DoomBuilder.Controls
 			this.texturetypecombo = new System.Windows.Forms.ComboBox();
 			this.objectname = new System.Windows.Forms.TextBox();
 			this.refreshtimer = new GuardedTimer(this.components);
+			this.statstimer = new GuardedTimer(this.components);
+			this.filtertimer = new GuardedTimer(this.components);
+			this.filtertooltip = new System.Windows.Forms.ToolTip(this.components);
+			this.matchlabel = new System.Windows.Forms.Label();
+			this.matchmode = new System.Windows.Forms.ComboBox();
+			this.sortlabel = new System.Windows.Forms.Label();
+			this.sortmode = new System.Windows.Forms.ComboBox();
+			this.colorfilter = new System.Windows.Forms.Button();
+			this.colortolerance = new System.Windows.Forms.ComboBox();
+			this.transparency = new System.Windows.Forms.CheckBox();
+			this.favoritesonly = new System.Windows.Forms.CheckBox();
+			this.colormenu = new System.Windows.Forms.ContextMenuStrip(this.components);
 			((System.ComponentModel.ISupportInitialize)(this.splitter)).BeginInit();
 			this.splitter.Panel1.SuspendLayout();
 			this.splitter.Panel2.SuspendLayout();
@@ -102,8 +114,16 @@ namespace CodeImp.DoomBuilder.Controls
 			this.splitter.Panel2.Controls.Add(this.labelMixMode);
 			this.splitter.Panel2.Controls.Add(this.objectname);
 			this.splitter.Panel2.Controls.Add(this.label);
+			this.splitter.Panel2.Controls.Add(this.matchlabel);
+			this.splitter.Panel2.Controls.Add(this.matchmode);
+			this.splitter.Panel2.Controls.Add(this.sortlabel);
+			this.splitter.Panel2.Controls.Add(this.sortmode);
+			this.splitter.Panel2.Controls.Add(this.colorfilter);
+			this.splitter.Panel2.Controls.Add(this.colortolerance);
+			this.splitter.Panel2.Controls.Add(this.transparency);
+			this.splitter.Panel2.Controls.Add(this.favoritesonly);
 			this.splitter.Size = new System.Drawing.Size(840, 346);
-			this.splitter.SplitterDistance = 284;
+			this.splitter.SplitterDistance = 256;
 			this.splitter.TabIndex = 0;
 			this.splitter.TabStop = false;
 			// 
@@ -120,7 +140,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.list.Location = new System.Drawing.Point(0, 0);
 			this.list.MultiSelect = false;
 			this.list.Name = "list";
-			this.list.Size = new System.Drawing.Size(840, 284);
+			this.list.Size = new System.Drawing.Size(840, 256);
 			this.list.TabIndex = 1;
 			this.list.Title = "Default group";
 			this.list.UsedTexturesFirst = false;
@@ -130,19 +150,19 @@ namespace CodeImp.DoomBuilder.Controls
 			// centeritem
 			// 
 			this.centeritem.AutoSize = true;
-			this.centeritem.Location = new System.Drawing.Point(510, 34);
+			this.centeritem.Location = new System.Drawing.Point(466, 34);
 			this.centeritem.Name = "centeritem";
 			this.centeritem.Size = new System.Drawing.Size(146, 17);
 			this.centeritem.TabIndex = 5;
 			this.centeritem.TabStop = false;
-			this.centeritem.Text = "Vertically center selection";
+			this.centeritem.Text = "Center selection";
 			this.centeritem.UseVisualStyleBackColor = true;
 			this.centeritem.CheckedChanged += new System.EventHandler(this.centeritem_CheckedChanged);
 			// 
 			// classicview
 			// 
 			this.classicview.AutoSize = true;
-			this.classicview.Location = new System.Drawing.Point(510, 8);
+			this.classicview.Location = new System.Drawing.Point(466, 8);
 			this.classicview.Name = "classicview";
 			this.classicview.Size = new System.Drawing.Size(84, 17);
 			this.classicview.TabIndex = 4;
@@ -201,7 +221,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.usedtexturesfirst.Size = new System.Drawing.Size(139, 17);
 			this.usedtexturesfirst.TabIndex = 0;
 			this.usedtexturesfirst.TabStop = false;
-			this.usedtexturesfirst.Text = "Used textures at the top";
+			this.usedtexturesfirst.Text = "Used first";
 			this.usedtexturesfirst.UseVisualStyleBackColor = true;
 			this.usedtexturesfirst.CheckedChanged += new System.EventHandler(this.usedtexturesfirst_CheckedChanged);
 			// 
@@ -213,7 +233,7 @@ namespace CodeImp.DoomBuilder.Controls
 			this.longtexturenames.Size = new System.Drawing.Size(119, 17);
 			this.longtexturenames.TabIndex = 0;
 			this.longtexturenames.TabStop = false;
-			this.longtexturenames.Text = "Long texture names";
+			this.longtexturenames.Text = "Long names";
 			this.longtexturenames.UseVisualStyleBackColor = true;
 			this.longtexturenames.CheckedChanged += new System.EventHandler(this.longtexturenames_CheckedChanged);
 			// 
@@ -309,6 +329,61 @@ namespace CodeImp.DoomBuilder.Controls
 			// 
 			this.refreshtimer.Interval = 500;
 			this.refreshtimer.Tick += new System.EventHandler(this.refreshtimer_Tick);
+			//
+			// Advanced filters fit the browser's 573-pixel default width at 96 DPI.
+			//
+			this.matchlabel.AutoSize = true;
+			this.matchlabel.Location = new System.Drawing.Point(3, 63);
+			this.matchlabel.Text = "Match:";
+			this.matchmode.Name = "matchmode";
+			this.matchmode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.matchmode.Items.AddRange(new object[] { "Name", "Fuzzy", "Regex" });
+			this.matchmode.Location = new System.Drawing.Point(43, 59);
+			this.matchmode.Size = new System.Drawing.Size(79, 21);
+			this.matchmode.TabIndex = 6;
+			this.matchmode.SelectedIndexChanged += new System.EventHandler(this.matchmode_SelectedIndexChanged);
+			this.sortlabel.AutoSize = true;
+			this.sortlabel.Location = new System.Drawing.Point(128, 63);
+			this.sortlabel.Text = "Sort:";
+			this.sortmode.Name = "sortmode";
+			this.sortmode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.sortmode.Items.AddRange(new object[] { "Name", "Match", "Size", "Hue", "Brightness", "Similar color" });
+			this.sortmode.Location = new System.Drawing.Point(158, 59);
+			this.sortmode.Size = new System.Drawing.Size(106, 21);
+			this.sortmode.TabIndex = 7;
+			this.sortmode.SelectedIndexChanged += new System.EventHandler(this.advancedfilter_Changed);
+			this.colorfilter.Name = "colorfilter";
+			this.colorfilter.Text = "Color";
+			this.colorfilter.Location = new System.Drawing.Point(270, 58);
+			this.colorfilter.Size = new System.Drawing.Size(52, 23);
+			this.colorfilter.TabIndex = 8;
+			this.colorfilter.Click += new System.EventHandler(this.colorfilter_Click);
+			this.colortolerance.Name = "colortolerance";
+			this.colortolerance.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.colortolerance.Items.AddRange(new object[] { "Tight", "Normal", "Loose" });
+			this.colortolerance.Location = new System.Drawing.Point(328, 59);
+			this.colortolerance.Size = new System.Drawing.Size(77, 21);
+			this.colortolerance.TabIndex = 9;
+			this.colortolerance.SelectedIndexChanged += new System.EventHandler(this.advancedfilter_Changed);
+			this.transparency.Name = "transparency";
+			this.transparency.AutoSize = true;
+			this.transparency.Text = "Alpha";
+			this.transparency.Location = new System.Drawing.Point(411, 62);
+			this.transparency.TabIndex = 10;
+			this.transparency.CheckedChanged += new System.EventHandler(this.advancedfilter_Changed);
+			this.filtertooltip.SetToolTip(this.transparency, "Has transparency (masked or translucent pixels)");
+			this.favoritesonly.Name = "favoritesonly";
+			this.favoritesonly.AutoSize = true;
+			this.favoritesonly.Text = "Favorites";
+			this.favoritesonly.Location = new System.Drawing.Point(475, 62);
+			this.favoritesonly.Visible = false;
+			this.favoritesonly.TabIndex = 11;
+			this.favoritesonly.CheckedChanged += new System.EventHandler(this.advancedfilter_Changed);
+			this.filtertooltip.SetToolTip(this.favoritesonly, "Show favorites only, combined with every active search and filter");
+			this.statstimer.Interval = 50;
+			this.statstimer.Tick += new System.EventHandler(this.statstimer_Tick);
+			this.filtertimer.Interval = 120;
+			this.filtertimer.Tick += new System.EventHandler(this.filtertimer_Tick);
 			// 
 			// ImageBrowserControl
 			// 
@@ -346,5 +421,17 @@ namespace CodeImp.DoomBuilder.Controls
 		private System.Windows.Forms.Button objectclear;
         private System.Windows.Forms.CheckBox classicview;
 		private System.Windows.Forms.CheckBox centeritem;
+		private System.Windows.Forms.Label matchlabel;
+		private System.Windows.Forms.ComboBox matchmode;
+		private System.Windows.Forms.Label sortlabel;
+		private System.Windows.Forms.ComboBox sortmode;
+		private System.Windows.Forms.Button colorfilter;
+		private System.Windows.Forms.ComboBox colortolerance;
+		private System.Windows.Forms.CheckBox transparency;
+		private System.Windows.Forms.CheckBox favoritesonly;
+		private System.Windows.Forms.ContextMenuStrip colormenu;
+		private System.Windows.Forms.ToolTip filtertooltip;
+		private System.Windows.Forms.Timer statstimer;
+		private System.Windows.Forms.Timer filtertimer;
 	}
 }

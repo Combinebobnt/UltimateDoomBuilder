@@ -23,6 +23,7 @@ using CodeImp.DoomBuilder.Controls;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Config;
+using CodeImp.DoomBuilder.Editing;
 using System.IO;
 
 #endregion
@@ -33,6 +34,7 @@ namespace CodeImp.DoomBuilder.Windows
 	{
 		//mxd. Constants
 		private const string ALL_IMAGES = "[All]";
+		private const string FAVORITES = "[Favorites]";
 		
 		//mxd. Structs
 		private struct TreeNodeData
@@ -46,6 +48,9 @@ namespace CodeImp.DoomBuilder.Windows
 		private TreeNode selectedset; //mxd
 		private long selecttextureonfill; //mxd. Was string, which wasn't reliable whem dealing with long texture names
 		private readonly bool browseflats; //mxd
+		private TextureFavorites favorites;
+		private TreeNode favoritesnode;
+		private bool favoriteschanged;
 		
 		// Properties
 		public string SelectedName { get { return selectedname; } }
@@ -76,6 +81,10 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Setup texture browser
 			browser.ApplySettings("windows." + configname, browseflats);
+			browser.ShowFavorites = true;
+			favorites = General.Map.Favorites;
+			if(favorites != null) favorites.Changed += FavoritesChanged;
+			Disposed += (sender, e) => UnwatchFavorites();
 			if(UITiming.Enabled) UITiming.Mark(this, "browser-settings");
 			
 			// Update the used textures
@@ -118,6 +127,7 @@ namespace CodeImp.DoomBuilder.Windows
 				item.Expand();
 			}
 			if(UITiming.Enabled) UITiming.Mark(this, "resource-tree");
+			UpdateFavoritesNode();
 
 			//mxd. Add "All" texture set
 			AllTextureSet alltextureset = browseflats ? General.Map.Data.FlatTextureSet : General.Map.Data.WallTextureSet;
@@ -146,6 +156,7 @@ namespace CodeImp.DoomBuilder.Windows
 				{
 					match = FindNodeByName(tvTextureSets.Nodes, prevtextureset);
 				}
+				if(match == favoritesnode) match = tvTextureSets.Nodes[tvTextureSets.Nodes.Count - 1];
 
 				if(match != null)
 				{
@@ -225,7 +236,7 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd
 		private TreeNode FindTextureByLongName(TreeNode node, long longname) 
 		{
-			if(node.Name == ALL_IMAGES) return null; // Skip "All images" set
+			if(node.Name == ALL_IMAGES || node.Name == FAVORITES) return null;
 			
 			//first search in child nodes
 			foreach(TreeNode n in node.Nodes)
@@ -241,6 +252,43 @@ namespace CodeImp.DoomBuilder.Windows
 				if(img.LongName == longname) return node;
 
 			return null;
+		}
+
+		private void FavoritesChanged(object sender, EventArgs e)
+		{
+			favoriteschanged = true;
+			UpdateFavoritesNode();
+			if(selectedset == favoritesnode) FillImagesList();
+		}
+
+		private void UpdateFavoritesNode()
+		{
+			if(favoritesnode == null)
+			{
+				favoritesnode = new TreeNode { Name = FAVORITES, ImageIndex = 1, SelectedImageIndex = 1 };
+				tvTextureSets.Nodes.Add(favoritesnode);
+			}
+			var set = new ResourceTextureSet("Favorites", new DataLocation());
+			var seen = new HashSet<long>();
+			foreach(TextureHistoryKind kind in browseflats ? new[] { TextureHistoryKind.Flat, TextureHistoryKind.Texture }
+				: new[] { TextureHistoryKind.Texture, TextureHistoryKind.Flat })
+			{
+				if((kind == TextureHistoryKind.Flat) != browseflats && !General.Map.Config.MixTexturesFlats) continue;
+				if(favorites == null) continue;
+				foreach(string name in favorites.Get(kind))
+				{
+					ImageData image = TextureHistoryView.ResolveImage(General.Map.Data, kind, name);
+					if(image == null || image.IsDisposed || image == General.Map.Data.UnknownImage || !seen.Add(image.LongName)) continue;
+					if(browseflats) set.AddFlat(image); else set.AddTexture(image);
+				}
+			}
+			favoritesnode.Text = "Favorites [" + seen.Count + "]";
+			favoritesnode.Tag = new TreeNodeData { Set = set, FolderName = "Favorites" };
+		}
+
+		private void UnwatchFavorites()
+		{
+			if(favorites != null) favorites.Changed -= FavoritesChanged;
 		}
 
 		//mxd
@@ -450,6 +498,15 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Clean up
 			browser.OnClose("windows." + configname);
+			UnwatchFavorites();
+			SaveFavoritesIfChanged(General.SaveSettings);
+		}
+
+		internal void SaveFavoritesIfChanged(Action save)
+		{
+			if(!favoriteschanged) return;
+			save();
+			favoriteschanged = false;
 		}
 
 		internal override string InteractionLogExtra

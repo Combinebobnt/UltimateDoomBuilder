@@ -101,6 +101,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private Docker undoredodocker;
 		private ClipboardHistoryPanel clipboardhistorypanel;
 		private Docker clipboardhistorydocker;
+		private TextureHistoryPanel texturehistorypanel;
+		private Docker texturehistorydocker;
 		private SectorDrawingOptionsPanel drawingOverridesPanel; //mxd
 		private Docker drawingOverridesDocker; //mxd
 		
@@ -255,6 +257,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			clipboardhistorydocker = new Docker("clipboardhistory", "Clipboard", clipboardhistorypanel);
 			General.Interface.AddDocker(clipboardhistorydocker);
 
+			texturehistorypanel = new TextureHistoryPanel();
+			texturehistorydocker = new Docker("texturehistory", "Textures", texturehistorypanel);
+			General.Interface.AddDocker(texturehistorydocker);
+
 			//mxd. Create Overrides docker
 			drawingOverridesPanel = new SectorDrawingOptionsPanel();
 			drawingOverridesDocker = new Docker("drawingoverrides", "Draw Settings", drawingOverridesPanel);
@@ -277,6 +283,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				General.Interface.RemoveDocker(undoredodocker);
 				General.Interface.RemoveDocker(clipboardhistorydocker);
 				clipboardhistorypanel.Dispose();
+				General.Interface.RemoveDocker(texturehistorydocker);
+				texturehistorypanel.Dispose();
 
 				undoredopanel.Dispose();
 				drawingOverridesPanel.Dispose(); //mxd
@@ -528,10 +536,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			preferencesform = null;
 		}
 		
+		public override void OnReloadResources()
+		{
+			base.OnReloadResources();
+			texturehistorypanel.Rebuild();
+		}
+
 		// New map created
 		public override void OnMapNewEnd()
 		{
 			base.OnMapNewEnd();
+			texturehistorypanel.WatchHistory(General.Map.TextureHistory);
 			undoredopanel.SetBeginDescription("New Map");
 			undoredopanel.WatchUndoManager(General.Map.UndoRedo);
 			undoredopanel.UpdateList();
@@ -547,6 +562,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public override void OnMapOpenEnd()
 		{
 			base.OnMapOpenEnd();
+			texturehistorypanel.WatchHistory(General.Map.TextureHistory);
 			undoredopanel.SetBeginDescription("Opened Map");
 			undoredopanel.WatchUndoManager(General.Map.UndoRedo);
 			undoredopanel.UpdateList();
@@ -562,6 +578,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd
 		public override void OnMapCloseBegin()
 		{
+			texturehistorypanel.WatchHistory(null);
 			undoredopanel.WatchUndoManager(null);
 			drawingOverridesPanel.Terminate();
 			General.Interface.RemoveDocker(drawingOverridesDocker);

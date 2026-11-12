@@ -92,6 +92,8 @@ namespace CodeImp.DoomBuilder
 		private ScriptEditorForm scriptwindow;
 		private List<CompilerError> errors;
 		private VisualCamera visualcamera;
+		private TextureHistory texturehistory;
+		private TextureFavorites favorites;
 
 		//mxd
 		private Dictionary<string, ScriptItem> namedscripts;
@@ -110,6 +112,8 @@ namespace CodeImp.DoomBuilder
 		public MapOptions Options { get { return options; } }
 		public MapSet Map { get { return map; } }
 		public DataManager Data { get { return data; } }
+		public TextureHistory TextureHistory { get { return texturehistory; } }
+		internal TextureFavorites Favorites { get { return favorites; } }
 		public bool IsChanged { get { return changed | CheckScriptChanged(); } set { changed |= value; if(!maploading) General.MainWindow.UpdateMapChangedStatus(); } }
 		public bool IsDisposed { get { return isdisposed; } }
 		// changed, not IsChanged: the backup holds no scripts, and an unchanged map must not raise a restore prompt
@@ -148,6 +152,15 @@ namespace CodeImp.DoomBuilder
 		#endregion
 
 		#region ================== Constructor / Disposer
+
+		public void RecordTextureUse(string name, bool flat)
+		{
+			if(isdisposed || data == null || texturehistory == null || string.IsNullOrWhiteSpace(name) || name == "-") return;
+			bool exists = texturehistory.Mixed
+				? data.GetTextureExists(name) || data.GetFlatExists(name)
+				: flat ? data.GetFlatExists(name) : data.GetTextureExists(name);
+			if(exists) texturehistory.Record(name, flat ? TextureHistoryKind.Flat : TextureHistoryKind.Texture);
+		}
 
 		// Constructor
 		internal MapManager() 
@@ -288,6 +301,8 @@ namespace CodeImp.DoomBuilder
 			General.WriteLogLine("Loading game configuration...");
 			configinfo = General.GetConfigurationInfo(options.ConfigFile);
 			config = new GameConfiguration(configinfo.Configuration); //mxd
+			texturehistory = new TextureHistory(General.Settings.TextureHistorySize, config.MixTexturesFlats);
+			UpdateFavorites();
 			origmapconfigname = configinfo.Filename;//mxd
 			configinfo.ApplyDefaults(config);
 			General.Editing.UpdateCurrentEditModes();
@@ -404,6 +419,8 @@ namespace CodeImp.DoomBuilder
 			General.WriteLogLine("Loading game configuration...");
 			configinfo = General.GetConfigurationInfo(options.ConfigFile);
 			config = new GameConfiguration(configinfo.Configuration);
+			texturehistory = new TextureHistory(General.Settings.TextureHistorySize, config.MixTexturesFlats);
+			UpdateFavorites();
 			origmapconfigname = configinfo.Filename;//mxd
 			configinfo.ApplyDefaults(config);
 			General.Editing.UpdateCurrentEditModes();
@@ -2410,8 +2427,9 @@ namespace CodeImp.DoomBuilder
 		#region ================== Methods
 
 		// This updates everything after the configuration or settings have been changed
-		internal void UpdateConfiguration() 
+		internal void UpdateConfiguration()
 		{
+			UpdateFavorites();
 			// Update map
 			map.UpdateConfiguration();
 
@@ -2422,6 +2440,12 @@ namespace CodeImp.DoomBuilder
 
 			// Things filters
 			General.MainWindow.UpdateThingsFilters();
+		}
+
+		internal void UpdateFavorites()
+		{
+			if(favorites == null) favorites = new TextureFavorites(General.Settings.Config, configinfo.SettingsKey, General.WriteLogLine);
+			else favorites.Rekey(configinfo.SettingsKey);
 		}
 
 		// This changes thing filter
@@ -2573,6 +2597,7 @@ namespace CodeImp.DoomBuilder
 				}
 			}
 			timing.Mark("data load");
+			UpdateFavorites();
 
 			// Apply new settings to map elements
 			map.UpdateConfiguration();
