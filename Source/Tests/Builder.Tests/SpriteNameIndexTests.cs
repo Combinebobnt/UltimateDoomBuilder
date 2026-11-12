@@ -141,7 +141,7 @@ namespace Builder.Tests
 		public void GeneratedSets_MatchTheLoop()
 		{
 			string alphabet = "ABPOSTRZaps019[\\]^-_ \u00AD\u0301\u00D6\u00C6\u00DF";
-			Random random = new Random(87);
+			Random random = new Random(20231);
 			for(int round = 0; round < 40; round++)
 			{
 				List<string> names = new List<string>();
