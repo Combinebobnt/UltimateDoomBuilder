@@ -190,7 +190,8 @@ namespace Builder.Tests
 			{
 				string unusedwad = Assert.Single(unused.Wads).Location.location;
 				Assert.True(File.Exists(unusedwad));
-				Assert.Throws<InvalidOperationException>(() =>
+				// The cast keeps xunit off its async Func<Task> overload for an always-throwing lambda.
+				Assert.Throws<InvalidOperationException>((Action)(() =>
 				{
 					using(var pool = new ResourceReaderPool())
 					{
@@ -199,7 +200,7 @@ namespace Builder.Tests
 						Assert.True(pool.TryTake(first, out _));
 						throw new InvalidOperationException("load failed after transfer");
 					}
-				});
+				}));
 				Assert.False(transferred.IsDisposed);
 				Assert.True(unused.IsDisposed);
 				Assert.False(File.Exists(unusedwad));
