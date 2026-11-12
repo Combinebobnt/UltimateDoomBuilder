@@ -354,6 +354,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
             // Start drawing
             graphics.StartRendering(true, General.Colors.Background.ToColorValue());
+			General.Map.Data.CompileMaterialPrograms();
 
 			// Beginning renderstates
 			graphics.SetCullMode(Cull.None);
@@ -819,7 +820,28 @@ namespace CodeImp.DoomBuilder.Rendering
 			graphics.SetSamplerFilter(General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest,
 				General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest, MipmapFilter.Linear, General.Settings.FilterAnisotropy, 2);
 			graphics.SetSamplerState(clamp ? TextureAddress.Clamp : TextureAddress.Wrap, 2);
+			for(int unit = 3; unit < 10; unit++)
+			{
+				ImageData custom = material != null && unit - 3 < material.Textures.Length ? material.Textures[unit - 3] : null;
+				graphics.SetTexture(custom != null && custom.IsImageLoaded && !custom.LoadFailed ? custom.Texture : null, unit);
+				graphics.SetSamplerFilter(General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest,
+					General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest, MipmapFilter.Linear, General.Settings.FilterAnisotropy, unit);
+				graphics.SetSamplerState(clamp ? TextureAddress.Clamp : TextureAddress.Wrap, unit);
+			}
 			return material;
+		}
+
+		private ShaderName MaterialShader(ResolvedMaterial material, ShaderName builtin, bool fog, bool vertexcolor)
+		{
+			if(material == null || material.Program == null || !material.Program.Usable) return builtin;
+			foreach(ImageData image in material.Textures) if(image == null || !image.IsImageLoaded || image.LoadFailed) return builtin;
+			graphics.SetUniform(UniformName.fogEnabled, fog);
+			graphics.SetUniform(UniformName.useVertexColorUniform, vertexcolor);
+			graphics.SetUniform(UniformName.disableAlphaTest, material.Definition.DisableAlphaTest);
+			float speed = material.Definition.Speed;
+			// Zandronum leaves the timer at its initial value for nonpositive speeds.
+			graphics.SetUniform(UniformName.timer, UserShaderBuilder.Dialect(General.Map.Config.EngineName) == UserShaderDialect.Zandronum && speed <= 0.0f ? 0.0f : (float)(Clock.CurrentTime / 1000.0 * speed));
+			return material.Program.Index;
 		}
 
 		private void UnbindMaterials()
@@ -871,7 +893,7 @@ namespace CodeImp.DoomBuilder.Rendering
         Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
         graphics.SetTexture(texture);
         graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-				BindMaterial(bound, false);
+				ResolvedMaterial material = BindMaterial(bound, false);
 
 				//mxd. Sort geometry by sector index
 				group.Value.Sort((g1, g2) => g1.Sector.Sector.FixedIndex - g2.Sector.Sector.FixedIndex);
@@ -963,8 +985,10 @@ namespace CodeImp.DoomBuilder.Rendering
 						ShaderName wantedshaderpass = (((g == highlighted) && showhighlight) || (g.Selected && showselection)) ? highshaderpass : shaderpass;
 
 						//mxd. Render fog?
-						if(General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && sector.Sector.FogMode != SectorFogMode.NONE)
+						bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && sector.Sector.FogMode != SectorFogMode.NONE;
+						if(fogpass)
 							wantedshaderpass += 8;
+						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
 
 						// Switch shader pass?
 						if(currentshaderpass != wantedshaderpass)
@@ -973,7 +997,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							currentshaderpass = wantedshaderpass;
 
 							//mxd. Set variables for fog rendering?
-							if(wantedshaderpass > ShaderName.world3d_p7)
+							if(fogpass || General.Settings.ClassicRendering || material != null)
 							{
                                 graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
                             }
@@ -983,7 +1007,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						graphics.SetUniform(UniformName.sectorLightLevel, sector.Sector.Brightness);
 
 						//mxd. Set variables for fog rendering?
-						if(wantedshaderpass > ShaderName.world3d_p7)
+						if(fogpass || General.Settings.ClassicRendering || material != null)
 						{
 							graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
 							graphics.SetUniform(UniformName.sectorfogcolor, sector.Sector.FogColor);
@@ -1029,7 +1053,7 @@ namespace CodeImp.DoomBuilder.Rendering
           Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
           graphics.SetTexture(texture);
           graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-					BindMaterial(curtexture, true);
+					ResolvedMaterial material = BindMaterial(curtexture, true);
 
 					// Render all things with this texture
 					foreach(VisualThing t in group.Value)
@@ -1053,17 +1077,20 @@ namespace CodeImp.DoomBuilder.Rendering
 							ShaderName wantedshaderpass = (((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass;
 
 							//mxd. If fog is enagled, switch to shader, which calculates it
-							if(General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE)
+							bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE;
+							if(fogpass)
 								wantedshaderpass += 8;
 
 							//mxd. Create the matrix for positioning 
 							world = CreateThingPositionMatrix(t);
 
 							//mxd. If current thing is light - set it's color to light color
+							bool usevertexcolor = false;
 							if(t.LightType != null && t.LightType.LightInternal && t.LightType.LightType != GZGeneral.LightType.SUN && !fullbrightness && !General.Settings.ClassicRendering) 
 							{
 								wantedshaderpass += 4; // Render using one of passes, which uses World3D.VertexColor
 								vertexcolor = t.LightColor;
+								usevertexcolor = true;
 							}
 							//mxd. Check if Thing is affected by dynamic lights and set color accordingly
 							else if(General.Settings.GZDrawLightsMode != LightRenderMode.NONE && !fullbrightness && !General.Settings.ClassicRendering && lightthings.Count > 0)
@@ -1073,6 +1100,7 @@ namespace CodeImp.DoomBuilder.Rendering
 								{
 									wantedshaderpass += 4; // Render using one of passes, which uses World3D.VertexColor
 									vertexcolor = new Color4(t.VertexColor) + litcolor;
+									usevertexcolor = true;
 								}
 							}
 							else
@@ -1081,6 +1109,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							}
 
 							// Switch shader pass?
+							wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, usevertexcolor);
 							if(currentshaderpass != wantedshaderpass) 
 							{
 								graphics.SetShader(wantedshaderpass);
@@ -1088,7 +1117,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							}
 
 							//mxd. Set variables for fog rendering?
-							if(wantedshaderpass > ShaderName.world3d_p7)
+							if(fogpass || General.Settings.ClassicRendering || material != null)
 							{
                                 graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
                                 graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
@@ -1171,6 +1200,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			ImageData curtexture;
 			VisualSector sector = null;
 			RenderPass currentpass = RenderPass.Solid;
+			ResolvedMaterial material = null;
 			long curtexturename = 0;
 			float fogfactor = -1;
 
@@ -1275,7 +1305,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
 					graphics.SetTexture(texture);
 					graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-					BindMaterial(bound, false);
+					material = BindMaterial(bound, false);
 					
 					curtexturename = g.Texture.LongName;
 				}
@@ -1308,8 +1338,10 @@ namespace CodeImp.DoomBuilder.Rendering
                     ShaderName wantedshaderpass = (((g == highlighted) && showhighlight) || (g.Selected && showselection)) ? highshaderpass : shaderpass;
 
                     //mxd. Render fog?
-                    if (General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && sector.Sector.FogMode != SectorFogMode.NONE)
+                    bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && sector.Sector.FogMode != SectorFogMode.NONE;
+                    if (fogpass)
                         wantedshaderpass += 8;
+					wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
 
                     // Switch shader pass?
                     if (currentshaderpass != wantedshaderpass)
@@ -1318,14 +1350,14 @@ namespace CodeImp.DoomBuilder.Rendering
                         currentshaderpass = wantedshaderpass;
 
                         //mxd. Set variables for fog rendering?
-                        if (wantedshaderpass > ShaderName.world3d_p7)
+                        if (fogpass || General.Settings.ClassicRendering || material != null)
                         {
                             graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
                         }
                     }
 
                     // Set variables for fog rendering?
-                    if (wantedshaderpass > ShaderName.world3d_p7 && g.FogFactor != fogfactor)
+                    if (fogpass || General.Settings.ClassicRendering || material != null)
                     {
                         graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
                         fogfactor = g.FogFactor;
@@ -1417,7 +1449,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
 						graphics.SetTexture(texture);
 						graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-						BindMaterial(curtexture, true);
+						material = BindMaterial(curtexture, true);
 						
 						curtexturename = t.Texture.LongName;
 					}
@@ -1429,17 +1461,20 @@ namespace CodeImp.DoomBuilder.Rendering
 						ShaderName wantedshaderpass = (((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass;
 
 						//mxd. if fog is enagled, switch to shader, which calculates it
-						if(General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE)
+						bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE;
+						if(fogpass)
 							wantedshaderpass += 8;
 
 						//mxd. Create the matrix for positioning 
 						world = CreateThingPositionMatrix(t);
 
 						//mxd. If current thing is light - set it's color to light color
+						bool usevertexcolor = false;
 						if(t.LightType != null && t.LightType.LightInternal && !fullbrightness && !General.Settings.ClassicRendering)
 						{
 							wantedshaderpass += 4; // Render using one of passes, which uses World3D.VertexColor
 							vertexcolor = t.LightColor;
+							usevertexcolor = true;
 						}
 						//mxd. Check if Thing is affected by dynamic lights and set color accordingly
 						else if(General.Settings.GZDrawLightsMode != LightRenderMode.NONE && !fullbrightness && !General.Settings.ClassicRendering && lightthings.Count > 0)
@@ -1449,6 +1484,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							{
 								wantedshaderpass += 4; // Render using one of passes, which uses World3D.VertexColor
 								vertexcolor = new Color4(t.VertexColor) + litcolor;
+								usevertexcolor = true;
 							}
 						}
 						else
@@ -1457,6 +1493,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						}
 
 						// Switch shader pass?
+						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, usevertexcolor);
 						if(currentshaderpass != wantedshaderpass)
 						{
 							graphics.SetShader(wantedshaderpass);
@@ -1464,10 +1501,10 @@ namespace CodeImp.DoomBuilder.Rendering
 						}
 
 						//mxd. Set variables for fog rendering?
-						if(wantedshaderpass > ShaderName.world3d_p7)
+						if(fogpass || General.Settings.ClassicRendering || material != null)
 						{
                             graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
-                            if (t.FogFactor != fogfactor)
+                            if (fogpass || General.Settings.ClassicRendering || material != null)
 							{
                                 graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
 								fogfactor = t.FogFactor;

@@ -94,6 +94,7 @@ namespace CodeImp.DoomBuilder.Data
 		private Dictionary<ImageData, GldefsMaterial> materials;
 		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedmaterials = new Dictionary<ImageData, ResolvedMaterial>();
 		private readonly Dictionary<string, ImageData> materialimages = new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, UserShaderProgram> materialprograms = new Dictionary<string, UserShaderProgram>();
 		private MapInfo mapinfo;
 		private Dictionary<string, KeyValuePair<int, int>> reverbs; //<name, <arg1, arg2> 
 		private Dictionary<long, GlowingFlatData> glowingflats; // Texture name hash, Glowing Flat Data
@@ -2814,6 +2815,44 @@ namespace CodeImp.DoomBuilder.Data
 				foreach(ImageData image in textures.Values.Concat(flats.Values).Concat(sprites.Values).Distinct())
 					AddAutoBrightmap(image);
 			}
+			DeclareMaterialPrograms();
+		}
+
+		private void DeclareMaterialPrograms()
+		{
+			UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.EngineName);
+			if(dialect == UserShaderDialect.None) return;
+			foreach(GldefsMaterial material in materials.Values)
+			{
+				if(string.IsNullOrEmpty(material.Shader)) continue;
+				string key = UserShaderBuilder.Key(material, dialect);
+				if(materialprograms.ContainsKey(key)) continue;
+				TextResourceData data = GetTextResourceData(material.Shader);
+				if(data == null || data.Stream == null)
+				{
+					materialprograms[key] = null;
+					General.ErrorLogger.Add(ErrorType.Warning, "Hardware shader not found: " + material.Shader);
+					continue;
+				}
+				string source;
+				using(var reader = new StreamReader(data.Stream)) source = reader.ReadToEnd();
+				UserShaderProgram program = UserShaderBuilder.Build(material, dialect, source);
+				program.Index = (ShaderName)((int)ShaderName.world3d_classic_highlight + 1 + materialprograms.Values.Count(value => value != null));
+				materialprograms[key] = program;
+				General.Map.Graphics.DeclareShader(program.Index, material.Shader, program.VertexSource, program.FragmentSource);
+			}
+		}
+
+		internal void CompileMaterialPrograms()
+		{
+			foreach(UserShaderProgram program in materialprograms.Values)
+			{
+				if(program == null || program.Compiled) continue;
+				program.Compiled = true;
+				string error;
+				program.Usable = General.Map.Graphics.TryCompileShader(program.Index, out error);
+				if(!program.Usable) General.ErrorLogger.Add(ErrorType.Warning, "Hardware shader " + program.Path + " disabled; using built-in rendering. " + error);
+			}
 		}
 
 		private void AddAutoBrightmap(ImageData image)
@@ -2837,6 +2876,9 @@ namespace CodeImp.DoomBuilder.Data
 		private void ClearMaterialImages()
 		{
 			for(int unit = 2; unit < 10; unit++) General.Map.Graphics.SetTexture(null, unit);
+			foreach(UserShaderProgram program in materialprograms.Values)
+				if(program != null) General.Map.Graphics.DeclareShader(program.Index, string.Empty, string.Empty, string.Empty);
+			materialprograms.Clear();
 			resolvedmaterials.Clear();
 			foreach(ImageData image in materialimages.Values) if(image != null) image.Dispose();
 			materialimages.Clear();
@@ -2852,7 +2894,13 @@ namespace CodeImp.DoomBuilder.Data
 				AddAutoBrightmap(image);
 				materials.TryGetValue(image, out definition);
 			}
-			if(definition != null) resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap) };
+			if(definition != null)
+			{
+				UserShaderProgram program = null;
+				if(!string.IsNullOrEmpty(definition.Shader)) materialprograms.TryGetValue(UserShaderBuilder.Key(definition, UserShaderBuilder.Dialect(General.Map.Config.EngineName)), out program);
+				resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap),
+					Textures = definition.Textures.Select(pair => LoadMaterialImage(pair.Value)).ToArray(), Program = program };
+			}
 			resolvedmaterials[image] = resolved;
 			return resolved;
 		}

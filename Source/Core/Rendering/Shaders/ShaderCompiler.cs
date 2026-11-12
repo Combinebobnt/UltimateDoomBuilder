@@ -363,6 +363,11 @@ namespace CodeImp.DoomBuilder.Rendering.Shaders
 
         }
 
+		internal string GetSharedSource()
+		{
+			return GetUniformSource() + GetFunctionSource(SourceFragment);
+		}
+
         public string GetVertexSource()
         {
             if (In == null || V2F == null || SourceVertex == null)

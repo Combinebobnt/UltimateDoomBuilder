@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CodeImp.DoomBuilder.Data;
+using CodeImp.DoomBuilder.Rendering;
 
 namespace CodeImp.DoomBuilder.GZBuilder.Data
 {
@@ -10,6 +11,8 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 	{
 		internal GldefsMaterial Definition;
 		internal ImageData Brightmap;
+		internal ImageData[] Textures;
+		internal UserShaderProgram Program;
 	}
 
 	internal sealed class MaterialLumpImage : ImageData

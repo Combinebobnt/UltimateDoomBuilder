@@ -270,6 +270,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Rendering\Shaders\ShaderCompiler.cs" />
+    <Compile Include="Rendering\UserShaderBuilder.cs" />
     <Compile Include="Data\UnknownImage.cs" />
     <Compile Include="Data\PatchNames.cs" />
     <Compile Include="Data\PK3Reader.cs" />
@@ -822,6 +823,7 @@
     <None Include="Resources\Status0.png" />
     <None Include="Resources\ColorPick.png" />
     <EmbeddedResource Include="Resources\world3d.shader" />
+    <EmbeddedResource Include="Resources\usershader_prelude.glsl" />
     <EmbeddedResource Include="Resources\world3d_skybox.shader" />
     <None Include="Resources\Zoom.png" />
     <None Include="Resources\Properties.png" />
