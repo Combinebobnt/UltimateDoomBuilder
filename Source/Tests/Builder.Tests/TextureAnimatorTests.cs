@@ -11,6 +11,23 @@ namespace Builder.Tests
 			Assert.True(new CodeImp.DoomBuilder.Config.ProgramConfiguration().GZAnimateTextures);
 		}
 
+		[Theory]
+		[InlineData("", true)]
+		[InlineData("gzanimatetextures = false;", false)]
+		[InlineData("gzanimatetextures = true;", true)]
+		public void ConfigurationLoadsTheSavedAnimationSetting(string setting, bool expected)
+		{
+			string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".cfg");
+			try
+			{
+				System.IO.File.WriteAllText(path, "currentversion = 1;\n" + setting);
+				var config = new CodeImp.DoomBuilder.Config.ProgramConfiguration();
+				Assert.True(config.Load(path, path, path));
+				Assert.Equal(expected, config.GZAnimateTextures);
+			}
+			finally { System.IO.File.Delete(path); }
+		}
+
 		private static AnimDef Range(AnimationType type = AnimationType.Forward, int duration = 10)
 		{
 			return new AnimDef(new[] { 10, 20, 30 }, new[] { duration }, new[] { duration }, false, type);

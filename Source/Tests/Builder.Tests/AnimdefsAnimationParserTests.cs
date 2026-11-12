@@ -115,5 +115,19 @@ namespace Builder.Tests
 			Assert.Equal(-2.5, parser.Warps[1].Speed);
 			Assert.Equal(1, parser.Animations.Count);
 		}
+
+		[Fact]
+		public void SubsequentParseRetainsOrderedValidDefinitionsAfterRecovery()
+		{
+			using(var map = new SndInfoParserTests.FakeMap("doom"))
+			{
+				var parser = Parse("texture A range B tics 4\ntexture BAD range END tics nope");
+				Assert.True(parser.Parse(CvarInfoParserTests.CreateTextResourceDataFromString("texture A pic C tics 8 pic D tics 8"), true));
+				Assert.Equal(2, parser.Animations.Count);
+				Assert.Equal(AnimationKind.Range, parser.Animations[0].Kind);
+				Assert.Equal(AnimationKind.Pic, parser.Animations[1].Kind);
+				Assert.Equal(1, map.Logger.ErrorsCount);
+			}
+		}
 	}
 }

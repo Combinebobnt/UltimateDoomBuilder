@@ -3068,7 +3068,8 @@ namespace CodeImp.DoomBuilder.Data
 			if(images == null) return;
 			foreach(ImageData image in images)
 			{
-				int key = image.GetHashCode();
+				if(animationkeys.ContainsKey(image)) continue;
+				int key = animationimages.Count;
 				animationkeys[image] = key;
 				animationimages[key] = image;
 				animationorder.Register(key, image.AnimationSource, image.AnimationUseType);

@@ -135,5 +135,47 @@ namespace Builder.Tests
 			image.Dispose();
 			Assert.False(image.IsReadyFor(false));
 		}
+
+		[Fact]
+		public void OptionalMissingBaseIsQuietButRequiredMissingBaseWarns()
+		{
+			using(var map = new SndInfoParserTests.FakeMap("doom"))
+			{
+				Set(General.Map.Config, "enginename", "gzdoom");
+				TextureAnimationOrder order;
+				DataManager data = Data(out order);
+				var parser = new AnimdefsParser();
+				parser.Parse(CvarInfoParserTests.CreateTextResourceDataFromString("texture optional ABSENT range END tics 4\ntexture REQUIRED range END tics 4"), true);
+				typeof(DataManager).GetMethod("LoadAnimations", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(data, new object[] { parser });
+				Assert.Equal(0, data.Animator.Count);
+				Assert.Equal(1, map.Logger.ErrorsCount);
+			}
+		}
+
+		[Fact]
+		public void RebuiltTableUsesFreshImagesAndDoesNotCarryOldTranslations()
+		{
+			using(var map = new SndInfoParserTests.FakeMap("doom"))
+			{
+				var oldimages = new[] { new Image("A", 0), new Image("B", 0) };
+				var newimages = new[] { new Image("A", 0), new Image("C", 0) };
+				TextureAnimationOrder oldorder, neworder;
+				DataManager olddata = Data(out oldorder, oldimages), newdata = Data(out neworder, newimages);
+				object source = new object();
+				foreach(Image image in oldimages) oldorder.Register(image.GetHashCode(), source, 0);
+				foreach(Image image in newimages) neworder.Register(image.GetHashCode(), source, 0);
+				oldorder.Seal(); neworder.Seal();
+				olddata.AddAnimatedEntries(new[] { new AnimatedEntry { IsTexture = true, First = "A", Last = "B", Tics = 1 } });
+				olddata.Animator.Update(0); olddata.Animator.Update(28);
+				Assert.Equal(oldimages[1].GetHashCode(), olddata.Animator.Resolve(oldimages[0].GetHashCode()));
+				newdata.AddAnimatedEntries(new[] { new AnimatedEntry { IsTexture = true, First = "A", Last = "C", Tics = 35 } });
+				newdata.Animator.Update(0); newdata.Animator.Update(28);
+				Assert.Equal(newimages[0].GetHashCode(), newdata.Animator.Resolve(newimages[0].GetHashCode()));
+				newdata.Animator.Update(1000);
+				Assert.Equal(newimages[1].GetHashCode(), newdata.Animator.Resolve(newimages[0].GetHashCode()));
+				Set(newdata, "syncobject", new object()); Set(newdata, "imageque", new Queue<ImageData>()); Set(General.Map, "data", newdata);
+				Assert.True(ReferenceEquals(newimages[0], newdata.ResolveAnimatedImage(newimages[0], false)));
+			}
+		}
 	}
 }
