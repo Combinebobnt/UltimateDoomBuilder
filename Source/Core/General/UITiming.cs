@@ -55,7 +55,7 @@ namespace CodeImp.DoomBuilder
 				};
 				RequestScope scope = new RequestScope { Form = form, Timing = timing, Previous = pending };
 				pending = scope;
-				Write(timing.Id, "request", 0, 0, now);
+				Write(timing.Id, "request", 0, 0, now, ProcessingFields());
 				return scope;
 			}
 			catch(Exception) { return null; }
@@ -87,7 +87,8 @@ namespace CodeImp.DoomBuilder
 				Timing timing = form.UITimingState;
 				if(timing == null || timing.Complete) return;
 				long now = Stopwatch.GetTimestamp();
-				Write(timing.Id, phase, Milliseconds(now - timing.Start), Milliseconds(now - timing.Previous), now);
+				Write(timing.Id, phase, Milliseconds(now - timing.Start), Milliseconds(now - timing.Previous), now,
+					phase == "usable" ? ProcessingFields() : null);
 				timing.Previous = now;
 				if(phase == "usable" || phase == "closed-before-usable") timing.Complete = true;
 			}
@@ -99,17 +100,32 @@ namespace CodeImp.DoomBuilder
 			return ticks * 1000.0 / Stopwatch.Frequency;
 		}
 
-		private static void Write(string id, string phase, double ms, double dms, long now)
+		private static void Write(string id, string phase, double ms, double dms, long now, string extra = null)
 		{
-			try { General.WriteLogLine(FormatLine(id, phase, ms, dms, Milliseconds(now - sessionstart))); }
+			try { General.WriteLogLine(FormatLine(id, phase, ms, dms, Milliseconds(now - sessionstart), extra)); }
 			catch(Exception) { }
 		}
 
-		// ms starts at the base ctor; sessionms also relates request events to later phases.
-		internal static string FormatLine(string id, string phase, double ms, double dms, double sessionms)
+		private static string ProcessingFields()
 		{
-			return string.Format(CultureInfo.InvariantCulture, "UITIMING {0} {1} {2:F3} {3:F3} sessionms={4:F3}",
+			MainForm main = General.MainWindow;
+			if(main == null || main.Processing == null) return null;
+			ProcessingGate gate = main.Processing;
+			return FormatProcessing(gate.Running, gate.EnableCount, gate.SuspendDepth);
+		}
+
+		internal static string FormatProcessing(bool running, int enablecount, int suspenddepth)
+		{
+			return string.Format(CultureInfo.InvariantCulture, "proc={0} pc={1} sd={2}",
+				running ? 1 : 0, enablecount, suspenddepth);
+		}
+
+		// ms starts at the base ctor; sessionms also relates request events to later phases.
+		internal static string FormatLine(string id, string phase, double ms, double dms, double sessionms, string extra = null)
+		{
+			string line = string.Format(CultureInfo.InvariantCulture, "UITIMING {0} {1} {2:F3} {3:F3} sessionms={4:F3}",
 				id, phase, ms, dms, sessionms);
+			return string.IsNullOrEmpty(extra) ? line : line + " " + extra;
 		}
 	}
 }

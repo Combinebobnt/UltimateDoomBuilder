@@ -72,6 +72,7 @@ namespace CodeImp.DoomBuilder.Windows
 		bool Focus();
 		void EnableProcessing();
 		void DisableProcessing();
+		IDisposable SuspendProcessing();
 		void StartExclusiveMouseInput();
 		void StopExclusiveMouseInput();
 		void BreakExclusiveMouseInput();
