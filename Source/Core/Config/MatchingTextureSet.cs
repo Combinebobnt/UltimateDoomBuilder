@@ -199,7 +199,6 @@ namespace CodeImp.DoomBuilder.Config
 			return string.Compare(this.name, other.name);
 		}
 
-		// Exact and prefix filters are printable ASCII without * ? + or \ (prefix: before one trailing *)
 		internal static FilterKind ClassifyFilter(string filter, out string literal)
 		{
 			string upper = filter.ToUpperInvariant();
@@ -234,7 +233,6 @@ namespace CodeImp.DoomBuilder.Config
 			return HashLongNames(textures.ConvertAll(i => i.LongName), flats.ConvertAll(i => i.LongName));
 		}
 
-		// FNV-1a over each long name's 8 little-endian bytes, with one separator byte between the lists
 		internal static uint HashLongNames(IEnumerable<long> texturenames, IEnumerable<long> flatnames)
 		{
 			uint hash = FNV_OFFSET_BASIS;

@@ -3853,7 +3853,6 @@ namespace CodeImp.DoomBuilder.Data
 				: " (no IWAD identified)"));
 		}
 
-		// Filter classes and per-set membership, so set contents can be diffed between builds
 		private void LogTextureSets()
 		{
 			int filtercount = 0, exact = 0, prefix = 0, pattern = 0;
