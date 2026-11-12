@@ -166,6 +166,7 @@ namespace CodeImp.DoomBuilder.Data
 				//mxd. Remove temp files
 				foreach(WADReader wr in wads)
 				{
+					wr.Dispose(); // Close the file before deleting it on Windows.
 					try { File.Delete(wr.Location.location); }
 					catch(Exception) { }
 				}
@@ -777,7 +778,7 @@ namespace CodeImp.DoomBuilder.Data
 		protected override string CreateTempFile(string filename)
 		{
 			// Just copy the file
-			string tempfile = General.MakeTempFilename(General.Map.TempPath, "wad");
+			string tempfile = General.MakeTempFilename(General.Map != null ? General.Map.TempPath : General.TempPath, "wad");
 			MemoryStream filedata = LoadFile(filename);
 			File.WriteAllBytes(tempfile, filedata.ToArray());
 			filedata.Dispose();
