@@ -7,6 +7,7 @@
 
 // No GL handles are created; the production device, texture and deletion methods run unchanged.
 std::unique_ptr<IOpenGLContext> IOpenGLContext::Create(void*, void*) { return nullptr; }
+void* GL_GetProcAddress(const char*) { return nullptr; }
 
 static void Require(bool condition, const char* message)
 {

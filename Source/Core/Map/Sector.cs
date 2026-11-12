@@ -913,25 +913,34 @@ namespace CodeImp.DoomBuilder.Map
 			if(General.Map.UDMF && Fields.ContainsKey("fadecolor"))
 			{
 				fogcolor = new Color4((int)Fields["fadecolor"].Value);
-				fogmode = SectorFogMode.FADE;
 			}
 			// Sector uses outisde fog when it's ceiling is sky or Sector_Outside effect (87) is set
 			else if(General.Map.Data.MapInfo.HasOutsideFogColor && 
 				(HasSkyCeiling || (effect == 87 && General.Map.Config.SectorEffects.ContainsKey(effect))))
 			{
 				fogcolor = General.Map.Data.MapInfo.OutsideFogColor;
-				fogmode = SectorFogMode.OUTSIDEFOGDENSITY;
 			}
 			else if(General.Map.Data.MapInfo.HasFadeColor)
 			{
 				fogcolor = General.Map.Data.MapInfo.FadeColor;
-				fogmode = SectorFogMode.FOGDENSITY;
 			}
 			else
 			{
 				fogcolor = new Color4();
-				fogmode = (brightness < 248 ? SectorFogMode.CLASSIC : SectorFogMode.NONE);
 			}
+
+			// Density follows the resolved colour, not which property supplied it.
+			if(General.Map.UDMF && General.Clamp(Fields.GetValue("fogdensity", 0), 0, 512) / 2 != 0)
+				fogmode = SectorFogMode.FADE;
+			else if((fogcolor.ToArgb() & 0xffffff) == 0)
+				fogmode = (brightness < 248 ? SectorFogMode.CLASSIC : SectorFogMode.NONE);
+			else if(General.Map.Data.MapInfo.HasOutsideFogColor && General.Map.Data.MapInfo.OutsideFogDensity / 2 > 0 &&
+				(fogcolor.ToArgb() & 0xffffff) == (General.Map.Data.MapInfo.OutsideFogColor.ToArgb() & 0xffffff))
+				fogmode = SectorFogMode.OUTSIDEFOGDENSITY;
+			else if(General.Map.Data.MapInfo.FogDensity / 2 > 0)
+				fogmode = SectorFogMode.FOGDENSITY;
+			else
+				fogmode = SectorFogMode.FADE;
 		}
 
         #endregion

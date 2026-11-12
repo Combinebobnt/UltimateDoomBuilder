@@ -45,6 +45,33 @@ namespace Builder.Tests
 			Assert.Equal(expected, (int)UserShaderBuilder.Dialect(engine));
 		}
 
+		[Theory]
+		[InlineData("zandronum", 1)]
+		[InlineData("uzdoom", 2)]
+		[InlineData("gzdoom", 2)]
+		[InlineData("zdoom", 2)]
+		[InlineData("hexen", 2)]
+		public void WarpUsesModernFallbackForNonZandronumEngines(string engine, int expected)
+		{
+			Assert.Equal(expected, (int)UserShaderBuilder.WarpDialect(engine));
+		}
+
+		[Theory]
+		[InlineData(1, 1)]
+		[InlineData(2, 1)]
+		[InlineData(1, 2)]
+		[InlineData(2, 2)]
+		public void EmbeddedWarpsUseTheMaterialCompiler(int style, int dialect)
+		{
+			var program = UserShaderBuilder.BuildWarp(style, (UserShaderDialect)dialect);
+			Assert.True(program.IsWarp);
+			Assert.Equal(UserShaderBuilder.WarpKey(style, (UserShaderDialect)dialect), program.Path);
+			Assert.Contains("timer *", program.FragmentSource);
+			Assert.Contains("#if defined(ALPHA_TEST)", program.FragmentSource);
+			Assert.Contains(dialect == 1 ? "vec4 Process(vec4 color)" : "SetMaterialProps(material, GetTexCoord());", program.FragmentSource);
+			Assert.NotEqual(UserShaderBuilder.Key(new GldefsMaterial { Shader = program.Path }, (UserShaderDialect)dialect), program.Path);
+		}
+
 		private static UserShaderProgram Build(string source, UserShaderDialect dialect = UserShaderDialect.UZDoom)
 		{
 			return UserShaderBuilder.Build(new GldefsMaterial { Shader = "shaders/test.fp" }, dialect, source);

@@ -123,11 +123,11 @@ namespace CodeImp.DoomBuilder.GZBuilder.Models
 
                                 int[] seq;
 
-                                // If the face is a quad split it into two triangles
+                                // Reverse OBJ winding for the renderer's clockwise front faces, as UZDoom does.
                                 if (fv.Count == 3)
-                                    seq = new int[] { 0, 1, 2 };
+                                    seq = new int[] { 0, 2, 1 };
                                 else
-                                    seq = new int[] { 0, 1, 2, 0, 2, 3 };
+                                    seq = new int[] { 0, 2, 1, 0, 3, 2 };
 
                                 for (int i = 0; i < seq.Length; i++)
                                 {

@@ -33,7 +33,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 		#region ================== Constants
 
 		private const float FOG_DENSITY_SCALER = -1.442692f / 512000f; //mxd. It's -1.442692f / 64000f in GZDoom...;
-		private const int FADE_MULTIPLIER = 4; //mxd
+		private const int FADE_MULTIPLIER = 8; // Coloured fog uses engine density units; keep CLASSIC's existing scale.
 
 		#endregion
 
@@ -214,22 +214,21 @@ namespace CodeImp.DoomBuilder.VisualModes
 		public static float CalculateFogFactor(Sector sector, int brightness)
 		{
 			float density;
-			int fogdensity = (General.Map.UDMF ? General.Clamp(sector.Fields.GetValue("fogdensity", 0), 0, 510) : 0);
+			int fogdensity = (General.Map.UDMF ? General.Clamp(sector.Fields.GetValue("fogdensity", 0), 0, 512) / 2 : 0);
+			if(fogdensity != 0) return fogdensity * FADE_MULTIPLIER * FOG_DENSITY_SCALER;
+
 			switch(sector.FogMode)
 			{
 				case SectorFogMode.OUTSIDEFOGDENSITY:
-					if(fogdensity < 3) fogdensity = General.Map.Data.MapInfo.OutsideFogDensity;
-					density = fogdensity * FADE_MULTIPLIER;
+					density = (General.Clamp(General.Map.Data.MapInfo.OutsideFogDensity, 0, 512) / 2) * FADE_MULTIPLIER;
 					break;
 
 				case SectorFogMode.FOGDENSITY:
-					if(fogdensity < 3) fogdensity = General.Map.Data.MapInfo.FogDensity;
-					density = fogdensity * FADE_MULTIPLIER;
+					density = (General.Clamp(General.Map.Data.MapInfo.FogDensity, 0, 512) / 2) * FADE_MULTIPLIER;
 					break;
 
 				case SectorFogMode.FADE:
-					if(fogdensity < 3) fogdensity = General.Clamp(255 - brightness, 30, 255);
-					density = fogdensity * FADE_MULTIPLIER;
+					density = (brightness < 248 ? General.Clamp(255 - brightness, 30, 255) * FADE_MULTIPLIER : 0f);
 					break;
 
 				case SectorFogMode.CLASSIC:

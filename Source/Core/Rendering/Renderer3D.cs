@@ -810,9 +810,9 @@ namespace CodeImp.DoomBuilder.Rendering
             vb.Dispose();
 		}
 
-		private ResolvedMaterial BindMaterial(ImageData image, bool clamp)
+		private ResolvedMaterial BindMaterial(ImageData image, bool clamp, bool animate = false)
 		{
-			ResolvedMaterial material = General.Settings.GZDrawMaterials && !General.Settings.ClassicRendering && !fullbrightness ? General.Map.Data.GetMaterial(image) : null;
+			ResolvedMaterial material = General.Settings.GZDrawMaterials && !General.Settings.ClassicRendering && !fullbrightness ? General.Map.Data.GetMaterial(image, animate) : null;
 			ImageData brightmap = material == null ? null : material.Brightmap;
 			bool ready = brightmap != null && brightmap.IsImageLoaded && !brightmap.LoadFailed;
 			graphics.SetTexture(ready ? brightmap.Texture : null, 2);
@@ -840,7 +840,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			graphics.SetUniform(UniformName.disableAlphaTest, material.Definition.DisableAlphaTest);
 			float speed = material.Definition.Speed;
 			// Preserve each program's last timer when Zandronum skips a nonpositive-speed update.
-			graphics.SetUniform(UniformName.timer, material.Program.GetTimer(UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName), speed, Clock.CurrentTime / 1000.0));
+			graphics.SetUniform(UniformName.timer, material.Program.IsWarp ? (float)(Clock.CurrentTime / 1000.0 * speed)
+				: material.Program.GetTimer(UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName), speed, Clock.CurrentTime / 1000.0));
 			return material.Program.Index;
 		}
 
@@ -893,7 +894,7 @@ namespace CodeImp.DoomBuilder.Rendering
         Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
         graphics.SetTexture(texture);
         graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-				ResolvedMaterial material = BindMaterial(bound, false);
+				ResolvedMaterial material = BindMaterial(bound, false, animatetextures);
 
 				//mxd. Sort geometry by sector index
 				group.Value.Sort((g1, g2) => g1.Sector.Sector.FixedIndex - g2.Sector.Sector.FixedIndex);
@@ -1304,7 +1305,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
 					graphics.SetTexture(texture);
 					graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-					material = BindMaterial(bound, false);
+					material = BindMaterial(bound, false, animatetextures);
 					
 				}
 

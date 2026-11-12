@@ -14,7 +14,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Map save safety:** maps are saved to a sibling file and swapped in, backups are written atomically, read-only targets are reported, and UDMF text round-trips as Latin-1.
 - **Script compilation:** ACS recompiles on Save Map after a script editor save, a failed compile warns and keeps the map marked unsaved, and BCS compiles with the system zt-bcc.
 - **Parsers:** DECORATE `Goto` and state-end fixes, UTF-8 BOMs, correct line numbers on LF files, TEXTURES numeric `Blend` under Zandronum configs, and SNDINFO/TERRAIN conditional blocks.
-- **Game configurations:** `forceheight`/`forcewidth` thing properties (documented in Help), Zandronum configs targeting Zandronum 3.3, engine archive checks (`requiredarchives`), GZDoom/UZDoom `filter/` folders, and DnD (Death and Decay) configurations built on the Zandronum 3.3 configuration.
+- **Game configurations:** `forceheight`/`forcewidth` thing properties (documented in Help), Zandronum configs targeting Zandronum 3.3 with supported sector-portal choices, engine archive checks (`requiredarchives`), GZDoom/UZDoom `filter/` folders, and DnD (Death and Decay) configurations built on the Zandronum 3.3 configuration.
 - **Editing:** arg0str survives bulk edits, the Undo panel previews on single click, a discarded redo branch stays restorable, draw tools withdraw a failed draw cleanly, and pasting from another program's clipboard no longer hangs.
 - **Clipboard history:** a bounded, in-memory side panel reuses copied or cut geometry across maps without replacing the system clipboard, with duplicate detection, Paste Special and per-entry actions.
 - **Key bindings:** each action accepts a primary and an alternate shortcut in Preferences > Controls, with conflicts checked across both and both shown in the command palette and shortcut reference.
@@ -22,8 +22,10 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Draw Grid:** the post-draw sector dialog edits every split cell, including triangulated grids, without editing an enclosing pre-existing room.
 - **Dialog loading:** cached font names and batched list fills make repeated Preferences and Game Configurations opens faster.
 - **Visual mode placeholders:** the missing, unknown and still-loading texture placeholders are 64x64 grids labelled MISSING, UNKNOWN and LOADING.
-- **Visual mode animation:** ANIMDEFS and ANIMATED texture/flat frames cycle on geometry, including stock default animations, with a persistent View/toolbar toggle.
-- **Visual mode materials:** GLDEFS brightmaps and compatible hardware shaders render on walls, flats and sprites, with dialect-aware shader support, a persistent toggle and plain-texture fallback for failed programs.
+- **Visual mode animation:** ANIMDEFS and ANIMATED texture/flat frames cycle on geometry, including stock default animations, with a persistent View/toolbar toggle. ANIMDEFS warp/warp2 and SMMU swirls use built-in shaders ahead of hardware shaders; Zandronum warp2 uses the UZDoom formula.
+- **Visual mode materials:** GLDEFS brightmaps and compatible hardware shaders render on walls, flats and sprites, with dialect-aware shader support, a persistent toggle hidden when no map is open, and plain-texture fallback for failed programs.
+- **Visual mode fog:** coloured fog follows UZDoom's sector/outside/level density precedence and light-level fallback; MAPINFO lightmode 8/16 use the unset mode, while invalid values warn.
+- **Visual mode models:** OBJ triangle winding matches UZDoom, so translucent models show the correct faces.
 - **Resource loading:** faster PK3 file lookups, a PK3 image that fails to read is marked failed instead of breaking the background loader, and required-archive checks can read embedded WADs before a map is open.
 - **Resource reload:** unchanged WAD and PK3 readers retain their raw indexes while configuration, parser and image state rebuilds; stage timings expose remaining reload costs.
 - **Diagnostics:** set `UDB_GEOMETRY_LOG=1` to log texture browser window geometry and resource-warning resize bounds, `UDB_UI_TIMING=1` for dialog-open phases, `UDB_DOCKER_TRACE=1` to trace side panel state, or `UDB_INTERACTION_LOG=1` for interaction timings and marks.

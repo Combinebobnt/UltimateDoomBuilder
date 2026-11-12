@@ -2214,6 +2214,7 @@ namespace CodeImp.DoomBuilder.Windows
 			dynamiclightmode.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontogglefog.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontoggleanimatedtextures.Visible = General.Settings.GZToolbarGZDoom && maploaded;
+			buttontogglematerials.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontogglesky.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontoggleeventlines.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontogglevisualvertices.Visible = General.Settings.GZToolbarGZDoom && maploaded && General.Map.UDMF;

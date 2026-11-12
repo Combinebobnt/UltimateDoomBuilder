@@ -183,12 +183,6 @@ namespace CodeImp.DoomBuilder.ZDoom
 			}
 
 			// Check values
-			if(mapinfo.FogDensity > 0 && (mapinfo.FadeColor.Red > 0 || mapinfo.FadeColor.Green > 0 || mapinfo.FadeColor.Blue > 0))
-				mapinfo.HasFadeColor = true;
-
-			if(mapinfo.OutsideFogDensity > 0 && (mapinfo.OutsideFogColor.Red > 0 || mapinfo.OutsideFogColor.Green > 0 || mapinfo.OutsideFogColor.Blue > 0))
-				mapinfo.HasOutsideFogColor = true;
-
 			if(string.IsNullOrEmpty(mapinfo.Sky2) && mapinfo.DoubleSky)
 			{
 				LogWarning("\"doublesky\" flag is defined without \"Sky2\" property.");
@@ -652,10 +646,17 @@ namespace CodeImp.DoomBuilder.ZDoom
 			PixelColor color = new PixelColor();
 			if(GetColorFromString(colorval, out color))
 			{
+				// Zero density uses a fallback; it does not disable the fog colour.
 				if(fadetype == "fade")
+				{
 					mapinfo.FadeColor = color.ToColorValue();
+					mapinfo.HasFadeColor = (color.r > 0 || color.g > 0 || color.b > 0);
+				}
 				else
+				{
 					mapinfo.OutsideFogColor = color.ToColorValue();
+					mapinfo.HasOutsideFogColor = (color.r > 0 || color.g > 0 || color.b > 0);
+				}
 			}
 			else //...or not
 			{
@@ -711,8 +712,8 @@ namespace CodeImp.DoomBuilder.ZDoom
 				return false;
 			}
 
-			if(densitytype == "fogdensity") mapinfo.FogDensity = val;
-			else mapinfo.OutsideFogDensity = val;
+			if(densitytype == "fogdensity") mapinfo.FogDensity = General.Clamp(val, 0, 512);
+			else mapinfo.OutsideFogDensity = General.Clamp(val, 0, 512);
 
 			// All done here
 			return true;
@@ -733,8 +734,12 @@ namespace CodeImp.DoomBuilder.ZDoom
 				return false;
 			}
 
-			// Store
-			mapinfo.LightMode = (MapInfo.GZDoomLightMode)val;
+			if(val == 8 || val == 16)
+				mapinfo.LightMode = MapInfo.GZDoomLightMode.UNDEFINED;
+			else if(val >= 0 && val < 5)
+				mapinfo.LightMode = (MapInfo.GZDoomLightMode)val;
+			else
+				LogWarning("Invalid light mode " + val);
 
 			// All done here
 			return true;

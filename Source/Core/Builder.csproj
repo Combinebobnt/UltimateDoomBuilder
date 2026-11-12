@@ -827,6 +827,10 @@
     <None Include="Resources\ColorPick.png" />
     <EmbeddedResource Include="Resources\world3d.shader" />
     <EmbeddedResource Include="Resources\usershader_prelude.glsl" />
+    <EmbeddedResource Include="Resources\warp1_uzdoom.glsl" />
+    <EmbeddedResource Include="Resources\warp2_uzdoom.glsl" />
+    <EmbeddedResource Include="Resources\warp1_zandronum.glsl" />
+    <EmbeddedResource Include="Resources\warp2_zandronum.glsl" />
     <EmbeddedResource Include="Resources\world3d_skybox.shader" />
     <None Include="Resources\Zoom.png" />
     <None Include="Resources\Properties.png" />

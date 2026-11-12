@@ -75,10 +75,10 @@ namespace Builder.Tests
 		private static T Get<T>(object target, string name) => (T)target.GetType().GetField(name, Instance)!.GetValue(target);
 		private static object Call(DataManager target, string name, params object[] args) => typeof(DataManager).GetMethod(name, Instance)!.Invoke(target, args);
 
-		private void Configure(string engine, bool mix = false)
+		private void Configure(string engine, bool mix = false, bool decorate = false)
 		{
 			var config = new Configuration();
-			Assert.True(config.InputConfiguration("basegame = \"doom\"; engine = \"" + engine + "\"; longtexturenames = true; formatinterface = \"DoomMapSetIO\"; mixtexturesflats = " + (mix ? "true" : "false") + ";"));
+			Assert.True(config.InputConfiguration("basegame = \"doom\"; engine = \"" + engine + "\"; longtexturenames = true; formatinterface = \"DoomMapSetIO\"; mixtexturesflats = " + (mix ? "true" : "false") + "; decorategames = \"" + (decorate ? "doom" : "") + "\";"));
 			Set(General.Map, "config", new GameConfiguration(config));
 		}
 
@@ -99,6 +99,7 @@ namespace Builder.Tests
 			Set(data, "fullmaterialimages", new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase));
 			Set(data, "materials", new Dictionary<ImageData, GldefsMaterial>());
 			Set(data, "resolvedmaterials", new Dictionary<ImageData, ResolvedMaterial>());
+			Set(data, "resolvedwarpmaterials", new Dictionary<ImageData, ResolvedMaterial>());
 			Set(data, "materialimages", new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase));
 			Set(data, "materialprograms", new Dictionary<string, UserShaderProgram>());
 			Set(data, "sprites", new Dictionary<long, ImageData>());
@@ -196,6 +197,75 @@ namespace Builder.Tests
 				if(!materials.TryGetValue(image, out GldefsMaterial material)) materials[image] = material = new GldefsMaterial();
 				material.Merge(definition);
 			}
+		}
+
+		[Theory]
+		[InlineData("zandronum", false)]
+		[InlineData("gzdoom", true)]
+		[InlineData("uzdoom", true)]
+		[InlineData("zdoom", true)]
+		public void WarpOverridesHardwareShaderWithoutChangingTheUnanimatedMaterial(string engine, bool bright)
+		{
+			Configure(engine, false, true);
+			var reader = Archive(Image("textures/WARP.png"), Image("brightmaps/warp.png"),
+				Text("GLDEFS", "HardwareShader texture WARP { shader \"shaders/missing.fp\" texture detail \"missing.png\" }\nBrightmap texture WARP { map \"brightmaps/warp.png\" }"));
+			DataManager data = Load(reader);
+			ApplyMaterials(data, reader);
+			ImageData image = data.GetTextureImage("WARP");
+			Call(data, "SetWarp", image, 2, -1.5);
+			var dialect = UserShaderBuilder.WarpDialect(engine);
+			var program = UserShaderBuilder.BuildWarp(2, dialect);
+			Get<Dictionary<string, UserShaderProgram>>(data, "materialprograms")[program.Path] = program;
+			ResolvedMaterial warped = data.GetMaterial(image, true);
+			Assert.Same(program, warped.Program);
+			Assert.Equal(-1.5f, warped.Definition.Speed);
+			Assert.Equal(bright, warped.Brightmap != null);
+			Assert.Empty(warped.Textures);
+			Assert.False(warped.Definition.DisableAlphaTest);
+			Assert.Equal(0, map.Logger.ErrorsCount);
+			Assert.Same(warped, data.GetMaterial(image, true));
+			Call(data, "LoadMaterialImage", "brightmaps/warp.png");
+			object window = typeof(General).GetField("mainwindow", Static)!.GetValue(null);
+			typeof(General).GetField("mainwindow", Static)!.SetValue(null, null);
+			ResolvedMaterial plain;
+			try { plain = data.GetMaterial(image); }
+			finally { typeof(General).GetField("mainwindow", Static)!.SetValue(null, window); }
+			Assert.False(ReferenceEquals(plain, warped));
+			Assert.Equal("shaders/missing.fp", plain.Definition.Shader);
+			Assert.Null(plain.Program);
+			Assert.Same(plain, data.GetMaterial(image, false));
+			Assert.Equal(1, map.Logger.ErrorsCount);
+		}
+
+		[Fact]
+		public void WarpSelectionFollowsTheReadyTranslatedFrame()
+		{
+			Configure("gzdoom", false, true);
+			var reader = Archive(Image("textures/A.png"), Image("textures/B.png"),
+				Text("ANIMDEFS", "texture A pic B tics 4 pic A tics 4\nwarp texture B"));
+			DataManager data = Load(reader);
+			var parser = new AnimdefsParser();
+			Assert.True(parser.Parse(new TextResourceData(reader, reader.LoadFile("ANIMDEFS"), "ANIMDEFS", true), true));
+			Animate(data, parser);
+			ImageData a = data.GetTextureImage("A"), b = data.GetTextureImage("B");
+			ReadyPixels(b);
+			var program = UserShaderBuilder.BuildWarp(1, UserShaderDialect.UZDoom);
+			Get<Dictionary<string, UserShaderProgram>>(data, "materialprograms")[program.Path] = program;
+			Assert.Null(data.GetMaterial(a, true));
+			Assert.Same(b, data.ResolveAnimatedImage(a, false));
+			Assert.Same(program, data.GetMaterial(data.ResolveAnimatedImage(a, false), true).Program);
+			Assert.Null(data.GetMaterial(b));
+		}
+
+		[Fact]
+		public void SwirlMetadataDoesNotEnableWarpInVanillaConfiguration()
+		{
+			Configure("doom2");
+			DataManager data = Load(Archive(Image("textures/SWIRL.png")));
+			ImageData image = data.GetTextureImage("SWIRL");
+			Call(data, "SetWarp", image, 2, 1.0);
+			Assert.NotNull(data.GetWarp(image));
+			Assert.Null(data.GetMaterial(image, true));
 		}
 
 		[Fact]

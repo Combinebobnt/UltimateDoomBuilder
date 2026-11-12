@@ -19,7 +19,9 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 			DARK,
 			LEGACY,
 			SOFTWARE,
-			UNDEFINED
+			UNDEFINED,
+			ZDoomSoftware = 8,
+			DoomSoftware = 16
 		}
 
 		#endregion
@@ -40,6 +42,8 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		private Color4 outsidefogcolor;
 		private int fogdensity;
 		private int outsidefogdensity;
+		private bool hasfogdensity;
+		private bool hasoutsidefogdensity;
 
 		private bool evenlighting;
 		private bool smoothlighting;
@@ -71,8 +75,11 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		public Color4 FadeColor { get { return fadecolor; } internal set { fadecolor = value; isdefined = true; } }
 		public bool HasOutsideFogColor { get { return hasoutsidefogcolor; } internal set { hasoutsidefogcolor = value; isdefined = true; } }
 		public Color4 OutsideFogColor { get { return outsidefogcolor; } internal set { outsidefogcolor = value; isdefined = true; } }
-		public int FogDensity { get { return fogdensity; } internal set { fogdensity = value; isdefined = true; } }
-		public int OutsideFogDensity { get { return outsidefogdensity; } internal set { outsidefogdensity = value; isdefined = true; } }
+		public int FogDensity { get { return fogdensity; } internal set { fogdensity = value; hasfogdensity = true; isdefined = true; } }
+		public int OutsideFogDensity { get { return outsidefogdensity; } internal set { outsidefogdensity = value; hasoutsidefogdensity = true; isdefined = true; } }
+		// An explicitly supplied zero still uses the engine's density fallback.
+		public bool HasFogDensity { get { return hasfogdensity; } }
+		public bool HasOutsideFogDensity { get { return hasoutsidefogdensity; } }
 
 		public bool EvenLighting { get { return evenlighting; } internal set { evenlighting = value; isdefined = true; } }
 		public bool SmoothLighting { get { return smoothlighting; } internal set { smoothlighting = value; isdefined = true; } }
@@ -95,8 +102,6 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		{
 			vertwallshade = 16;
 			horizwallshade = -16;
-			fogdensity = 255;
-			outsidefogdensity = 255;
 			lightmode = GZDoomLightMode.UNDEFINED;
             pixelratio = DataManager.DOOM_PIXEL_RATIO;
 		}

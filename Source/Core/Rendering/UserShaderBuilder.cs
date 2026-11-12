@@ -17,6 +17,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		internal string FragmentSource;
 		internal bool Compiled;
 		internal bool Usable;
+		internal bool IsWarp;
 		private float timer;
 
 		internal float GetTimer(UserShaderDialect dialect, float speed, double seconds)
@@ -53,6 +54,25 @@ namespace CodeImp.DoomBuilder.Rendering
 		{
 			using(var stream = typeof(UserShaderBuilder).Assembly.GetManifestResourceStream("CodeImp.DoomBuilder.Resources." + name))
 			using(var reader = new StreamReader(stream)) return reader.ReadToEnd();
+		}
+
+		internal static UserShaderDialect WarpDialect(string engine)
+		{
+			return string.Equals(engine, "zandronum", StringComparison.OrdinalIgnoreCase) ? UserShaderDialect.Zandronum : UserShaderDialect.UZDoom;
+		}
+
+		internal static string WarpKey(int style, UserShaderDialect dialect)
+		{
+			return "builtin:warp" + style + ":" + dialect;
+		}
+
+		internal static UserShaderProgram BuildWarp(int style, UserShaderDialect dialect)
+		{
+			if(style != 1 && style != 2) throw new ArgumentOutOfRangeException("style");
+			string source = Resource("warp" + style + "_" + (dialect == UserShaderDialect.Zandronum ? "zandronum" : "uzdoom") + ".glsl");
+			var program = Build(new GldefsMaterial { Shader = WarpKey(style, dialect) }, dialect, source);
+			program.IsWarp = true;
+			return program;
 		}
 
 		internal static UserShaderProgram Build(GldefsMaterial material, UserShaderDialect dialect, string source)

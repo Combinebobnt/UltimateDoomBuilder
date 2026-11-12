@@ -98,6 +98,7 @@ namespace CodeImp.DoomBuilder.Data
 		private Dictionary<int, DynamicLightData> gldefsentries; //Thing.Type, Light entry
 		private Dictionary<ImageData, GldefsMaterial> materials;
 		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedmaterials = new Dictionary<ImageData, ResolvedMaterial>();
+		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedwarpmaterials = new Dictionary<ImageData, ResolvedMaterial>();
 		private readonly Dictionary<string, ImageData> materialimages = new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, UserShaderProgram> materialprograms = new Dictionary<string, UserShaderProgram>();
 		private readonly Dictionary<ImageData, ImageData> shortmaterialimages = new Dictionary<ImageData, ImageData>();
@@ -2847,6 +2848,10 @@ namespace CodeImp.DoomBuilder.Data
 
 		private void DeclareMaterialPrograms()
 		{
+			UserShaderDialect warpdialect = UserShaderBuilder.WarpDialect(General.Map.Config.MaterialEngineName);
+			if(!string.IsNullOrEmpty(General.Map.Config.DecorateGames) || General.Map.Config.BaseGame == GameType.HEXEN)
+				foreach(int style in warps.Values.Select(warp => warp.Style).Distinct())
+					DeclareMaterialProgram(UserShaderBuilder.WarpKey(style, warpdialect), UserShaderBuilder.BuildWarp(style, warpdialect));
 			UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName);
 			if(dialect == UserShaderDialect.None) return;
 			foreach(GldefsMaterial material in materials.Values)
@@ -2864,10 +2869,15 @@ namespace CodeImp.DoomBuilder.Data
 				string source;
 				using(var reader = new StreamReader(data.Stream)) source = reader.ReadToEnd();
 				UserShaderProgram program = UserShaderBuilder.Build(material, dialect, source);
-				program.Index = (ShaderName)((int)ShaderName.world3d_classic_highlight + 1 + materialprograms.Values.Count(value => value != null));
-				materialprograms[key] = program;
-				General.Map.Graphics.DeclareShader(program.Index, material.Shader, program.VertexSource, program.FragmentSource);
+				DeclareMaterialProgram(key, program);
 			}
+		}
+
+		private void DeclareMaterialProgram(string key, UserShaderProgram program)
+		{
+			program.Index = (ShaderName)((int)ShaderName.world3d_classic_highlight + 1 + materialprograms.Values.Count(value => value != null));
+			materialprograms[key] = program;
+			General.Map.Graphics.DeclareShader(program.Index, program.Path, program.VertexSource, program.FragmentSource);
 		}
 
 		internal void CompileMaterialPrograms()
@@ -2908,28 +2918,40 @@ namespace CodeImp.DoomBuilder.Data
 				if(program != null) General.Map.Graphics.DeclareShader(program.Index, string.Empty, string.Empty, string.Empty);
 			materialprograms.Clear();
 			resolvedmaterials.Clear();
+			resolvedwarpmaterials.Clear();
 			foreach(ImageData image in materialimages.Values) if(image != null) image.Dispose();
 			materialimages.Clear();
 		}
 
-		internal ResolvedMaterial GetMaterial(ImageData image)
+		internal ResolvedMaterial GetMaterial(ImageData image, bool animate = false)
 		{
+			WarpInfo? warp = animate && (!string.IsNullOrEmpty(General.Map.Config.DecorateGames) || General.Map.Config.BaseGame == GameType.HEXEN) ? GetWarp(image) : null;
+			var cache = warp.HasValue ? resolvedwarpmaterials : resolvedmaterials;
 			ResolvedMaterial resolved;
-			if(resolvedmaterials.TryGetValue(image, out resolved)) return resolved;
+			if(cache.TryGetValue(image, out resolved)) return resolved;
 			GldefsMaterial definition;
 			if(!materials.TryGetValue(image, out definition) && GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName))
 			{
 				AddAutoBrightmap(image);
 				materials.TryGetValue(image, out definition);
 			}
-			if(definition != null)
+			if(warp.HasValue)
+			{
+				UserShaderDialect dialect = UserShaderBuilder.WarpDialect(General.Map.Config.MaterialEngineName);
+				UserShaderProgram program;
+				materialprograms.TryGetValue(UserShaderBuilder.WarpKey(warp.Value.Style, dialect), out program);
+				resolved = new ResolvedMaterial { Definition = new GldefsMaterial { Speed = (float)warp.Value.Speed },
+					Brightmap = dialect == UserShaderDialect.Zandronum || definition == null ? null : LoadMaterialImage(definition.Brightmap),
+					Textures = new ImageData[0], Program = program };
+			}
+			else if(definition != null)
 			{
 				UserShaderProgram program = null;
 				if(!string.IsNullOrEmpty(definition.Shader)) materialprograms.TryGetValue(UserShaderBuilder.Key(definition, UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName)), out program);
 				resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap),
 					Textures = definition.Textures.Select(pair => LoadMaterialImage(pair.Value)).ToArray(), Program = program };
 			}
-			resolvedmaterials[image] = resolved;
+			cache[image] = resolved;
 			return resolved;
 		}
 
