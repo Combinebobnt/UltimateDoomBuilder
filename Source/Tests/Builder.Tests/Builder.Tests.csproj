@@ -49,6 +49,10 @@
     <None Update="xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Config tests load Configurations beside the Builder assembly, as they do in Build -->
+    <None Include="..\..\..\Assets\Common\Configurations\**\*" Exclude="..\..\..\Assets\Common\Configurations\**\.*\**" Link="Configurations\%(RecursiveDir)%(Filename)%(Extension)" Visible="false">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder;
 using CodeImp.DoomBuilder.Config;
@@ -33,12 +32,7 @@ namespace Builder.Tests
 			protected override LocalLoadResult LocalLoadImage() { throw new InvalidOperationException("Unexpected decode"); }
 		}
 
-		private static T Empty<T>()
-		{
-			T value = (T)RuntimeHelpers.GetUninitializedObject(typeof(T));
-			GC.SuppressFinalize(value);
-			return value;
-		}
+		private static T Empty<T>() { return Uninitialized.Create<T>(); }
 
 		private static void Set(object value, string name, object field) { value.GetType().GetField(name, Instance).SetValue(value, field); }
 

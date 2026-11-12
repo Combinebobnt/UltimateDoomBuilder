@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Reflection;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder;
@@ -248,12 +247,7 @@ namespace Builder.Tests
 			return bitmap;
 		}
 
-		private static T Empty<T>()
-		{
-			T result = (T)RuntimeHelpers.GetUninitializedObject(typeof(T));
-			GC.SuppressFinalize(result);
-			return result;
-		}
+		private static T Empty<T>() { return Uninitialized.Create<T>(); }
 
 		private sealed class SilentScrollBar : VScrollBar
 		{

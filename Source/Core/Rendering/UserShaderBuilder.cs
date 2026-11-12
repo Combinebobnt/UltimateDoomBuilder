@@ -146,7 +146,8 @@ if(disableAlphaTest < 0.5 && frag.a < 0.5) discard;
 if(fogsettings.x >= 0.0) frag = mix(frag, fogcolor, clamp((-viewpos.z - fogsettings.x) / (fogsettings.y - fogsettings.x), 0.0, 1.0));
 FragColor = frag;
 }");
-			return new UserShaderProgram { Path = material.Shader, VertexSource = vertex, FragmentSource = fragment.ToString() };
+			// AppendLine and CRLF checkouts would otherwise mix line endings on Windows
+			return new UserShaderProgram { Path = material.Shader, VertexSource = vertex.Replace("\r\n", "\n"), FragmentSource = fragment.ToString().Replace("\r\n", "\n") };
 		}
 	}
 }

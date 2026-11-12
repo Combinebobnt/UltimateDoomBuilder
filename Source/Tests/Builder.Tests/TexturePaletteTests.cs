@@ -74,12 +74,7 @@ namespace Builder.Tests
 			typeof(MainForm).GetMethod("MainForm_MouseCaptureChanged", Methods).Invoke(form, new object[] { null, EventArgs.Empty });
 		}
 
-		private static T Empty<T>()
-		{
-			T result = (T)RuntimeHelpers.GetUninitializedObject(typeof(T));
-			GC.SuppressFinalize(result);
-			return result;
-		}
+		private static T Empty<T>() { return Uninitialized.Create<T>(); }
 
 		private static void SetField(object target, string name, object value)
 		{

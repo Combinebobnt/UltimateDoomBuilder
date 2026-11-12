@@ -24,8 +24,8 @@ namespace Builder.Tests
 		[InlineData("ZDoom_DoomUDMF.cfg", "zdoom", 0)]
 		public void UdmfNamespaceDoesNotEraseMaterialDialect(string filename, string engine, int expected)
 		{
-			string root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(CodeImp.DoomBuilder.General).Assembly.Location)!, ".."));
-			var config = new CodeImp.DoomBuilder.IO.Configuration(Path.Combine(root, "Assets", "Common", "Configurations", filename), true);
+			string dir = Path.Combine(Path.GetDirectoryName(typeof(CodeImp.DoomBuilder.General).Assembly.Location)!, "Configurations");
+			var config = new CodeImp.DoomBuilder.IO.Configuration(Path.Combine(dir, filename), true);
 			Assert.False(config.ErrorResult, config.ErrorDescription);
 			Assert.Equal("zdoom", config.ReadSetting("engine", ""));
 			string materialengine = config.ReadSetting("materialengine", config.ReadSetting("engine", ""));

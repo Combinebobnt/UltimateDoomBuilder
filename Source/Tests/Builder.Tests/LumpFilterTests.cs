@@ -202,7 +202,7 @@ namespace Builder.Tests
 			{
 				List<TextResourceData> gldefs = reader.GetGldefsData("doom").ToList();
 				Assert.Equal(new List<string> { "root lights", "doom.id lights" }, gldefs.Select(d => Text(d.Stream)).ToList());
-				Assert.Equal("filter/doom.id/gldefs.txt", gldefs[1].Filename);
+				Assert.Equal(Path.Combine("filter", "doom.id", "gldefs.txt"), gldefs[1].Filename);
 
 				using (MemoryStream data = reader.LoadFile("textures/x.png"))
 					Assert.Equal("png", Encoding.UTF8.GetString(data.ToArray()));

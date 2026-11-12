@@ -111,6 +111,17 @@ namespace CodeImp.DoomBuilder
 				return new FileLockCheckResult { Error = (locked ? "Unable to save the map. Map file is locked by another process." : string.Empty) };
 			}
 
+			// Restart Manager only finds lockers, so a file that can't be written at all is reported here
+			try
+			{
+				using(File.Open(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete)) { }
+			}
+			catch(UnauthorizedAccessException e)
+			{
+				return new FileLockCheckResult { Error = "Unable to save the map: " + e.Message };
+			}
+			catch(IOException) { }
+
 			//mxd. Needs Vista or newer...
 			uint handle;
 			string key = Guid.NewGuid().ToString();
