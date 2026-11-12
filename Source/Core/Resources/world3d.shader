@@ -18,6 +18,7 @@ uniforms
 	sampler2D texture1;
 	sampler2D texture2;
 	sampler2D texture3;
+	float brightmapEnabled;
 
 	// classic lighting related
 	int drawPaletted;
@@ -201,6 +202,13 @@ functions
 
 		return vec4(tcolor.rgb*(baselight.rgb+light)+addlight, tcolor.a*baselight.a);
 	}
+
+	vec4 getMaterialLight(vec4 baselight, vec2 uv)
+	{
+		if(brightmapEnabled > 0.0)
+			baselight.rgb = min(baselight.rgb + desaturate(texture(texture3, uv + vec2(0.0, (uv.x - skew.x) * skew.y))).rgb, vec3(1.0));
+		return baselight;
+	}
 }
 
 shader world3d_main
@@ -245,7 +253,7 @@ shader world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, v2f.Color, v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal);
 		out.FragColor = desaturate(tcolor);
 
 		#if defined(ALPHA_TEST)
@@ -279,7 +287,7 @@ shader world3d_main_highlight extends world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, v2f.Color, v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -384,7 +392,7 @@ shader world3d_main_fog extends world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, v2f.Color, v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -408,7 +416,7 @@ shader world3d_main_highlight_fog extends world3d_main_fog
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = vec4(getDynLightContribution(tcolor, v2f.Color, v2f.PosW, v2f.Normal).rgb, tcolor.a);
+		tcolor = vec4(getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal).rgb, tcolor.a);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;

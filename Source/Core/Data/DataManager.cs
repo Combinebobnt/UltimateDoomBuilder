@@ -92,6 +92,8 @@ namespace CodeImp.DoomBuilder.Data
 		private Dictionary<int, ModelData> modeldefentries; //Thing.Type, Model entry
 		private Dictionary<int, DynamicLightData> gldefsentries; //Thing.Type, Light entry
 		private Dictionary<ImageData, GldefsMaterial> materials;
+		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedmaterials = new Dictionary<ImageData, ResolvedMaterial>();
+		private readonly Dictionary<string, ImageData> materialimages = new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase);
 		private MapInfo mapinfo;
 		private Dictionary<string, KeyValuePair<int, int>> reverbs; //<name, <arg1, arg2> 
 		private Dictionary<long, GlowingFlatData> glowingflats; // Texture name hash, Glowing Flat Data
@@ -722,6 +724,7 @@ namespace CodeImp.DoomBuilder.Data
 			decorate.Dispose();
 			
 			// Dispose resources
+			ClearMaterialImages();
 			foreach(KeyValuePair<long, ImageData> i in textures) i.Value.Dispose();
 			foreach(KeyValuePair<long, ImageData> i in flats) i.Value.Dispose();
 			foreach(KeyValuePair<long, ImageData> i in sprites) i.Value.Dispose();
@@ -2725,8 +2728,9 @@ namespace CodeImp.DoomBuilder.Data
 		}
 
 		//mxd. This parses gldefs. Should be called after all DECORATE actors are parsed
-		private void LoadGldefs(Dictionary<string, int> actorsbyclass) 
+		private void LoadGldefs(Dictionary<string, int> actorsbyclass)
 		{
+			ClearMaterialImages();
 			GldefsParser parser = new GldefsParser { OnInclude = ParseFromLocation, UnresolvedClassSink = enginefold.OnUnresolvedClass };
 			materials.Clear();
 
@@ -2828,6 +2832,52 @@ namespace CodeImp.DoomBuilder.Data
 					return;
 				}
 			}
+		}
+
+		private void ClearMaterialImages()
+		{
+			for(int unit = 2; unit < 10; unit++) General.Map.Graphics.SetTexture(null, unit);
+			resolvedmaterials.Clear();
+			foreach(ImageData image in materialimages.Values) if(image != null) image.Dispose();
+			materialimages.Clear();
+		}
+
+		internal ResolvedMaterial GetMaterial(ImageData image)
+		{
+			ResolvedMaterial resolved;
+			if(resolvedmaterials.TryGetValue(image, out resolved)) return resolved;
+			GldefsMaterial definition;
+			if(!materials.TryGetValue(image, out definition) && GldefsMaterial.IsGZDoom(General.Map.Config.EngineName))
+			{
+				AddAutoBrightmap(image);
+				materials.TryGetValue(image, out definition);
+			}
+			if(definition != null) resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap) };
+			resolvedmaterials[image] = resolved;
+			return resolved;
+		}
+
+		private ImageData LoadMaterialImage(string path)
+		{
+			if(string.IsNullOrEmpty(path)) return null;
+			ImageData image;
+			if(materialimages.TryGetValue(path, out image)) return image;
+			for(int i = containers.Count - 1; i >= 0; i--)
+			{
+				var reader = containers[i] as PK3StructuredReader;
+				string filename = reader == null ? path : reader.FindMaterialFile(path, false);
+				if(filename == null || !containers[i].FileExists(filename)) continue;
+				image = reader == null ? new MaterialLumpImage(containers[i], filename) : reader.CreateMaterialImage(filename);
+				image.AllowUnload = false;
+				image.UsedInMap = true;
+				image.UseColorCorrection = false;
+				materialimages[path] = image;
+				QueueLoadImage(image);
+				return image;
+			}
+			materialimages[path] = null;
+			General.ErrorLogger.Add(ErrorType.Warning, "Material image not found: " + path);
+			return null;
 		}
 
 		private ImageData FindMaterialTarget(GldefsMaterial definition)

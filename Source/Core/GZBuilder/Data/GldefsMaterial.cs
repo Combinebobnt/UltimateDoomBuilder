@@ -1,9 +1,36 @@
 using System;
 using System.Collections.Generic;
+using CodeImp.DoomBuilder.Data;
 
 namespace CodeImp.DoomBuilder.GZBuilder.Data
 {
 	internal enum MaterialTarget { Any, Texture, Flat, Sprite }
+
+	internal sealed class ResolvedMaterial
+	{
+		internal GldefsMaterial Definition;
+		internal ImageData Brightmap;
+	}
+
+	internal sealed class MaterialLumpImage : ImageData
+	{
+		private readonly DataReader reader;
+		private readonly string path;
+		internal MaterialLumpImage(DataReader reader, string path)
+		{
+			this.reader = reader;
+			this.path = path;
+			SetName(path);
+		}
+		protected override LocalLoadResult LocalLoadImage()
+		{
+			using(var stream = reader.LoadFile(path))
+			{
+				var bitmap = stream == null ? null : ImageDataFormat.TryLoadImage(stream, ImageDataFormat.DOOMPICTURE, General.Map.Data.Palette);
+				return new LocalLoadResult(bitmap, bitmap == null ? "Unable to read material image " + path : null, null);
+			}
+		}
+	}
 
 	internal sealed class GldefsMaterial
 	{

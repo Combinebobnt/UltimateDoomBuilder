@@ -2385,6 +2385,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 				buttontogglefog.Checked = General.Settings.GZDrawFog;
 				buttontoggleanimatedtextures.Checked = General.Settings.GZAnimateTextures;
+				buttontogglematerials.Checked = General.Settings.GZDrawMaterials;
 				buttontogglesky.Checked = General.Settings.GZDrawSky;
 				buttontoggleclassicrendering.Checked = General.Settings.ClassicRendering;
 				buttontogglevisualvertices.Visible = General.Map.UDMF;
@@ -3250,6 +3251,7 @@ namespace CodeImp.DoomBuilder.Windows
 			itemtogglefixedthingsscale.Checked = General.Settings.FixedThingsScale; //mxd
 			itemtogglefog.Checked = General.Settings.GZDrawFog;
 			itemtoggleanimatedtextures.Checked = General.Settings.GZAnimateTextures;
+			itemtogglematerials.Checked = General.Settings.GZDrawMaterials;
 			itemtogglesky.Checked = General.Settings.GZDrawSky;
 			itemtoggleclassicrendering.Checked = General.Settings.ClassicRendering;
 			foreach (ToolStripMenuItem item in itemtoggleeventlines.DropDownItems) //Check mark to show which Event Lines mode is currently active
@@ -3294,6 +3296,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			General.Settings.GZDrawFog = General.Settings.EnhancedRenderingEffects;
 			General.Settings.GZAnimateTextures = General.Settings.EnhancedRenderingEffects;
+			General.Settings.GZDrawMaterials = General.Settings.EnhancedRenderingEffects;
 			General.Settings.GZDrawSky = General.Settings.EnhancedRenderingEffects;
 			General.Settings.GZDrawLightsMode = (General.Settings.EnhancedRenderingEffects ? LightRenderMode.ALL : LightRenderMode.NONE);
 			General.Settings.GZDrawModelsMode = (General.Settings.EnhancedRenderingEffects ? ModelRenderMode.ALL : ModelRenderMode.NONE);
@@ -3323,6 +3326,16 @@ namespace CodeImp.DoomBuilder.Windows
 			General.MainWindow.DisplayStatus(StatusType.Action, "Fog rendering is " + (General.Settings.GZDrawFog ? "ENABLED" : "DISABLED"));
 			General.MainWindow.RedrawDisplay();
 			General.MainWindow.UpdateGZDoomPanel();
+		}
+
+		[BeginAction("gztogglematerials")]
+		internal void ToggleMaterials()
+		{
+			General.Settings.GZDrawMaterials = !General.Settings.GZDrawMaterials;
+			UpdateViewMenu();
+			UpdateGZDoomPanel();
+			DisplayStatus(StatusType.Action, "Materials rendering is " + (General.Settings.GZDrawMaterials ? "ENABLED" : "DISABLED"));
+			RedrawDisplay();
 		}
 
 		[BeginAction("gztoggleanimatedtextures")]

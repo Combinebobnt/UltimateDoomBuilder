@@ -7,6 +7,23 @@ namespace Builder.Tests
 {
 	public class GldefsMaterialParserTests
 	{
+		[Theory]
+		[InlineData("", true)]
+		[InlineData("gzdrawmaterials = false;", false)]
+		[InlineData("gzdrawmaterials = true;", true)]
+		public void MaterialSettingLoadsAndDefaultsOn(string setting, bool expected)
+		{
+			string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".cfg");
+			try
+			{
+				File.WriteAllText(path, "currentversion = 1;\n" + setting);
+				var config = new CodeImp.DoomBuilder.Config.ProgramConfiguration();
+				Assert.True(config.Load(path, path, path));
+				Assert.Equal(expected, config.GZDrawMaterials);
+			}
+			finally { File.Delete(path); }
+		}
+
 		private static GldefsParser Parse(string text, out bool result)
 		{
 			var data = new TextResourceData(new MemoryStream(Encoding.UTF8.GetBytes(text)),

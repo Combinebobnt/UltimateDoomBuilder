@@ -809,6 +809,25 @@ namespace CodeImp.DoomBuilder.Rendering
             vb.Dispose();
 		}
 
+		private ResolvedMaterial BindMaterial(ImageData image, bool clamp)
+		{
+			ResolvedMaterial material = General.Settings.GZDrawMaterials && !General.Settings.ClassicRendering && !fullbrightness ? General.Map.Data.GetMaterial(image) : null;
+			ImageData brightmap = material == null ? null : material.Brightmap;
+			bool ready = brightmap != null && brightmap.IsImageLoaded && !brightmap.LoadFailed;
+			graphics.SetTexture(ready ? brightmap.Texture : null, 2);
+			graphics.SetUniform(UniformName.brightmapEnabled, ready);
+			graphics.SetSamplerFilter(General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest,
+				General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest, MipmapFilter.Linear, General.Settings.FilterAnisotropy, 2);
+			graphics.SetSamplerState(clamp ? TextureAddress.Clamp : TextureAddress.Wrap, 2);
+			return material;
+		}
+
+		private void UnbindMaterials()
+		{
+			graphics.SetUniform(UniformName.brightmapEnabled, false);
+			for(int unit = 2; unit < 10; unit++) graphics.SetTexture(null, unit);
+		}
+
 		// This performs a single render pass
 		private void RenderSinglePass(Dictionary<ImageData, List<VisualGeometry>> geopass, Dictionary<ImageData, List<VisualThing>> thingspass, List<VisualThing> lights)
 		{
@@ -852,6 +871,7 @@ namespace CodeImp.DoomBuilder.Rendering
         Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
         graphics.SetTexture(texture);
         graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
+				BindMaterial(bound, false);
 
 				//mxd. Sort geometry by sector index
 				group.Value.Sort((g1, g2) => g1.Sector.Sector.FixedIndex - g2.Sector.Sector.FixedIndex);
@@ -1009,6 +1029,7 @@ namespace CodeImp.DoomBuilder.Rendering
           Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
           graphics.SetTexture(texture);
           graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
+					BindMaterial(curtexture, true);
 
 					// Render all things with this texture
 					foreach(VisualThing t in group.Value)
@@ -1109,6 +1130,7 @@ namespace CodeImp.DoomBuilder.Rendering
                 graphics.SetSamplerState(TextureAddress.Wrap);
 				graphics.SetCullMode(Cull.Clockwise); //mxd
 			}
+			UnbindMaterials();
 		}
 
 		//mxd
@@ -1253,6 +1275,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
 					graphics.SetTexture(texture);
 					graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
+					BindMaterial(bound, false);
 					
 					curtexturename = g.Texture.LongName;
 				}
@@ -1394,6 +1417,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
 						graphics.SetTexture(texture);
 						graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
+						BindMaterial(curtexture, true);
 						
 						curtexturename = t.Texture.LongName;
 					}
@@ -1479,6 +1503,7 @@ namespace CodeImp.DoomBuilder.Rendering
                 graphics.SetSamplerState(TextureAddress.Wrap);
 				graphics.SetCullMode(Cull.Clockwise); //mxd
 			}
+			UnbindMaterials();
 		}
 
 		//mxd
