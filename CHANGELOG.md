@@ -15,17 +15,21 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Parsers:** DECORATE `Goto` and state-end fixes, UTF-8 BOMs, correct line numbers on LF files, TEXTURES numeric `Blend` under Zandronum configs, and SNDINFO/TERRAIN conditional blocks.
 - **Game configurations:** `forceheight`/`forcewidth` thing properties (documented in Help), Zandronum configs targeting Zandronum 3.3, engine archive checks (`requiredarchives`), GZDoom/UZDoom `filter/` folders, and DnD (Death and Decay) configurations built on the Zandronum 3.3 configuration.
 - **Editing:** arg0str survives bulk edits, the Undo panel previews on single click, a discarded redo branch stays restorable, draw tools withdraw a failed draw cleanly, and pasting from another program's clipboard no longer hangs.
+- **Clipboard history:** a bounded, in-memory side panel reuses copied or cut geometry across maps without replacing the system clipboard, with duplicate detection, Paste Special and per-entry actions.
 - **Key bindings:** each action accepts a primary and an alternate shortcut in Preferences > Controls, with conflicts checked across both and both shown in the command palette and shortcut reference.
 - **Tag ranges:** row/column ordering, start corners, row strides, linedef orientation filtering, and linedef/thing argument targets, with a preview summary and one undo step.
 - **Draw Grid:** the post-draw sector dialog edits every split cell, including triangulated grids, without editing an enclosing pre-existing room.
 - **Dialog loading:** cached font names and batched list fills make repeated Preferences and Game Configurations opens faster.
 - **Visual mode placeholders:** the missing, unknown and still-loading texture placeholders are 64x64 grids labelled MISSING, UNKNOWN and LOADING.
+- **Visual mode animation:** ANIMDEFS and ANIMATED texture/flat frames cycle on geometry, including stock default animations, with a persistent View/toolbar toggle.
+- **Visual mode materials:** GLDEFS brightmaps and compatible hardware shaders render on walls, flats and sprites, with dialect-aware shader support, a persistent toggle and plain-texture fallback for failed programs.
 - **Resource loading:** faster PK3 file lookups, a PK3 image that fails to read is marked failed instead of breaking the background loader, and required-archive checks can read embedded WADs before a map is open.
+- **Resource reload:** unchanged WAD and PK3 readers retain their raw indexes while configuration, parser and image state rebuilds; stage timings expose remaining reload costs.
 - **Diagnostics:** set `UDB_GEOMETRY_LOG=1` to log texture browser window geometry and resource-warning resize bounds, `UDB_UI_TIMING=1` for dialog-open phases, or `UDB_DOCKER_TRACE=1` to trace side panel state.
 
 ## Experimental
 
-Still being tested: the crash handler rework, the Mono UI action queue, side panel page fixes, the zenity file chooser, the undo branch, clipboard paste, the DnD configurations, and `forceheight`/`forcewidth`.
+Still being tested: the crash handler rework, the Mono UI action queue, side panel page fixes, the zenity file chooser, the undo branch, clipboard paste/history, incremental reload, visual texture animation/materials, the DnD configurations, and `forceheight`/`forcewidth`.
 
 ## Linux requirements beyond upstream's
 
