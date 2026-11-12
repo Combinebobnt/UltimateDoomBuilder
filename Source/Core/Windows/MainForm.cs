@@ -4285,7 +4285,7 @@ namespace CodeImp.DoomBuilder.Windows
 					form.Deactivate -= ondeactivate;
 					ResumeExclusiveMouseInput();
 					// The window manager may not hand focus back after a borderless popup; don't steal it from another app
-					if(!lostfocus || windowactive)
+					if(!lostfocus)
 					{
 						Activate();
 						FocusDisplay();
