@@ -652,15 +652,17 @@ namespace CodeImp.DoomBuilder.Data
 			// Add texture names to texture sets
 			foreach(KeyValuePair<long, ImageData> img in textures)
 			{
+				string upper = img.Value.ShortName.ToUpperInvariant();
 				foreach(MatchingTextureSet ms in texturesets)
-					ms.AddTexture(img.Value);
+					ms.AddTexture(img.Value, upper);
 			}
 
 			// Add flat names to texture sets
 			foreach(KeyValuePair<long, ImageData> img in flats)
 			{
+				string upper = img.Value.ShortName.ToUpperInvariant();
 				foreach(MatchingTextureSet ms in texturesets)
-					ms.AddFlat(img.Value);
+					ms.AddFlat(img.Value, upper);
 			}
 			timing.Mark("texture set matching");
 

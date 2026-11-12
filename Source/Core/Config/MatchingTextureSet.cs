@@ -41,7 +41,9 @@ namespace CodeImp.DoomBuilder.Config
 		#region ================== Variables
 
 		// Never stored, only used at run-time
-		private Regex regex;
+		private HashSet<string> exactnames;
+		private string[] prefixes;
+		private Regex regex; // Pattern filters or an empty filter list only, else null
 		
 		// Matching textures and flats
 		private List<ImageData> textures;
@@ -87,10 +89,18 @@ namespace CodeImp.DoomBuilder.Config
 		// This sets up the object
 		private void Setup()
 		{
-			// Make the regex string that handles all filters
+			exactnames = new HashSet<string>(StringComparer.Ordinal);
+			List<string> prefixlist = new List<string>();
+
+			// Make the regex string that handles the pattern filters
 			StringBuilder regexstr = new StringBuilder("");
 			foreach(string s in this.filters)
 			{
+				string literal;
+				FilterKind kind = ClassifyFilter(s, out literal);
+				if(kind == FilterKind.Exact) { exactnames.Add(literal); continue; }
+				if(kind == FilterKind.Prefix) { prefixlist.Add(literal); continue; }
+
 				// Make sure filter is in uppercase
 				string ss = s.ToUpperInvariant();
 
@@ -133,12 +143,14 @@ namespace CodeImp.DoomBuilder.Config
 				regexstr.Append(")");
 			}
 
-			// No filters added? Then make a never-matching regex
+			prefixes = prefixlist.ToArray();
+
+			// No filters added? Then make a never-matching regex (it still matches an empty name)
 			if(this.filters.Count == 0) regexstr.Append("\\Z\\A");
-			
-			// Make the regex
-			regex = new Regex(regexstr.ToString(), RegexOptions.Compiled |
-												   RegexOptions.CultureInvariant);
+
+			// Make the regex, when any filter needs one
+			regex = (regexstr.Length > 0) ? new Regex(regexstr.ToString(), RegexOptions.Compiled |
+																		  RegexOptions.CultureInvariant) : null;
 
 			// Initialize collections
 			textures = new List<ImageData>();
@@ -149,8 +161,12 @@ namespace CodeImp.DoomBuilder.Config
 		// the list if it matches. Returns true when matched and added.
 		internal bool AddTexture(ImageData image)
 		{
-			// Check against regex
-			if(regex.IsMatch(image.ShortName.ToUpperInvariant()))
+			return AddTexture(image, image.ShortName.ToUpperInvariant());
+		}
+
+		internal bool AddTexture(ImageData image, string upper)
+		{
+			if(Matches(upper))
 			{
 				// Matches! Add it.
 				textures.Add(image);
@@ -167,8 +183,12 @@ namespace CodeImp.DoomBuilder.Config
 		// the list if it matches. Returns true when matched and added.
 		internal bool AddFlat(ImageData image)
 		{
-			// Check against regex
-			if(regex.IsMatch(image.ShortName.ToUpperInvariant()))
+			return AddFlat(image, image.ShortName.ToUpperInvariant());
+		}
+
+		internal bool AddFlat(ImageData image, string upper)
+		{
+			if(Matches(upper))
 			{
 				// Matches! Add it.
 				flats.Add(image);
@@ -184,13 +204,23 @@ namespace CodeImp.DoomBuilder.Config
 		// This only checks if the given image is a match
 		internal bool IsMatch(ImageData image)
 		{
-			return regex.IsMatch(image.ShortName.ToUpperInvariant());
+			return Matches(image.ShortName.ToUpperInvariant());
 		}
 
 		// This only checks if the given texture name is a match (mxd)
 		public bool IsMatch(string texturename) 
 		{
-			return regex.IsMatch(texturename.ToUpperInvariant());
+			return Matches(texturename.ToUpperInvariant());
+		}
+
+		private bool Matches(string upper)
+		{
+			if(exactnames.Contains(upper)) return true;
+			foreach(string p in prefixes)
+			{
+				if(upper.StartsWith(p, StringComparison.Ordinal)) return true;
+			}
+			return (regex != null) && regex.IsMatch(upper);
 		}
 
 		// This compares it for sorting
