@@ -131,6 +131,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Optimize>true</Optimize>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(UdbVersionLabel)' != ''">
+    <DefineConstants>$(DefineConstants);NO_UPDATER</DefineConstants>
+  </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
@@ -1745,6 +1748,7 @@
       <VersionLines Include="using CodeImp.DoomBuilder%3b" />
       <VersionLines Include="[assembly: AssemblyVersion(&quot;$(FullVersion)&quot;)]" />
       <VersionLines Include="[assembly: AssemblyFileVersion(&quot;$(FullVersion)&quot;)]" />
+      <VersionLines Include="[assembly: AssemblyInformationalVersion(&quot;$(UdbVersionLabel)&quot;)]" Condition="'$(UdbVersionLabel)' != ''" />
       <VersionLines Include="[assembly: AssemblyHash(&quot;$(GitCommitHash)&quot;)]" />
     </ItemGroup>
 

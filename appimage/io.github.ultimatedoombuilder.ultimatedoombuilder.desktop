@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ultimate Doom Builder (fork)
+Comment=Comprehensive map editor for Doom, Heretic, Hexen and Strife based games
+Exec=ultimatedoombuilder
+Icon=io.github.ultimatedoombuilder.ultimatedoombuilder
+Terminal=false
+Categories=Development;

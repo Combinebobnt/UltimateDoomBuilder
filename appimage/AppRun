@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+APPDIR=${APPDIR:-$(dirname "$(readlink -f "$0")")}
+export APPDIR
+export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/lib/ultimatedoombuilder"
+export MONO_CONFIG="$APPDIR/usr/etc/mono/config"
+export MONO_CFG_DIR="$APPDIR/usr/etc"
+unset MONO_PATH MONO_GAC_PREFIX MONO_ENV_OPTIONS
+
+cd "$APPDIR/usr/lib/ultimatedoombuilder"
+exec "$APPDIR/usr/bin/mono" Builder.exe "$@"

@@ -5,6 +5,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 ## Differences from upstream
 
 - **Linux build and launch:** `make linux` builds the editor and its native library, and `builder.sh` runs it from the checkout or from `Build/`.
+- **Fork builds:** pushes check Windows x64/x86 builds and x64 tests; the manual Fork Build workflow publishes portable Windows zips and a Mono-bundling Linux AppImage as `R<upstream>-fork.<commits>`. Release builds show that label and disable upstream updates.
 - **Linux node builder:** the bundled zdbsp is rebuilt from the ZDBSP 1.19 source release (Release build, zlib linked statically), so it runs on glibc 2.34 instead of 2.38.
 - **Crash handling:** crash dialogs that work on Mono, a map backup before the dialog, worker and timer exceptions reported instead of killing the editor, and the previous log kept as `UDBuilder.log.1`.
 - **Responsiveness on Mono:** no more UI deadlocks from blocking invokes, Map Analysis no longer freezes on large result counts, and models load on the UI thread.
@@ -25,7 +26,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Visual mode materials:** GLDEFS brightmaps and compatible hardware shaders render on walls, flats and sprites, with dialect-aware shader support, a persistent toggle and plain-texture fallback for failed programs.
 - **Resource loading:** faster PK3 file lookups, a PK3 image that fails to read is marked failed instead of breaking the background loader, and required-archive checks can read embedded WADs before a map is open.
 - **Resource reload:** unchanged WAD and PK3 readers retain their raw indexes while configuration, parser and image state rebuilds; stage timings expose remaining reload costs.
-- **Diagnostics:** set `UDB_GEOMETRY_LOG=1` to log texture browser window geometry and resource-warning resize bounds, `UDB_UI_TIMING=1` for dialog-open phases, or `UDB_DOCKER_TRACE=1` to trace side panel state.
+- **Diagnostics:** set `UDB_GEOMETRY_LOG=1` to log texture browser window geometry and resource-warning resize bounds, `UDB_UI_TIMING=1` for dialog-open phases, `UDB_DOCKER_TRACE=1` to trace side panel state, or `UDB_INTERACTION_LOG=1` for interaction timings and marks.
 
 ## Experimental
 

@@ -1717,6 +1717,7 @@
       <VersionLines Include="using CodeImp.DoomBuilder%3b" />
       <VersionLines Include="[assembly: AssemblyVersion(&quot;$(FullVersion)&quot;)]" />
       <VersionLines Include="[assembly: AssemblyFileVersion(&quot;$(FullVersion)&quot;)]" />
+      <VersionLines Include="[assembly: AssemblyInformationalVersion(&quot;$(UdbVersionLabel)&quot;)]" Condition="'$(UdbVersionLabel)' != ''" />
       <VersionLines Include="[assembly: AssemblyHash(&quot;$(GitCommitHash)&quot;)]" />
     </ItemGroup>
 

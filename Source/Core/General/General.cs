@@ -262,6 +262,16 @@ namespace CodeImp.DoomBuilder
 		#region ================== Properties
 
 		public static Assembly ThisAssembly { get { return thisasm; } }
+		public static string VersionLabel
+		{
+			get
+			{
+				Assembly assembly = typeof(General).Assembly;
+				AssemblyInformationalVersionAttribute version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+				return version != null && !string.IsNullOrEmpty(version.InformationalVersion)
+					? version.InformationalVersion : "R" + assembly.GetName().Version.Revision;
+			}
+		}
 		public static string AppPath { get { return apppath; } }
 		public static string TempPath { get { return temppath; } }
 		public static string ConfigsPath { get { return configspath; } }
@@ -675,7 +685,8 @@ namespace CodeImp.DoomBuilder
 			pluginspath = Path.Combine(apppath, PLUGINS_DIR);
 			scriptspath = Path.Combine(apppath, SCRIPTS_DIR);
 			snippetspath = Path.Combine(apppath, SNIPPETS_DIR); //mxd
-			screenshotspath = Path.Combine(apppath, SCREENSHOTS_DIR).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar); //mxd
+			screenshotspath = Path.Combine(string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPDIR")) ? apppath : settingspath,
+				SCREENSHOTS_DIR).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			spritespath = Path.Combine(apppath, SPRITES_DIR);
 			texturespath = Path.Combine(apppath, TEXTURES_DIR); //mxd
 			logfile = Path.Combine(settingspath, LOG_FILE);
@@ -698,7 +709,7 @@ namespace CodeImp.DoomBuilder
 			// Keep the previous log as .1 and start logging
 			RotateLogFile(logfile);
             string platform = Environment.Is64BitProcess ? "x64" : "x86";
-			General.WriteLogLine("Ultimate Doom Builder R" + thisasm.GetName().Version.Revision + " (" + platform + ", " + commithash + ") startup"); //mxd
+			General.WriteLogLine("Ultimate Doom Builder " + VersionLabel + " (" + platform + ", " + commithash + ") startup"); //mxd
 			General.WriteLogLine("Application path:        \"" + apppath + "\"");
 			General.WriteLogLine("Temporary path:          \"" + temppath + "\"");
 			General.WriteLogLine("Local settings path:     \"" + settingspath + "\"");

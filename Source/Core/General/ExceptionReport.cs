@@ -25,7 +25,7 @@ namespace CodeImp.DoomBuilder
 			catch(Exception) { result += "OS: " + Environment.OSVersion + Environment.NewLine; }
 
             // Get GZDB version
-            result += "UDB: R" + typeof(ExceptionReport).Assembly.GetName().Version.Revision + Environment.NewLine;
+            result += "UDB: " + General.VersionLabel + Environment.NewLine;
             result += "Platform: " + (Environment.Is64BitProcess ? "x64" : "x86") + Environment.NewLine + Environment.NewLine;
 
 			return result;

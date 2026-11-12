@@ -91,7 +91,7 @@ namespace CodeImp.DoomBuilder
 				Rectangle screen = Screen.PrimaryScreen != null ? Screen.PrimaryScreen.Bounds : Rectangle.Empty;
 				Write("session", "fmt", FORMAT.ToString(CultureInfo.InvariantCulture),
 					"wall", DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz", CultureInfo.InvariantCulture),
-					"udb", "R" + General.ThisAssembly.GetName().Version.Revision + " " + General.CommitHash,
+					"udb", General.VersionLabel + " " + General.CommitHash,
 					"mono", MonoVersion(), "screen", screen.Width + "x" + screen.Height,
 					"pid", Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture));
 			}

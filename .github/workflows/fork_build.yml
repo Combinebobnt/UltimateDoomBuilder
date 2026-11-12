@@ -1,0 +1,272 @@
+name: Fork Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'workflow_dispatch' && 'fork-release' || format('fork-check-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  version:
+    if: github.repository != 'jewalky/UltimateDoomBuilder' && github.repository != 'UltimateDoomBuilder/UltimateDoomBuilder' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.version.outputs.label }}
+      upstream: ${{ steps.version.outputs.upstream }}
+      notes: ${{ steps.version.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Determine fork version and release notes
+        id: version
+        shell: bash
+        run: |
+          git fetch --no-tags https://github.com/jewalky/UltimateDoomBuilder.git master:refs/remotes/upstream/master
+          base=$(git merge-base HEAD upstream/master)
+          upstream=$(git rev-list --count "$base")
+          fork=$(git rev-list --count upstream/master..HEAD)
+          label="R${upstream}-fork.${fork}"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+          previous=$(git describe --tags --match 'R*-fork.*' --abbrev=0 HEAD 2>/dev/null || true)
+          range=HEAD
+          if [ -n "$previous" ]; then range="$previous..HEAD"; fi
+          delimiter="notes-$(openssl rand -hex 16)"
+          {
+            echo "notes<<$delimiter"
+            git log --no-merges --format='- %s' "$range" ^upstream/master
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Windows ${{ matrix.platform }}
+    needs: version
+    if: ${{ !cancelled() && github.repository != 'jewalky/UltimateDoomBuilder' && github.repository != 'UltimateDoomBuilder/UltimateDoomBuilder' && (needs.version.result == 'success' || needs.version.result == 'skipped') }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, x86]
+    env:
+      VERSION_LABEL: ${{ needs.version.outputs.label }}
+      BUILD_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Build editor and plugins
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          if (-not $msbuild) { throw 'MSBuild not found' }
+          "MSBUILD=$msbuild" >> $env:GITHUB_ENV
+          & $msbuild BuilderRelease.slnf '-property:Configuration=Release' "-property:Platform=$env:BUILD_PLATFORM" "-property:UdbVersionLabel=$env:VERSION_LABEL" -maxcpucount -verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Package portable zip before test builds
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
+            choco install 7zip -y
+            if ($LASTEXITCODE -ne 0) { throw 'Installing 7-Zip failed' }
+            $env:Path += ";$env:ProgramFiles\7-Zip"
+          }
+          New-Item -ItemType Directory -Force Release | Out-Null
+          $zip = "Release\UltimateDoomBuilder-$env:VERSION_LABEL-$env:BUILD_PLATFORM.zip"
+          & 7z a -tzip $zip .\Build\* '-xr!*.xml' '-x!.gitignore' '-x!Updater.exe' '-x!Updater.ini'
+          if ($LASTEXITCODE -ne 0) { throw 'Zipping files failed' }
+          $listing = & 7z l -slt $zip
+          if ($LASTEXITCODE -ne 0) { throw 'Reading zip failed' }
+          foreach ($required in @('Builder.exe', 'BuilderNative.dll', 'Plugins\BuilderModes.dll')) {
+            if ($listing -notcontains "Path = $required") { throw "Zip is missing $required" }
+          }
+          foreach ($excluded in @('Updater.exe', 'Updater.ini')) {
+            if ($listing -contains "Path = $excluded") { throw "Zip contains $excluded" }
+          }
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: windows-${{ matrix.platform }}
+          path: Release/UltimateDoomBuilder-${{ env.VERSION_LABEL }}-${{ matrix.platform }}.zip
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/setup-dotnet@v6
+        if: matrix.platform == 'x64'
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build and run x64 tests
+        if: matrix.platform == 'x64'
+        # Advisory until the first all-green Windows test run.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $project = 'Source\Tests\Builder.Tests\Builder.Tests.csproj'
+          & $env:MSBUILD $project -restore '-property:Configuration=Release' '-property:Platform=x64' '-property:BuildProjectReferences=false' -verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Test build failed' }
+          dotnet test $project --no-build -c Release -p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+
+  linux:
+    needs: version
+    if: github.repository != 'jewalky/UltimateDoomBuilder' && github.repository != 'UltimateDoomBuilder/UltimateDoomBuilder' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    env:
+      UdbVersionLabel: ${{ needs.version.outputs.label }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install Mono and native build dependencies
+        shell: bash
+        run: |
+          curl -fsSL https://download.mono-project.com/repo/xamarin.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/mono-official.gpg > /dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/mono-official.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main' | sudo tee /etc/apt/sources.list.d/mono-official-stable.list
+          sudo apt-get update
+          sudo apt-get install -y mono-devel msbuild libgdiplus g++ libx11-dev libxfixes-dev
+      - name: Build Linux editor and AppImage
+        shell: bash
+        run: |
+          make linux
+          appimage/build-appimage.sh "$UdbVersionLabel"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-appimage
+          path: Release/UltimateDoomBuilder-${{ needs.version.outputs.label }}-x86_64.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+  appimage-smoke:
+    needs: [version, linux]
+    if: github.repository != 'jewalky/UltimateDoomBuilder' && github.repository != 'UltimateDoomBuilder/UltimateDoomBuilder' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION_LABEL: ${{ needs.version.outputs.label }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-appimage
+          path: artifacts
+      - name: Install desktop smoke dependencies and require a Mono-free host
+        shell: bash
+        run: |
+          if command -v mono || [ -d /usr/lib/mono ]; then
+            echo '::error::This smoke check requires a runner without Mono.'
+            exit 1
+          fi
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libgl1-mesa-dri
+      - name: Launch bundled runtime and watch for startup failures
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import signal
+          import subprocess
+          import tempfile
+          import time
+
+          label = os.environ['VERSION_LABEL']
+          image = Path('artifacts', f'UltimateDoomBuilder-{label}-x86_64.AppImage').resolve()
+          image.chmod(0o755)
+          with tempfile.TemporaryDirectory(prefix='udb-smoke-') as home:
+              env = dict(os.environ, HOME=home, XDG_DATA_HOME=f'{home}/.local/share',
+                         XDG_CONFIG_HOME=f'{home}/.config', APPIMAGE_EXTRACT_AND_RUN='1')
+              log = Path(home, '.local/share/Doom Builder/UDBuilder.log')
+              crash = log.with_name('UDBCrash.txt')
+              process = subprocess.Popen(['xvfb-run', '-a', str(image)], env=env, start_new_session=True)
+              try:
+                  deadline = time.monotonic() + 60
+                  while True:
+                      text = log.read_text(errors='replace') if log.exists() else ''
+                      if process.poll() is not None:
+                          raise RuntimeError(f'AppImage exited during startup: {process.returncode}')
+                      if crash.exists() or 'Exception' in text:
+                          raise RuntimeError('AppImage reported a startup exception')
+                      if f'Ultimate Doom Builder {label} (' in text and 'Startup done' in text:
+                          break
+                      if time.monotonic() >= deadline:
+                          raise RuntimeError('Timed out waiting for labelled startup log')
+                      time.sleep(1)
+                  time.sleep(15)
+                  text = log.read_text(errors='replace')
+                  if process.poll() is not None or crash.exists() or 'Exception' in text:
+                      raise RuntimeError('AppImage failed after startup')
+                  print('AppImage stayed alive with its bundled Mono runtime.')
+              finally:
+                  if process.poll() is None:
+                      os.killpg(process.pid, signal.SIGTERM)
+                      try:
+                          process.wait(timeout=10)
+                      except subprocess.TimeoutExpired:
+                          os.killpg(process.pid, signal.SIGKILL)
+                          process.wait()
+                  print(log.read_text(errors='replace') if log.exists() else 'No editor log was written.')
+
+  release:
+    needs: [version, windows, linux, appimage-smoke]
+    if: github.repository != 'jewalky/UltimateDoomBuilder' && github.repository != 'UltimateDoomBuilder/UltimateDoomBuilder' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION_LABEL: ${{ needs.version.outputs.label }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Check release assets and avoid replacing an existing release
+        id: existing
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          label = os.environ['VERSION_LABEL']
+          repo = os.environ['GH_REPO']
+          expected = {f'UltimateDoomBuilder-{label}-{platform}.zip' for platform in ('x64', 'x86')}
+          expected.add(f'UltimateDoomBuilder-{label}-x86_64.AppImage')
+          if {path.name for path in Path('artifacts').iterdir() if path.is_file()} != expected:
+              raise RuntimeError('Expected exactly two Windows zips and one Linux AppImage')
+          pages = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases', '--paginate', '--slurp']))
+          release = next((release for page in pages for release in page if release['tag_name'] == label), None)
+          if release:
+              if release['draft'] or not expected.issubset({asset['name'] for asset in release['assets']}):
+                  raise RuntimeError(f'Incomplete release {label}; delete that release and its tag before retrying.')
+              print(f'::notice::Release {label} already has all three assets; nothing to publish.')
+          else:
+              refs = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/git/matching-refs/tags/{label}']))
+              if any(ref['ref'] == f'refs/tags/{label}' for ref in refs):
+                  raise RuntimeError(f'Tag {label} already exists without a release; resolve it before retrying.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'skip={str(release is not None).lower()}\n')
+      - name: Publish fork release
+        if: steps.existing.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.version.outputs.label }}
+          target_commitish: ${{ github.sha }}
+          name: Ultimate Doom Builder ${{ needs.version.outputs.label }}
+          body: |
+            Based on upstream R${{ needs.version.outputs.upstream }}.
+
+            Changes since the previous fork release:
+            ${{ needs.version.outputs.notes }}
+
+            The Linux AppImage bundles Mono and libgdiplus. Windows zips need .NET Framework 4.7.2 (included in Windows 10 and 11).
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          prerelease: false
+          make_latest: true

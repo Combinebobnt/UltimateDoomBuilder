@@ -36,7 +36,8 @@ namespace CodeImp.DoomBuilder.Windows
 #if DEBUG
 			version.Text = Application.ProductName + " [DEVBUILD]";
 #else
-			version.Text = Application.ProductName + " v" + Application.ProductVersion + " (" + General.CommitHash + ")";
+			string productversion = Application.ProductVersion;
+			version.Text = Application.ProductName + (productversion.StartsWith("R", StringComparison.Ordinal) ? " " : " v") + productversion + " (" + General.CommitHash + ")";
 #endif
 		}
 
