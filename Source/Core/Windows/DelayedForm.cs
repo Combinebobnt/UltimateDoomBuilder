@@ -38,6 +38,7 @@ namespace CodeImp.DoomBuilder.Windows
 		protected readonly string configname; //mxd
 		internal UITiming.Timing UITimingState;
 		private EventHandler uitimingidle;
+		private InteractionLog.DialogState ilogstate;
 
 		//mxd. Stored window size and location. Tracks location and size of FormWindowState.Normal window
 		private Size windowsize = Size.Empty;
@@ -148,6 +149,7 @@ namespace CodeImp.DoomBuilder.Windows
 		protected DelayedForm()
 		{
 			if(UITiming.Enabled) UITiming.Begin(this);
+			if(InteractionLog.Enabled && !(this is MainForm)) ilogstate = InteractionLog.DialogCreated(this);
 
 			//mxd. And now, let's hope this doesn't horribly break anything...
 			if(!(this is MainForm))
@@ -254,6 +256,7 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			if(UITiming.Enabled) UITiming.Mark(this, "shown");
 			base.OnShown(e);
+			if(ilogstate != null) InteractionLog.DialogShown(ilogstate, this, false);
 			if(UITiming.Enabled && UITimingState != null && !UITimingState.Complete)
 			{
 				try
@@ -303,8 +306,23 @@ namespace CodeImp.DoomBuilder.Windows
 				StopUITimingIdle();
 				if(UITimingState != null) UITiming.Mark(this, "closed-before-usable");
 			}
+			if(ilogstate != null)
+			{
+				// Forms that hide instead of closing log each hide and re-show
+				if(Visible) InteractionLog.DialogShown(ilogstate, this, true);
+				else InteractionLog.DialogHidden(ilogstate, this);
+			}
 			base.OnVisibleChanged(e);
 		}
+
+		protected override void OnFormClosed(FormClosedEventArgs e)
+		{
+			if(ilogstate != null) InteractionLog.DialogHidden(ilogstate, this);
+			base.OnFormClosed(e);
+		}
+
+		// Extra key=value pairs for this form's interaction log dialog-close line
+		internal virtual string InteractionLogExtra { get { return null; } }
 
 		protected override void Dispose(bool disposing)
 		{

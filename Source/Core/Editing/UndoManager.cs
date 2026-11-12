@@ -716,11 +716,14 @@ namespace CodeImp.DoomBuilder.Editing
 				General.Plugins.OnUndoCreated();
 				General.MainWindow.UpdateInterface();
 
+				if(InteractionLog.Enabled) InteractionLog.UndoCreated(description, false);
+
 				// Done
 				return ticketid;
 			}
 			else
 			{
+				if(InteractionLog.Enabled) InteractionLog.UndoCreated(description, true);
 				return -1;
 			}
 		}
@@ -731,7 +734,9 @@ namespace CodeImp.DoomBuilder.Editing
 			// Previously, withdrawing an undo level was possible, because each undo level contained
 			// an entire snapshot of the map. With the new progressive undo system, you cannot ignore
 			// any changes, so we have to actually perform the undo and trash the redo it creates.
-			PerformUndo(1, false);
+			if(InteractionLog.Enabled) InteractionLog.BeginWithdraw();
+			try { PerformUndo(1, false); }
+			finally { InteractionLog.EndWithdraw(); }
 
 			// The withdrawn level's redo is not user work, so it is disposed rather than stashed
 			ClearRedos();
@@ -773,6 +778,7 @@ namespace CodeImp.DoomBuilder.Editing
 			Cursor oldcursor = Cursor.Current;
 			Cursor.Current = Cursors.WaitCursor;
 			int levelsundone = 0;
+			double ilogstart = InteractionLog.Enabled ? InteractionLog.Now : 0;
 			
 			// Anything to undo?
 			if((undos.Count > 0) || ((snapshot != null) && !isundosnapshot))
@@ -906,6 +912,7 @@ namespace CodeImp.DoomBuilder.Editing
 				}
 			}
 			
+			if(InteractionLog.Enabled) InteractionLog.UndoPerformed(false, levels, levelsundone, !showmessage, ilogstart);
 			Cursor.Current = oldcursor;
 		}
 		
@@ -923,6 +930,7 @@ namespace CodeImp.DoomBuilder.Editing
 			Cursor oldcursor = Cursor.Current;
 			Cursor.Current = Cursors.WaitCursor;
 			int levelsundone = 0;
+			double ilogstart = InteractionLog.Enabled ? InteractionLog.Now : 0;
 			
 			// Anything to redo?
 			if((redos.Count > 0) || ((snapshot != null) && isundosnapshot))
@@ -1053,6 +1061,7 @@ namespace CodeImp.DoomBuilder.Editing
 				}
 			}
 
+			if(InteractionLog.Enabled) InteractionLog.UndoPerformed(true, levels, levelsundone, !showmessage, ilogstart);
 			Cursor.Current = oldcursor;
 		}
 

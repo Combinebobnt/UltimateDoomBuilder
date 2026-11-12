@@ -315,6 +315,7 @@ namespace CodeImp.DoomBuilder.Editing
 		public bool ChangeMode(EditMode nextmode)
 		{
 			EditMode oldmode = mode;
+			double ilogstart = InteractionLog.Enabled ? InteractionLog.TakeModeStart() : 0;
 			
 			if(nextmode != null)
 			{
@@ -333,6 +334,7 @@ namespace CodeImp.DoomBuilder.Editing
 				{
 					General.Interface.MessageBeep(MessageBeepType.Error);
 					General.WriteLogLine("Attempt to switch to an invalid edit mode " + nextmode.GetType().Name + "!");
+					if(InteractionLog.Enabled) InteractionLog.ModeChanged(oldmode, nextmode, ilogstart, false);
 					return false;
 				}
 				else
@@ -409,12 +411,14 @@ namespace CodeImp.DoomBuilder.Editing
 				
 				// Redraw the display
 				General.MainWindow.RedrawDisplay();
+				if(InteractionLog.Enabled) InteractionLog.ModeChanged(oldmode, nextmode, ilogstart, true);
 				return true;
 			}
 			else
 			{
 				// Cancelled
 				General.WriteLogLine("Editing mode change cancelled.");
+				if(InteractionLog.Enabled) InteractionLog.ModeChanged(oldmode, nextmode, ilogstart, false);
 				return false;
 			}
 		}

@@ -312,7 +312,9 @@ namespace CodeImp.DoomBuilder.Controls
 			if (recentactions.Count > MAX_RECENT_ACTIONS)
 				recentactions.RemoveRange(4, recentactions.Count - MAX_RECENT_ACTIONS);
 
-			General.Actions.InvokeAction(action.Name);
+			string ilogprevious = InteractionLog.BeginAmbient("palette");
+			try { General.Actions.InvokeAction(action.Name); }
+			finally { InteractionLog.EndAmbient(ilogprevious); }
 		}
 
 		/// <summary>

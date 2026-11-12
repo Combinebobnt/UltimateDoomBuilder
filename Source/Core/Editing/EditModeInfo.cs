@@ -158,6 +158,7 @@ namespace CodeImp.DoomBuilder.Editing
 					}
 					
 					// Create instance
+					if(InteractionLog.Enabled) InteractionLog.ModeConstructing();
 					EditMode newmode = plugin.CreateObject<EditMode>(type);
 
 					//mxd. Switch mode?
@@ -184,6 +185,7 @@ namespace CodeImp.DoomBuilder.Editing
 			if(General.Map != null)
 			{
 				// Create instance
+				if(InteractionLog.Enabled) InteractionLog.ModeConstructing();
 				EditMode newmode = plugin.CreateObject<EditMode>(type);
 
 				//mxd. Switch mode?
@@ -198,6 +200,7 @@ namespace CodeImp.DoomBuilder.Editing
 			if(General.Map != null)
 			{
 				// Create instance
+				if(InteractionLog.Enabled) InteractionLog.ModeConstructing();
 				EditMode newmode = plugin.CreateObjectA<EditMode>(type, args);
 
 				// Switch mode

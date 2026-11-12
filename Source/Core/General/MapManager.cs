@@ -255,7 +255,13 @@ namespace CodeImp.DoomBuilder
 		#region ================== New / Open
 
 		// Initializes for a new map
-		internal bool InitializeNewMap(MapOptions options) 
+		internal bool InitializeNewMap(MapOptions options)
+		{
+			if(!InteractionLog.Enabled) return InitializeNewMapCore(options);
+			return InteractionLog.TimeMap("mapnew", "new", this, null, () => InitializeNewMapCore(options));
+		}
+
+		private bool InitializeNewMapCore(MapOptions options) 
 		{
 #if DEBUG
 			DebugConsole.Clear();
@@ -363,7 +369,13 @@ namespace CodeImp.DoomBuilder
 		}
 
 		// Initializes for an existing map
-		internal bool InitializeOpenMap(string filepathname, MapOptions options) 
+		internal bool InitializeOpenMap(string filepathname, MapOptions options)
+		{
+			if(!InteractionLog.Enabled) return InitializeOpenMapCore(filepathname, options);
+			return InteractionLog.TimeMap("mapload", "load", this, null, () => InitializeOpenMapCore(filepathname, options));
+		}
+
+		private bool InitializeOpenMapCore(string filepathname, MapOptions options) 
 		{
 			WAD mapwad;
 
@@ -498,6 +510,12 @@ namespace CodeImp.DoomBuilder
 
 		//mxd. This switches to another map in the same wad 
 		internal bool InitializeSwitchMap(MapOptions options)
+		{
+			if(!InteractionLog.Enabled) return InitializeSwitchMapCore(options);
+			return InteractionLog.TimeMap("mapswitch", "switch", this, null, () => InitializeSwitchMapCore(options));
+		}
+
+		private bool InitializeSwitchMapCore(MapOptions options)
 		{
 #if DEBUG
 			DebugConsole.Clear();
@@ -807,6 +825,12 @@ namespace CodeImp.DoomBuilder
 
 		// IsSaving holds the crash handler's kill off while the target file is being rewritten
 		internal bool SaveMap(string newfilepathname, SavePurpose purpose)
+		{
+			if(!InteractionLog.Enabled) return SaveMapCore(newfilepathname, purpose);
+			return InteractionLog.TimeMap("mapsave", null, this, purpose.ToString(), () => SaveMapCore(newfilepathname, purpose));
+		}
+
+		private bool SaveMapCore(string newfilepathname, SavePurpose purpose)
 		{
 			issaving = true;
 			try { return SaveMapBody(newfilepathname, purpose); }
@@ -2507,6 +2531,7 @@ namespace CodeImp.DoomBuilder
 			}
 
 			// Show status
+			if(InteractionLog.Enabled) InteractionLog.ResourcesStarting("reload");
 			General.MainWindow.DisplayStatus(StatusType.Busy, "Reloading data resources...");
 			Cursor.Current = Cursors.WaitCursor;
 			timing.Mark("pre-command");

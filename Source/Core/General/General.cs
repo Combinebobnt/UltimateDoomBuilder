@@ -623,6 +623,8 @@ namespace CodeImp.DoomBuilder
 		[STAThread]
 		internal static void Main(string[] args)
 		{
+			InteractionLog.MarkMainEntry();
+
 			// Determine states
 			#if DEBUG
 				debugbuild = true;
@@ -712,6 +714,7 @@ namespace CodeImp.DoomBuilder
 			if(settings.Load(usersettingsfile, defaultsettingsfile, legacysettingsfile))
 			{
 				clipboardhistory = new ClipboardHistory(settings.ClipboardHistorySize);
+				InteractionLog.Start(settings.ReadSetting(InteractionLog.SETTING, false));
 
 				// Create error logger
 				errorlogger = new ErrorLogger();
@@ -844,6 +847,12 @@ namespace CodeImp.DoomBuilder
 #if !NO_UPDATER
 				if(General.Settings.CheckForUpdates) UpdateChecker.PerformCheck(false);
 #endif
+
+				if(InteractionLog.Enabled)
+				{
+					InteractionLog.Write("startup", "ms", InteractionLog.Ms(InteractionLog.Now));
+					InteractionLog.StartHeartbeat();
+				}
 
 				// Run application from the main window
 				Application.Run(mainwindow);
@@ -1115,12 +1124,14 @@ namespace CodeImp.DoomBuilder
 
 				// Application ends here and now
 				General.WriteLogLine("Termination done");
+				InteractionLog.Stop();
 				Application.Exit();
 			}
 			else
 			{
 				// Just end now
 				General.WriteLogLine("Immediate program termination");
+				InteractionLog.Stop();
 				Application.Exit();
 			}
 
@@ -1133,6 +1144,9 @@ namespace CodeImp.DoomBuilder
 #region ================== Management
 		
 		// This creates a new map
+		[BeginAction("interactionlogmark")]
+		internal static void InteractionLogMark() { InteractionLog.Mark(); }
+
 		[BeginAction("newmap")]
 		internal static void NewMap()
 		{

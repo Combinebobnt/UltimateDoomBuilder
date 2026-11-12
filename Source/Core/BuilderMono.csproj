@@ -1058,6 +1058,8 @@
     <Compile Include="General\FileLockChecker.cs" />
     <Compile Include="General\UIActionQueue.cs" />
     <Compile Include="General\UITiming.cs" />
+    <Compile Include="General\InteractionLog.cs" />
+    <Compile Include="General\InteractionActionTracker.cs" />
     <Compile Include="General\StageTimer.cs" />
     <Compile Include="General\MD5Hash.cs" />
     <Compile Include="General\MurmurHash2.cs" />

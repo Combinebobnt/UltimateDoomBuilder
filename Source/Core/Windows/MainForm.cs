@@ -463,6 +463,13 @@ namespace CodeImp.DoomBuilder.Windows
 		// Generic event that invokes the tagged action
 		public void InvokeTaggedAction(object sender, EventArgs e)
 		{
+			string ilogprevious = InteractionLog.BeginAmbient(InteractionLog.Enabled ? InteractionLog.TriggerFor(sender) : null);
+			try { InvokeTaggedActionCore(sender); }
+			finally { InteractionLog.EndAmbient(ilogprevious); }
+		}
+
+		private void InvokeTaggedActionCore(object sender)
+		{
 			this.Update();
 			
 			if(sender is ToolStripItem)
@@ -2356,7 +2363,9 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			this.Update();
 			EditModeInfo modeinfo = (EditModeInfo)((sender as ToolStripItem).Tag);
-			General.Actions.InvokeAction(modeinfo.SwitchAction.GetFullActionName(modeinfo.Plugin.Assembly));
+			string ilogprevious = InteractionLog.BeginAmbient(InteractionLog.Enabled ? InteractionLog.TriggerFor(sender) : null);
+			try { General.Actions.InvokeAction(modeinfo.SwitchAction.GetFullActionName(modeinfo.Plugin.Assembly)); }
+			finally { InteractionLog.EndAmbient(ilogprevious); }
 			this.Update();
 		}
 

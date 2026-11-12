@@ -602,6 +602,7 @@ namespace CodeImp.DoomBuilder.Actions
                     {
                         // Invoke action
                         begunactions.Add(a);
+                        if (InteractionLog.Enabled) InteractionLog.KeyTrigger(a, key);
                         a.Begin();
                     }
                     else

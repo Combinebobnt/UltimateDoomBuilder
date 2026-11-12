@@ -454,6 +454,11 @@ namespace CodeImp.DoomBuilder.Windows
 			browser.OnClose("windows." + configname);
 		}
 
+		internal override string InteractionLogExtra
+		{
+			get { return "filterlen=" + browser.FilterLength + ",usedfirst=" + (browser.UsedFirst ? "1" : "0"); }
+		}
+
 		// Static method to browse for texture or flat.
 		public static string Browse(IWin32Window parent, string select, bool browseflats)
 		{

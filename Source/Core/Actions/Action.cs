@@ -274,6 +274,14 @@ namespace CodeImp.DoomBuilder.Actions
 		// This raises events for this action
 		internal void Begin()
 		{
+			if(!InteractionLog.Enabled) { RaiseBegin(); return; }
+			InteractionLog.Tracker.BeginEnter(this, name);
+			try { RaiseBegin(); }
+			finally { InteractionLog.Tracker.BeginExit(this); }
+		}
+
+		private void RaiseBegin()
+		{
 			General.Plugins.OnActionBegin(this);
 
 			// Method bound?
@@ -293,6 +301,14 @@ namespace CodeImp.DoomBuilder.Actions
 
 		// This raises events for this action
 		internal void End()
+		{
+			if(!InteractionLog.Enabled) { RaiseEnd(); return; }
+			InteractionLog.Tracker.EndEnter(this, name);
+			try { RaiseEnd(); }
+			finally { InteractionLog.Tracker.EndExit(this); }
+		}
+
+		private void RaiseEnd()
 		{
 			// Method bound?
 			if(enddelegates.Count > 0)
