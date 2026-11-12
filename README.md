@@ -1,6 +1,19 @@
 # Ultimate Doom Builder
 
-> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) primarily for Linux fixes, but maybe with some extra spices. Works on my machine 😎. See [CHANGELOG.md](CHANGELOG.md).
+> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) that tracks upstream `master` and adds Linux fixes, engine-accurate Visual mode and faster mapping tools. Works on my machine 😎.
+
+## What this fork focuses on
+
+- **Linux as a first-class platform.** UDB on Mono without UI deadlocks or blank panels, crash dialogs that work, native file pickers through zenity, safe map saving, and a one-command `make` build.
+- **Visual mode that looks like the game.** ANIMDEFS/ANIMATED animation, GLDEFS brightmaps and hardware shaders, warp effects, coloured fog and model winding follow UZDoom (and Zandronum where it differs).
+- **Faster mapping.** Clipboard history across maps, a second shortcut per action, spatial tag ranges, a restorable redo branch, Draw Grid fixes and quicker resource reloads.
+- **Zandronum support.** Zandronum 3.3 game configurations, engine archive checks, and BCS compiled with zt-bcc.
+
+The full list, and what is still experimental, is in [CHANGELOG.md](CHANGELOG.md).
+
+## Download
+
+Portable builds are published on the fork's [Releases](https://github.com/Combinebobnt/UltimateDoomBuilder/releases) page as `R<upstream revision>-fork.<commits>`: Windows x64/x86 zips and a Linux x86_64 AppImage that bundles Mono. These builds show the fork label and don't offer upstream updates.
 
 ## System requirements
 - 2.4 GHz CPU or faster (multi-core recommended)
@@ -12,7 +25,7 @@
 
 ## Building on Linux
 
-__Note:__ this is experimental. None of the main developers are using Linux as a desktop OS, so you're pretty much on your own if you encounter any problems with running the application.
+__Note:__ upstream treats Linux as experimental; this fork is developed and tested on Linux (Debian, X11). BCS scripts need zt-bcc installed as `/usr/bin/bcc`, and the bundled zdbsp node builder needs glibc 2.34 or newer.
 
 ### Manual build
 
@@ -26,9 +39,9 @@ These instructions are for Debian-based distros and were tested with Ubuntu 24.0
   - **Arch:** `sudo pacman -S base-devel`
     - If you're using X11 display manager you may need to install these packages: `libx11 libxfixes`
     - If you are not using the proprietary nvidia driver you may need to install `mesa`
-- Go to a directory of your choice and clone the repository (it'll automatically create an `UltimateDoomBuilder` directory in the current directory): `git clone https://github.com/UltimateDoomBuilder/UltimateDoomBuilder.git`
-- Compile UDB: `cd UltimateDoomBuilder && make`
-- Run UDB: `cd Build && ./builder`
+- Go to a directory of your choice and clone the repository (it'll automatically create an `UltimateDoomBuilder` directory in the current directory): `git clone https://github.com/Combinebobnt/UltimateDoomBuilder.git`
+- Compile UDB: `cd UltimateDoomBuilder && make` (builds the editor and its native library)
+- Run UDB: `./builder.sh`, or `cd Build && ./builder`
 - Alternatively, to compile UDB in debug mode:
   - Run `make BUILDTYPE=Debug` in the root project directory
   - This includes a debug output terminal in the bottom panel
@@ -40,7 +53,7 @@ The advantage of using Flatpak to build a package is that you do not need to ins
 - To build UDB using Flatpak you need both **Flatpak** and **Flatpak Builder**. How they are installed depends on your distribution. For example on Debian-based distributions they can be installed using `sudo apt install flatpak flatpak-builder`. Check your distro's documentation for information on how to install them.
 - Go to a directory of your choice and clone the repository (it'll automatically create an UltimateDoomBuilder directory in the current directory):
   ```
-  git clone https://github.com/UltimateDoomBuilder/UltimateDoomBuilder.git
+  git clone https://github.com/Combinebobnt/UltimateDoomBuilder.git
   ``` 
 - Go to the cloned directory:
   ```
@@ -71,7 +84,7 @@ You can also build the flatpak on Windows using WSL2.
   ```bash
   sudo apt update && sudo apt -y install flatpak flatpak-builder
   cd ~
-  git clone https://github.com/UltimateDoomBuilder/UltimateDoomBuilder.git
+  git clone https://github.com/Combinebobnt/UltimateDoomBuilder.git
   exit
   ```
 
