@@ -97,6 +97,55 @@ namespace CodeImp.DoomBuilder.Windows
 		[DllImport("libX11")] private static extern int XCloseDisplay(IntPtr display);
 		[DllImport("libX11")] private static extern IntPtr XDefaultRootWindow(IntPtr display);
 		[DllImport("libX11")] private static extern bool XQueryPointer(IntPtr display, IntPtr window, out IntPtr root, out IntPtr child, out int rootx, out int rooty, out int winx, out int winy, out uint mask);
+		[DllImport("libX11")] private static extern int XGetGeometry(IntPtr display, IntPtr drawable, out IntPtr root, out int x, out int y, out uint width, out uint height, out uint border, out uint depth);
+		[DllImport("libX11")] private static extern int XQueryTree(IntPtr display, IntPtr window, out IntPtr root, out IntPtr parent, out IntPtr children, out uint nchildren);
+		[DllImport("libX11")] private static extern int XFree(IntPtr data);
+
+		// The size the X server holds for a control's window and its parent (Mono's whole window),
+		// next to the managed Bounds. A mismatch means the managed layout never reached the server.
+		internal static string GeomDebugX11(Control c)
+		{
+			if(!GeomDebugLogging || c == null || !c.IsHandleCreated || Environment.OSVersion.Platform != PlatformID.Unix) return "n/a";
+			IntPtr display = IntPtr.Zero;
+			try
+			{
+				display = XOpenDisplay(IntPtr.Zero);
+				if(display == IntPtr.Zero) return "nodisplay";
+				string result = GeomDebugX11Window(display, c.Handle);
+				IntPtr root, parent, children;
+				uint n;
+				if(XQueryTree(display, c.Handle, out root, out parent, out children, out n) != 0)
+				{
+					if(children != IntPtr.Zero) XFree(children);
+					result += "/parent:" + GeomDebugX11Window(display, parent);
+				}
+				return result;
+			}
+			catch(Exception ex) { return "err:" + ex.GetType().Name; }
+			finally { if(display != IntPtr.Zero) XCloseDisplay(display); }
+		}
+
+		private static string GeomDebugX11Window(IntPtr display, IntPtr window)
+		{
+			IntPtr root;
+			int x, y;
+			uint w, h, border, depth;
+			if(XGetGeometry(display, window, out root, out x, out y, out w, out h, out border, out depth) == 0) return "0x" + window.ToString("x") + ":fail";
+			return "0x" + window.ToString("x") + ":" + w + "x" + h + "@" + x + "," + y;
+		}
+
+		// A free-form line for this open, written straight away (unlike notes, which wait for the summary)
+		internal void GeomDebugLine(string text)
+		{
+			if(!GeomDebugEnabled) return;
+			try
+			{
+				string path = System.IO.Path.Combine(General.SettingsPath, GEOMDEBUG_FILE);
+				GeomDebugRotate(path);
+				System.IO.File.AppendAllText(path, string.Format("{0:yyyy-MM-dd HH:mm:ss.fff} [{1}#{2}] {3}", DateTime.Now, configname, geomdebugid, text) + Environment.NewLine);
+			}
+			catch(Exception) { }
+		}
 
 		// Pointer position, buttons held and the client area on screen, to tell a border drag from
 		// any other late resize. X11 is asked directly: a press on the window frame never reaches us.

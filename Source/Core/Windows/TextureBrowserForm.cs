@@ -488,6 +488,15 @@ namespace CodeImp.DoomBuilder.Windows
 		// Closing
 		private void TextureBrowserForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			// Geometry log: the layout as the user last saw it, and how the list's width got there
+			if(GeomDebugLogging)
+			{
+				GeomDebugLine("CLOSELAYOUT client=" + this.ClientSize + " splitterPanel1=" + splitter.Panel1.Bounds
+					+ " browser=" + browser.Bounds + " x11form=" + GeomDebugX11(this) + " x11panel1=" + GeomDebugX11(splitter.Panel1)
+					+ " x11browser=" + GeomDebugX11(browser) + " " + browser.GeomDebugListSnapshot());
+				GeomDebugLine("LISTHISTORY " + browser.GeomDebugListHistory);
+			}
+
 			// Save window settings
 			General.Settings.WriteSetting("windows." + configname + ".splitterdistance", splitter.SplitPosition); //mxd
 			General.Settings.WriteSetting("windows." + configname + ".splittercollapsed", splitter.IsCollapsed); //mxd

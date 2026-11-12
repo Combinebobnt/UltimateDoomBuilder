@@ -141,6 +141,8 @@ namespace CodeImp.DoomBuilder.Controls
 		internal int GeomDebugListItemCount { get { return list.GeomDebugItemCount; } }
 		internal int GeomDebugListGroupCount { get { return list.GeomDebugGroupCount; } }
 		internal bool GeomDebugListClassicView { get { return list.GeomDebugClassicView; } }
+		internal string GeomDebugListSnapshot() { return list.GeomDebugSnapshot() + " listsplitter=" + splitter.Bounds + " listpanel1=" + splitter.Panel1.Bounds; }
+		internal string GeomDebugListHistory { get { return list.GeomDebugHistory; } }
 		public string ElementName //mxd
 		{
 			set

@@ -8,6 +8,7 @@ using System.Drawing.Imaging;
 using System.Linq;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Data;
+using CodeImp.DoomBuilder.Windows;
 
 #endregion
 
@@ -42,6 +43,13 @@ namespace CodeImp.DoomBuilder.Controls
 		internal int GeomDebugItemCount { get { return items.Count; } }
 		internal int GeomDebugGroupCount { get { return itemgroups.Count; } }
 		internal bool GeomDebugClassicView { get { return classicview; } }
+		internal int GeomDebugPaintCount { get; private set; }
+		internal string GeomDebugHistory { get { return (geomdebugdropped > 0 ? "(" + geomdebugdropped + " older dropped) " : "") + string.Join(" | ", geomdebughistory); } }
+		private const int GEOMDEBUG_HISTORY = 40;
+		private readonly List<string> geomdebughistory = new List<string>();
+		private int geomdebugdropped;
+		private int geomdebuglastpaintwidth = -1;
+		private int geomdebuglastpaintflow = -1;
 		private int imagesize = 128;
 		private int maximumcolumns;
 		private int minimumitemwidth;
@@ -703,6 +711,9 @@ namespace CodeImp.DoomBuilder.Controls
 		internal void UpdateRectangles()
 		{
 			int w = ClientRectangle.Width - scrollbar.Width;
+			if(DelayedForm.GeomDebugLogging && w != GeomDebugLastFlowWidth)
+				GeomDebugRecord("flow=" + w + " client=" + ClientRectangle.Width + " size=" + Width + "x" + Height
+								+ " disp=" + DisplayRectangle.Width + " " + GeomDebugCaller());
 			GeomDebugLastFlowWidth = w;
 			GeomDebugLastFlowCallCount++;
 			int padhorz = classicview?13:2;
@@ -798,7 +809,65 @@ namespace CodeImp.DoomBuilder.Controls
 		protected override void OnPaint(PaintEventArgs e)
 		{
 			base.OnPaint(e);
+			if(DelayedForm.GeomDebugLogging) GeomDebugPaint(e.ClipRectangle);
 			DrawTextures(e.Graphics);
+		}
+
+		// Diagnostic-only: timestamped flow and paint width changes, so a close-time dump shows when the list went narrow
+		private void GeomDebugRecord(string entry)
+		{
+			if(geomdebughistory.Count >= GEOMDEBUG_HISTORY)
+			{
+				geomdebughistory.RemoveAt(0);
+				geomdebugdropped++;
+			}
+			geomdebughistory.Add(DateTime.Now.ToString("HH:mm:ss.fff") + " " + entry);
+		}
+
+		private static string GeomDebugCaller()
+		{
+			try
+			{
+				// Skip this method and UpdateRectangles
+				System.Diagnostics.StackFrame[] frames = new System.Diagnostics.StackTrace(2, false).GetFrames();
+				if(frames == null) return "";
+				List<string> names = new List<string>();
+				foreach(System.Diagnostics.StackFrame f in frames)
+				{
+					System.Reflection.MethodBase m = f.GetMethod();
+					if(m == null) continue;
+					names.Add((m.DeclaringType != null ? m.DeclaringType.Name + "." : "") + m.Name);
+					if(names.Count == 4) break;
+				}
+				return "via " + string.Join("<", names);
+			}
+			catch(Exception) { return ""; }
+		}
+
+		private void GeomDebugPaint(Rectangle clip)
+		{
+			GeomDebugPaintCount++;
+			if(ClientRectangle.Width == geomdebuglastpaintwidth && GeomDebugLastFlowWidth == geomdebuglastpaintflow) return;
+			geomdebuglastpaintwidth = ClientRectangle.Width;
+			geomdebuglastpaintflow = GeomDebugLastFlowWidth;
+			GeomDebugRecord("paint#" + GeomDebugPaintCount + " client=" + ClientRectangle.Width + " flow=" + GeomDebugLastFlowWidth
+							+ " contentRight=" + GeomDebugContentRight + " clip=" + clip.X + "," + clip.Y + "," + clip.Width + "x" + clip.Height);
+		}
+
+		// Managed layout next to what the X server holds, to tell a late relayout from a stale window
+		internal string GeomDebugSnapshot()
+		{
+			try
+			{
+				return "list=" + Bounds + " client=" + ClientRectangle.Width + "x" + ClientRectangle.Height
+					   + " disp=" + DisplayRectangle + " autoscroll=" + AutoScroll + " vscroll=" + VScroll + " hscroll=" + HScroll
+					   + " scrollpos=" + AutoScrollPosition.X + "," + AutoScrollPosition.Y
+					   + " bar=" + scrollbar.Bounds + (scrollbar.Visible ? "" : "(hidden)")
+					   + " flow=" + GeomDebugLastFlowWidth + " flowCalls=" + GeomDebugLastFlowCallCount
+					   + " contentRight=" + GeomDebugContentRight + " items=" + items.Count + " paints=" + GeomDebugPaintCount
+					   + " x11list=" + DelayedForm.GeomDebugX11(this) + " x11bar=" + DelayedForm.GeomDebugX11(scrollbar);
+			}
+			catch(Exception ex) { return "snapshot failed: " + ex.GetType().Name; }
 		}
 
         private void DrawTextureHeader(Graphics g, string text, Rectangle rec, bool background)
