@@ -240,6 +240,35 @@ namespace CodeImp.DoomBuilder.Editing
 		}
 		#endif
 
+		private static bool SetClipboardData(byte[] data)
+		{
+			try
+			{
+				#if !MONO_WINFORMS
+				using(MemoryStream stream = new MemoryStream(data, false))
+				{
+					DataObject copydata = new DataObject();
+					copydata.SetData(CLIPBOARD_DATA_FORMAT, stream);
+					Clipboard.SetDataObject(copydata, true, 5, 200);
+				}
+				#else
+				Clipboard.SetText(CLIPBOARD_DATA_FORMAT + Convert.ToBase64String(data));
+				// A second X connection can still see the old owner until the next idle.
+				if(!justcopied)
+				{
+					justcopied = true;
+					Application.Idle += ClearJustCopied;
+				}
+				#endif
+				return true;
+			}
+			catch(ExternalException)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Failed to perform a Clipboard operation...");
+				return false;
+			}
+		}
+
 		public static bool DoCopySelection(string desc)
 		{
 			// Check if possible to copy/paste
@@ -269,26 +298,8 @@ namespace CodeImp.DoomBuilder.Editing
 						ClipboardStreamWriter writer = new ClipboardStreamWriter(); //mxd
 						writer.Write(copyset, memstream);
 
-						try
+						if(!SetClipboardData(memstream.ToArray()))
 						{
-							#if !MONO_WINFORMS
-							DataObject copydata = new DataObject();
-							copydata.SetData(CLIPBOARD_DATA_FORMAT, memstream);
-							Clipboard.SetDataObject(copydata, true, 5, 200);
-							#else
-							Clipboard.SetText(CLIPBOARD_DATA_FORMAT + Convert.ToBase64String(memstream.ToArray()));
-
-							// Until the next idle, a second X connection may still see the old owner (copy then paste in one handler)
-							if(!justcopied)
-							{
-								justcopied = true;
-								Application.Idle += ClearJustCopied;
-							}
-							#endif
-						}
-						catch(ExternalException)
-						{
-							General.Interface.DisplayStatus(StatusType.Warning, "Failed to perform a Clipboard operation...");
 							memstream.Dispose();
 							return false;
 						}
@@ -355,96 +366,30 @@ namespace CodeImp.DoomBuilder.Editing
 				// Anything to paste?
 				if(havepastedata || havedb2pastedata)
 				{
-					// Cancel volatile mode
-					General.Editing.DisengageVolatileMode();
-					
-					// Let the plugins know
-					if(General.Plugins.OnPasteBegin(options))
+					#if !MONO_WINFORMS
+					using(Stream stream = (Stream)Clipboard.GetData(havepastedata ? CLIPBOARD_DATA_FORMAT : CLIPBOARD_DATA_FORMAT_DB2))
 					{
-						// Ask the editing mode to prepare selection for pasting.
-						if(General.Editing.Mode.OnPasteBegin(options.Copy()))
+						if(stream == null) return;
+						PasteCore(options, "Paste", map =>
 						{
-							// Create undo
-							General.MainWindow.DisplayStatus(StatusType.Action, "Pasted selected elements.");
-							General.Map.UndoRedo.CreateUndo("Paste");
-
-							// Mark all current geometry
-							General.Map.Map.ClearAllMarks(true);
-
-							// Read from clipboard
 							if(havepastedata)
 							{
-								#if !MONO_WINFORMS
-								using(Stream memstream = (Stream)Clipboard.GetData(CLIPBOARD_DATA_FORMAT))
-								#else
-								using(Stream memstream = new MemoryStream(Convert.FromBase64String(cliptext.Substring(CLIPBOARD_DATA_FORMAT.Length))))
-								#endif
-								{
-									if (memstream == null) return;
-									
-									// Rewind before use
-									memstream.Seek(0, SeekOrigin.Begin);
-
-									// Read data stream
-									ClipboardStreamReader reader = new ClipboardStreamReader(); //mxd
-									General.Map.Map.BeginAddRemove();
-									bool success = reader.Read(General.Map.Map, memstream);
-									General.Map.Map.EndAddRemove();
-									if(!success) //mxd
-									{
-										General.Map.UndoRedo.WithdrawUndo(); // This will also mess with the marks...
-										General.Map.Map.ClearAllMarks(true); // So re-mark all current geometry...
-									}
-								}
+								stream.Seek(0, SeekOrigin.Begin);
+								return new ClipboardStreamReader().Read(map, stream);
 							}
-							// mxd. DB2/DB64 interop
-							else if(havedb2pastedata)
-							{
-								using(Stream memstream = (Stream)Clipboard.GetData(CLIPBOARD_DATA_FORMAT_DB2))
-								{
-									if (memstream == null) return;
-								
-									// Read data stream
-									UniversalStreamReader reader = new UniversalStreamReader(new Dictionary<MapElementType, Dictionary<string, UniversalType>>());
-									reader.StrictChecking = false;
-									General.Map.Map.BeginAddRemove();
-									reader.Read(General.Map.Map, memstream);
-									General.Map.Map.EndAddRemove();
-								}
-							}
-							else
-							{
-								throw new NotImplementedException("Unknown clipboard data format!");
-							}
-							
-							// The new geometry is not marked, so invert the marks to get it marked
-							General.Map.Map.InvertAllMarks();
-
-							// Check if anything was pasted
-							List<Thing> things = General.Map.Map.GetMarkedThings(true); //mxd
-							int totalpasted = things.Count;
-							totalpasted += General.Map.Map.GetMarkedVertices(true).Count;
-							totalpasted += General.Map.Map.GetMarkedLinedefs(true).Count;
-							totalpasted += General.Map.Map.GetMarkedSidedefs(true).Count;
-							totalpasted += General.Map.Map.GetMarkedSectors(true).Count;
-							
-							if(totalpasted > 0)
-							{
-								// Convert UDMF fields back to flags and activations, if needed
-								if(!(General.Map.FormatInterface is UniversalMapSetIO)) General.Map.Map.TranslateFromUDMF();
-
-								// Modify tags and actions if preferred
-								if(options.ChangeTags == PasteOptions.TAGS_REMOVE) Tools.RemoveMarkedTags();
-								if(options.ChangeTags == PasteOptions.TAGS_RENUMBER) Tools.RenumberMarkedTags();
-								if(options.RemoveActions) Tools.RemoveMarkedActions();
-								
-								foreach(Thing t in things) t.UpdateConfiguration(); //mxd
-								General.Map.ThingsFilter.Update();
-								General.Editing.Mode.OnPasteEnd(options.Copy());
-								General.Plugins.OnPasteEnd(options);
-							}
-						}
+							UniversalStreamReader reader = new UniversalStreamReader(new Dictionary<MapElementType, Dictionary<string, UniversalType>>());
+							reader.StrictChecking = false;
+							reader.Read(map, stream);
+							return true;
+						}, false);
 					}
+					#else
+					PasteCore(options, "Paste", map =>
+					{
+						using(Stream stream = new MemoryStream(Convert.FromBase64String(cliptext.Substring(CLIPBOARD_DATA_FORMAT.Length))))
+							return new ClipboardStreamReader().Read(map, stream);
+					}, false);
+					#endif
 				}
 				else
 				{
@@ -461,6 +406,62 @@ namespace CodeImp.DoomBuilder.Editing
 			{
 				// Paste not allowed
 				General.MessageBeep(MessageBeepType.Warning);
+			}
+		}
+
+		private static void PasteCore(PasteOptions options, string undodesc, Func<MapSet, bool> read, bool fromhistory)
+		{
+			General.Editing.DisengageVolatileMode();
+			if(!General.Plugins.OnPasteBegin(options)) return;
+			if(!General.Editing.Mode.OnPasteBegin(options.Copy()))
+			{
+				if(fromhistory) General.Interface.DisplayStatus(StatusType.Warning, "Paste is not available in this mode.");
+				return;
+			}
+
+			General.MainWindow.DisplayStatus(StatusType.Action, "Pasted selected elements.");
+			General.Map.UndoRedo.CreateUndo(undodesc);
+			MapSet map = General.Map.Map;
+			map.ClearAllMarks(true);
+			map.BeginAddRemove();
+			bool ok;
+			try
+			{
+				ok = read(map);
+			}
+			catch(Exception e)
+			{
+				ok = false;
+				General.ErrorLogger.Add(ErrorType.Error, "Unable to paste geometry. " + e.GetType().Name + ": " + e.Message);
+				General.WriteLogLine(e.StackTrace);
+				General.Interface.DisplayStatus(StatusType.Warning, "Unable to paste geometry. See log file for error details.");
+			}
+			finally
+			{
+				map.EndAddRemove();
+			}
+			if(!ok)
+			{
+				// WithdrawUndo performs a real undo, so finish the add/remove batch first.
+				General.Map.UndoRedo.WithdrawUndo();
+				General.Map.Map.ClearAllMarks(true);
+				return;
+			}
+
+			map.InvertAllMarks();
+			List<Thing> things = map.GetMarkedThings(true);
+			int totalpasted = things.Count + map.GetMarkedVertices(true).Count + map.GetMarkedLinedefs(true).Count
+				+ map.GetMarkedSidedefs(true).Count + map.GetMarkedSectors(true).Count;
+			if(totalpasted > 0)
+			{
+				if(!(General.Map.FormatInterface is UniversalMapSetIO)) map.TranslateFromUDMF();
+				if(options.ChangeTags == PasteOptions.TAGS_REMOVE) Tools.RemoveMarkedTags();
+				if(options.ChangeTags == PasteOptions.TAGS_RENUMBER) Tools.RenumberMarkedTags();
+				if(options.RemoveActions) Tools.RemoveMarkedActions();
+				foreach(Thing t in things) t.UpdateConfiguration();
+				General.Map.ThingsFilter.Update();
+				General.Editing.Mode.OnPasteEnd(options.Copy());
+				General.Plugins.OnPasteEnd(options);
 			}
 		}
 		
