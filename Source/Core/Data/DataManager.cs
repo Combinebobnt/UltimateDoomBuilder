@@ -106,6 +106,9 @@ namespace CodeImp.DoomBuilder.Data
         private readonly object syncobject = new object();
 		private Queue<ImageData> imageque;
 		private Thread[] backgroundloader;
+		private int waitingloaders;
+		private long backgroundloadstart;
+		private bool backgrounddrainpending;
 		
 		// Special images
 		private ImageData missingtexture3d;
@@ -330,6 +333,7 @@ namespace CodeImp.DoomBuilder.Data
 		// This loads all data resources
 		internal void Load(DataLocationList configlist, DataLocationList maplist)
 		{
+			StageTimer timing = new StageTimer("Load");
 			Dictionary<long, ImageData> texturesonly = new Dictionary<long, ImageData>();
 			Dictionary<long, ImageData> colormapsonly = new Dictionary<long, ImageData>();
 			Dictionary<long, ImageData> flatsonly = new Dictionary<long, ImageData>();
@@ -380,6 +384,7 @@ namespace CodeImp.DoomBuilder.Data
 			// Go for all locations
 			DataLocationList locations = DataLocationList.Combined(configlist, maplist); //mxd
 			string prevofficialiwad = string.Empty; //mxd
+			timing.Mark("collections");
 			foreach(DataLocation dl in locations)
 			{
 				// Nothing chosen yet
@@ -427,6 +432,7 @@ namespace CodeImp.DoomBuilder.Data
 					// Unable to load resource
 					General.ErrorLogger.Add(ErrorType.Error, "Unable to load resources from location \"" + dl.location + "\". Please make sure the location is accessible and not in use by another program. The resources will now be loaded with this location excluded. You may reload the resources to try again.\n" + e.GetType().Name + " when creating data reader: " + e.Message);
 					General.WriteLogLine(e.StackTrace);
+					timing.Mark("reader failed \"" + dl.GetDisplayName() + "\"");
 					continue;
 				}
 
@@ -436,21 +442,25 @@ namespace CodeImp.DoomBuilder.Data
 					containers.Add(c);
 					resourcetextures.Add(c.TextureSet);
 				}
+				timing.Mark("reader \"" + dl.GetDisplayName() + "\" (" + (c != null ? c.GetType().Name : "unknown") + ")");
 			}
 
 			// Engine filter/<name>/ content, before anything reads the containers
 			if(General.Map.Config.UseLumpFilters) ApplyLumpFilters();
+			timing.Mark("lump filters");
 
 			// Load stuff
 			LoadX11R6RGB(); //mxd
 			LoadPalette();
 			LoadMainColorMap();
+			timing.Mark("palette colormap and X11R6RGB");
 			Dictionary<string, TexturesParser> cachedparsers = new Dictionary<string, TexturesParser>(); //mxd
 			int texcount = LoadTextures(texturesonly, texturenamesshorttofull, cachedparsers);
 			int flatcount = LoadFlats(flatsonly, flatnamesshorttofull, cachedparsers);
 			int colormapcount = LoadColormaps(colormapsonly);
 			LoadSprites(cachedparsers);
 			cachedparsers = null; //mxd
+			timing.Mark("textures flats colormaps and sprites");
 
 			//mxd. Load MAPINFO and CVARINFO. Should happen before parisng DECORATE
 			LoadMapInfo(out Dictionary<int, string> spawnnums, out Dictionary<int, string> doomednums);
@@ -462,17 +472,23 @@ namespace CodeImp.DoomBuilder.Data
 
 			//mxd. Load Script Editor-only stuff...
 			LoadExtraTextLumps();
+			timing.Mark("MAPINFO CVARINFO LOCKDEFS DECALDEF and extra text");
 
 			LoadDehackedThings();
+			timing.Mark("DEHACKED");
             LoadZScriptThings();
+			timing.Mark("ZScript");
             LoadDecorateThings();
+			timing.Mark("DECORATE");
 			enginefold.Decide(CheckEngineArchives(), General.Map.Config.Name, GetEngineNames);
 			ApplyDehackedThings();
 			FixRenamedDehackedSprites();
             int thingcount = ApplyZDoomThings(spawnnums, doomednums);
 			int spritecount = LoadThingSprites();
+			timing.Mark("thing apply fixup and sprites");
 			LoadInternalSprites();
 			LoadInternalTextures(); //mxd
+			timing.Mark("internal sprites and textures");
 
 			//mxd. Load more stuff
 			LoadReverbs();
@@ -480,6 +496,7 @@ namespace CodeImp.DoomBuilder.Data
 			LoadSndInfo();
 			LoadVoxels();
 			General.MainWindow.DisplayReady();
+			timing.Mark("reverbs sndseq sndinfo and voxels");
 			
 			// Process colormaps (we just put them in as textures)
 			foreach(KeyValuePair<long, ImageData> t in colormapsonly)
@@ -562,6 +579,7 @@ namespace CodeImp.DoomBuilder.Data
 			}
 
 			//mxd. Should be done after loading textures...
+			timing.Mark("texture and flat merge");
 			int hirestexcount = LoadHiResTextures();
 
 			//mxd. Create camera textures. Should be done after loading textures.
@@ -573,6 +591,7 @@ namespace CodeImp.DoomBuilder.Data
 			// Sort names
 			texturenames.Sort();
 			flatnames.Sort();
+			timing.Mark("hires animdefs and terrain");
 
 			// biwa. Moved model processing after texture processing, since the model might need one of those textures
 			Dictionary<string, int> actorsbyclass = CreateActorsByClassList();
@@ -584,6 +603,7 @@ namespace CodeImp.DoomBuilder.Data
 
 			// Sort things
 			foreach (ThingCategory tc in thingcategories) tc.SortIfNeeded();
+			timing.Mark("modeldefs thing cache and gldefs");
 
 			// Update the used textures
 			General.Map.Data.UpdateUsedTextures();
@@ -613,13 +633,15 @@ namespace CodeImp.DoomBuilder.Data
 			}
 
 			//mxd. Create skybox texture(s)
+			timing.Mark("used textures and texture sets");
 			SetupSkybox();
 
             // [ZZ] clear texture/flat cache in ImageSelectorPanel
             ImageSelectorPanel.ClearCachedPreviews();
 			
 			// Start background loading
-			StartBackgroundLoader();
+			StartBackgroundLoader(true);
+			timing.Mark("skybox preview clear and loader start");
 			
 			// Output info
 			General.WriteLogLine("Loaded " + texcount + " textures, " + flatcount + " flats, " + hirestexcount + " hires textures, " +
@@ -642,6 +664,7 @@ namespace CodeImp.DoomBuilder.Data
 				else if(General.ErrorLogger.IsErrorAdded)
 					General.ToastManager.ShowToast("resourcewarningsanderrors", ToastType.ERROR, ToastManager.TITLE_ERROR, $"There were errors while loading the resources. Please review the messages in the Warnings and Errors window{keymessage}.", "There were errors while loading the resources.");
 			}
+			timing.Done();
 		}
 		
 		// This unloads all data
@@ -737,10 +760,13 @@ namespace CodeImp.DoomBuilder.Data
 #region ================== Background Loading
 		
 		// This starts background loading
-		private void StartBackgroundLoader()
+		private void StartBackgroundLoader(bool measuredrain = false)
 		{
 			// If a loader is already running, stop it first
 			if(backgroundloader != null) StopBackgroundLoader();
+			waitingloaders = 0;
+			backgroundloadstart = Stopwatch.GetTimestamp();
+			backgrounddrainpending = measuredrain;
 
 			// Start a low priority thread to load images in background
 			General.WriteLogLine("Starting background resource loading...");
@@ -795,10 +821,23 @@ namespace CodeImp.DoomBuilder.Data
 					lock(syncobject)
 					{
 						// Fetch next image to process
-						if(imageque.Count > 0)
-                            image = imageque.Dequeue();
-                        else
-                            Monitor.Wait(syncobject);
+						while(imageque.Count == 0)
+						{
+							waitingloaders++;
+							try
+							{
+								// An empty queue can still have images decoding on other threads.
+								if(backgrounddrainpending && waitingloaders == backgroundloader.Length)
+								{
+									backgrounddrainpending = false;
+									General.WriteLogLine(StageTimer.FormatLine("Load", "background images drained",
+										(Stopwatch.GetTimestamp() - backgroundloadstart) * 1000.0 / Stopwatch.Frequency) + " since loader start");
+								}
+								Monitor.Wait(syncobject);
+							}
+							finally { waitingloaders--; }
+						}
+						image = imageque.Dequeue();
                     }
 
 					try

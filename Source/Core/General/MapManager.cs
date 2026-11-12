@@ -2480,6 +2480,8 @@ namespace CodeImp.DoomBuilder
 
 		internal void ReloadResources(bool clearerrors, bool runprepostcommands) //mxd. clearerrors flag
 		{
+			StageTimer timing = new StageTimer("Reload");
+
 			// Keep old display info
 			StatusInfo oldstatus = General.MainWindow.Status;
 			Cursor oldcursor = Cursor.Current;
@@ -2502,15 +2504,18 @@ namespace CodeImp.DoomBuilder
 			// Show status
 			General.MainWindow.DisplayStatus(StatusType.Busy, "Reloading data resources...");
 			Cursor.Current = Cursors.WaitCursor;
+			timing.Mark("pre-command");
 
 			// Clean up
 			data.Dispose();
 			data = null;
 			config = null;
 			configinfo = null;
+			timing.Mark("dispose");
 			GC.Collect();
 			GC.WaitForPendingFinalizers();
 			GC.Collect(); //mxd
+			timing.Mark("GC");
 
 			// Clear errors?
 			if(clearerrors) General.ErrorLogger.Clear();
@@ -2520,6 +2525,7 @@ namespace CodeImp.DoomBuilder
 			configinfo = General.GetConfigurationInfo(options.ConfigFile);
 			config = new GameConfiguration(configinfo.Configuration); //mxd
 			General.Editing.UpdateCurrentEditModes();
+			timing.Mark("config rebuild");
 
 			// Reload data resources
 			General.WriteLogLine("Reloading data resources...");
@@ -2533,9 +2539,11 @@ namespace CodeImp.DoomBuilder
 			{
 				data.Load(configinfo.Resources, options.Resources);
 			}
+			timing.Mark("data load");
 
 			// Apply new settings to map elements
 			map.UpdateConfiguration();
+			timing.Mark("map configuration");
 
 			// Re-link the background image
 			grid.LinkBackground();
@@ -2549,11 +2557,13 @@ namespace CodeImp.DoomBuilder
 				General.Editing.Mode.OnReloadResources();
 
 				//mxd. Also Check appropriate button on interface
-				General.MainWindow.CheckEditModeButton(General.Editing.Mode.EditModeButtonName); 
+				General.MainWindow.CheckEditModeButton(General.Editing.Mode.EditModeButtonName);
 			}
+			timing.Mark("plugins and edit mode");
 
 			//mxd. Update script names
 			LoadACS();
+			timing.Mark("ACS");
 
 			// Check if there's a post command to run, and try to execute it
 			if (runprepostcommands && !string.IsNullOrWhiteSpace(options.ReloadResourcePostCommand.Commands))
@@ -2567,6 +2577,8 @@ namespace CodeImp.DoomBuilder
 			// Reset status
 			General.MainWindow.DisplayStatus(oldstatus);
 			Cursor.Current = oldcursor;
+			timing.Mark("post-command and status");
+			timing.Done();
 		}
 
 		public bool ExecuteExternalCommand(ExternalCommandSettings cmdsettings, string arguments = "")
