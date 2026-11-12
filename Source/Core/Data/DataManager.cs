@@ -109,6 +109,7 @@ namespace CodeImp.DoomBuilder.Data
 		private int waitingloaders;
 		private long backgroundloadstart;
 		private bool backgrounddrainpending;
+		private ResourceFingerprint configurationfingerprint;
 		
 		// Special images
 		private ImageData missingtexture3d;
@@ -316,7 +317,7 @@ namespace CodeImp.DoomBuilder.Data
 		#region ================== Loading / Unloading
 
 		// This loads all data resources
-		internal void Load(DataLocationList configlist, DataLocationList maplist, DataLocation maplocation)
+		internal void Load(DataLocationList configlist, DataLocationList maplist, DataLocation maplocation, ResourceReaderPool readers = null)
 		{
 			//mxd. Don't modify original lists
 			DataLocationList configlistcopy = new DataLocationList(configlist);
@@ -327,13 +328,14 @@ namespace CodeImp.DoomBuilder.Data
 			maplistcopy.Remove(maplocation);
 			maplistcopy.Add(maplocation);
 
-			Load(configlistcopy, maplistcopy);
+			Load(configlistcopy, maplistcopy, readers);
 		}
 
 		// This loads all data resources
-		internal void Load(DataLocationList configlist, DataLocationList maplist)
+		internal void Load(DataLocationList configlist, DataLocationList maplist, ResourceReaderPool readers = null)
 		{
 			StageTimer timing = new StageTimer("Load");
+			configurationfingerprint = CaptureConfiguration();
 			Dictionary<long, ImageData> texturesonly = new Dictionary<long, ImageData>();
 			Dictionary<long, ImageData> colormapsonly = new Dictionary<long, ImageData>();
 			Dictionary<long, ImageData> flatsonly = new Dictionary<long, ImageData>();
@@ -389,6 +391,8 @@ namespace CodeImp.DoomBuilder.Data
 			{
 				// Nothing chosen yet
 				DataReader c = null;
+				bool reused = false;
+				int errorcount = General.ErrorLogger.ErrorsCount;
 
 				// TODO: Make this work more elegant using reflection.
 				// Make DataLocation.type of type Type and assign the
@@ -396,8 +400,9 @@ namespace CodeImp.DoomBuilder.Data
 
 				try
 				{
+					reused = readers != null && readers.TryTake(dl, out c);
 					// Choose container type
-					switch (dl.type)
+					if(!reused) switch (dl.type)
 					{
 						//mxd. Load resource in read-only mode if:
 						// 1. UseResourcesInReadonlyMode map option is set.
@@ -408,12 +413,6 @@ namespace CodeImp.DoomBuilder.Data
 						// WAD file container
 						case DataLocation.RESOURCE_WAD:
 							c = new WADReader(dl, General.Map.Config, true);
-							if (((WADReader)c).WadFile.IsOfficialIWAD) //mxd
-							{
-								if (!string.IsNullOrEmpty(prevofficialiwad))
-									General.ErrorLogger.Add(ErrorType.Warning, "Using more than one official IWAD as a resource is not recommended. Consider removing \"" + prevofficialiwad + "\" or \"" + dl.GetDisplayName() + "\".");
-								prevofficialiwad = dl.GetDisplayName();
-							}
 							break;
 
 						// Directory container
@@ -439,8 +438,17 @@ namespace CodeImp.DoomBuilder.Data
 				// Add container
 				if(c != null)
 				{
+					// Rebuild diagnostic-bearing readers so their construction warnings are reported again.
+					if(General.ErrorLogger.ErrorsCount != errorcount) c.Fingerprint = null;
+					if(c is WADReader && ((WADReader)c).WadFile.IsOfficialIWAD)
+					{
+						if(!string.IsNullOrEmpty(prevofficialiwad))
+							General.ErrorLogger.Add(ErrorType.Warning, "Using more than one official IWAD as a resource is not recommended. Consider removing \"" + prevofficialiwad + "\" or \"" + dl.GetDisplayName() + "\".");
+						prevofficialiwad = dl.GetDisplayName();
+					}
 					containers.Add(c);
 					resourcetextures.Add(c.TextureSet);
+					General.WriteLogLine("Resource reader: " + (reused ? "reused" : "rebuilt") + " \"" + dl.GetDisplayName() + "\" (" + c.GetType().Name + ")");
 				}
 				timing.Mark("reader \"" + dl.GetDisplayName() + "\" (" + (c != null ? c.GetType().Name : "unknown") + ")");
 			}
@@ -667,6 +675,26 @@ namespace CodeImp.DoomBuilder.Data
 			timing.Done();
 		}
 		
+		private static ResourceFingerprint CaptureConfiguration()
+		{
+			return ResourceFingerprint.Capture(new DataLocation(DataLocation.RESOURCE_WAD,
+				Path.Combine(General.ConfigsPath, General.Map.ConfigSettings.Filename), false, false, false, null));
+		}
+
+		internal ResourceReaderPool DetachReadersForReload()
+		{
+			StopBackgroundLoader();
+			ResourceReaderPool readers = new ResourceReaderPool();
+			if(configurationfingerprint == null || !configurationfingerprint.Matches(CaptureConfiguration())) return readers;
+			try
+			{
+				for(int i = containers.Count - 1; i >= 0; i--)
+					if(readers.TryAdd(containers[i], General.Map.FilePathName)) containers.RemoveAt(i);
+				return readers;
+			}
+			catch { readers.Dispose(); throw; }
+		}
+
 		// This unloads all data
 		private void Unload()
 		{

@@ -114,6 +114,7 @@ namespace CodeImp.DoomBuilder.Data
             // Random access of 7z archives works TERRIBLY slow in SharpCompress
             if (archivetype == ArchiveType.SevenZip)
             {
+				Fingerprint = null;
                 isreadonly = true; // Unsaveable...
                 sevenzipentries = new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
@@ -245,6 +246,13 @@ namespace CodeImp.DoomBuilder.Data
 					filestream = null;
 				}
 			}
+		}
+
+		internal override void PrepareForReload()
+		{
+			base.PrepareForReload();
+			files.ResetFilters();
+			BatchMode = true;
 		}
 
         #endregion

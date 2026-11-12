@@ -369,6 +369,7 @@
     <Compile Include="Data\TexturePatch.cs" />
     <Compile Include="Data\ImageDataFormat.cs" />
     <Compile Include="Data\DataReader.cs" />
+    <Compile Include="Data\ResourceReaderPool.cs" />
     <Compile Include="Data\DataLocationList.cs" />
     <Compile Include="Data\DataManager.cs" />
     <Compile Include="Data\WADReader.cs" />

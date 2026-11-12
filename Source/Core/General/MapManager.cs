@@ -2507,37 +2507,40 @@ namespace CodeImp.DoomBuilder
 			timing.Mark("pre-command");
 
 			// Clean up
-			data.Dispose();
-			data = null;
-			config = null;
-			configinfo = null;
-			timing.Mark("dispose");
-			GC.Collect();
-			GC.WaitForPendingFinalizers();
-			GC.Collect(); //mxd
-			timing.Mark("GC");
-
-			// Clear errors?
-			if(clearerrors) General.ErrorLogger.Clear();
-
-			// Reload game configuration
-			General.WriteLogLine("Reloading game configuration...");
-			configinfo = General.GetConfigurationInfo(options.ConfigFile);
-			config = new GameConfiguration(configinfo.Configuration); //mxd
-			General.Editing.UpdateCurrentEditModes();
-			timing.Mark("config rebuild");
-
-			// Reload data resources
-			General.WriteLogLine("Reloading data resources...");
-			data = new DataManager();
-			if(!string.IsNullOrEmpty(filepathname)) 
+			using(ResourceReaderPool readers = data.DetachReadersForReload())
 			{
-				DataLocation maplocation = new DataLocation(DataLocation.RESOURCE_WAD, filepathname, options.StrictPatches, false, false, null);
-				data.Load(configinfo.Resources, options.Resources, maplocation);
-			}
-			else 
-			{
-				data.Load(configinfo.Resources, options.Resources);
+				data.Dispose();
+				data = null;
+				config = null;
+				configinfo = null;
+				timing.Mark("dispose");
+				GC.Collect();
+				GC.WaitForPendingFinalizers();
+				GC.Collect(); //mxd
+				timing.Mark("GC");
+
+				// Clear errors?
+				if(clearerrors) General.ErrorLogger.Clear();
+
+				// Reload game configuration
+				General.WriteLogLine("Reloading game configuration...");
+				configinfo = General.GetConfigurationInfo(options.ConfigFile);
+				config = new GameConfiguration(configinfo.Configuration); //mxd
+				General.Editing.UpdateCurrentEditModes();
+				timing.Mark("config rebuild");
+
+				// Reload data resources
+				General.WriteLogLine("Reloading data resources...");
+				data = new DataManager();
+				if(!string.IsNullOrEmpty(filepathname))
+				{
+					DataLocation maplocation = new DataLocation(DataLocation.RESOURCE_WAD, filepathname, options.StrictPatches, false, false, null);
+					data.Load(configinfo.Resources, options.Resources, maplocation, readers);
+				}
+				else
+				{
+					data.Load(configinfo.Resources, options.Resources, readers);
+				}
 			}
 			timing.Mark("data load");
 

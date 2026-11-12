@@ -105,6 +105,12 @@ namespace CodeImp.DoomBuilder.Data
 		#endregion
 		
 		#region ================== Management
+
+		internal override void PrepareForReload()
+		{
+			base.PrepareForReload();
+			foreach(WADReader wad in wads) wad.PrepareForReload();
+		}
 		
 		// This suspends use of this resource
 		public override void Suspend()

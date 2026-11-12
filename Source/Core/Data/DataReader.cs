@@ -96,6 +96,7 @@ namespace CodeImp.DoomBuilder.Data
 		protected bool isreadonly; //mxd
         protected bool wasreadonly; // [ZZ]
 		protected ResourceTextureSet textureset;
+		internal ResourceFingerprint Fingerprint;
 
 		#endregion
 
@@ -118,6 +119,7 @@ namespace CodeImp.DoomBuilder.Data
 			location = dl;
 			isreadonly = asreadonly;
 			textureset = new ResourceTextureSet(GetTitle(), dl);
+			Fingerprint = ResourceFingerprint.Capture(dl);
 		}
 
 		// Disposer
@@ -138,6 +140,12 @@ namespace CodeImp.DoomBuilder.Data
 
 		// This returns a short name
 		public abstract string GetTitle();
+
+		internal virtual void PrepareForReload()
+		{
+			// Reader indexes survive; image references belong to the old DataManager.
+			textureset = new ResourceTextureSet(GetTitle(), location);
+		}
 
 		// This suspends use of this resource
 		public virtual void Suspend()

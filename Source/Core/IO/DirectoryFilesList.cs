@@ -228,6 +228,18 @@ namespace CodeImp.DoomBuilder.IO
 			return skippedwads;
 		}
 
+		// Restore the on-disk view before applying the next load's engine filters.
+		internal void ResetFilters()
+		{
+			if(unfiltered != null)
+			{
+				entries = new Dictionary<string, DirectoryFileEntry>(unfiltered.Count, new PathEqualityComparer());
+				foreach(DirectoryFileEntry entry in unfiltered) entries.Add(entry.filepathname, entry);
+			}
+			virtualpaths = null;
+			virtualtoreal = null;
+		}
+
 		// The root-relative name of a filtered entry, else the name itself
 		public string GetVirtualPath(string filepathname)
 		{
