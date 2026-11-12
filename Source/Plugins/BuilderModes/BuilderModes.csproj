@@ -502,6 +502,12 @@
     <Compile Include="Interface\WavefrontSettingsForm.Designer.cs">
       <DependentUpon>WavefrontSettingsForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Interface\ClipboardHistoryPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Interface\ClipboardHistoryPanel.Designer.cs">
+      <DependentUpon>ClipboardHistoryPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Interface\UndoRedoPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>

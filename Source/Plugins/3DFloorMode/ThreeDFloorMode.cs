@@ -1750,7 +1750,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 			}
 
 			// Store the selected sectors (with the new tags) in the clipboard
-			if(!CopyPasteManager.DoCopySelection("3D floor test copy!"))
+			if(!CopyPasteManager.DoCopySelection("3D floor test copy!", false))
 			{
 				General.Interface.DisplayStatus(StatusType.Warning, "Something failed trying to copy the selection");
 				General.Map.UndoRedo.WithdrawUndo();

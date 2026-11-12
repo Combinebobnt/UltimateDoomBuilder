@@ -213,6 +213,7 @@ namespace CodeImp.DoomBuilder
 		private static Assembly thisasm;
 		private static MainForm mainwindow;
 		private static ProgramConfiguration settings;
+		private static ClipboardHistory clipboardhistory;
 		private static MapManager map;
 		private static EditingManager editing;
 		private static ActionManager actions;
@@ -277,6 +278,7 @@ namespace CodeImp.DoomBuilder
 		internal static MainForm MainWindow { get { return mainwindow; } }
 		public static IMainForm Interface { get { return mainwindow; } }
 		public static ProgramConfiguration Settings { get { return settings; } }
+		public static ClipboardHistory ClipboardHistory { get { return clipboardhistory; } }
 		public static ColorCollection Colors { get { return colors; } }
 		internal static List<ConfigurationInfo> Configs { get { return configs; } }
 		internal static List<NodebuilderInfo> Nodebuilders { get { return nodebuilders; } }
@@ -709,6 +711,8 @@ namespace CodeImp.DoomBuilder
 
 			if(settings.Load(usersettingsfile, defaultsettingsfile, legacysettingsfile))
 			{
+				clipboardhistory = new ClipboardHistory(settings.ClipboardHistorySize);
+
 				// Create error logger
 				errorlogger = new ErrorLogger();
 				
@@ -1104,6 +1108,7 @@ namespace CodeImp.DoomBuilder
 				if(map != null) { map.Dispose(); map = null; }
 				if(editing != null) { editing.Dispose(); editing = null; }
 				if(plugins != null) { plugins.Dispose(); plugins = null; }
+				if(clipboardhistory != null) { clipboardhistory.Clear(); clipboardhistory = null; }
 				if(mainwindow != null) { mainwindow.Dispose(); mainwindow = null; }
 				if(actions != null) { actions.Dispose(); actions = null; }
 				if(types != null) { types.Dispose(); types = null; }

@@ -271,6 +271,11 @@ namespace CodeImp.DoomBuilder.Editing
 
 		public static bool DoCopySelection(string desc)
 		{
+			return DoCopySelection(desc, true);
+		}
+
+		public static bool DoCopySelection(string desc, bool recordhistory)
+		{
 			// Check if possible to copy/paste
 			if(General.Editing.Mode.Attributes.AllowCopyPaste)
 			{
@@ -288,30 +293,27 @@ namespace CodeImp.DoomBuilder.Editing
 
 						// Copy the marked geometry
 						// This links sidedefs that are not linked to a marked sector to a virtual sector
-						MapSet copyset = General.Map.Map.CloneMarked();
-
-						// Convert flags and activations to UDMF fields, if needed
-						if(!(General.Map.FormatInterface is UniversalMapSetIO)) copyset.TranslateToUDMF(General.Map.FormatInterface.GetType());
-
-						// Write data to stream
-						MemoryStream memstream = new MemoryStream();
-						ClipboardStreamWriter writer = new ClipboardStreamWriter(); //mxd
-						writer.Write(copyset, memstream);
-
-						if(!SetClipboardData(memstream.ToArray()))
+						MapSet copyset = null;
+						try
 						{
-							memstream.Dispose();
-							return false;
+							copyset = General.Map.Map.CloneMarked();
+							using(MemoryStream memstream = new MemoryStream())
+							{
+								if(!(General.Map.FormatInterface is UniversalMapSetIO)) copyset.TranslateToUDMF(General.Map.FormatInterface.GetType());
+								new ClipboardStreamWriter().Write(copyset, memstream);
+								byte[] payload = memstream.ToArray();
+								if(!SetClipboardData(payload)) return false;
+								if(recordhistory) RecordHistory(copyset, payload);
+							}
+						}
+						finally
+						{
+							if(copyset != null) copyset.Dispose();
+							// CloneMarked and disposing its clone must not dirty the source map.
+							if(!oldmapischanged) General.Map.ForceMapIsChangedFalse();
 						}
 
-						// General.Map.Map.CloneMarked will set General.Map.IsChanged to true, since it recreated the map. But since this
-						// creation happens in another MapSet, the currently opened map is actually not changed. Force the IsChanged property
-						// to false if the map wasn't changed before doing the copying
-						if (oldmapischanged == false)
-							General.Map.ForceMapIsChangedFalse();
-
 						// Done
-						memstream.Dispose();
 						General.Editing.Mode.OnCopyEnd();
 						General.Plugins.OnCopyEnd();
 						return true;
@@ -328,7 +330,51 @@ namespace CodeImp.DoomBuilder.Editing
 			return false;
 		}
 		
-		// This performs the paste. Returns false when paste was cancelled.
+		private static void RecordHistory(MapSet copyset, byte[] payload)
+		{
+			double minx = double.PositiveInfinity, miny = double.PositiveInfinity;
+			double maxx = double.NegativeInfinity, maxy = double.NegativeInfinity;
+			foreach(Vertex v in copyset.Vertices)
+			{
+				minx = Math.Min(minx, v.Position.x); miny = Math.Min(miny, v.Position.y);
+				maxx = Math.Max(maxx, v.Position.x); maxy = Math.Max(maxy, v.Position.y);
+			}
+			foreach(Thing t in copyset.Things)
+			{
+				minx = Math.Min(minx, t.Position.x); miny = Math.Min(miny, t.Position.y);
+				maxx = Math.Max(maxx, t.Position.x); maxy = Math.Max(maxy, t.Position.y);
+			}
+			double width = double.IsPositiveInfinity(minx) ? 0 : maxx - minx;
+			double height = double.IsPositiveInfinity(miny) ? 0 : maxy - miny;
+			string source = (string.IsNullOrEmpty(General.Map.FileTitle) ? "Untitled" : General.Map.FileTitle)
+				+ " (" + General.Map.Options.CurrentName + ")";
+			ClipboardHistoryAddResult result = General.ClipboardHistory.Add(payload, source, width, height, DateTime.UtcNow);
+			if(result == ClipboardHistoryAddResult.TooLarge)
+				General.Interface.DisplayStatus(StatusType.Info, "Selection copied, but too large for clipboard history (16 MB limit).");
+		}
+
+		public static void DoPasteEntry(ClipboardHistoryEntry entry)
+		{
+			if(entry == null || General.Map == null || General.Map.IsDisposed || General.Editing.Mode == null) return;
+			if(!General.Editing.Mode.Attributes.AllowCopyPaste)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Paste is not available in this mode.");
+				return;
+			}
+			PasteCore(General.Settings.PasteOptions, "Paste from history", map =>
+			{
+				using(Stream stream = new MemoryStream(entry.Payload, false))
+					return new ClipboardStreamReader().Read(map, stream);
+			}, true);
+		}
+
+		public static void CopyEntryToClipboard(ClipboardHistoryEntry entry)
+		{
+			if(entry == null) return;
+			if(SetClipboardData(entry.Payload)) General.ClipboardHistory.MoveToTop(entry);
+		}
+
+		// This performs the paste.
 		public static void DoPasteSelection(PasteOptions options)
 		{
 			// Check if possible to copy/paste

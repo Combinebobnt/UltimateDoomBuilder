@@ -99,6 +99,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Dockers
 		private UndoRedoPanel undoredopanel;
 		private Docker undoredodocker;
+		private ClipboardHistoryPanel clipboardhistorypanel;
+		private Docker clipboardhistorydocker;
 		private SectorDrawingOptionsPanel drawingOverridesPanel; //mxd
 		private Docker drawingOverridesDocker; //mxd
 		
@@ -249,6 +251,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			undoredodocker = new Docker("undoredo", "Undo / Redo", undoredopanel);
 			General.Interface.AddDocker(undoredodocker);
 
+			clipboardhistorypanel = new ClipboardHistoryPanel();
+			clipboardhistorydocker = new Docker("clipboardhistory", "Clipboard", clipboardhistorypanel);
+			General.Interface.AddDocker(clipboardhistorydocker);
+
 			//mxd. Create Overrides docker
 			drawingOverridesPanel = new SectorDrawingOptionsPanel();
 			drawingOverridesDocker = new Docker("drawingoverrides", "Draw Settings", drawingOverridesPanel);
@@ -269,6 +275,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				// Clean up
 				General.Interface.RemoveDocker(undoredodocker);
+				General.Interface.RemoveDocker(clipboardhistorydocker);
+				clipboardhistorypanel.Dispose();
 
 				undoredopanel.Dispose();
 				drawingOverridesPanel.Dispose(); //mxd

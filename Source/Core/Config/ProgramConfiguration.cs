@@ -73,6 +73,7 @@ namespace CodeImp.DoomBuilder.Config
 		private bool animatevisualselection;
 		private int previousversion;
 		private PasteOptions pasteoptions;
+		private int clipboardhistorysize = 20;
 		private int dockersposition;
 		private bool collapsedockers;
 		private int dockerswidth;
@@ -199,6 +200,15 @@ namespace CodeImp.DoomBuilder.Config
 		internal string ScreenshotsPath { get { return screenshotspath; } set { screenshotspath = value; } } //mxd
 		internal int PreviousVersion { get { return previousversion; } }
 		internal PasteOptions PasteOptions { get { return pasteoptions; } set { pasteoptions = value; } }
+		public int ClipboardHistorySize
+		{
+			get { return clipboardhistorysize; }
+			set
+			{
+				clipboardhistorysize = Math.Max(0, Math.Min(100, value));
+				if(General.ClipboardHistory != null) General.ClipboardHistory.Capacity = clipboardhistorysize;
+			}
+		}
 		public int DockersPosition { get { return dockersposition; } internal set { dockersposition = value; } }
 		public bool CollapseDockers { get { return collapsedockers; } internal set { collapsedockers = value; } }
 		public int DockersWidth { get { return dockerswidth; } internal set { dockerswidth = value; } }
@@ -364,6 +374,7 @@ namespace CodeImp.DoomBuilder.Config
 				collapsedockers = cfg.ReadSetting("collapsedockers", false);
 				dockerswidth = cfg.ReadSetting("dockerswidth", 300);
 				pasteoptions.ReadConfiguration(cfg, "pasteoptions");
+				ClipboardHistorySize = cfg.ReadSetting("clipboardhistorysize", 20);
 				toolbarscript = cfg.ReadSetting("toolbarscript", true);
 				toolbarundo = cfg.ReadSetting("toolbarundo", true);
 				toolbarcopy = cfg.ReadSetting("toolbarcopy", true);
@@ -515,6 +526,7 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("collapsedockers", collapsedockers);
 			cfg.WriteSetting("dockerswidth", dockerswidth);
 			pasteoptions.WriteConfiguration(cfg, "pasteoptions");
+			cfg.WriteSetting("clipboardhistorysize", clipboardhistorysize);
 			cfg.WriteSetting("toolbarscript", toolbarscript);
 			cfg.WriteSetting("toolbarundo", toolbarundo);
 			cfg.WriteSetting("toolbarcopy", toolbarcopy);

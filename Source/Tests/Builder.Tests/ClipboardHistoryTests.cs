@@ -1,4 +1,5 @@
 using CodeImp.DoomBuilder.Editing;
+using CodeImp.DoomBuilder.Config;
 
 namespace Builder.Tests
 {
@@ -15,6 +16,25 @@ namespace Builder.Tests
 				writer.Write(things);
 			}
 			return bytes;
+		}
+
+		[Fact]
+		public void DefaultConfigurationKeepsTwentyEntries()
+		{
+			Assert.Equal(20, new ProgramConfiguration().ClipboardHistorySize);
+		}
+
+		[Theory]
+		[InlineData(-1, 0)]
+		[InlineData(0, 0)]
+		[InlineData(20, 20)]
+		[InlineData(101, 100)]
+		public void ConfigurationAndStoreClampCapacity(int requested, int expected)
+		{
+			ProgramConfiguration config = new ProgramConfiguration();
+			config.ClipboardHistorySize = requested;
+			Assert.Equal(expected, config.ClipboardHistorySize);
+			Assert.Equal(expected, new ClipboardHistory(requested).Capacity);
 		}
 
 		[Fact]
