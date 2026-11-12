@@ -8,7 +8,7 @@ Portable builds are published on the fork's [Releases](https://github.com/Combin
 
 ## What is tested
 
-Day-to-day use and testing happen on Linux under Mono, on an X11 desktop (Debian 12, MATE). Nothing else is tried by hand, so treat these as unknown:
+Day-to-day use and testing happen on Linux under Mono, on an X11 desktop. Nothing else is tested, so treat these as unknown:
 
 - **Wayland:** UDB is an X11 program (GLX rendering, Mono's X11 WinForms), so on a Wayland desktop it runs through XWayland. That path hasn't been tried.
 - **Windows (.NET Framework):** every push compiles the x64 and x86 builds and runs the unit tests on Windows, but the editor itself isn't run there.
@@ -28,8 +28,6 @@ Reports from any of these are welcome.
 On Linux the easiest route is the AppImage from [Releases](https://github.com/Combinebobnt/UltimateDoomBuilder/releases), which needs no Mono install. To build from source:
 
 ### Manual build
-
-These steps are tested on Debian 12. Upstream tested them on Ubuntu 24.04 LTS and Arch.
 
 - Install Mono and msbuild
   - **Debian/Ubuntu:** the distro's own `mono-complete` package has no `msbuild`, so add the Mono project's repository first by following https://www.mono-project.com/download/stable/#download-lin, then install from it:
