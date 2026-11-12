@@ -85,6 +85,7 @@ namespace CodeImp.DoomBuilder.TagRange
 				{
 					if (General.Editing.Mode is BaseClassicMode mode)
 					{
+						if(mode is ThingsMode thingsmode) thingsmode.RefreshThingProperties();
 						// Bit of a hack to make sectors mode update the sector labels, otherwise the new tags will not be
 						// displayed when selection numbering is disabled.
 						// See https://github.com/jewalky/UltimateDoomBuilder/issues/795

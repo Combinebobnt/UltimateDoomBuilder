@@ -80,14 +80,17 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 			
 			// Fill flags list
 			foreach(KeyValuePair<string, string> tf in General.Map.Config.ThingFlags)
 				flags.Add(tf.Value, tf.Key);
+			if(UITiming.Enabled) UITiming.Mark(this, "flags");
 
 			// Fill actions list
 			action.GeneralizedCategories = General.Map.Config.GenActionCategories;
 			action.AddInfo(General.Map.Config.SortedLinedefActions.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "actions");
 
 			// Tag/Effects?
 			actiongroup.Visible = General.Map.FormatInterface.HasThingAction;
@@ -131,7 +134,10 @@ namespace CodeImp.DoomBuilder.Windows
 			this.Height = applypanel.Bottom + applypanel.Margin.Bottom + (this.Height - this.ClientRectangle.Height) + 1;
 			
 			// Setup types list
+			if(UITiming.Enabled) UITiming.Mark(this, "thingtypes-start");
 			thingtype.Setup();
+			if(UITiming.Enabled) UITiming.Mark(this, "thingtypes");
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion
@@ -141,6 +147,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// This sets up the form to edit the given things
 		public void Setup(ICollection<Thing> things)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-" + things.Count);
 			preventchanges = true;
 			oldmapischanged = General.Map.IsChanged;
             undocreated = false;
@@ -202,6 +210,7 @@ namespace CodeImp.DoomBuilder.Windows
 			thingprops = new List<ThingProperties>();
 
 			// Go for all things
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge-start");
 			foreach(Thing t in things)
 			{
 				//mxd. Update sector info
@@ -253,6 +262,7 @@ namespace CodeImp.DoomBuilder.Windows
 				//mxd. Store initial properties
 				thingprops.Add(new ThingProperties(t));
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge");
 
 			preventchanges = false;
 
@@ -265,6 +275,7 @@ namespace CodeImp.DoomBuilder.Windows
 			argscontrol.UpdateScriptControls(); //mxd
 			actionhelp.UpdateAction(action.GetValue()); //mxd
 			UpdateFlagNames(); //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
 		}
 
 		//mxd

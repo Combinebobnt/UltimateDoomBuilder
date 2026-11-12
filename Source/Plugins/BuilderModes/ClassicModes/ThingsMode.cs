@@ -1155,6 +1155,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
+		public void RefreshThingProperties()
+		{
+			General.Map.ThingsFilter.Update();
+			if(highlighted != null && !highlighted.IsDisposed) highlightasso.Set(highlighted);
+			UpdateSelectionInfo();
+			UpdateHelperObjects();
+			General.Interface.RefreshInfo();
+		}
+
 		//mxd
 		private void UpdateHelperObjects()
 		{

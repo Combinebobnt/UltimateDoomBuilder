@@ -36,6 +36,8 @@ namespace CodeImp.DoomBuilder.Windows
 	{
 		// Variables
 		protected readonly string configname; //mxd
+		internal UITiming.Timing UITimingState;
+		private EventHandler uitimingidle;
 
 		//mxd. Stored window size and location. Tracks location and size of FormWindowState.Normal window
 		private Size windowsize = Size.Empty;
@@ -145,6 +147,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// Constructor
 		protected DelayedForm()
 		{
+			if(UITiming.Enabled) UITiming.Begin(this);
+
 			//mxd. And now, let's hope this doesn't horribly break anything...
 			if(!(this is MainForm))
 			{
@@ -164,6 +168,7 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd
 		protected override void OnLoad(EventArgs e)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "load");
 			// Let the base class know
 			base.OnLoad(e);
 
@@ -241,12 +246,31 @@ namespace CodeImp.DoomBuilder.Windows
 			this.ResumeLayout();
 
 			GeomDebug("OnLoad:after-resumelayout");
+			if(UITiming.Enabled) UITiming.Mark(this, "load-complete");
 		}
 
 		//mxd. Instrumentation only - see the geometry debug region above.
 		protected override void OnShown(EventArgs e)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "shown");
 			base.OnShown(e);
+			if(UITiming.Enabled && UITimingState != null && !UITimingState.Complete)
+			{
+				try
+				{
+					if(Visible && !IsDisposed && uitimingidle == null)
+					{
+						uitimingidle = delegate
+						{
+							StopUITimingIdle();
+							try { if(Visible && !IsDisposed) UITiming.Mark(this, "usable"); }
+							catch(Exception) { }
+						};
+						Application.Idle += uitimingidle;
+					}
+				}
+				catch(Exception) { StopUITimingIdle(); }
+			}
 
 			GeomDebug("OnShown");
 			geomdebugshown = true;
@@ -260,6 +284,37 @@ namespace CodeImp.DoomBuilder.Windows
 				GeomDebugSample(250, false);
 				GeomDebugSample(1500, true);
 			}
+		}
+
+		private void StopUITimingIdle()
+		{
+			try
+			{
+				if(uitimingidle != null) Application.Idle -= uitimingidle;
+			}
+			catch(Exception) { }
+			uitimingidle = null;
+		}
+
+		protected override void OnVisibleChanged(EventArgs e)
+		{
+			if(!Visible && UITiming.Enabled)
+			{
+				StopUITimingIdle();
+				if(UITimingState != null) UITiming.Mark(this, "closed-before-usable");
+			}
+			base.OnVisibleChanged(e);
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if(disposing && UITiming.Enabled)
+			{
+				StopUITimingIdle();
+				UITiming.Mark(this, "closed-before-usable");
+				UITimingState = null;
+			}
+			base.Dispose(disposing);
 		}
 
 		// One delayed geometry sample. The last one also writes the per-open summary line.

@@ -71,6 +71,9 @@ namespace CodeImp.DoomBuilder.Controls
 		private readonly int deleteactionkey;
 		private readonly Dictionary<string, CancellationTokenSource> loadingrequiredarchives;
 		private readonly List<Warning> warnings;
+		private bool warningnotificationpending;
+		private int warningnotificationversion;
+		private int lastwarningsheight;
 
 		#endregion
 
@@ -78,6 +81,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 		public Point DialogOffset { get { return dialogoffset; } set { dialogoffset = value; } }
 		public GameConfiguration GameConfiguration { get; set; }
+		internal string WarningLayout { get { return string.Format("resourceitems={0} addresource.Top={1}", resourceitems.Bounds, addresource.Top); } }
 
 		#endregion
 
@@ -176,6 +180,7 @@ namespace CodeImp.DoomBuilder.Controls
 			try
 			{
 				loc.requiredarchives = await Task.Run(() => RunCheckRequiredArchives(loc, cancellation.Token));
+				if(IsDisposed || Disposing) return;
 				
 				// in case of dir, option1/2 should be erased
 				if (loc.type == DataLocation.RESOURCE_DIRECTORY)
@@ -202,8 +207,12 @@ namespace CodeImp.DoomBuilder.Controls
 				loc.requiredarchives = new List<string>();
 				General.WriteLogLine(e.ToString());
 			}
+			finally
+			{
+				cancellation.Dispose();
+			}
 
-			cancellation.Dispose();
+			if(IsDisposed || Disposing) return;
 
 			// Loading might have been canceled outside of here, so make sure that the location is still in the list.
 			// See https://github.com/jewalky/UltimateDoomBuilder/issues/813
@@ -280,7 +289,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 		private void UpdateWarnings()
         {
-			int lastH = GetWarningsHeight();
+			if(IsDisposed || Disposing) return;
 
 			foreach (Warning w in warnings)
 				w.Wrapper.Dispose();
@@ -332,14 +341,61 @@ namespace CodeImp.DoomBuilder.Controls
 				}
 			}
 
-			int h = GetWarningsHeight();
-			if (lastH != h && OnWarningsChanged != null)
-			{
-				OnWarningsChanged(h);
-				// possibly recalculate size
-				HandleResize(this, null);
-			}
+			HandleResize(this, null);
+			QueueWarningsChanged();
         }
+
+		private void QueueWarningsChanged()
+		{
+			if(IsDisposed || Disposing) return;
+			if(!IsHandleCreated)
+			{
+				RaiseWarningsChanged();
+				return;
+			}
+			if(warningnotificationpending) return;
+
+			// Collapse warning changes made by the same UI event before resizing the host.
+			warningnotificationpending = true;
+			int version = ++warningnotificationversion;
+			try
+			{
+				BeginInvoke(new MethodInvoker(delegate
+				{
+					if(version != warningnotificationversion) return;
+					warningnotificationpending = false;
+					if(!IsHandleCreated || IsDisposed || Disposing) return;
+					RaiseWarningsChanged();
+				}));
+			}
+			catch(InvalidOperationException)
+			{
+				warningnotificationpending = false;
+				if(!IsDisposed && !Disposing && IsHandleCreated) throw;
+			}
+		}
+
+		private void RaiseWarningsChanged()
+		{
+			int height = GetWarningsHeight();
+			WarningsChanged handler = OnWarningsChanged;
+			if(handler == null || height == lastwarningsheight) return;
+			lastwarningsheight = height;
+			handler(height);
+		}
+
+		protected override void OnHandleCreated(EventArgs e)
+		{
+			base.OnHandleCreated(e);
+			if(warnings != null) QueueWarningsChanged();
+		}
+
+		protected override void OnHandleDestroyed(EventArgs e)
+		{
+			warningnotificationversion++;
+			warningnotificationpending = false;
+			base.OnHandleDestroyed(e);
+		}
 
 		private void RefreshLoading()
         {

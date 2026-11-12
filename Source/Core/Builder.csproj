@@ -475,6 +475,7 @@
     <Compile Include="Controls\FieldsEditorControl.Designer.cs">
       <DependentUpon>FieldsEditorControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="Windows\ResourceWarningResize.cs" />
     <Compile Include="Windows\DelayedForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -1078,6 +1079,7 @@
     <Compile Include="General\ExceptionReport.cs" />
     <Compile Include="General\FileLockChecker.cs" />
     <Compile Include="General\UIActionQueue.cs" />
+    <Compile Include="General\UITiming.cs" />
     <Compile Include="General\MD5Hash.cs" />
     <Compile Include="General\MurmurHash2.cs" />
     <Compile Include="General\SavePurpose.cs" />

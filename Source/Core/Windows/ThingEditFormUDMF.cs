@@ -96,8 +96,10 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 
 			DoUDMFControls(this);
+			if(UITiming.Enabled) UITiming.Mark(this, "udmf-controls");
 
 			//mxd. Load settings
 			useabsoluteheight = General.Settings.ReadSetting("windows." + configname + ".useabsoluteheight", false);
@@ -110,13 +112,16 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			// Fill flags list
+			if(UITiming.Enabled) UITiming.Mark(this, "flags-start");
 			foreach(KeyValuePair<string, string> tf in General.Map.Config.ThingFlags)
 				flags.Add(tf.Value, tf.Key);
 			flags.Enabled = (General.Map.Config.ThingFlags.Count > 0);
+			if(UITiming.Enabled) UITiming.Mark(this, "flags");
 
 			// Fill actions list
 			action.GeneralizedCategories = General.Map.Config.GenActionCategories;
 			action.AddInfo(General.Map.Config.SortedLinedefActions.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "actions");
 
 			// Setup renderstyles
 			renderstyles = new string[General.Map.Config.ThingRenderStyles.Count];
@@ -127,12 +132,15 @@ namespace CodeImp.DoomBuilder.Windows
 				renderStyle.Items.Add(lf.Value);
 			renderStyle.Enabled = (General.Map.Config.ThingRenderStyles.Count > 0);
 			labelrenderstyle.Enabled = (General.Map.Config.ThingRenderStyles.Count > 0);
+			if(UITiming.Enabled) UITiming.Mark(this, "renderstyles");
 
 			// Initialize custom fields editor
 			fieldslist.Setup("thing");
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-setup");
 
 			// Fill universal fields list
 			fieldslist.ListFixedFields(General.Map.Config.ThingFields);
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-fixed");
 
 			//mxd. Show fixed fields?
 			hidefixedfields.Checked = !General.Settings.ReadSetting("windows." + configname + ".customfieldsshowfixed", true);
@@ -157,7 +165,10 @@ namespace CodeImp.DoomBuilder.Windows
 			scale.LinkValues = General.Settings.ReadSetting("windows." + configname + ".linkscale", false);
 
 			// Setup types list
+			if(UITiming.Enabled) UITiming.Mark(this, "thingtypes-start");
 			thingtype.Setup();
+			if(UITiming.Enabled) UITiming.Mark(this, "thingtypes");
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion
@@ -165,8 +176,10 @@ namespace CodeImp.DoomBuilder.Windows
 		#region ================== Methods
 
 		// This sets up the form to edit the given things
-		public void Setup(ICollection<Thing> things) 
+		public void Setup(ICollection<Thing> things)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-" + things.Count);
 			preventchanges = true;
 			oldmapischanged = General.Map.IsChanged;
             undocreated = false;
@@ -221,7 +234,9 @@ namespace CodeImp.DoomBuilder.Windows
 			thinginfo = fti; //mxd
 
 			// Custom fields
+			if(UITiming.Enabled) UITiming.Mark(this, "setvalues-start");
 			fieldslist.SetValues(ft.Fields, true);
+			if(UITiming.Enabled) UITiming.Mark(this, "setvalues");
 			commenteditor.SetValues(ft.Fields, true);
 			conversationID.Text = ft.Fields.GetValue("conversation", 0).ToString();
 			floatbobphase.Text = ft.Fields.GetValue("floatbobphase", -1).ToString();
@@ -250,7 +265,8 @@ namespace CodeImp.DoomBuilder.Windows
 			thingprops = new List<ThingProperties>();
 
 			// Go for all things
-			foreach(Thing t in things) 
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge-start");
+			foreach(Thing t in things)
 			{
 				//mxd. Update sector info
 				t.DetermineSector();
@@ -331,6 +347,7 @@ namespace CodeImp.DoomBuilder.Windows
 				//mxd. Store initial properties
 				thingprops.Add(new ThingProperties(t));
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge");
 
 			// Remove unused thing type specific fields
 			foreach(UniversalFieldInfo ufi in  General.Map.Config.ThingFields)
@@ -344,6 +361,7 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 			}
 
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-prune");
 			preventchanges = false;
 
 			//mxd. Update "Reset" button
@@ -361,6 +379,7 @@ namespace CodeImp.DoomBuilder.Windows
 			actionhelp.UpdateAction(action.GetValue()); //mxd
 			commenteditor.FinishSetup(); //mxd
 			UpdateFlagNames(); //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
 		}
 
 		//mxd

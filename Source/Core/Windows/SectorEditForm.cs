@@ -69,17 +69,21 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 
 			// Fill effects list
 			effect.GeneralizedOptions = General.Map.Config.GenEffectOptions; //mxd
 			effect.AddInfo(General.Map.Config.SortedSectorEffects.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "effects");
 
 			// Initialize image selectors
 			floortex.Initialize();
 			ceilingtex.Initialize();
+			if(UITiming.Enabled) UITiming.Mark(this, "image-selectors");
 
 			// Set steps for brightness field
 			brightness.StepValues = General.Map.Config.BrightnessLevels;
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion
@@ -89,6 +93,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// This sets up the form to edit the given sectors
 		public void Setup(ICollection<Sector> sectors)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-" + sectors.Count);
 			preventchanges = true; //mxd
 			oldmapischanged = General.Map.IsChanged;
 			undocreated = false;
@@ -126,6 +132,7 @@ namespace CodeImp.DoomBuilder.Windows
 			////////////////////////////////////////////////////////////////////////
 
 			// Go for all sectors
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge-start");
 			foreach(Sector s in sectors)
 			{
 				// Effects
@@ -152,11 +159,13 @@ namespace CodeImp.DoomBuilder.Windows
 				//mxd. Store initial properties
 				sectorprops.Add(new SectorProperties(s));
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge");
 
 			// Show sector height
 			UpdateSectorHeight();
 
 			preventchanges = false; //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
 		}
 
 		//mxd

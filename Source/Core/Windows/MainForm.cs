@@ -3633,7 +3633,9 @@ namespace CodeImp.DoomBuilder.Windows
 		internal void ShowConfigurationPage(int pageindex)
 		{
 			// Show configuration dialog
-			ConfigForm cfgform = new ConfigForm();
+			ConfigForm cfgform;
+			using(UITiming.Request(nameof(ConfigForm)))
+				cfgform = new ConfigForm();
 			if(pageindex > -1) cfgform.ShowTab(pageindex);
 			if(cfgform.ShowDialog(this) == DialogResult.OK)
 			{
@@ -3665,7 +3667,9 @@ namespace CodeImp.DoomBuilder.Windows
 			bool oldautosavestate = General.Settings.Autosave;
 
 			// Show preferences dialog
-			PreferencesForm prefform = new PreferencesForm();
+			PreferencesForm prefform;
+			using(UITiming.Request(nameof(PreferencesForm)))
+				prefform = new PreferencesForm();
 			if(prefform.ShowDialog(this) == DialogResult.OK)
 			{
 				// Update stuff
@@ -4345,7 +4349,9 @@ namespace CodeImp.DoomBuilder.Windows
 			// Show line edit dialog
 			if(General.Map.UDMF) //mxd
 			{
-				LinedefEditFormUDMF f = new LinedefEditFormUDMF(selectfront, selectback);
+				LinedefEditFormUDMF f;
+				using(UITiming.Request(nameof(LinedefEditFormUDMF)))
+					f = new LinedefEditFormUDMF(selectfront, selectback);
 				DisableProcessing(); //mxd
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
@@ -4366,7 +4372,9 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			else
 			{
-				LinedefEditForm f = new LinedefEditForm();
+				LinedefEditForm f;
+				using(UITiming.Request(nameof(LinedefEditForm)))
+					f = new LinedefEditForm();
 				DisableProcessing(); //mxd
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
@@ -4397,7 +4405,9 @@ namespace CodeImp.DoomBuilder.Windows
 			// Show sector edit dialog
 			if(General.Map.UDMF) //mxd
 			{ 
-				SectorEditFormUDMF f = new SectorEditFormUDMF();
+				SectorEditFormUDMF f;
+				using(UITiming.Request(nameof(SectorEditFormUDMF)))
+					f = new SectorEditFormUDMF();
 				DisableProcessing(); //mxd
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
@@ -4418,7 +4428,9 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			else
 			{
-				SectorEditForm f = new SectorEditForm();
+				SectorEditForm f;
+				using(UITiming.Request(nameof(SectorEditForm)))
+					f = new SectorEditForm();
 				DisableProcessing(); //mxd
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
@@ -4449,7 +4461,9 @@ namespace CodeImp.DoomBuilder.Windows
 			// Show thing edit dialog
 			if(General.Map.UDMF) 
 			{
-				ThingEditFormUDMF f = new ThingEditFormUDMF();
+				ThingEditFormUDMF f;
+				using(UITiming.Request(nameof(ThingEditFormUDMF)))
+					f = new ThingEditFormUDMF();
 				DisableProcessing(); //mxd
 				#if NO_WIN32
 				BreakExclusiveMouseInput();
@@ -4470,7 +4484,9 @@ namespace CodeImp.DoomBuilder.Windows
 			} 
 			else 
 			{
-				ThingEditForm f = new ThingEditForm();
+				ThingEditForm f;
+				using(UITiming.Request(nameof(ThingEditForm)))
+					f = new ThingEditForm();
 				DisableProcessing(); //mxd
 				#if NO_WIN32
 				BreakExclusiveMouseInput();

@@ -104,9 +104,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				General.Interface.DisplayStatus(StatusType.Action, "Created " + a + word + " grid.");
 
 				List<Sector> newsectors = new List<Sector>();
+				HashSet<Sector> oldsectors = new HashSet<Sector>(General.Map.Map.Sectors);
+				bool closedgrid = gridpoints[0].Length > 2 && gridpoints[0][0].pos == gridpoints[0][gridpoints[0].Length - 1].pos;
 				bool failed = false;
-				foreach(DrawnVertex[] shape in gridpoints)
+				for(int i = 0; i < gridpoints.Count; i++)
 				{
+					DrawnVertex[] shape = gridpoints[i];
 					if(Tools.DrawLines(shape, true, BuilderPlug.Me.AutoAlignTextureOffsetsOnCreate))
 					{
 						// Update cached values after each step...
@@ -122,6 +125,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 						//mxd. Outer sectors may require some splittin...
 						if(General.Settings.SplitJoinedSectors) Tools.SplitOuterSectors(General.Map.Map.GetMarkedLinedefs(true));
+
+						// Dividers only split cells, so their sectors are never marked as new.
+						if(closedgrid && i > 0)
+						{
+							foreach(Linedef l in General.Map.Map.GetMarkedLinedefs(true))
+							{
+								if(l.Front != null) newsectors.Add(l.Front.Sector);
+								if(l.Back != null) newsectors.Add(l.Back.Sector);
+							}
+						}
 					}
 					else
 					{
@@ -141,7 +154,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					{
 						// HashSet dedupe: the file has no System.Linq using
 						List<Sector> edit = new List<Sector>(new HashSet<Sector>(newsectors));
-						edit.RemoveAll(s => s.IsDisposed);
+						edit.RemoveAll(s => s.IsDisposed || oldsectors.Contains(s) || s.Sidedefs == null || s.Sidedefs.Count == 0);
 						if(edit.Count > 0) General.Interface.ShowEditSectors(edit);
 					}
 

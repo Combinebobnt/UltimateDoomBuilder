@@ -43,8 +43,8 @@ namespace CodeImp.DoomBuilder.TagRange
 			string modename = General.Editing.Mode.GetType().Name;
 			IMapSetIO mapset = General.Map.FormatInterface;
 			if((modename == "SectorsMode") ||
-			   ((modename == "LinedefsMode") && mapset.HasLinedefTag) ||
-			   ((modename == "ThingsMode") && mapset.HasThingTag))
+			   ((modename == "LinedefsMode") && (mapset.HasLinedefTag || mapset.HasActionArgs)) ||
+			   ((modename == "ThingsMode") && (mapset.HasThingTag || mapset.HasActionArgs)))
 			{
 				General.Interface.AddButton(seperator1);
 				General.Interface.AddButton(tagrangebutton);

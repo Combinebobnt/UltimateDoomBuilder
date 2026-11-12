@@ -137,10 +137,12 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 
 			DoUDMFControls(tabproperties, General.Map.Config.LinedefFields);
 			DoUDMFControls(tabfront, General.Map.Config.SidedefFields);
 			DoUDMFControls(tabback, General.Map.Config.SidedefFields);
+			if(UITiming.Enabled) UITiming.Mark(this, "udmf-controls");
 
 			// Widow setup
 			if (General.Settings.StoreSelectedEditTab)
@@ -155,9 +157,11 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			
 			// Fill flags lists
+			if(UITiming.Enabled) UITiming.Mark(this, "flags-start");
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.LinedefFlags)
 				flags.Add(lf.Value, lf.Key);
 			flags.Enabled = General.Map.Config.LinedefFlags.Count > 0;
+			if(UITiming.Enabled) UITiming.Mark(this, "flags");
 
 			// Fill sidedef flags lists
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.SidedefFlags) 
@@ -167,12 +171,15 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			flagsFront.Enabled = General.Map.Config.SidedefFlags.Count > 0;
 			flagsBack.Enabled = General.Map.Config.SidedefFlags.Count > 0;
+			if(UITiming.Enabled) UITiming.Mark(this, "sidedef-flags");
 
 			// Fill actions list
 			action.AddInfo(General.Map.Config.SortedLinedefActions.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "actions");
 
 			// Fill activations list
 			foreach(LinedefActivateInfo ai in General.Map.Config.LinedefActivates) udmfactivates.Add(ai.Title, ai);
+			if(UITiming.Enabled) UITiming.Mark(this, "activations");
 
 			// Fill keys list
 			keynumbers = new List<int>();
@@ -185,6 +192,8 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 			}
 			
+			if(UITiming.Enabled) UITiming.Mark(this, "keys");
+
 			// Initialize image selectors
 			fronthigh.Initialize();
 			frontmid.Initialize();
@@ -192,12 +201,15 @@ namespace CodeImp.DoomBuilder.Windows
 			backhigh.Initialize();
 			backmid.Initialize();
 			backlow.Initialize();
+			if(UITiming.Enabled) UITiming.Mark(this, "image-selectors");
 
 			// Initialize custom fields editor
 			fieldslist.Setup("linedef");
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-setup");
 
 			// Fill universal fields list
 			fieldslist.ListFixedFields(General.Map.Config.LinedefFields);
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-fixed");
 
 			// Initialize controls
 			frontUdmfControls = new List<PairedFieldsControl> { pfcFrontOffsetTop, pfcFrontOffsetMid, pfcFrontOffsetBottom, pfcFrontScaleTop, pfcFrontScaleMid, pfcFrontScaleBottom };
@@ -212,6 +224,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Fill renderstyles
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.LinedefRenderStyles)
 				renderStyle.Items.Add(lf.Value);
+			if(UITiming.Enabled) UITiming.Mark(this, "renderstyles");
 
 			// Restore value linking
 			pfcFrontScaleTop.LinkValues = General.Settings.ReadSetting("windows." + configname + ".linkfronttopscale", false);
@@ -230,6 +243,7 @@ namespace CodeImp.DoomBuilder.Windows
 			lightbackupper.Setup(VisualModes.VisualGeometryType.WALL_UPPER);
 			lightbackmiddle.Setup(VisualModes.VisualGeometryType.WALL_MIDDLE);
 			lightbacklower.Setup(VisualModes.VisualGeometryType.WALL_LOWER);
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion
@@ -239,6 +253,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// This sets up the form to edit the given lines
 		public void Setup(ICollection<Linedef> lines, bool selectfront, bool selectback)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-" + lines.Count);
             // Window setup
             // ano - moved this here because we don't reinstantiate the thing every time anymore
             if (General.Settings.StoreSelectedEditTab)
@@ -281,7 +297,9 @@ namespace CodeImp.DoomBuilder.Windows
 				if(fl.Flags.ContainsKey(ai.Key)) c.Checked = fl.Flags[ai.Key];
 			}
 
+			if(UITiming.Enabled) UITiming.Mark(this, "setvalues-start");
 			fieldslist.SetValues(fl.Fields, true); // Custom fields
+			if(UITiming.Enabled) UITiming.Mark(this, "setvalues");
 			commenteditor.SetValues(fl.Fields, true); //mxd. Comments
 			renderStyle.SelectedIndex = Array.IndexOf(renderstyles, fl.Fields.GetValue("renderstyle", "translucent"));
 			alpha.Text = General.Clamp(fl.Fields.GetValue("alpha", 1.0), 0.0, 1.0).ToString();
@@ -375,6 +393,7 @@ namespace CodeImp.DoomBuilder.Windows
 			////////////////////////////////////////////////////////////////////////
 
 			// Go for all lines
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge-start");
 			foreach (Linedef l in lines)
 			{
 				// Flags
@@ -579,9 +598,11 @@ namespace CodeImp.DoomBuilder.Windows
 				//mxd
 				linedefprops.Add(new LinedefProperties(l));
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge");
 
 			//mxd. Set tags
 			tagsselector.SetValues(lines);
+			if(UITiming.Enabled) UITiming.Mark(this, "tags");
 			
 			// Refresh controls so that they show their image
 			backhigh.Refresh();
@@ -612,6 +633,7 @@ namespace CodeImp.DoomBuilder.Windows
 			lightbackupper.FinalizeSetup();
 			lightbackmiddle.FinalizeSetup();
 			lightbacklower.FinalizeSetup();
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
 		}
 
 		//mxd

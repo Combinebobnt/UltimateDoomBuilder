@@ -87,17 +87,21 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 			
 			// Fill flags lists
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.LinedefFlags)
 				flags.Add(lf.Value, lf.Key);
+			if(UITiming.Enabled) UITiming.Mark(this, "flags");
 
 			// Fill actions list
 			action.GeneralizedCategories = General.Map.Config.GenActionCategories;
 			action.AddInfo(General.Map.Config.SortedLinedefActions.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "actions");
 
 			// Fill activations list
 			activation.Items.AddRange(General.Map.Config.LinedefActivates.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "activations");
 			
 			// Initialize image selectors
 			fronthigh.Initialize();
@@ -106,6 +110,7 @@ namespace CodeImp.DoomBuilder.Windows
 			backhigh.Initialize();
 			backmid.Initialize();
 			backlow.Initialize();
+			if(UITiming.Enabled) UITiming.Mark(this, "image-selectors");
 			
 			// Mixed activations?
 			if(General.Map.FormatInterface.HasPresetActivations)
@@ -141,6 +146,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Update window height
 			this.Height = apply.Bottom + apply.Margin.Bottom * 2 + (this.Height - this.ClientRectangle.Height) + 1;
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion
@@ -150,6 +156,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// This sets up the form to edit the given lines
 		public void Setup(ICollection<Linedef> lines)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-" + lines.Count);
 			preventchanges = true;
 			oldmapischanged = General.Map.IsChanged;
 
@@ -231,6 +239,7 @@ namespace CodeImp.DoomBuilder.Windows
 			////////////////////////////////////////////////////////////////////////
 
 			// Go for all lines
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge-start");
 			foreach(Linedef l in lines)
 			{
 				// Flags
@@ -333,6 +342,7 @@ namespace CodeImp.DoomBuilder.Windows
 				//mxd
 				linedefprops.Add(new LinedefProperties(l));
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge");
 			
 			// Refresh controls so that they show their image
 			backhigh.Refresh();
@@ -346,6 +356,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			argscontrol.UpdateScriptControls(); //mxd
 			actionhelp.UpdateAction(action.GetValue()); //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
 		}
 
 		//mxd

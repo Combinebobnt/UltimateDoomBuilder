@@ -41,6 +41,20 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.rangestep = new CodeImp.DoomBuilder.Controls.ButtonsNumericTextbox();
 			this.relativemode = new System.Windows.Forms.CheckBox();
 			this.bglabel = new System.Windows.Forms.Label();
+			this.ordergroup = new System.Windows.Forms.GroupBox();
+			this.orderlabel = new System.Windows.Forms.Label();
+			this.order = new System.Windows.Forms.ComboBox();
+			this.cornerlabel = new System.Windows.Forms.Label();
+			this.startcorner = new System.Windows.Forms.ComboBox();
+			this.stridelabel = new System.Windows.Forms.Label();
+			this.rowstride = new CodeImp.DoomBuilder.Controls.ButtonsNumericTextbox();
+			this.stridehint = new System.Windows.Forms.Label();
+			this.applytolabel = new System.Windows.Forms.Label();
+			this.applyto = new System.Windows.Forms.ComboBox();
+			this.linefilterlabel = new System.Windows.Forms.Label();
+			this.linefilter = new System.Windows.Forms.ComboBox();
+			this.summarylabel = new System.Windows.Forms.Label();
+			this.ordergroup.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// rangestart
@@ -54,9 +68,9 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.rangestart.ButtonStepSmall = 0.1F;
 			this.rangestart.ButtonStepsUseModifierKeys = false;
 			this.rangestart.ButtonStepsWrapAround = false;
-			this.rangestart.Location = new System.Drawing.Point(76, 12);
+			this.rangestart.Location = new System.Drawing.Point(100, 12);
 			this.rangestart.Name = "rangestart";
-			this.rangestart.Size = new System.Drawing.Size(96, 24);
+			this.rangestart.Size = new System.Drawing.Size(110, 24);
 			this.rangestart.StepValues = null;
 			this.rangestart.TabIndex = 0;
 			this.rangestart.WhenTextChanged += new System.EventHandler(this.rangestart_WhenTextChanged);
@@ -65,7 +79,7 @@ namespace CodeImp.DoomBuilder.TagRange
 			// 
 			this.label1.Location = new System.Drawing.Point(10, 17);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(62, 14);
+			this.label1.Size = new System.Drawing.Size(86, 18);
 			this.label1.TabIndex = 1;
 			this.label1.Text = "Start Tag:";
 			this.label1.TextAlign = System.Drawing.ContentAlignment.TopRight;
@@ -75,10 +89,10 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.doubletagwarning.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.doubletagwarning.BackColor = System.Drawing.SystemColors.Info;
 			this.doubletagwarning.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-			this.doubletagwarning.Location = new System.Drawing.Point(12, 94);
+			this.doubletagwarning.Location = new System.Drawing.Point(12, 360);
 			this.doubletagwarning.Name = "doubletagwarning";
 			this.doubletagwarning.Padding = new System.Windows.Forms.Padding(3);
-			this.doubletagwarning.Size = new System.Drawing.Size(273, 50);
+			this.doubletagwarning.Size = new System.Drawing.Size(470, 50);
 			this.doubletagwarning.TabIndex = 4;
 			this.doubletagwarning.Text = "Warning: The tag range contains already used tags.";
 			this.doubletagwarning.Visible = false;
@@ -88,10 +102,10 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.skipdoubletags.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.skipdoubletags.AutoSize = true;
 			this.skipdoubletags.BackColor = System.Drawing.SystemColors.Info;
-			this.skipdoubletags.Location = new System.Drawing.Point(63, 119);
+			this.skipdoubletags.Location = new System.Drawing.Point(24, 385);
 			this.skipdoubletags.Name = "skipdoubletags";
 			this.skipdoubletags.Size = new System.Drawing.Size(157, 17);
-			this.skipdoubletags.TabIndex = 5;
+			this.skipdoubletags.TabIndex = 9;
 			this.skipdoubletags.Text = "Skip over already used tags";
 			this.skipdoubletags.UseVisualStyleBackColor = false;
 			this.skipdoubletags.Visible = false;
@@ -100,10 +114,10 @@ namespace CodeImp.DoomBuilder.TagRange
 			// okbutton
 			// 
 			this.okbutton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.okbutton.Location = new System.Drawing.Point(81, 151);
+			this.okbutton.Location = new System.Drawing.Point(278, 422);
 			this.okbutton.Name = "okbutton";
 			this.okbutton.Size = new System.Drawing.Size(99, 26);
-			this.okbutton.TabIndex = 6;
+			this.okbutton.TabIndex = 10;
 			this.okbutton.Text = "OK";
 			this.okbutton.UseVisualStyleBackColor = true;
 			this.okbutton.Click += new System.EventHandler(this.okbutton_Click);
@@ -112,10 +126,10 @@ namespace CodeImp.DoomBuilder.TagRange
 			// 
 			this.cancelbutton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.cancelbutton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.cancelbutton.Location = new System.Drawing.Point(186, 151);
+			this.cancelbutton.Location = new System.Drawing.Point(383, 422);
 			this.cancelbutton.Name = "cancelbutton";
 			this.cancelbutton.Size = new System.Drawing.Size(99, 26);
-			this.cancelbutton.TabIndex = 7;
+			this.cancelbutton.TabIndex = 11;
 			this.cancelbutton.Text = "Cancel";
 			this.cancelbutton.UseVisualStyleBackColor = true;
 			this.cancelbutton.Click += new System.EventHandler(this.cancelbutton_Click);
@@ -125,10 +139,10 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.outoftagswarning.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.outoftagswarning.BackColor = System.Drawing.SystemColors.Info;
 			this.outoftagswarning.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-			this.outoftagswarning.Location = new System.Drawing.Point(12, 94);
+			this.outoftagswarning.Location = new System.Drawing.Point(12, 360);
 			this.outoftagswarning.Name = "outoftagswarning";
 			this.outoftagswarning.Padding = new System.Windows.Forms.Padding(3);
-			this.outoftagswarning.Size = new System.Drawing.Size(273, 50);
+			this.outoftagswarning.Size = new System.Drawing.Size(470, 50);
 			this.outoftagswarning.TabIndex = 8;
 			this.outoftagswarning.Text = "The range exceeds the maximum or minimum allowed tags and cannot be created.";
 			this.outoftagswarning.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -137,7 +151,7 @@ namespace CodeImp.DoomBuilder.TagRange
 			// endtaglabel
 			// 
 			this.endtaglabel.AutoSize = true;
-			this.endtaglabel.Location = new System.Drawing.Point(250, 17);
+			this.endtaglabel.Location = new System.Drawing.Point(310, 17);
 			this.endtaglabel.Name = "endtaglabel";
 			this.endtaglabel.Size = new System.Drawing.Size(13, 13);
 			this.endtaglabel.TabIndex = 10;
@@ -145,10 +159,9 @@ namespace CodeImp.DoomBuilder.TagRange
 			// 
 			// label4
 			// 
-			this.label4.AutoSize = true;
-			this.label4.Location = new System.Drawing.Point(189, 17);
+			this.label4.Location = new System.Drawing.Point(232, 17);
 			this.label4.Name = "label4";
-			this.label4.Size = new System.Drawing.Size(51, 13);
+			this.label4.Size = new System.Drawing.Size(74, 18);
 			this.label4.TabIndex = 9;
 			this.label4.Text = "End Tag:";
 			// 
@@ -156,7 +169,7 @@ namespace CodeImp.DoomBuilder.TagRange
 			// 
 			this.label2.Location = new System.Drawing.Point(10, 47);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(62, 14);
+			this.label2.Size = new System.Drawing.Size(86, 18);
 			this.label2.TabIndex = 11;
 			this.label2.Text = "Increment:";
 			this.label2.TextAlign = System.Drawing.ContentAlignment.TopRight;
@@ -172,20 +185,20 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.rangestep.ButtonStepSmall = 0.1F;
 			this.rangestep.ButtonStepsUseModifierKeys = false;
 			this.rangestep.ButtonStepsWrapAround = false;
-			this.rangestep.Location = new System.Drawing.Point(76, 42);
+			this.rangestep.Location = new System.Drawing.Point(100, 42);
 			this.rangestep.Name = "rangestep";
-			this.rangestep.Size = new System.Drawing.Size(96, 24);
+			this.rangestep.Size = new System.Drawing.Size(110, 24);
 			this.rangestep.StepValues = null;
-			this.rangestep.TabIndex = 12;
+			this.rangestep.TabIndex = 1;
 			this.rangestep.WhenTextChanged += new System.EventHandler(this.rangestep_WhenTextChanged);
 			// 
 			// relativemode
 			// 
 			this.relativemode.AutoSize = true;
-			this.relativemode.Location = new System.Drawing.Point(76, 72);
+			this.relativemode.Location = new System.Drawing.Point(100, 72);
 			this.relativemode.Name = "relativemode";
 			this.relativemode.Size = new System.Drawing.Size(138, 17);
-			this.relativemode.TabIndex = 13;
+			this.relativemode.TabIndex = 2;
 			this.relativemode.Text = "Relative to existing tags";
 			this.relativemode.UseVisualStyleBackColor = false;
 			this.relativemode.CheckedChanged += new System.EventHandler(this.relativemode_CheckedChanged);
@@ -195,12 +208,117 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.bglabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.bglabel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			this.bglabel.Enabled = false;
-			this.bglabel.Location = new System.Drawing.Point(12, 94);
+			this.bglabel.Location = new System.Drawing.Point(12, 360);
 			this.bglabel.Name = "bglabel";
 			this.bglabel.Padding = new System.Windows.Forms.Padding(3);
-			this.bglabel.Size = new System.Drawing.Size(273, 50);
+			this.bglabel.Size = new System.Drawing.Size(470, 50);
 			this.bglabel.TabIndex = 14;
 			this.bglabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+			//
+			// ordergroup
+			//
+			this.ordergroup.Controls.Add(this.orderlabel);
+			this.ordergroup.Controls.Add(this.order);
+			this.ordergroup.Controls.Add(this.cornerlabel);
+			this.ordergroup.Controls.Add(this.startcorner);
+			this.ordergroup.Controls.Add(this.stridelabel);
+			this.ordergroup.Controls.Add(this.rowstride);
+			this.ordergroup.Controls.Add(this.stridehint);
+			this.ordergroup.Controls.Add(this.applytolabel);
+			this.ordergroup.Controls.Add(this.applyto);
+			this.ordergroup.Controls.Add(this.linefilterlabel);
+			this.ordergroup.Controls.Add(this.linefilter);
+			this.ordergroup.Location = new System.Drawing.Point(12, 96);
+			this.ordergroup.Name = "ordergroup";
+			this.ordergroup.Size = new System.Drawing.Size(470, 180);
+			this.ordergroup.TabIndex = 3;
+			this.ordergroup.TabStop = false;
+			this.ordergroup.Text = "Ordering and target";
+			//
+			// order
+			//
+			this.orderlabel.Location = new System.Drawing.Point(8, 24);
+			this.orderlabel.Size = new System.Drawing.Size(96, 18);
+			this.orderlabel.Text = "Order:";
+			this.orderlabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+			this.order.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.order.Items.AddRange(new object[] { "Selection order", "Rows", "Columns" });
+			this.order.Location = new System.Drawing.Point(110, 20);
+			this.order.Name = "order";
+			this.order.Size = new System.Drawing.Size(344, 21);
+			this.order.TabIndex = 0;
+			this.order.SelectedIndexChanged += new System.EventHandler(this.options_Changed);
+			//
+			// startcorner
+			//
+			this.cornerlabel.Location = new System.Drawing.Point(8, 54);
+			this.cornerlabel.Size = new System.Drawing.Size(96, 18);
+			this.cornerlabel.Text = "Start corner:";
+			this.cornerlabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+			this.startcorner.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.startcorner.Items.AddRange(new object[] { "Top-left", "Top-right", "Bottom-left", "Bottom-right" });
+			this.startcorner.Location = new System.Drawing.Point(110, 50);
+			this.startcorner.Name = "startcorner";
+			this.startcorner.Size = new System.Drawing.Size(344, 21);
+			this.startcorner.TabIndex = 1;
+			this.startcorner.SelectedIndexChanged += new System.EventHandler(this.options_Changed);
+			//
+			// rowstride
+			//
+			this.stridelabel.Location = new System.Drawing.Point(8, 84);
+			this.stridelabel.Size = new System.Drawing.Size(96, 18);
+			this.stridelabel.Text = "Row stride:";
+			this.stridelabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+			this.rowstride.AllowDecimal = false;
+			this.rowstride.AllowNegative = true;
+			this.rowstride.AllowRelative = false;
+			this.rowstride.ButtonStep = 1;
+			this.rowstride.ButtonStepBig = 10F;
+			this.rowstride.ButtonStepFloat = 1F;
+			this.rowstride.ButtonStepSmall = 1F;
+			this.rowstride.Location = new System.Drawing.Point(110, 80);
+			this.rowstride.Name = "rowstride";
+			this.rowstride.Size = new System.Drawing.Size(110, 24);
+			this.rowstride.TabIndex = 2;
+			this.rowstride.WhenTextChanged += new System.EventHandler(this.options_Changed);
+			this.stridehint.Location = new System.Drawing.Point(230, 84);
+			this.stridehint.Size = new System.Drawing.Size(224, 18);
+			this.stridehint.Text = "Blank = sequential numbering";
+			//
+			// applyto
+			//
+			this.applytolabel.Location = new System.Drawing.Point(8, 114);
+			this.applytolabel.Size = new System.Drawing.Size(96, 18);
+			this.applytolabel.Text = "Apply to:";
+			this.applytolabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+			this.applyto.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.applyto.Items.AddRange(new object[] { "Tag", "Argument 1", "Argument 2", "Argument 3", "Argument 4", "Argument 5" });
+			this.applyto.Location = new System.Drawing.Point(110, 110);
+			this.applyto.Name = "applyto";
+			this.applyto.Size = new System.Drawing.Size(344, 21);
+			this.applyto.TabIndex = 3;
+			this.applyto.SelectedIndexChanged += new System.EventHandler(this.options_Changed);
+			//
+			// linefilter
+			//
+			this.linefilterlabel.Location = new System.Drawing.Point(8, 144);
+			this.linefilterlabel.Size = new System.Drawing.Size(96, 18);
+			this.linefilterlabel.Text = "Lines:";
+			this.linefilterlabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+			this.linefilter.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.linefilter.Items.AddRange(new object[] { "All", "Horizontal", "Vertical" });
+			this.linefilter.Location = new System.Drawing.Point(110, 140);
+			this.linefilter.Name = "linefilter";
+			this.linefilter.Size = new System.Drawing.Size(344, 21);
+			this.linefilter.TabIndex = 4;
+			this.linefilter.SelectedIndexChanged += new System.EventHandler(this.options_Changed);
+			//
+			// summarylabel
+			//
+			this.summarylabel.Location = new System.Drawing.Point(12, 284);
+			this.summarylabel.Name = "summarylabel";
+			this.summarylabel.Size = new System.Drawing.Size(470, 70);
+			this.summarylabel.Text = "";
 			// 
 			// TagRangeForm
 			// 
@@ -208,7 +326,9 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.cancelbutton;
-			this.ClientSize = new System.Drawing.Size(298, 183);
+			this.ClientSize = new System.Drawing.Size(494, 460);
+			this.Controls.Add(this.ordergroup);
+			this.Controls.Add(this.summarylabel);
 			this.Controls.Add(this.relativemode);
 			this.Controls.Add(this.rangestep);
 			this.Controls.Add(this.label2);
@@ -231,6 +351,7 @@ namespace CodeImp.DoomBuilder.TagRange
 			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Tag Selected Range";
+			this.ordergroup.ResumeLayout(false);
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -251,5 +372,18 @@ namespace CodeImp.DoomBuilder.TagRange
 		private CodeImp.DoomBuilder.Controls.ButtonsNumericTextbox rangestep;
 		private System.Windows.Forms.CheckBox relativemode;
 		private System.Windows.Forms.Label bglabel;
+		private System.Windows.Forms.GroupBox ordergroup;
+		private System.Windows.Forms.Label orderlabel;
+		private System.Windows.Forms.ComboBox order;
+		private System.Windows.Forms.Label cornerlabel;
+		private System.Windows.Forms.ComboBox startcorner;
+		private System.Windows.Forms.Label stridelabel;
+		private CodeImp.DoomBuilder.Controls.ButtonsNumericTextbox rowstride;
+		private System.Windows.Forms.Label stridehint;
+		private System.Windows.Forms.Label applytolabel;
+		private System.Windows.Forms.ComboBox applyto;
+		private System.Windows.Forms.Label linefilterlabel;
+		private System.Windows.Forms.ComboBox linefilter;
+		private System.Windows.Forms.Label summarylabel;
 	}
 }

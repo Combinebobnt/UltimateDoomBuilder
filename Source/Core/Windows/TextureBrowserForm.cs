@@ -68,6 +68,7 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 
 			//mxd. Set titles
 			string imagetype = (browseflats ? "flats" : "textures");
@@ -76,9 +77,11 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Setup texture browser
 			browser.ApplySettings("windows." + configname, browseflats);
+			if(UITiming.Enabled) UITiming.Mark(this, "browser-settings");
 			
 			// Update the used textures
 			General.Map.Data.UpdateUsedTextures();
+			if(UITiming.Enabled) UITiming.Mark(this, "used-textures");
 
 			tvTextureSets.BeginUpdate(); //mxd
 
@@ -97,6 +100,7 @@ namespace CodeImp.DoomBuilder.Windows
 				item.Tag = new TreeNodeData { Set = ts, FolderName = ts.Name };
 				item.ImageIndex = 0;
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "texture-sets");
 
 			//mxd. Add container-specific texture sets
 			foreach(ResourceTextureSet ts in General.Map.Data.ResourceTextureSets)
@@ -114,6 +118,7 @@ namespace CodeImp.DoomBuilder.Windows
 				CreateNodes(item);
 				item.Expand();
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "resource-tree");
 
 			//mxd. Add "All" texture set
 			AllTextureSet alltextureset = browseflats ? General.Map.Data.FlatTextureSet : General.Map.Data.WallTextureSet;
@@ -123,6 +128,8 @@ namespace CodeImp.DoomBuilder.Windows
 			item.Tag = new TreeNodeData { Set = alltextureset, FolderName = alltextureset.Name };
 			item.ImageIndex = 1;
 			item.SelectedImageIndex = item.ImageIndex;
+
+			if(UITiming.Enabled) UITiming.Mark(this, "all-textures-set");
 
 			//mxd. Should we bother finding the correct texture set?
 			if(General.Settings.LocateTextureGroup)
@@ -178,6 +185,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			tvTextureSets.EndUpdate(); //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "tree-selection");
 
 			//mxd. Set splitter position and state (doesn't work when layout is suspended)
 			if(General.Settings.ReadSetting("windows." + configname + ".splittercollapsed", false))
@@ -200,6 +208,7 @@ namespace CodeImp.DoomBuilder.Windows
 			GeomDebugAddNote("splitter=" + (splitterdefaulted ? "defaulted" : "saved") + ":" + splitterdistance);
 
 			splitter.SplitPosition = splitterdistance;
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		//mxd
@@ -448,7 +457,9 @@ namespace CodeImp.DoomBuilder.Windows
 		// Static method to browse for texture or flat.
 		public static string Browse(IWin32Window parent, string select, bool browseflats)
 		{
-			TextureBrowserForm browser = new TextureBrowserForm(select, browseflats);
+			TextureBrowserForm browser;
+			using(UITiming.Request(nameof(TextureBrowserForm)))
+				browser = new TextureBrowserForm(select, browseflats);
 
 			// Instrumentation: which call site this open came from. Most real opens are parented
 			// to an edit dialog rather than the main window, which changes the WM's transient-for
@@ -520,6 +531,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// This fills the list of textures, depending on the selected texture set
 		private void FillImagesList()
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "images-start");
 			//mxd. Show root items
 			if(selectedset == null)
 			{
@@ -567,6 +579,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Done adding
 			browser.EndAdding();
+			if(UITiming.Enabled) UITiming.Mark(this, "images");
 		}
 
 		private void FillCategoriesList()
@@ -582,6 +595,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Done adding
 			browser.EndAdding();
+			if(UITiming.Enabled) UITiming.Mark(this, "image-categories");
 		}
 
 		// Help
@@ -627,6 +641,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			//mxd. Focus the textures list. Calling this from TextureBrowserForm_Activated (like it's done in DB2) fails when the form is maximized. Again, I've no idea why...
 			browser.FocusList();
+			if(UITiming.Enabled) UITiming.Mark(this, "browser-selection");
 		}
 
 		//mxd

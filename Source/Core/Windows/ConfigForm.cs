@@ -41,7 +41,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private List<DefinedTextureSet> copiedsets;
 		private bool preventchanges;
 		private bool reloadresources;
-		private readonly int initialformheight;
+		private readonly ResourceWarningResize warningresize;
 
 		//mxd. "Copy/Paste" stuff
 		private ConfigurationInfo configinfocopy;
@@ -56,7 +56,8 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Initialize
 			InitializeComponent();
-			this.initialformheight = Height;
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
+			warningresize = new ResourceWarningResize(this, tabs, configdata, apply);
 			General.ApplyMonoListViewFix(listtextures);
 
 			#if NO_WIN32
@@ -68,6 +69,8 @@ namespace CodeImp.DoomBuilder.Windows
 			columnname.Width = listconfigs.ClientRectangle.Width - SystemInformation.VerticalScrollBarWidth - 2;
 			
 			// Fill list of configurations
+			if(UITiming.Enabled) UITiming.Mark(this, "listconfigs-start");
+			listconfigs.BeginUpdate();
 			foreach(ConfigurationInfo ci in General.Configs)
 			{
 				// Add a copy
@@ -80,6 +83,8 @@ namespace CodeImp.DoomBuilder.Windows
 				if((General.Map != null) && (General.Map.ConfigSettings.Filename == ci.Filename))
 					lvi.Selected = true;
 			}
+			listconfigs.EndUpdate();
+			if(UITiming.Enabled) UITiming.Mark(this, "listconfigs");
 			
 			// No skill
 			skill.Value = 0;
@@ -89,10 +94,14 @@ namespace CodeImp.DoomBuilder.Windows
 			nodebuildertest.Items.Add(new NodebuilderInfo());
 			
 			// Fill comboboxes with nodebuilders
+			if(UITiming.Enabled) UITiming.Mark(this, "nodebuilders-start");
 			nodebuildersave.Items.AddRange(General.Nodebuilders.ToArray());
 			nodebuildertest.Items.AddRange(General.Nodebuilders.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "nodebuilders");
 			
 			// Fill list of editing modes
+			if(UITiming.Enabled) UITiming.Mark(this, "listmodes-start");
+			listmodes.BeginUpdate();
 			foreach(EditModeInfo emi in General.Editing.ModesInfo)
 			{
 				// Is this mode selectable by the user?
@@ -105,12 +114,18 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 			}
 
+			listmodes.EndUpdate();
+			if(UITiming.Enabled) UITiming.Mark(this, "listmodes");
+
 			//mxd
 			listconfigs.ItemChecked += listconfigs_ItemChecked;
 			listconfigs.SelectedIndexChanged += listconfigs_SelectedIndexChanged;
 
 			//mxd. Trigger change to update the right panel...
+			if(UITiming.Enabled) UITiming.Mark(this, "initial-panel-start");
 			listconfigs_MouseUp(this, new MouseEventArgs(MouseButtons.None, 0, 0, 0, 0));
+			if(UITiming.Enabled) UITiming.Mark(this, "initial-panel");
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 		
 		// This shows a specific page
@@ -125,6 +140,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Item selected?
 			if(listconfigs.SelectedItems.Count > 0)
 			{
+				if(UITiming.Enabled) UITiming.Mark(this, "config-panel-start");
 				// Enable panels
 				tabs.Enabled = true;
 
@@ -241,6 +257,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 				// Done
 				preventchanges = false;
+				if(UITiming.Enabled) UITiming.Mark(this, "config-panel");
 			}
 		}
 		
@@ -1128,8 +1145,7 @@ namespace CodeImp.DoomBuilder.Windows
 
         private void configdata_OnWarningsChanged(int size)
         {
-			Height = initialformheight + size;
-			Refresh();
+			warningresize.Apply(size);
         }
     }
 }

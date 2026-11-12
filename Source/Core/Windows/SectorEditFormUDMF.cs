@@ -187,8 +187,10 @@ namespace CodeImp.DoomBuilder.Windows
 		public SectorEditFormUDMF() 
 		{
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 
 			DoUDMFControls(this);
+			if(UITiming.Enabled) UITiming.Mark(this, "udmf-controls");
 
 			// Plane equation slopes are handled internally instead through the UDMF fields, so they need special attention
 			EnableDisableControlAndChildren(gbCeilingSLope, General.Map.Config.PlaneEquationSupport);
@@ -202,19 +204,23 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			// Fill flags list
+			if(UITiming.Enabled) UITiming.Mark(this, "flags-start");
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.SectorFlags)
 				flags.Add(lf.Value, lf.Key);
 			flags.Enabled = General.Map.Config.SectorFlags.Count > 0;
+			if(UITiming.Enabled) UITiming.Mark(this, "flags");
 
 			// Fill floor protal flags list
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.FloorPortalFlags)
 				floorportalflags.Add(lf.Value, lf.Key);
 			floorportalflags.Enabled = General.Map.Config.FloorPortalFlags.Count > 0;
+			if(UITiming.Enabled) UITiming.Mark(this, "floor-portal-flags");
 
 			// Fill ceiling protal flags list
 			foreach(KeyValuePair<string, string> lf in General.Map.Config.CeilingPortalFlags)
 				ceilportalflags.Add(lf.Value, lf.Key);
 			ceilportalflags.Enabled = General.Map.Config.CeilingPortalFlags.Count > 0;
+			if(UITiming.Enabled) UITiming.Mark(this, "ceiling-portal-flags");
 
 			// Setup renderstyles
 			if(General.Map.Config.SectorRenderStyles.Count > 0)
@@ -235,6 +241,8 @@ namespace CodeImp.DoomBuilder.Windows
 				ceilRenderStyle.Items.Add(name);
 			}
 
+			if(UITiming.Enabled) UITiming.Mark(this, "renderstyles");
+
 			// Setup portal renderstyles
 			if(General.Map.Config.SectorPortalRenderStyles.Count > 0)
 			{
@@ -254,33 +262,42 @@ namespace CodeImp.DoomBuilder.Windows
 				ceilportalrenderstyle.Items.Add(name);
 			}
 
+			if(UITiming.Enabled) UITiming.Mark(this, "portal-renderstyles");
+
 			// Fill effects list
 			effect.GeneralizedOptions = General.Map.Config.GenEffectOptions; //mxd
 			effect.AddInfo(General.Map.Config.SortedSectorEffects.ToArray());
+			if(UITiming.Enabled) UITiming.Mark(this, "effects");
 
 			// Fill sound sequences list
 			soundsequence.Items.Add(NO_SOUND_SEQUENCE);
 			soundsequence.Items.AddRange(General.Map.Data.SoundSequences);
+			if(UITiming.Enabled) UITiming.Mark(this, "sound-sequences");
 
 			// Fill damagetype list
 			damagetype.Items.Add(NO_DAMAGETYPE);
 			damagetype.Items.AddRange(General.Map.Data.DamageTypes);
+			if(UITiming.Enabled) UITiming.Mark(this, "damage-types");
 
 			// Fill terrain type lists
 			ceilterrain.Items.Add(NO_TERRAIN);
 			ceilterrain.Items.AddRange(General.Map.Data.TerrainNames);
 			floorterrain.Items.Add(NO_TERRAIN);
 			floorterrain.Items.AddRange(General.Map.Data.TerrainNames);
+			if(UITiming.Enabled) UITiming.Mark(this, "terrain-types");
 
 			// Initialize custom fields editor
 			fieldslist.Setup("sector");
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-setup");
 
 			// Fill universal fields list
 			fieldslist.ListFixedFields(General.Map.Config.SectorFields);
+			if(UITiming.Enabled) UITiming.Mark(this, "fieldslist-fixed");
 
 			// Initialize image selectors
 			floortex.Initialize();
 			ceilingtex.Initialize();
+			if(UITiming.Enabled) UITiming.Mark(this, "image-selectors");
 
 			// Set steps for brightness field
 			brightness.StepValues = General.Map.Config.BrightnessLevels;
@@ -309,6 +326,7 @@ namespace CodeImp.DoomBuilder.Windows
 				floorLightAbsolute.Enabled = false;
 				resetfloorlight.Enabled = false;
 			}
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion
@@ -316,8 +334,10 @@ namespace CodeImp.DoomBuilder.Windows
 		#region ================== Methods
 
 		// This sets up the form to edit the given sectors
-		public void Setup(ICollection<Sector> sectors) 
+		public void Setup(ICollection<Sector> sectors)
 		{
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-start");
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-" + sectors.Count);
 			preventchanges = true; //mxd
 			oldmapischanged = General.Map.IsChanged;
 			undocreated = false;
@@ -330,6 +350,7 @@ namespace CodeImp.DoomBuilder.Windows
 			heightoffset.Text = "0";
 
 			CreateHelperProps(sectors); //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "helper-properties");
 
 			////////////////////////////////////////////////////////////////////////
 			// Set all options to the first sector properties
@@ -446,7 +467,9 @@ namespace CodeImp.DoomBuilder.Windows
 			SetupCeilingSlope(sc, true);
 
 			// Custom fields
+			if(UITiming.Enabled) UITiming.Mark(this, "setvalues-start");
 			fieldslist.SetValues(sc.Fields, true);
+			if(UITiming.Enabled) UITiming.Mark(this, "setvalues");
 
 			// Comments
 			commenteditor.SetValues(sc.Fields, true);
@@ -458,7 +481,8 @@ namespace CodeImp.DoomBuilder.Windows
 			////////////////////////////////////////////////////////////////////////
 
 			// Go for all sectors
-			foreach(Sector s in sectors) 
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge-start");
+			foreach(Sector s in sectors)
 			{
 				// Flags
 				SetupFlags(flags, s);
@@ -605,6 +629,8 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 			}
 
+			if(UITiming.Enabled) UITiming.Mark(this, "selection-merge");
+
             //mxd. Glow is disabled?
             if (floorglowcolorval == -1)
                 floorGlowEnabled.Checked = false;
@@ -623,7 +649,9 @@ namespace CodeImp.DoomBuilder.Windows
 			UpdateFloorGlowHeightWarning();
 
 			//mxd. Setup tags
+			if(UITiming.Enabled) UITiming.Mark(this, "tags-start");
 			tagsselector.SetValues(sectors);
+			if(UITiming.Enabled) UITiming.Mark(this, "tags");
 
 			//mxd. Update slope controls
 			ceilingslopecontrol.UpdateControls();
@@ -647,6 +675,7 @@ namespace CodeImp.DoomBuilder.Windows
 			commenteditor.FinishSetup();
 
 			preventchanges = false; //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "setup-complete");
 		}
 
 		//mxd

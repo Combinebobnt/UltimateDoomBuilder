@@ -49,6 +49,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly List<int> allactionitemsgroups; //mxd
 
 		private bool reloadresources;
+		private static string[] fontnames;
 
 		// Degrees per FOV slider tick; the Designer's Minimum/Maximum are in ticks
 		private const int FOV_STEP = 5;
@@ -68,6 +69,7 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Initialize
 			InitializeComponent();
+			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 			
 			// Interface
 			imagebrightness.Value = General.Settings.ImageBrightness;
@@ -139,9 +141,13 @@ namespace CodeImp.DoomBuilder.Windows
 			scriptautoshowautocompletion.Checked = General.Settings.ScriptAutoShowAutocompletion; //mxd
 
 			// Fill script fonts list
+			if(UITiming.Enabled) UITiming.Mark(this, "script-fonts-start");
+			if(fontnames == null)
+				fontnames = FontFamily.Families.Select(ff => { using(ff) return ff.Name; }).ToArray();
 			scriptfontname.BeginUpdate();
-			foreach(FontFamily ff in FontFamily.Families) scriptfontname.Items.Add(ff.Name);
+			scriptfontname.Items.AddRange(fontnames);
 			scriptfontname.EndUpdate();
+			if(UITiming.Enabled) UITiming.Mark(this, "script-fonts");
 			
 			// Select script font name
 			for(int i = 0; i < scriptfontname.Items.Count; i++)
@@ -168,9 +174,11 @@ namespace CodeImp.DoomBuilder.Windows
 			textlabelfontbold.Checked = General.Settings.TextLabelFontBold;
 
 			//mxd. Fill text labels fonts list
+			if(UITiming.Enabled) UITiming.Mark(this, "label-fonts-start");
 			textlabelfontname.BeginUpdate();
-			foreach(FontFamily ff in FontFamily.Families) textlabelfontname.Items.Add(ff.Name);
+			textlabelfontname.Items.AddRange(fontnames);
 			textlabelfontname.EndUpdate();
+			if(UITiming.Enabled) UITiming.Mark(this, "label-fonts");
 
 			//mxd. Select text labels font name
 			for(int i = 0; i < textlabelfontname.Items.Count; i++)
@@ -194,6 +202,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			
 			// Fill actions list with categories
+			if(UITiming.Enabled) UITiming.Mark(this, "actions-start");
 			foreach(KeyValuePair<string, string> c in General.Actions.Categories)
 				listactions.Groups.Add(c.Key, c.Value);
 			
@@ -224,6 +233,7 @@ namespace CodeImp.DoomBuilder.Windows
 				allactionitems.Add(item); //mxd
 			}
 			listactions.EndUpdate(); //mxd
+			if(UITiming.Enabled) UITiming.Mark(this, "actions");
 
 			// Set the colors
 			// TODO: Make this automated by using the collection
@@ -288,6 +298,7 @@ namespace CodeImp.DoomBuilder.Windows
 			SetToastSettingEnabled(cbToastsEnabled.Checked);
 
 			// Add checkboxes for all registered toasts
+			if(UITiming.Enabled) UITiming.Mark(this, "toasts-start");
 			foreach(ToastRegistryEntry tre in General.ToastManager.Registry.Values.OrderBy(e => e.Title))
 			{
 				ListViewItem lvi = lvToastActions.Items.Add(tre.Title);
@@ -299,16 +310,20 @@ namespace CodeImp.DoomBuilder.Windows
 			// Make the columns fit the contents
 			title.Width = -1;
 			description.Width = -1;
+			if(UITiming.Enabled) UITiming.Mark(this, "toasts");
 
 			// Allow plugins to add tabs
+			if(UITiming.Enabled) UITiming.Mark(this, "plugins-start");
 			this.SuspendLayout();
 			controller = new PreferencesController(this) { AllowAddTab = true };
 			General.Plugins.OnShowPreferences(controller);
 			controller.AllowAddTab = false;
 			this.ResumeLayout(true);
+			if(UITiming.Enabled) UITiming.Mark(this, "plugins");
 			
 			// Done
 			allowapplycontrol = true;
+			if(UITiming.Enabled) UITiming.Mark(this, "ctor-complete");
 		}
 
 		#endregion

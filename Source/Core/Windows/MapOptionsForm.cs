@@ -39,7 +39,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private ExternalCommandSettings testprecommand;
 		private ExternalCommandSettings testpostcommand;
 		private bool prepostcommandsmodified;
-		private readonly int initialformheight;
+		private readonly ResourceWarningResize warningresize;
 		
 		// Properties
 		public MapOptions Options { get { return options; } }
@@ -51,7 +51,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Initialize
 			InitializeComponent();
-			this.initialformheight = Height;
+			warningresize = new ResourceWarningResize(this, panelres, datalocations, apply);
 
 			// Keep settings
 			this.options = options;
@@ -398,8 +398,7 @@ namespace CodeImp.DoomBuilder.Windows
 
         private void datalocations_OnWarningsChanged(int size)
         {
-			Height = initialformheight + size;
-			Refresh();
+			warningresize.Apply(size);
 		}
     }
 }
