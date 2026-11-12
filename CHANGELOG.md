@@ -27,7 +27,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Visual mode fog:** coloured fog follows UZDoom's sector/outside/level density precedence and light-level fallback; MAPINFO lightmode 8/16 use the unset mode, while invalid values warn.
 - **Visual mode models:** OBJ triangle winding matches UZDoom, so translucent models show the correct faces.
 - **Resource loading:** faster PK3 file lookups, a PK3 image that fails to read is marked failed instead of breaking the background loader, and required-archive checks can read embedded WADs before a map is open.
-- **Resource reload:** unchanged WAD and PK3 readers retain their raw indexes while configuration, parser and image state rebuilds; stage timings expose remaining reload costs.
+- **Resource reload:** unchanged WAD and PK3 readers retain their raw indexes while configuration, parser and image state rebuilds; thing sprite frames resolve through a prefix index and texture sets match exact and prefix filters without a regex, so loads and reloads with many actors or large texture sets are faster; stage timings expose remaining reload costs.
 - **Diagnostics:** set `UDB_GEOMETRY_LOG=1` to log texture browser window geometry and resource-warning resize bounds, `UDB_UI_TIMING=1` for dialog-open phases, `UDB_DOCKER_TRACE=1` to trace side panel state, or `UDB_INTERACTION_LOG=1` for interaction timings and marks.
 
 ## Experimental
