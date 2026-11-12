@@ -12,8 +12,8 @@ output directory is `Release/`. To stamp the displayed version too, set
 `UdbVersionLabel` to that label when running `make linux`.
 
 The build host needs x86_64 Mono with `mono-sgen`, the `4.5` profile and GAC,
-libgdiplus, Bash, curl, GNU coreutils, tar, findutils, sed, awk, file and binutils
-(`objdump`, `ldd`), and libc++ (`libc++1` on Debian/Ubuntu), which the bundled
+libgdiplus, Bash, curl, GNU coreutils, tar, findutils, sed, awk, file, binutils
+(`objdump`), glibc's `ldd`, and libc++ (`libc++1` on Debian/Ubuntu), which the bundled
 elfbsp node builder links against. Mono's native helpers must be installed
 alongside its runtime. The script checks every bundled binary's libraries with
 `ldd` before downloading anything and stops if one is missing.
