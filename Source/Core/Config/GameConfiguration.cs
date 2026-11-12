@@ -66,6 +66,7 @@ namespace CodeImp.DoomBuilder.Config
 		// General settings
 		private readonly string configname;
 		private readonly string enginename;
+		private readonly string materialenginename;
 		private readonly bool uselumpfilters;
 		private readonly float defaulttexturescale;
 		private readonly float defaultflatscale;
@@ -237,6 +238,7 @@ namespace CodeImp.DoomBuilder.Config
 		// General settings
 		public string Name { get { return configname; } }
 		public string EngineName { get { return enginename; } }
+		internal string MaterialEngineName { get { return materialenginename; } }
 		public bool UseLumpFilters { get { return uselumpfilters; } }
 		public string DefaultSaveCompiler { get { return defaultsavecompiler; } }
 		public string DefaultTestCompiler { get { return defaulttestcompiler; } }
@@ -457,6 +459,8 @@ namespace CodeImp.DoomBuilder.Config
 			}
 
 			enginename = cfg.ReadSetting("engine", "");
+			// UDMF includes override engine for the map namespace, not the renderer dialect.
+			materialenginename = cfg.ReadSetting("materialengine", enginename);
 			uselumpfilters = cfg.ReadSetting("lumpfilters", false);
 			defaultsavecompiler = cfg.ReadSetting("defaultsavecompiler", "");
 			defaulttestcompiler = cfg.ReadSetting("defaulttestcompiler", "");

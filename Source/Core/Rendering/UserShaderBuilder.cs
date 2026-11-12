@@ -17,6 +17,13 @@ namespace CodeImp.DoomBuilder.Rendering
 		internal string FragmentSource;
 		internal bool Compiled;
 		internal bool Usable;
+		private float timer;
+
+		internal float GetTimer(UserShaderDialect dialect, float speed, double seconds)
+		{
+			if(dialect != UserShaderDialect.Zandronum || speed > 0.0f) timer = (float)(seconds * speed);
+			return timer;
+		}
 	}
 
 	internal static class UserShaderBuilder

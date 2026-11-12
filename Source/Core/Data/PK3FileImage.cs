@@ -42,7 +42,7 @@ namespace CodeImp.DoomBuilder.Data
 		#region ================== Constructor / Disposer
 
 		// Constructor
-		internal PK3FileImage(PK3Reader datareader, string filepathname, bool asflat)
+		internal PK3FileImage(PK3Reader datareader, string filepathname, bool asflat, bool shortname = false)
 		{
 			// Initialize
 			this.datareader = datareader;
@@ -62,7 +62,8 @@ namespace CodeImp.DoomBuilder.Data
 			}
 
             // Named by the root-relative path of a filtered file, loaded by its real one
-            SetName(datareader.GetVirtualPath(filepathname));
+            if(shortname) SetName(datareader.GetVirtualPath(filepathname), false);
+            else SetName(datareader.GetVirtualPath(filepathname));
             this.filepathname = filepathname;
 
             // We have no destructor

@@ -95,6 +95,8 @@ namespace CodeImp.DoomBuilder.Data
 		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedmaterials = new Dictionary<ImageData, ResolvedMaterial>();
 		private readonly Dictionary<string, ImageData> materialimages = new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, UserShaderProgram> materialprograms = new Dictionary<string, UserShaderProgram>();
+		private readonly Dictionary<ImageData, ImageData> shortmaterialimages = new Dictionary<ImageData, ImageData>();
+		private readonly Dictionary<string, ImageData> fullmaterialimages = new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase);
 		private MapInfo mapinfo;
 		private Dictionary<string, KeyValuePair<int, int>> reverbs; //<name, <arg1, arg2> 
 		private Dictionary<long, GlowingFlatData> glowingflats; // Texture name hash, Glowing Flat Data
@@ -610,6 +612,7 @@ namespace CodeImp.DoomBuilder.Data
 			//mxd. Create camera textures. Should be done after loading textures.
 			animationorder.Seal();
 			AnimdefsParser animdefs = LoadAnimdefs();
+			SplitMaterialImageIdentities();
 			LoadAnimations(animdefs);
 			foreach(int key in animator.FrameKeys) animationimages[key].IsReadyFor(true);
 
@@ -726,6 +729,10 @@ namespace CodeImp.DoomBuilder.Data
 			
 			// Dispose resources
 			ClearMaterialImages();
+			foreach(ImageData image in shortmaterialimages.Values) image.Dispose();
+			shortmaterialimages.Clear();
+			foreach(ImageData image in fullmaterialimages.Values) if(image != null) image.Dispose();
+			fullmaterialimages.Clear();
 			foreach(KeyValuePair<long, ImageData> i in textures) i.Value.Dispose();
 			foreach(KeyValuePair<long, ImageData> i in flats) i.Value.Dispose();
 			foreach(KeyValuePair<long, ImageData> i in sprites) i.Value.Dispose();
@@ -1149,7 +1156,8 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			// Get the long name
 			long longname = Lump.MakeLongName(name);
-			return GetTextureImage(longname);
+			ImageData image = GetTextureImage(longname);
+			return image == unknownimage && name.Contains("/") && GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName) ? GetFullMaterialImage(name) ?? unknownimage : image;
 		}
 		
 		// This returns an image by long
@@ -1157,8 +1165,8 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			// Does this texture exist?
 			if (textures.ContainsKey(longname))
-				return textures[longname];
-			if (texturenamesshorttofull.ContainsKey(longname)) return textures[texturenamesshorttofull[longname]]; //mxd
+				return MaterialImageIdentity(textures[longname], longname);
+			if (texturenamesshorttofull.ContainsKey(longname)) return MaterialImageIdentity(textures[texturenamesshorttofull[longname]], longname); //mxd
 			if (textures.ContainsKey(longname)) return textures[longname];
 
 			// Return null image
@@ -1352,7 +1360,8 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			// Get the long name
 			long longname = Lump.MakeLongName(name);
-			return GetFlatImage(longname);
+			ImageData image = GetFlatImage(longname);
+			return image == unknownimage && name.Contains("/") && GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName) ? GetFullMaterialImage(name) ?? unknownimage : image;
 		}
 
 		// This returns an image by long
@@ -1362,9 +1371,9 @@ namespace CodeImp.DoomBuilder.Data
 			if (flats.ContainsKey(longname) && (flats[longname] is TEXTURESImage || flats[longname] is HiResImage))
 				return flats[longname]; //TEXTURES and HiRes flats should still override regular ones...
 			if (flatnamesshorttofull.ContainsKey(longname))
-				return flats[flatnamesshorttofull[longname]]; //mxd
+				return MaterialImageIdentity(flats[flatnamesshorttofull[longname]], longname); //mxd
 			if (flats.ContainsKey(longname))
-				return flats[longname];
+				return MaterialImageIdentity(flats[longname], longname);
 
 			// Return null image
 			return unknownimage; //mxd
@@ -2582,9 +2591,10 @@ namespace CodeImp.DoomBuilder.Data
 			
 			General.MainWindow.DisplayStatus(StatusType.Busy, "Reloading GLDEFS...");
 
-			try 
+			try
 			{
 				// Keeps Load's decision on the engine archive, but counts this pass's messages only
+				StopBackgroundLoader();
 				enginefold.ResetCount();
 				LoadGldefs(CreateActorsByClassList());
 				enginefold.Emit();
@@ -2595,6 +2605,7 @@ namespace CodeImp.DoomBuilder.Data
 				General.MainWindow.DisplayReady();
 				return;
 			}
+			finally { StartBackgroundLoader(false); }
 
 			// Rebuild skybox texture
 			SetupSkybox();
@@ -2810,9 +2821,9 @@ namespace CodeImp.DoomBuilder.Data
 				if(!materials.TryGetValue(image, out material)) materials[image] = material = new GldefsMaterial();
 				material.Merge(definition);
 			}
-			if(GldefsMaterial.IsGZDoom(General.Map.Config.EngineName))
+			if(GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName))
 			{
-				foreach(ImageData image in textures.Values.Concat(flats.Values).Concat(sprites.Values).Distinct())
+				foreach(ImageData image in textures.Values.Concat(flats.Values).Select(value => MaterialImageIdentity(value, Lump.MakeLongName(value.ShortName))).Concat(sprites.Values).Distinct())
 					AddAutoBrightmap(image);
 			}
 			DeclareMaterialPrograms();
@@ -2820,7 +2831,7 @@ namespace CodeImp.DoomBuilder.Data
 
 		private void DeclareMaterialPrograms()
 		{
-			UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.EngineName);
+			UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName);
 			if(dialect == UserShaderDialect.None) return;
 			foreach(GldefsMaterial material in materials.Values)
 			{
@@ -2857,6 +2868,7 @@ namespace CodeImp.DoomBuilder.Data
 
 		private void AddAutoBrightmap(ImageData image)
 		{
+			if(image.HasLongName) return;
 			GldefsMaterial material;
 			if(materials.TryGetValue(image, out material) && material.Brightmap != null) return;
 			foreach(string prefix in new[] { "brightmaps/auto/", "materials/brightmaps/auto/" })
@@ -2889,7 +2901,7 @@ namespace CodeImp.DoomBuilder.Data
 			ResolvedMaterial resolved;
 			if(resolvedmaterials.TryGetValue(image, out resolved)) return resolved;
 			GldefsMaterial definition;
-			if(!materials.TryGetValue(image, out definition) && GldefsMaterial.IsGZDoom(General.Map.Config.EngineName))
+			if(!materials.TryGetValue(image, out definition) && GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName))
 			{
 				AddAutoBrightmap(image);
 				materials.TryGetValue(image, out definition);
@@ -2897,7 +2909,7 @@ namespace CodeImp.DoomBuilder.Data
 			if(definition != null)
 			{
 				UserShaderProgram program = null;
-				if(!string.IsNullOrEmpty(definition.Shader)) materialprograms.TryGetValue(UserShaderBuilder.Key(definition, UserShaderBuilder.Dialect(General.Map.Config.EngineName)), out program);
+				if(!string.IsNullOrEmpty(definition.Shader)) materialprograms.TryGetValue(UserShaderBuilder.Key(definition, UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName)), out program);
 				resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap),
 					Textures = definition.Textures.Select(pair => LoadMaterialImage(pair.Value)).ToArray(), Program = program };
 			}
@@ -2928,33 +2940,72 @@ namespace CodeImp.DoomBuilder.Data
 			return null;
 		}
 
+		private void SplitMaterialImageIdentities()
+		{
+			if(!GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName)) return;
+			foreach(ImageData image in textures.Values.Concat(flats.Values).Distinct())
+			{
+				if(!image.HasLongName || !(image is PK3FileImage || image is FileImage)) continue;
+				ImageData copy;
+				if(image.AnimationSource is PK3Reader) copy = new PK3FileImage((PK3Reader)image.AnimationSource, image.FilePathName, image.AnimationUseType == 1, true);
+				else if(image.AnimationSource is DirectoryReader) copy = new FileImage(image.ShortName, image.FilePathName, image.AnimationUseType == 1);
+				else continue;
+				shortmaterialimages[image] = copy;
+				copy.AnimationSource = image.AnimationSource;
+				copy.AnimationUseType = image.AnimationUseType;
+				int key;
+				if(animationkeys.TryGetValue(image, out key))
+				{
+					animationkeys.Remove(image);
+					animationkeys[copy] = key;
+					animationimages[key] = copy;
+				}
+			}
+		}
+
+		private ImageData MaterialImageIdentity(ImageData image, long requested)
+		{
+			ImageData copy;
+			return requested != image.LongName && shortmaterialimages != null && shortmaterialimages.TryGetValue(image, out copy) ? copy : image;
+		}
+
+		private ImageData GetFullMaterialImage(string path)
+		{
+			ImageData image;
+			if(fullmaterialimages.TryGetValue(path, out image)) return image;
+			for(int i = containers.Count - 1; i >= 0; i--)
+			{
+				var reader = containers[i] as PK3StructuredReader;
+				string filename = reader == null ? null : reader.FindMaterialFile(path, false);
+				if(filename == null) continue;
+				image = reader.CreateMaterialImage(filename);
+				image.AllowUnload = false;
+				fullmaterialimages[path] = image;
+				return image;
+			}
+			fullmaterialimages[path] = null;
+			return null;
+		}
+
 		private ImageData FindMaterialTarget(GldefsMaterial definition)
 		{
-			bool gzdoom = GldefsMaterial.IsGZDoom(General.Map.Config.EngineName);
+			bool gzdoom = GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName);
 			if(definition.Name.Contains("/"))
 			{
-				if(!gzdoom) return null;
 				ImageData exact = textures.Values.Concat(flats.Values).FirstOrDefault(image => string.Equals(image.Name.Replace('\\', '/'), definition.Name, StringComparison.OrdinalIgnoreCase));
-				return exact;
+				return exact ?? (gzdoom ? GetFullMaterialImage(definition.Name) : null);
 			}
 			ImageData sprite = null;
-			if(definition.Target == MaterialTarget.Sprite || definition.Target == MaterialTarget.Any)
+			int spritereader = containers.FindLastIndex(reader => reader.GetSpriteExists(definition.Name));
+			if(spritereader >= 0) sprite = GetSpriteImage(definition.Name);
+			var candidates = animationimages.Values.Where(image => string.Equals(image.ShortName, definition.Name, StringComparison.OrdinalIgnoreCase) || string.Equals(image.Name, definition.Name, StringComparison.OrdinalIgnoreCase))
+				.OrderByDescending(image => containers.IndexOf(image.AnimationSource)).ThenByDescending(image => image.AnimationUseType == 2 ? 3 : image.AnimationUseType).ToList();
+			if(sprite != null)
 			{
-				if(containers.Any(reader => reader.GetSpriteExists(definition.Name))) sprite = GetSpriteImage(definition.Name);
+				int position = candidates.FindIndex(image => containers.IndexOf(image.AnimationSource) <= spritereader && image.AnimationUseType != 2);
+				candidates.Insert(position < 0 ? candidates.Count : position, sprite);
 			}
-			var candidates = animationimages.Values.Reverse().Where(image => string.Equals(image.ShortName, definition.Name, StringComparison.OrdinalIgnoreCase) || string.Equals(image.Name, definition.Name, StringComparison.OrdinalIgnoreCase)).ToList();
-			if(gzdoom && definition.Overridable)
-			{
-				ImageData image = candidates.FirstOrDefault(candidate => candidate.AnimationUseType == 2);
-				if(image != null) return image;
-			}
-			if(definition.Target == MaterialTarget.Sprite && sprite != null) return sprite;
-			if(definition.Target == MaterialTarget.Texture || definition.Target == MaterialTarget.Flat)
-			{
-				ImageData image = candidates.FirstOrDefault(candidate => candidate.AnimationUseType == (definition.Target == MaterialTarget.Flat ? 1 : 0));
-				if(image != null) return image;
-			}
-			return candidates.FirstOrDefault() ?? sprite;
+			return GldefsMaterial.SelectTarget(candidates, definition.Target, gzdoom && definition.Overridable);
 		}
 
 		//mxd. This updates mapinfo class only

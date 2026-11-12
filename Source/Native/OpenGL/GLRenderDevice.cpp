@@ -928,6 +928,11 @@ bool GLRenderDevice::ApplyUniforms()
 		UniformInfo& info = mUniformInfo.data()[i];
 		if (lastupdates[i] != info.LastUpdate)
 		{
+			if (locations[i] == (GLuint)-1 || info.Data.empty())
+			{
+				lastupdates[i] = info.LastUpdate;
+				continue;
+			}
 			float* data = (float*)info.Data.data();
 			int* idata = (int*)info.Data.data();
 			GLuint location = locations[i];
@@ -993,6 +998,14 @@ bool GLRenderDevice::ApplyTextures()
                 glBindSampler(index, samplerHandle);
             }
         }
+        else
+        {
+            glActiveTexture(GL_TEXTURE0 + index);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+            glBindSampler(index, 0);
+            unit.SamplerHandle = 0;
+        }
         
         hasError |= CheckGLError();
     }
@@ -1029,7 +1042,12 @@ void GLRenderDevice::DeleteObject(GLTexture* texture)
 {
 	std::unique_lock<std::mutex> lock(GLRenderDevice::GetMutex());
 	if (texture->Device)
-		texture->Device->mDeleteList.Textures.push_back(texture);
+	{
+		auto device = texture->Device;
+		for (int unit = 0; unit < 10; unit++)
+			if (device->mTextureUnit[unit].Tex == texture) device->SetTexture(unit, nullptr);
+		device->mDeleteList.Textures.push_back(texture);
+	}
 	else
 		delete texture;
 }

@@ -839,8 +839,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			graphics.SetUniform(UniformName.useVertexColorUniform, vertexcolor);
 			graphics.SetUniform(UniformName.disableAlphaTest, material.Definition.DisableAlphaTest);
 			float speed = material.Definition.Speed;
-			// Zandronum leaves the timer at its initial value for nonpositive speeds.
-			graphics.SetUniform(UniformName.timer, UserShaderBuilder.Dialect(General.Map.Config.EngineName) == UserShaderDialect.Zandronum && speed <= 0.0f ? 0.0f : (float)(Clock.CurrentTime / 1000.0 * speed));
+			// Preserve each program's last timer when Zandronum skips a nonpositive-speed update.
+			graphics.SetUniform(UniformName.timer, material.Program.GetTimer(UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName), speed, Clock.CurrentTime / 1000.0));
 			return material.Program.Index;
 		}
 

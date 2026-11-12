@@ -33,6 +33,54 @@ namespace Builder.Tests
 			return parser;
 		}
 
+		private sealed class TargetImage : ImageData
+		{
+			internal TargetImage(int type, bool sprite = false)
+			{
+				AnimationUseType = type;
+				if(sprite) texturenamespace = TextureNamespace.SPRITE;
+			}
+			protected override LocalLoadResult LocalLoadImage() { throw new NotSupportedException(); }
+		}
+
+		[Fact]
+		public void TargetLookupPrefersNamespaceThenOneFallback()
+		{
+			var flat = new TargetImage(1);
+			var wall = new TargetImage(0);
+			var sprite = new TargetImage(0, true);
+			var candidates = new ImageData[] { sprite, flat, wall };
+			Assert.Same(sprite, GldefsMaterial.SelectTarget(candidates, MaterialTarget.Any, false));
+			Assert.Same(wall, GldefsMaterial.SelectTarget(candidates, MaterialTarget.Texture, false));
+			Assert.Same(flat, GldefsMaterial.SelectTarget(candidates, MaterialTarget.Flat, false));
+			Assert.Same(sprite, GldefsMaterial.SelectTarget(candidates, MaterialTarget.Sprite, false));
+			Assert.Same(flat, GldefsMaterial.SelectTarget(new ImageData[] { flat }, MaterialTarget.Texture, false));
+			Assert.Same(sprite, GldefsMaterial.SelectTarget(new ImageData[] { sprite }, MaterialTarget.Texture, false));
+			Assert.Null(GldefsMaterial.SelectTarget(new ImageData[0], MaterialTarget.Any, false));
+		}
+
+		[Fact]
+		public void RedefiningBrightmapResetsItsFlagWithoutChangingShader()
+		{
+			var material = new GldefsMaterial();
+			material.Merge(new GldefsMaterial { Brightmap = "first", DisableFullbright = true });
+			material.Merge(new GldefsMaterial { Shader = "shader" });
+			Assert.True(material.DisableFullbright);
+			material.Merge(new GldefsMaterial { Brightmap = "second" });
+			Assert.False(material.DisableFullbright);
+			Assert.Equal("shader", material.Shader);
+		}
+
+		[Fact]
+		public void OverridableHonorsEncounterOrderInsteadOfSpreadingAssignments()
+		{
+			var wall = new TargetImage(0);
+			var image = new TargetImage(2);
+			Assert.Same(image, GldefsMaterial.SelectTarget(new ImageData[] { image, wall }, MaterialTarget.Texture, true));
+			Assert.Same(wall, GldefsMaterial.SelectTarget(new ImageData[] { image, wall }, MaterialTarget.Texture, false));
+			Assert.Same(wall, GldefsMaterial.SelectTarget(new ImageData[] { wall, image }, MaterialTarget.Texture, true));
+		}
+
 		[Theory]
 		[InlineData("texture", 1)]
 		[InlineData("flat", 2)]

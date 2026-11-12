@@ -5,6 +5,34 @@ namespace Builder.Tests
 {
 	public class UserShaderBuilderTests
 	{
+		[Fact]
+		public void TimerUpdatesMatchEachDialectAndStayPerProgram()
+		{
+			var program = new UserShaderProgram();
+			Assert.Equal(6f, program.GetTimer(UserShaderDialect.Zandronum, 2f, 3));
+			Assert.Equal(6f, program.GetTimer(UserShaderDialect.Zandronum, 0f, 20));
+			Assert.Equal(6f, program.GetTimer(UserShaderDialect.Zandronum, -1f, 20));
+			Assert.Equal(0f, new UserShaderProgram().GetTimer(UserShaderDialect.Zandronum, -1f, 20));
+			Assert.Equal(-20f, program.GetTimer(UserShaderDialect.UZDoom, -1f, 20));
+			Assert.Equal(0f, program.GetTimer(UserShaderDialect.UZDoom, 0f, 20));
+		}
+
+		[Theory]
+		[InlineData("Zandronum_DoomUDMF.cfg", "zandronum", 1)]
+		[InlineData("GZDoom_DoomUDMF.cfg", "gzdoom", 2)]
+		[InlineData("UZDoom_DoomUDMF.cfg", "uzdoom", 2)]
+		[InlineData("ZDoom_DoomUDMF.cfg", "zdoom", 0)]
+		public void UdmfNamespaceDoesNotEraseMaterialDialect(string filename, string engine, int expected)
+		{
+			string root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(CodeImp.DoomBuilder.General).Assembly.Location)!, ".."));
+			var config = new CodeImp.DoomBuilder.IO.Configuration(Path.Combine(root, "Assets", "Common", "Configurations", filename), true);
+			Assert.False(config.ErrorResult, config.ErrorDescription);
+			Assert.Equal("zdoom", config.ReadSetting("engine", ""));
+			string materialengine = config.ReadSetting("materialengine", config.ReadSetting("engine", ""));
+			Assert.Equal(engine, materialengine);
+			Assert.Equal(expected, (int)UserShaderBuilder.Dialect(materialengine));
+		}
+
 		[Theory]
 		[InlineData("zandronum", 1)]
 		[InlineData("ZANDRONUM", 1)]

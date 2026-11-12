@@ -37,6 +37,17 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 
 	internal sealed class GldefsMaterial
 	{
+		internal static ImageData SelectTarget(IList<ImageData> newestfirst, MaterialTarget target, bool overridable)
+		{
+			foreach(ImageData image in newestfirst)
+			{
+				if(target == MaterialTarget.Any || (overridable && image.AnimationUseType == 2 && image.TextureNamespace != TextureNamespace.SPRITE)) return image;
+				if(target == MaterialTarget.Sprite && image.TextureNamespace == TextureNamespace.SPRITE) return image;
+				if(image.TextureNamespace != TextureNamespace.SPRITE && ((target == MaterialTarget.Texture && image.AnimationUseType == 0) || (target == MaterialTarget.Flat && image.AnimationUseType == 1))) return image;
+			}
+			return newestfirst.Count > 0 ? newestfirst[0] : null;
+		}
+
 		internal static bool IsGZDoom(string engine)
 		{
 			return string.Equals(engine, "gzdoom", StringComparison.OrdinalIgnoreCase) || string.Equals(engine, "uzdoom", StringComparison.OrdinalIgnoreCase);
@@ -57,8 +68,11 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 
 		internal void Merge(GldefsMaterial definition)
 		{
-			if(definition.Brightmap != null) Brightmap = definition.Brightmap;
-			DisableFullbright |= definition.DisableFullbright;
+			if(definition.Brightmap != null || definition.DisableFullbright)
+			{
+				if(definition.Brightmap != null) Brightmap = definition.Brightmap;
+				DisableFullbright = definition.DisableFullbright;
+			}
 			foreach(var layer in definition.Layers) Layers[layer.Key] = layer.Value;
 			if(definition.Shader == null) return;
 			Shader = definition.Shader;
