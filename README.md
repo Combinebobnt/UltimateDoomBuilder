@@ -1,50 +1,65 @@
 # Ultimate Doom Builder
 
-> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) that tracks upstream `master` and adds Linux fixes, engine-accurate Visual mode and faster mapping tools. Works on my machine 😎.
-
-## What this fork focuses on
-
-- **Linux as a first-class platform.** UDB on Mono without UI deadlocks or blank panels, crash dialogs that work, native file pickers through zenity, safe map saving, and a one-command `make` build.
-- **Visual mode that looks like the game.** ANIMDEFS/ANIMATED animation, GLDEFS brightmaps and hardware shaders, warp effects, coloured fog and model winding follow UZDoom (and Zandronum where it differs).
-- **Faster mapping.** Clipboard history across maps, a second shortcut per action, spatial tag ranges, a restorable redo branch, Draw Grid fixes and quicker resource reloads.
-- **Zandronum support.** Zandronum 3.3 game configurations, engine archive checks, and BCS compiled with zt-bcc.
-
-The full list, and what is still experimental, is in [CHANGELOG.md](CHANGELOG.md).
+> **About this fork:** a fork of [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder) primarily for Linux fixes, and maybe with some extra spices. Works on my machine 😎. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Download
 
 Portable builds are published on the fork's [Releases](https://github.com/Combinebobnt/UltimateDoomBuilder/releases) page as `R<upstream revision>-fork.<commits>`: Windows x64/x86 zips and a Linux x86_64 AppImage that bundles Mono. These builds show the fork label and don't offer upstream updates.
 
+## What is tested
+
+Day-to-day use and testing happen on Linux under Mono, on an X11 desktop (Debian 12, MATE). Nothing else is tried by hand, so treat these as unknown:
+
+- **Wayland:** UDB is an X11 program (GLX rendering, Mono's X11 WinForms), so on a Wayland desktop it runs through XWayland. That path hasn't been tried.
+- **Windows (.NET Framework):** every push compiles the x64 and x86 builds and runs the unit tests on Windows, but the editor itself isn't run there.
+- **Flatpak:** the Flatpak files are unchanged from upstream and haven't been built for this fork.
+
+Reports from any of these are welcome.
+
 ## System requirements
 - 2.4 GHz CPU or faster (multi-core recommended)
-- Windows 7, 8, 10, or 11
 - Graphics card with OpenGL 3.2 support
-
-### Required software on Windows
-- [Microsoft .Net Framework 4.7.2](https://dotnet.microsoft.com/download/dotnet-framework/net472)
+- **Windows:** 7, 8, 10, or 11, with [Microsoft .Net Framework 4.7.2](https://dotnet.microsoft.com/download/dotnet-framework/net472)
+- **Linux:** x86_64, an X11 session (or XWayland), and glibc 2.34 or newer for the bundled zdbsp node builder
+  - Optional: `zenity` for native file dialogs, zt-bcc installed as `/usr/bin/bcc` to compile BCS scripts, and libc++ for the elfbsp node builder in a source build
 
 ## Building on Linux
 
-__Note:__ upstream treats Linux as experimental; this fork is developed and tested on Linux (Debian, X11). BCS scripts need zt-bcc installed as `/usr/bin/bcc`, and the bundled zdbsp node builder needs glibc 2.34 or newer.
+On Linux the easiest route is the AppImage from [Releases](https://github.com/Combinebobnt/UltimateDoomBuilder/releases), which needs no Mono install. To build from source:
 
 ### Manual build
 
-These instructions are for Debian-based distros and were tested with Ubuntu 24.04 LTS and Arch.
+These steps are tested on Debian 12. Upstream tested them on Ubuntu 24.04 LTS and Arch.
 
-- Install Mono
-  - **Ubuntu:** The `mono-complete` package from the Debian repo doesn't include `msbuild`, so you have to install `mono-complete` by following the instructions on the Mono project's website: https://www.mono-project.com/download/stable/#download-lin
-  - **Arch:** mono (and msbuild which is also required) is in the *extra/* repo, which is enabled by default. `sudo pacman -S mono mono-msbuild`
-- Install additional required packages
-  - **Ubuntu:** `sudo apt install make g++ git libx11-dev libxfixes-dev mesa-common-dev`
+- Install Mono and msbuild
+  - **Debian/Ubuntu:** the distro's own `mono-complete` package has no `msbuild`, so add the Mono project's repository first by following https://www.mono-project.com/download/stable/#download-lin, then install from it:
+    ```
+    sudo apt install mono-complete msbuild
+    ```
+  - **Arch:** both are in the *extra/* repo, which is enabled by default:
+    ```
+    sudo pacman -S mono mono-msbuild
+    ```
+- Install the native build tools and headers
+  - **Debian/Ubuntu:**
+    ```
+    sudo apt install make g++ git libx11-dev libxfixes-dev mesa-common-dev
+    ```
   - **Arch:** `sudo pacman -S base-devel`
     - If you're using X11 display manager you may need to install these packages: `libx11 libxfixes`
     - If you are not using the proprietary nvidia driver you may need to install `mesa`
-- Go to a directory of your choice and clone the repository (it'll automatically create an `UltimateDoomBuilder` directory in the current directory): `git clone https://github.com/Combinebobnt/UltimateDoomBuilder.git`
-- Compile UDB: `cd UltimateDoomBuilder && make` (builds the editor and its native library)
-- Run UDB: `./builder.sh`, or `cd Build && ./builder`
-- Alternatively, to compile UDB in debug mode:
-  - Run `make BUILDTYPE=Debug` in the root project directory
-  - This includes a debug output terminal in the bottom panel
+- Clone, build and run (`make` builds the editor and its native library into `Build/`):
+  ```
+  git clone https://github.com/Combinebobnt/UltimateDoomBuilder.git
+  cd UltimateDoomBuilder
+  make
+  ./builder.sh
+  ```
+- To compile UDB in debug mode instead, run `make BUILDTYPE=Debug`. This adds a debug output terminal in the bottom panel.
+
+### AppImage build
+
+After `make`, `appimage/build-appimage.sh <version-label>` packages the editor and the installed Mono into `Release/UltimateDoomBuilder-<version-label>-x86_64.AppImage`. It downloads a pinned linuxdeploy release, and needs libc++ installed (`sudo apt install libc++1` on Debian/Ubuntu) because the bundled elfbsp node builder links against it. Other host requirements are in [appimage/README.md](appimage/README.md).
 
 ### Flatpak build
 
@@ -100,9 +115,7 @@ You can also build the flatpak on Windows using WSL2.
   ```
 
 
-# Links
-- [Official thread link](https://forum.zdoom.org/viewtopic.php?f=232&t=66745)
-- [Git builds at DRDTeam.org](https://devbuilds.drdteam.org/ultimatedoombuilder/) 
+# Upstream
 
-More detailed info can be found in the **editor documentation** (Refmanual.chm)
+This fork tracks [UltimateDoomBuilder/UltimateDoomBuilder](https://github.com/UltimateDoomBuilder/UltimateDoomBuilder). Upstream's README, forum thread and builds cover the official editor.
 
