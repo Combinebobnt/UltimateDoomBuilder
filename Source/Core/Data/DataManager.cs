@@ -209,7 +209,7 @@ namespace CodeImp.DoomBuilder.Data
 		internal AllTextureSet AllTextureSet { get { return alltextures; } }
 		internal AllTextureSet WallTextureSet { get { return walltextureset; } }
 		internal AllTextureSet FlatTextureSet { get { return flattextureset; } }
-		internal TextureAnimator Animator { get { return animator; } }
+		public TextureAnimator Animator { get { return animator; } }
 		
 		public bool IsLoading
 		{

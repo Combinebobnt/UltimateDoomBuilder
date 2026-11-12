@@ -35,7 +35,7 @@ namespace CodeImp.DoomBuilder.Data
 		}
 	}
 
-	internal sealed class TextureAnimator
+	public sealed class TextureAnimator
 	{
 		private readonly Dictionary<int, AnimDef> animations = new Dictionary<int, AnimDef>();
 		private readonly List<int> bases = new List<int>();
@@ -62,7 +62,7 @@ namespace CodeImp.DoomBuilder.Data
 			Translate();
 		}
 
-		internal void Rearm()
+		public void Rearm()
 		{
 			foreach(AnimDef definition in animations.Values) { definition.Armed = false; definition.SwitchTime = 0; }
 			lastnow = null;

@@ -5,6 +5,12 @@ namespace Builder.Tests
 {
 	public class TextureAnimatorTests
 	{
+		[Fact]
+		public void AnimationIsEnabledInDefaultConfiguration()
+		{
+			Assert.True(new CodeImp.DoomBuilder.Config.ProgramConfiguration().GZAnimateTextures);
+		}
+
 		private static AnimDef Range(AnimationType type = AnimationType.Forward, int duration = 10)
 		{
 			return new AnimDef(new[] { 10, 20, 30 }, new[] { duration }, new[] { duration }, false, type);

@@ -125,6 +125,7 @@ namespace CodeImp.DoomBuilder.Config
 		private ModelRenderMode gzDrawModelsMode;
 		private LightRenderMode gzDrawLightsMode;
 		private bool gzDrawFog;
+		private bool gzAnimateTextures = true;
 		private bool gzDrawSky;
 		private bool gzToolbarGZDoom;
 		private bool gzSynchCameras;
@@ -272,6 +273,7 @@ namespace CodeImp.DoomBuilder.Config
 		public ModelRenderMode GZDrawModelsMode { get { return gzDrawModelsMode; } internal set { gzDrawModelsMode = value; } }
 		public LightRenderMode GZDrawLightsMode { get { return gzDrawLightsMode; } internal set { gzDrawLightsMode = value; } }
 		public bool GZDrawFog { get { return gzDrawFog; } internal set { gzDrawFog = value; } }
+		public bool GZAnimateTextures { get { return gzAnimateTextures; } internal set { gzAnimateTextures = value; } }
 		public bool GZDrawSky { get { return gzDrawSky; } internal set { gzDrawSky = value; } }
 		public bool GZToolbarGZDoom { get { return gzToolbarGZDoom; } internal set { gzToolbarGZDoom = value; } }
 		public bool GZSynchCameras { get { return gzSynchCameras; } internal set { gzSynchCameras = value; } }
@@ -422,6 +424,7 @@ namespace CodeImp.DoomBuilder.Config
 				gzDrawModelsMode = (ModelRenderMode)cfg.ReadSetting("gzdrawmodels", (int)ModelRenderMode.ALL);
 				gzDrawLightsMode = (LightRenderMode)cfg.ReadSetting("gzdrawlights", (int)LightRenderMode.ALL);
 				gzDrawFog = cfg.ReadSetting("gzdrawfog", false);
+				gzAnimateTextures = cfg.ReadSetting("gzanimatetextures", true);
 				gzDrawSky = cfg.ReadSetting("gzdrawsky", true);
 				gzToolbarGZDoom = cfg.ReadSetting("gztoolbargzdoom", true);
 				gzSynchCameras = cfg.ReadSetting("gzsynchcameras", true);
@@ -572,6 +575,7 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("gzdrawmodels", (int)gzDrawModelsMode);
 			cfg.WriteSetting("gzdrawlights", (int)gzDrawLightsMode);
 			cfg.WriteSetting("gzdrawfog", gzDrawFog);
+			cfg.WriteSetting("gzanimatetextures", gzAnimateTextures);
 			cfg.WriteSetting("gzdrawsky", gzDrawSky);
 			cfg.WriteSetting("gzsynchcameras", gzSynchCameras);
 			cfg.WriteSetting("gzshoweventlines", (int)gzShowEventLines); //Updated for new Event Lines config variable

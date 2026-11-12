@@ -2206,6 +2206,7 @@ namespace CodeImp.DoomBuilder.Windows
 			modelrendermode.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			dynamiclightmode.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontogglefog.Visible = General.Settings.GZToolbarGZDoom && maploaded;
+			buttontoggleanimatedtextures.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontogglesky.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontoggleeventlines.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 			buttontogglevisualvertices.Visible = General.Settings.GZToolbarGZDoom && maploaded && General.Map.UDMF;
@@ -2383,6 +2384,7 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 
 				buttontogglefog.Checked = General.Settings.GZDrawFog;
+				buttontoggleanimatedtextures.Checked = General.Settings.GZAnimateTextures;
 				buttontogglesky.Checked = General.Settings.GZDrawSky;
 				buttontoggleclassicrendering.Checked = General.Settings.ClassicRendering;
 				buttontogglevisualvertices.Visible = General.Map.UDMF;
@@ -3247,6 +3249,7 @@ namespace CodeImp.DoomBuilder.Windows
 			itemtogglefixedthingsscale.Visible = (General.Map != null); //mxd
 			itemtogglefixedthingsscale.Checked = General.Settings.FixedThingsScale; //mxd
 			itemtogglefog.Checked = General.Settings.GZDrawFog;
+			itemtoggleanimatedtextures.Checked = General.Settings.GZAnimateTextures;
 			itemtogglesky.Checked = General.Settings.GZDrawSky;
 			itemtoggleclassicrendering.Checked = General.Settings.ClassicRendering;
 			foreach (ToolStripMenuItem item in itemtoggleeventlines.DropDownItems) //Check mark to show which Event Lines mode is currently active
@@ -3290,6 +3293,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Settings.EnhancedRenderingEffects = !General.Settings.EnhancedRenderingEffects;
 
 			General.Settings.GZDrawFog = General.Settings.EnhancedRenderingEffects;
+			General.Settings.GZAnimateTextures = General.Settings.EnhancedRenderingEffects;
 			General.Settings.GZDrawSky = General.Settings.EnhancedRenderingEffects;
 			General.Settings.GZDrawLightsMode = (General.Settings.EnhancedRenderingEffects ? LightRenderMode.ALL : LightRenderMode.NONE);
 			General.Settings.GZDrawModelsMode = (General.Settings.EnhancedRenderingEffects ? ModelRenderMode.ALL : ModelRenderMode.NONE);
@@ -3319,6 +3323,16 @@ namespace CodeImp.DoomBuilder.Windows
 			General.MainWindow.DisplayStatus(StatusType.Action, "Fog rendering is " + (General.Settings.GZDrawFog ? "ENABLED" : "DISABLED"));
 			General.MainWindow.RedrawDisplay();
 			General.MainWindow.UpdateGZDoomPanel();
+		}
+
+		[BeginAction("gztoggleanimatedtextures")]
+		internal void ToggleAnimatedTextures()
+		{
+			General.Settings.GZAnimateTextures = !General.Settings.GZAnimateTextures;
+			UpdateViewMenu();
+			UpdateGZDoomPanel();
+			DisplayStatus(StatusType.Action, "Texture animation is " + (General.Settings.GZAnimateTextures ? "ENABLED" : "DISABLED"));
+			RedrawDisplay();
 		}
 
 		//mxd

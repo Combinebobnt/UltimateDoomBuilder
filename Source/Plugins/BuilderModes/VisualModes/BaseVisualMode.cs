@@ -1744,6 +1744,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			base.OnClockReset();
 			lastpicktime = 0;
+			General.Map.Data.Animator.Rearm();
 		}
 
 		// This draws a frame

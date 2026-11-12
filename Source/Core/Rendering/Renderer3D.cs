@@ -81,6 +81,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		private float highlightglowinv;
 		private bool showselection;
 		private bool showhighlight;
+		private bool animatetextures;
 		
 		//mxd. Solid geometry to be rendered. Must be sorted by sector.
 		private Dictionary<ImageData, List<VisualGeometry>> solidgeo;
@@ -346,6 +347,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		// This starts rendering
 		public bool Start()
 		{
+			animatetextures = General.Settings.GZAnimateTextures;
+			if(animatetextures) General.Map.Data.Animator.Update(Clock.CurrentTime);
             if (General.Settings.ShowFPS && !fpsWatch.IsRunning)
                 fpsWatch.Start();
 
@@ -845,7 +848,8 @@ namespace CodeImp.DoomBuilder.Rendering
 				curtexture = group.Key;
 
         // Apply texture
-        Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
+        ImageData bound = animatetextures ? General.Map.Data.ResolveAnimatedImage(curtexture, UseIndexedTexture) : curtexture;
+        Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
         graphics.SetTexture(texture);
         graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
 
@@ -1245,7 +1249,8 @@ namespace CodeImp.DoomBuilder.Rendering
 					curtexture = g.Texture;
 
 					// Apply texture
-					Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
+					ImageData bound = animatetextures ? General.Map.Data.ResolveAnimatedImage(curtexture, UseIndexedTexture) : curtexture;
+					Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
 					graphics.SetTexture(texture);
 					graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
 					
