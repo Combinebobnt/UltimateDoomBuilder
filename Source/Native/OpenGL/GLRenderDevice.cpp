@@ -134,6 +134,29 @@ void GLRenderDevice::DeclareShader(ShaderName index, const char* name, const cha
 {
 	CheckContext();
 	mShaderManager->DeclareShader(index, name, vertexshader, fragmentshader);
+	mNeedApply = mShaderChanged = mUniformsChanged = true;
+}
+
+bool GLRenderDevice::CompileShader(ShaderName index, char* error, int length)
+{
+	CheckContext();
+	std::string message;
+	if ((size_t)index >= mShaderManager->Shaders.size()) message = "Undeclared shader";
+	else
+	{
+		auto& normal = mShaderManager->Shaders[index];
+		auto& alpha = mShaderManager->AlphaTestShaders[index];
+		if (!normal.CheckCompile(this)) message = normal.GetCompileError();
+		if (!alpha.CheckCompile(this)) message += alpha.GetCompileError();
+	}
+	if (error && length > 0)
+	{
+		size_t count = std::min(message.size(), (size_t)length - 1);
+		std::copy(message.begin(), message.begin() + count, error);
+		error[count] = 0;
+	}
+	mNeedApply = mShaderChanged = mUniformsChanged = true;
+	return message.empty();
 }
 
 void GLRenderDevice::SetVertexBuffer(VertexBuffer* ibuffer)

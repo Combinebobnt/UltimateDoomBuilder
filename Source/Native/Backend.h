@@ -69,6 +69,7 @@ public:
 
 	virtual void DeclareUniform(UniformName name, const char* glslname, UniformType type) = 0;
 	virtual void DeclareShader(ShaderName index, const char* name, const char* vertexshader, const char* fragmentshader) = 0;
+	virtual bool CompileShader(ShaderName index, char* error, int length) = 0;
 	virtual void SetShader(ShaderName name) = 0;
 	virtual void SetUniform(UniformName name, const void* values, int count, int bytesize) = 0;
 	virtual void SetVertexBuffer(VertexBuffer* buffer) = 0;

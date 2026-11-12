@@ -26,6 +26,7 @@
 
 void GLShader::Setup(const std::string& identifier, const std::string& vertexShader, const std::string& fragmentShader, bool alphatest)
 {
+	ReleaseResources();
 	mIdentifier = identifier;
 	mVertexText = vertexShader;
 	mFragmentText = fragmentShader;
@@ -39,10 +40,13 @@ bool GLShader::CheckCompile(GLRenderDevice* device)
 	{
 		mProgramBuilt = true;
 		CreateProgram(device);
+		if (!mProgram) return false;
 		glUseProgram(mProgram);
-		glUniform1i(glGetUniformLocation(mProgram, "texture1"), 0);
-		glUniform1i(glGetUniformLocation(mProgram, "texture2"), 1);
-		glUniform1i(glGetUniformLocation(mProgram, "texture3"), 2);
+		for (int unit = 0; unit < 10; unit++)
+		{
+			std::string name = "texture" + std::to_string(unit + 1);
+			glUniform1i(glGetUniformLocation(mProgram, name.c_str()), unit);
+		}
 		glUseProgram(0);
 	}
 
@@ -126,7 +130,7 @@ void GLShader::CreateProgram(GLRenderDevice* device)
 		return;
 	}
 
-	UniformLastUpdates.resize(device->mUniformInfo.size());
+	UniformLastUpdates.assign(device->mUniformInfo.size(), -1);
 	UniformLocations.resize(device->mUniformInfo.size(), (GLuint)-1);
 
 	int count = (int)UniformLocations.size();
@@ -172,4 +176,8 @@ void GLShader::ReleaseResources()
 	mProgram = 0;
 	mVertexShader = 0;
 	mFragmentShader = 0;
+	mProgramBuilt = false;
+	mErrors.clear();
+	UniformLastUpdates.clear();
+	UniformLocations.clear();
 }

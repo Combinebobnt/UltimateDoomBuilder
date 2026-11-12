@@ -94,6 +94,11 @@ extern "C"
 		device->DeclareShader(index, name, vertexshader, fragmentshader);
 	}
 
+	bool RenderDevice_CompileShader(RenderDevice* device, ShaderName index, char* error, int length)
+	{
+		return device->CompileShader(index, error, length);
+	}
+
 	void RenderDevice_SetShader(RenderDevice* device, ShaderName name)
 	{
 		device->SetShader(name);

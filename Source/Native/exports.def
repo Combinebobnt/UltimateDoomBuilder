@@ -6,6 +6,7 @@ EXPORTS
 	RenderDevice_Delete
 	RenderDevice_DeclareUniform
 	RenderDevice_DeclareShader
+	RenderDevice_CompileShader
 	RenderDevice_SetShader
 	RenderDevice_SetUniform
 	RenderDevice_SetVertexBuffer

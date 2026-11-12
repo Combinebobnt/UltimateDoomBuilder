@@ -175,6 +175,19 @@ namespace CodeImp.DoomBuilder.Rendering
             RenderDevice_DeclareShader(Handle, name, name.ToString(), GetResourceText(vertResourceName), GetResourceText(fragResourceName));
         }
 
+		internal void DeclareShader(ShaderName index, string name, string vertexSource, string fragmentSource)
+		{
+			RenderDevice_DeclareShader(Handle, index, name, vertexSource, fragmentSource);
+		}
+
+		internal bool TryCompileShader(ShaderName index, out string error)
+		{
+			var buffer = new StringBuilder(32768);
+			bool result = RenderDevice_CompileShader(Handle, index, buffer, buffer.Capacity);
+			error = buffer.ToString();
+			return result;
+		}
+
         // save precompiled shaders -- don't build from scratch every time
         private static Dictionary<string, ShaderGroup> precompiledGroups = new Dictionary<string, ShaderGroup>();
         public void CompileShader(ShaderName internalName, string groupName, string shaderName)
@@ -581,6 +594,10 @@ namespace CodeImp.DoomBuilder.Rendering
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         static extern void RenderDevice_DeclareShader(IntPtr handle, ShaderName index, string name, string vertexShader, string fragShader);
+
+		[DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+		[return: MarshalAs(UnmanagedType.I1)]
+		static extern bool RenderDevice_CompileShader(IntPtr handle, ShaderName index, StringBuilder error, int length);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         static extern void BuilderNative_GetError(StringBuilder str, int length);

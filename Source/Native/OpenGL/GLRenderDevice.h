@@ -40,6 +40,7 @@ public:
 
 	void DeclareUniform(UniformName name, const char* glslname, UniformType type) override;
 	void DeclareShader(ShaderName index, const char* name, const char* vertexshader, const char* fragmentshader) override;
+	bool CompileShader(ShaderName index, char* error, int length) override;
 	void SetShader(ShaderName name) override;
 	void SetUniform(UniformName name, const void* values, int count, int bytesize) override;
 	void SetVertexBuffer(VertexBuffer* buffer) override;
