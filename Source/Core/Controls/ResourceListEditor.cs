@@ -64,11 +64,11 @@ namespace CodeImp.DoomBuilder.Controls
 
 		private Point dialogoffset = new Point(40, 20);
 		private readonly DataLocationList copiedresources; //mxd
-		private readonly int copyactionkey;
-		private readonly int cutactionkey;
-		private readonly int pasteactionkey;
-		private readonly int pastespecialactionkey;
-		private readonly int deleteactionkey;
+		private readonly Actions.Action copyaction;
+		private readonly Actions.Action cutaction;
+		private readonly Actions.Action pasteaction;
+		private readonly Actions.Action pastespecialaction;
+		private readonly Actions.Action deleteaction;
 		private readonly Dictionary<string, CancellationTokenSource> loadingrequiredarchives;
 		private readonly List<Warning> warnings;
 		private bool warningnotificationpending;
@@ -100,18 +100,18 @@ namespace CodeImp.DoomBuilder.Controls
 			if (General.Actions != null)
 			{
 				// Get key shortcuts (mxd)
-				copyactionkey = General.Actions.GetActionByName("builder_copyselection").ShortcutKey;
-				cutactionkey = General.Actions.GetActionByName("builder_cutselection").ShortcutKey;
-				pasteactionkey = General.Actions.GetActionByName("builder_pasteselection").ShortcutKey;
-				pastespecialactionkey = General.Actions.GetActionByName("builder_pasteselectionspecial").ShortcutKey;
-				deleteactionkey = General.Actions.GetActionByName("builder_deleteitem").ShortcutKey;
+				copyaction = General.Actions.GetActionByName("builder_copyselection");
+				cutaction = General.Actions.GetActionByName("builder_cutselection");
+				pasteaction = General.Actions.GetActionByName("builder_pasteselection");
+				pastespecialaction = General.Actions.GetActionByName("builder_pasteselectionspecial");
+				deleteaction = General.Actions.GetActionByName("builder_deleteitem");
 
 				// Set displayed shortcuts (mxd)
-				copyresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(copyactionkey);
-				cutresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(cutactionkey);
-				pasteresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(pasteactionkey);
-				replaceresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(pastespecialactionkey);
-				removeresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(deleteactionkey);
+				copyresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(copyaction.ShortcutKey);
+				cutresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(cutaction.ShortcutKey);
+				pasteresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(pasteaction.ShortcutKey);
+				replaceresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(pastespecialaction.ShortcutKey);
+				removeresources.ShortcutKeyDisplayString = Actions.Action.GetShortcutKeyDesc(deleteaction.ShortcutKey);
 			}
 
 			// Start with a clear list
@@ -953,11 +953,11 @@ namespace CodeImp.DoomBuilder.Controls
 		{
 			if(sender != resourceitems) return;
 
-			if((int)e.KeyData == copyactionkey) CopySelectedResources();
-			else if((int)e.KeyData == pasteactionkey) PasteResources();
-			else if((int)e.KeyData == pastespecialactionkey) ReplaceResources();
-			else if((int)e.KeyData == deleteactionkey) DeleteSelectedResources();
-			else if((int)e.KeyData == cutactionkey)
+			if(copyaction != null && copyaction.KeyMatches((int)e.KeyData)) CopySelectedResources();
+			else if(pasteaction != null && pasteaction.KeyMatches((int)e.KeyData)) PasteResources();
+			else if(pastespecialaction != null && pastespecialaction.KeyMatches((int)e.KeyData)) ReplaceResources();
+			else if(deleteaction != null && deleteaction.KeyMatches((int)e.KeyData)) DeleteSelectedResources();
+			else if(cutaction != null && cutaction.KeyMatches((int)e.KeyData))
 			{
 				CopySelectedResources();
 				DeleteSelectedResources();

@@ -38,6 +38,7 @@ namespace CodeImp.DoomBuilder.Actions
 
 		// Shortcut key
 		private int key;
+		private int altkey;
 		private readonly int keymask;
 		private readonly int defaultkey;
 		
@@ -65,6 +66,8 @@ namespace CodeImp.DoomBuilder.Actions
 		public string Description { get { return description; } }
 		public bool RegisterToast { get { return registertoast; } }
 		public int ShortcutKey { get { return key; } }
+		public int AlternateShortcutKey { get { return altkey; } }
+		public string ShortcutKeysDesc { get { return GetShortcutKeyDesc(key) + (altkey != 0 ? ", " + GetShortcutKeyDesc(altkey) : ""); } }
 		public int ShortcutMask { get { return keymask; } }
 		public int DefaultShortcutKey { get { return defaultkey; } }
 		public bool AllowKeys { get { return allowkeys; } }
@@ -82,7 +85,7 @@ namespace CodeImp.DoomBuilder.Actions
 		#region ================== Constructor / Disposer
 
 		// Constructor
-		internal Action(Configuration cfg, string name, string shortname, int key)
+		internal Action(Configuration cfg, string name, string shortname, int key, int altkey)
 		{
 			// Initialize
 			this.name = name;
@@ -108,14 +111,7 @@ namespace CodeImp.DoomBuilder.Actions
 			
 			keymask = ~keymask;
 
-			if(key == -1)
-			{
-				this.key = -1;
-			}
-			else
-			{
-				this.key = key & keymask;
-			}
+			SetShortcutKeys(key, altkey);
 		}
 		
 		#endregion
@@ -224,8 +220,31 @@ namespace CodeImp.DoomBuilder.Actions
 		// This sets a new key for the action
 		internal void SetShortcutKey(int key)
 		{
-			// Make it so.
-			this.key = key & keymask;
+			SetShortcutKeys(key, altkey);
+		}
+
+		internal void SetShortcutKeys(int primary, int alternate)
+		{
+			key = primary == -1 ? -1 : primary & keymask;
+			altkey = alternate & keymask;
+			if(altkey == key) altkey = 0;
+			// Keep single-key hints useful even when only the alternate was assigned.
+			if(key == 0 && altkey != 0)
+			{
+				key = altkey;
+				altkey = 0;
+			}
+		}
+
+		internal static bool SlotsUseKey(int primary, int alternate, int key, int mask)
+		{
+			return key != 0 && ((primary > 0 && (primary & mask) == (key & mask))
+				|| (alternate > 0 && (alternate & mask) == (key & mask)));
+		}
+
+		internal bool UsesKey(int key, int mask)
+		{
+			return SlotsUseKey(this.key, altkey, key, mask);
 		}
 		
 		// This binds a delegate to this action
@@ -295,7 +314,7 @@ namespace CodeImp.DoomBuilder.Actions
 		// This checks if the action qualifies for a key combination
 		public bool KeyMatches(int pressedkey)
 		{
-			return (key == (pressedkey & keymask));
+			return UsesKey(pressedkey, keymask);
 		}
 		
 		#endregion

@@ -295,7 +295,7 @@ namespace CodeImp.DoomBuilder.Controls
 				item.Group = commandlist.Groups[isbound ? GROUP_USABLE : GROUP_UNUSABLE];
 
 			item.SubItems.Add(catname);
-			item.SubItems.Add(Actions.Action.GetShortcutKeyDesc(action.ShortcutKey));
+			item.SubItems.Add(action.ShortcutKeysDesc);
 		}
 
 		/// <summary>

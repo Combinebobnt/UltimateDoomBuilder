@@ -43,8 +43,6 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private PreferencesController controller;
 		private bool allowapplycontrol;
-		private bool disregardshift;
-		private bool disregardcontrol;
 		private readonly List<ListViewItem> allactionitems; //mxd
 		private readonly List<int> allactionitemsgroups; //mxd
 
@@ -218,6 +216,8 @@ namespace CodeImp.DoomBuilder.Windows
 				ListViewItem item = listactions.Items.Add(a.Name, a.Title, 0);
 				item.SubItems.Add(Action.GetShortcutKeyDesc(a.ShortcutKey));
 				item.SubItems[1].Tag = a.ShortcutKey;
+				item.SubItems.Add(Action.GetShortcutKeyDesc(a.AlternateShortcutKey));
+				item.SubItems[2].Tag = a.AlternateShortcutKey;
 
 				// Put in category, if the category exists
 				if(General.Actions.Categories.ContainsKey(a.Category)) 
@@ -415,7 +415,7 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Apply control keys to actions
 			foreach(ListViewItem item in allactionitems) //mxd
-				General.Actions[item.Name].SetShortcutKey((int)item.SubItems[1].Tag);
+				General.Actions[item.Name].SetShortcutKeys((int)item.SubItems[1].Tag, (int)item.SubItems[2].Tag);
 
 			// Apply the colors
 			// TODO: Make this automated by using the collection
@@ -619,9 +619,10 @@ namespace CodeImp.DoomBuilder.Windows
 			if(listactions.SelectedItems.Count > 0)
 			{
 				// Get info
-				int thiskey = (int)listactions.SelectedItems[0].SubItems[1].Tag;
-				if(thiskey != 0)
+				for(int slot = 1; slot <= 2; slot++)
 				{
+					int thiskey = (int)listactions.SelectedItems[0].SubItems[slot].Tag;
+					if(thiskey == 0) continue;
 					// Find actions with same key
 					foreach(ListViewItem item in allactionitems)
 					{
@@ -630,10 +631,15 @@ namespace CodeImp.DoomBuilder.Windows
 						{
 							Action a = General.Actions[item.Name];
 							int akey = (int)item.SubItems[1].Tag;
+							int altkey = (int)item.SubItems[2].Tag;
 
 							// Check if the key combination matches
-							if((thiskey & a.ShortcutMask) == (akey & a.ShortcutMask))
-								usedactions.Add(a.Title + "  (" + General.Actions.Categories[a.Category] + ")");
+							if(Action.SlotsUseKey(akey, altkey, thiskey, a.ShortcutMask))
+							{
+								bool alternate = Action.SlotsUseKey(0, altkey, thiskey, a.ShortcutMask);
+								usedactions.Add(Action.GetShortcutKeyDesc(thiskey) + ": " + a.Title + "  ("
+									+ General.Actions.Categories[a.Category] + (alternate ? ", alternate" : "") + ")");
+							}
 						}
 					}
 				}
@@ -656,7 +662,7 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 		
 		// This fills the list of available controls for the specified action
-		private void FillControlsList(Action a)
+		private void FillControlsList(Action a, ComboBox actioncontrol)
 		{
 			actioncontrol.Items.Clear();
 
@@ -806,8 +812,6 @@ namespace CodeImp.DoomBuilder.Windows
 			//mxd. Leave when not allowed to update
 			if(!allowapplycontrol) return;
 
-			string disregardkeys = "";
-
 			// Anything selected?
 			if(listactions.SelectedItems.Count > 0)
 			{
@@ -816,41 +820,23 @@ namespace CodeImp.DoomBuilder.Windows
 
 				// Get the selected action
 				Action action = General.Actions[listactions.SelectedItems[0].Name];
-				int key = (int)listactions.SelectedItems[0].SubItems[1].Tag;
-				disregardshift = action.DisregardShift;
-				disregardcontrol = action.DisregardControl;
 				
 				// Enable panel
 				actioncontrolpanel.Enabled = true;
 				actiontitle.Text = action.Title;
 				actiondescription.Text = action.Description;
-				actioncontrol.SelectedIndex = -1;
-				actionkey.Text = "";
-				
-				if(disregardshift && disregardcontrol)
-					disregardkeys = "Shift and Control";
-				else if(disregardshift)
-					disregardkeys = "Shift";
-				else if(disregardcontrol)
-					disregardkeys = "Control";
-
-				disregardshiftlabel.Text = disregardshiftlabel.Tag.ToString().Replace("%s", disregardkeys);
-				disregardshiftlabel.Visible = disregardshift | disregardcontrol;
+				List<string> disregardkeys = new List<string>();
+				if(action.DisregardShift) disregardkeys.Add("Shift");
+				if(action.DisregardControl) disregardkeys.Add("Control");
+				if(action.DisregardAlt) disregardkeys.Add("Alt");
+				disregardshiftlabel.Text = disregardshiftlabel.Tag.ToString().Replace("%s", string.Join(" and ", disregardkeys));
+				disregardshiftlabel.Visible = disregardkeys.Count > 0;
 				
 				// Fill special controls list
-				FillControlsList(action);
-				
-				// See if the key is in the combobox
-				for(int i = 0; i < actioncontrol.Items.Count; i++)
-				{
-					// Select it when the key is found here
-					KeyControl keycontrol = (KeyControl)actioncontrol.Items[i];
-					if(keycontrol.key == key) actioncontrol.SelectedIndex = i;
-				}
-
-				// Otherwise display the key in the textbox
-				if(actioncontrol.SelectedIndex == -1)
-					actionkey.Text = Action.GetShortcutKeyDesc(key);
+				FillControlsList(action, actioncontrol);
+				FillControlsList(action, alternateactioncontrol);
+				ShowActionKey(1);
+				ShowActionKey(2);
 				
 				// Show actions with same key
 				UpdateKeyUsedActions();
@@ -875,6 +861,8 @@ namespace CodeImp.DoomBuilder.Windows
 				actiondescription.Text = "";
 				actionkey.Text = "";
 				actioncontrol.SelectedIndex = -1;
+				alternateactionkey.Text = "";
+				alternateactioncontrol.SelectedIndex = -1;
 				disregardshiftlabel.Visible = false;
 			}
 			
@@ -894,93 +882,74 @@ namespace CodeImp.DoomBuilder.Windows
 		// Key combination pressed
 		private void actionkey_KeyDown(object sender, KeyEventArgs e)
 		{
-			int key = (int)e.KeyData;
 			e.SuppressKeyPress = true;
+			// Resolve duplicates on Leave, after intermediate modifier presses have settled.
+			SetActionKey(sender == alternateactionkey ? 2 : 1, (int)e.KeyData, false);
+		}
 
-			// Leave when not allowed to update
-			if(!allowapplycontrol) return;
-
-			// Anything selected?
-			if(listactions.SelectedItems.Count > 0)
-			{
-				// Begin updating
-				allowapplycontrol = false;
-				
-				// Remove modifier keys from the key if needed
-				if(disregardshift) key &= ~(int)Keys.Shift;
-				if(disregardcontrol) key &= ~(int)Keys.Control;
-				
-				// Deselect anything from the combobox
-				actioncontrol.SelectedIndex = -1;
-				
-				// Apply the key combination
-				listactions.SelectedItems[0].SubItems[1].Text = Action.GetShortcutKeyDesc(key);
-				listactions.SelectedItems[0].SubItems[1].Tag = key;
-				actionkey.Text = Action.GetShortcutKeyDesc(key);
-				
-				// Show actions with same key
-				UpdateKeyUsedActions();
-				
-				// Done
-				allowapplycontrol = true;
-			}
+		private void actionkey_Leave(object sender, EventArgs e)
+		{
+			if(!allowapplycontrol || listactions.SelectedItems.Count == 0) return;
+			allowapplycontrol = false;
+			int slot = sender == alternateactionkey ? 2 : 1;
+			ClearDuplicateKey(slot);
+			ShowActionKey(3 - slot);
+			UpdateKeyUsedActions();
+			allowapplycontrol = true;
 		}
 
 		// Special key selected
 		private void actioncontrol_SelectedIndexChanged(object sender, EventArgs e)
 		{
-			// Leave when not allowed to update
-			if(!allowapplycontrol) return;
-
-			// Anything selected?
-			if((actioncontrol.SelectedIndex > -1) && (listactions.SelectedItems.Count > 0))
-			{
-				// Begin updating
-				allowapplycontrol = false;
-
-				// Remove text from textbox
-				actionkey.Text = "";
-
-				// Get the key control
-				KeyControl key = (KeyControl)actioncontrol.SelectedItem;
-
-				// Apply the key combination
-				listactions.SelectedItems[0].SubItems[1].Text = Action.GetShortcutKeyDesc(key.key);
-				listactions.SelectedItems[0].SubItems[1].Tag = key.key;
-				
-				// Show actions with same key
-				UpdateKeyUsedActions();
-				
-				// Focus to the input box
-				actionkey.Focus();
-
-				// Done
-				allowapplycontrol = true;
-			}
+			ComboBox control = (ComboBox)sender;
+			if(control.SelectedItem != null)
+				SetActionKey(control == alternateactioncontrol ? 2 : 1, ((KeyControl)control.SelectedItem).key);
 		}
 
 		// Clear clicked
 		private void actioncontrolclear_Click(object sender, EventArgs e)
 		{
-			// Begin updating
+			SetActionKey(sender == alternateactioncontrolclear ? 2 : 1, 0);
+		}
+
+		private void ShowActionKey(int slot)
+		{
+			TextBox textbox = slot == 1 ? actionkey : alternateactionkey;
+			ComboBox control = slot == 1 ? actioncontrol : alternateactioncontrol;
+			int key = (int)listactions.SelectedItems[0].SubItems[slot].Tag;
+			control.SelectedIndex = -1;
+			for(int i = 0; i < control.Items.Count; i++)
+				if(((KeyControl)control.Items[i]).key == key) control.SelectedIndex = i;
+			textbox.Text = control.SelectedIndex == -1 ? Action.GetShortcutKeyDesc(key) : "";
+		}
+
+		private void SetActionKey(int slot, int key, bool clearduplicate = true)
+		{
+			if(!allowapplycontrol || listactions.SelectedItems.Count == 0) return;
 			allowapplycontrol = false;
-
-			// Clear textbox and combobox
-			actionkey.Text = "";
-			actioncontrol.SelectedIndex = -1;
-
-			// Apply the key combination
-			listactions.SelectedItems[0].SubItems[1].Text = "";
-			listactions.SelectedItems[0].SubItems[1].Tag = 0;
-			
-			// Show actions with same key
+			ListViewItem item = listactions.SelectedItems[0];
+			Action action = General.Actions[item.Name];
+			key &= action.ShortcutMask;
+			item.SubItems[slot].Tag = key;
+			item.SubItems[slot].Text = Action.GetShortcutKeyDesc(key);
+			if(clearduplicate) ClearDuplicateKey(slot);
+			ShowActionKey(1);
+			ShowActionKey(2);
 			UpdateKeyUsedActions();
-			
-			// Focus to the input box
-			actionkey.Focus();
-
-			// Done
+			(slot == 1 ? actionkey : alternateactionkey).Focus();
 			allowapplycontrol = true;
+		}
+
+		private void ClearDuplicateKey(int slot)
+		{
+			ListViewItem item = listactions.SelectedItems[0];
+			int otherslot = 3 - slot;
+			if(Action.SlotsUseKey((int)item.SubItems[otherslot].Tag, 0,
+				(int)item.SubItems[slot].Tag, General.Actions[item.Name].ShortcutMask))
+			{
+				item.SubItems[otherslot].Tag = 0;
+				item.SubItems[otherslot].Text = "";
+			}
 		}
 
 		//mxd

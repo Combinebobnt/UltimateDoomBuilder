@@ -3522,7 +3522,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 					html.AppendLine("<tr>");
 					html.AppendLine("<td>" + title + "</td>");
-					html.AppendLine("<td><div align=\"center\">" + Actions.Action.GetShortcutKeyDesc(a.ShortcutKey) + "</div></td>");
+					html.AppendLine("<td><div align=\"center\">" + a.ShortcutKeysDesc + "</div></td>");
 
 					if(a.DisregardControl) modifiers.Add("Ctrl");
 					if(a.DisregardAlt) modifiers.Add("Alt");

@@ -51,6 +51,7 @@ namespace CodeImp.DoomBuilder.Actions
 
         // Begun actions
         private List<Action> activeactions;
+        private HashSet<Action> begunactions;
         private Action currentaction;
 
         // Exclusive invokation
@@ -85,6 +86,7 @@ namespace CodeImp.DoomBuilder.Actions
             actions = new Dictionary<string, Action>();
             pressedkeys = new List<int>();
             activeactions = new List<Action>();
+            begunactions = new HashSet<Action>();
             categories = new SortedDictionary<string, string>();
 
             // Load all actions in this assembly
@@ -184,10 +186,11 @@ namespace CodeImp.DoomBuilder.Actions
             if (!actions.ContainsKey(name))
             {
                 // Read the key from configuration
-                int key = General.Settings.ReadSetting("shortcuts." + name, -1);
+                int key, altkey;
+                ReadKeys(General.Settings.Config, name, out key, out altkey);
 
                 // Create an action
-                actions.Add(name, new Action(cfg, name, shortname, key));
+                actions.Add(name, new Action(cfg, name, shortname, key, altkey));
             }
             else
             {
@@ -414,8 +417,24 @@ namespace CodeImp.DoomBuilder.Actions
             foreach (KeyValuePair<string, Action> a in actions)
             {
                 // Write to configuration
-                General.Settings.WriteSetting("shortcuts." + a.Key, a.Value.ShortcutKey);
+                WriteKeys(General.Settings.Config, a.Value);
             }
+        }
+
+        internal static void ReadKeys(Configuration cfg, string name, out int primary, out int alternate)
+        {
+            primary = cfg.ReadSetting("shortcuts." + name, -1);
+            alternate = cfg.ReadSetting("shortcutsalt." + name, 0);
+        }
+
+        internal static void WriteKeys(Configuration cfg, Action action)
+        {
+            cfg.WriteSetting("shortcuts." + action.Name, action.ShortcutKey);
+            string altsetting = "shortcutsalt." + action.Name;
+            if (action.AlternateShortcutKey != 0)
+                cfg.WriteSetting(altsetting, action.AlternateShortcutKey);
+            else if (cfg.SettingExists(altsetting))
+                cfg.DeleteSetting(altsetting);
         }
 
         // This invokes the Begin and End of the given action
@@ -436,19 +455,24 @@ namespace CodeImp.DoomBuilder.Actions
         // This applies default keys if they are not already in use
         internal void ApplyDefaultShortcutKeys()
         {
+            ApplyDefaultShortcutKeys(actions.Values);
+        }
+
+        internal static void ApplyDefaultShortcutKeys(IEnumerable<Action> actions)
+        {
             // Find actions that have no key set
-            foreach (KeyValuePair<string, Action> a in actions)
+            foreach (Action a in actions)
             {
                 // Key set?
-                if (a.Value.ShortcutKey == -1)
+                if (a.ShortcutKey == -1)
                 {
                     // Check if the default key is not already used
                     bool keyused = false;
-                    foreach (KeyValuePair<string, Action> d in actions)
+                    foreach (Action d in actions)
                     {
                         // Check if the keys are the same
                         // Note that I use the mask of the source action to check if they match any combination
-                        if ((d.Value.ShortcutKey & a.Value.ShortcutMask) == (a.Value.DefaultShortcutKey & a.Value.ShortcutMask))
+                        if (d.UsesKey(a.DefaultShortcutKey, a.ShortcutMask))
                         {
                             // No party.
                             keyused = true;
@@ -460,12 +484,12 @@ namespace CodeImp.DoomBuilder.Actions
                     if (!keyused)
                     {
                         // Apply the default key
-                        a.Value.SetShortcutKey(a.Value.DefaultShortcutKey);
+                        a.SetShortcutKey(a.DefaultShortcutKey);
                     }
                     else
                     {
                         // No party.
-                        a.Value.SetShortcutKey(0);
+                        a.SetShortcutKey(0);
                     }
                 }
             }
@@ -492,7 +516,7 @@ namespace CodeImp.DoomBuilder.Actions
         {
             // Clear all keys
             foreach (KeyValuePair<string, Action> a in actions)
-                a.Value.SetShortcutKey(0);
+                a.Value.SetShortcutKeys(0, 0);
         }
 
         // This notifies a key has been pressed
@@ -569,14 +593,15 @@ namespace CodeImp.DoomBuilder.Actions
             foreach (Action a in boundactions)
             {
                 // This action is associated with this key?
-                if (a.KeyMatches(key))
+                if (a.BeginBound && a.KeyMatches(key) && activeactions.Contains(a))
                 {
                     invoked = true;
 
                     // Allowed to repeat?
-                    if (a.Repeat || !repeated)
+                    if (a.Repeat || !(repeated || begunactions.Contains(a)))
                     {
                         // Invoke action
+                        begunactions.Add(a);
                         a.Begin();
                     }
                     else
@@ -619,6 +644,7 @@ namespace CodeImp.DoomBuilder.Actions
                     {
                         actionsended = true;
                         activeactions.RemoveAt(i);
+                        begunactions.Remove(a);
                         listchanged = true;
                         a.End();
                         break;

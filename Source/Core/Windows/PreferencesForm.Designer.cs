@@ -33,6 +33,8 @@ namespace CodeImp.DoomBuilder.Windows
 			System.Windows.Forms.GroupBox groupBox1;
 			System.Windows.Forms.Label label7;
 			System.Windows.Forms.Label label5;
+			System.Windows.Forms.Label alternatekeylabel;
+			System.Windows.Forms.Label alternatecontrollabel;
 			System.Windows.Forms.Label label29;
 			System.Windows.Forms.Label label27;
 			System.Windows.Forms.Label label18;
@@ -127,6 +129,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.listactions = new System.Windows.Forms.ListView();
 			this.columncontrolaction = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.columncontrolkey = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.columncontrolalternate = new System.Windows.Forms.ColumnHeader();
 			this.actioncontrolpanel = new System.Windows.Forms.GroupBox();
 			this.actiondescription = new System.Windows.Forms.TextBox();
 			this.keyusedlist = new System.Windows.Forms.ListBox();
@@ -136,6 +139,11 @@ namespace CodeImp.DoomBuilder.Windows
 			this.actiontitle = new System.Windows.Forms.Label();
 			this.actioncontrolclear = new System.Windows.Forms.Button();
 			this.actionkey = new System.Windows.Forms.TextBox();
+			this.alternateactionkey = new System.Windows.Forms.TextBox();
+			this.alternateactioncontrol = new System.Windows.Forms.ComboBox();
+			this.alternateactioncontrolclear = new System.Windows.Forms.Button();
+			alternatekeylabel = new System.Windows.Forms.Label();
+			alternatecontrollabel = new System.Windows.Forms.Label();
 			this.tabcolors = new System.Windows.Forms.TabPage();
 			this.appearancegroup1 = new System.Windows.Forms.GroupBox();
 			this.activethingsalphalabel = new System.Windows.Forms.Label();
@@ -1354,7 +1362,8 @@ namespace CodeImp.DoomBuilder.Windows
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.listactions.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columncontrolaction,
-            this.columncontrolkey});
+            this.columncontrolkey,
+            this.columncontrolalternate});
 			this.listactions.FullRowSelect = true;
 			this.listactions.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
 			this.listactions.HideSelection = false;
@@ -1375,12 +1384,17 @@ namespace CodeImp.DoomBuilder.Windows
 			// columncontrolaction
 			// 
 			this.columncontrolaction.Text = "Action";
-			this.columncontrolaction.Width = 200;
+			this.columncontrolaction.Width = 170;
 			// 
 			// columncontrolkey
 			// 
 			this.columncontrolkey.Text = "Key";
-			this.columncontrolkey.Width = 130;
+			this.columncontrolkey.Width = 80;
+			//
+			// columncontrolalternate
+			//
+			this.columncontrolalternate.Text = "Alternate";
+			this.columncontrolalternate.Width = -2;
 			// 
 			// actioncontrolpanel
 			// 
@@ -1396,6 +1410,11 @@ namespace CodeImp.DoomBuilder.Windows
 			this.actioncontrolpanel.Controls.Add(this.actioncontrolclear);
 			this.actioncontrolpanel.Controls.Add(this.actionkey);
 			this.actioncontrolpanel.Controls.Add(label5);
+			this.actioncontrolpanel.Controls.Add(alternatekeylabel);
+			this.actioncontrolpanel.Controls.Add(alternatecontrollabel);
+			this.actioncontrolpanel.Controls.Add(this.alternateactionkey);
+			this.actioncontrolpanel.Controls.Add(this.alternateactioncontrol);
+			this.actioncontrolpanel.Controls.Add(this.alternateactioncontrolclear);
 			this.actioncontrolpanel.Enabled = false;
 			this.actioncontrolpanel.Location = new System.Drawing.Point(395, 12);
 			this.actioncontrolpanel.Margin = new System.Windows.Forms.Padding(6);
@@ -1421,30 +1440,30 @@ namespace CodeImp.DoomBuilder.Windows
 			this.keyusedlist.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			this.keyusedlist.FormattingEnabled = true;
 			this.keyusedlist.IntegralHeight = false;
-			this.keyusedlist.Location = new System.Drawing.Point(23, 307);
+			this.keyusedlist.HorizontalScrollbar = true;
+			this.keyusedlist.Location = new System.Drawing.Point(23, 414);
 			this.keyusedlist.Name = "keyusedlist";
 			this.keyusedlist.SelectionMode = System.Windows.Forms.SelectionMode.None;
-			this.keyusedlist.Size = new System.Drawing.Size(250, 115);
+			this.keyusedlist.Size = new System.Drawing.Size(250, 83);
 			this.keyusedlist.Sorted = true;
-			this.keyusedlist.TabIndex = 11;
+			this.keyusedlist.TabIndex = 16;
 			this.keyusedlist.Visible = false;
 			// 
 			// keyusedlabel
 			// 
-			this.keyusedlabel.AutoSize = true;
-			this.keyusedlabel.Location = new System.Drawing.Point(20, 287);
+			this.keyusedlabel.Location = new System.Drawing.Point(20, 382);
 			this.keyusedlabel.Name = "keyusedlabel";
-			this.keyusedlabel.Size = new System.Drawing.Size(216, 13);
-			this.keyusedlabel.TabIndex = 10;
-			this.keyusedlabel.Text = "Key combination also used by these actions:";
+			this.keyusedlabel.Size = new System.Drawing.Size(253, 28);
+			this.keyusedlabel.TabIndex = 15;
+			this.keyusedlabel.Text = "Key combinations also used by these actions:";
 			this.keyusedlabel.Visible = false;
 			// 
 			// disregardshiftlabel
 			// 
-			this.disregardshiftlabel.Location = new System.Drawing.Point(20, 224);
+			this.disregardshiftlabel.Location = new System.Drawing.Point(20, 324);
 			this.disregardshiftlabel.Name = "disregardshiftlabel";
 			this.disregardshiftlabel.Size = new System.Drawing.Size(253, 47);
-			this.disregardshiftlabel.TabIndex = 9;
+			this.disregardshiftlabel.TabIndex = 14;
 			this.disregardshiftlabel.Tag = "The selected action uses %s to modify its behavior. These modifiers can not be us" +
     "ed in a key combination for this action.";
 			this.disregardshiftlabel.Text = "The selected action uses Shift, Alt and Control to modify its behavior. These mod" +
@@ -1494,6 +1513,57 @@ namespace CodeImp.DoomBuilder.Windows
 			this.actionkey.TabIndex = 5;
 			this.actionkey.TabStop = false;
 			this.actionkey.KeyDown += new System.Windows.Forms.KeyEventHandler(this.actionkey_KeyDown);
+			this.actionkey.Leave += new System.EventHandler(this.actionkey_Leave);
+			//
+			// alternatekeylabel
+			//
+			alternatekeylabel.AutoSize = true;
+			alternatekeylabel.Location = new System.Drawing.Point(20, 222);
+			alternatekeylabel.Name = "alternatekeylabel";
+			alternatekeylabel.Text = "Alternate key combination:";
+			alternatekeylabel.TabIndex = 9;
+			//
+			// alternateactionkey
+			//
+			this.alternateactionkey.ImeMode = System.Windows.Forms.ImeMode.Off;
+			this.alternateactionkey.Location = new System.Drawing.Point(23, 240);
+			this.alternateactionkey.Name = "alternateactionkey";
+			this.alternateactionkey.Size = new System.Drawing.Size(163, 20);
+			this.alternateactionkey.TabIndex = 10;
+			this.alternateactionkey.TabStop = false;
+			this.alternateactionkey.KeyDown += new System.Windows.Forms.KeyEventHandler(this.actionkey_KeyDown);
+			this.alternateactionkey.Leave += new System.EventHandler(this.actionkey_Leave);
+			//
+			// alternateactioncontrolclear
+			//
+			this.alternateactioncontrolclear.Image = global::CodeImp.DoomBuilder.Properties.Resources.SearchClear;
+			this.alternateactioncontrolclear.Location = new System.Drawing.Point(193, 237);
+			this.alternateactioncontrolclear.Name = "alternateactioncontrolclear";
+			this.alternateactioncontrolclear.Size = new System.Drawing.Size(26, 25);
+			this.alternateactioncontrolclear.TabIndex = 11;
+			this.alternateactioncontrolclear.TabStop = false;
+			this.alternateactioncontrolclear.UseVisualStyleBackColor = true;
+			this.alternateactioncontrolclear.Click += new System.EventHandler(this.actioncontrolclear_Click);
+			//
+			// alternatecontrollabel
+			//
+			alternatecontrollabel.AutoSize = true;
+			alternatecontrollabel.Location = new System.Drawing.Point(20, 272);
+			alternatecontrollabel.Name = "alternatecontrollabel";
+			alternatecontrollabel.Text = "Or select a special input control here:";
+			alternatecontrollabel.TabIndex = 12;
+			//
+			// alternateactioncontrol
+			//
+			this.alternateactioncontrol.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.alternateactioncontrol.FormattingEnabled = true;
+			this.alternateactioncontrol.ImeMode = System.Windows.Forms.ImeMode.Off;
+			this.alternateactioncontrol.Location = new System.Drawing.Point(23, 290);
+			this.alternateactioncontrol.Name = "alternateactioncontrol";
+			this.alternateactioncontrol.Size = new System.Drawing.Size(196, 21);
+			this.alternateactioncontrol.TabIndex = 13;
+			this.alternateactioncontrol.TabStop = false;
+			this.alternateactioncontrol.SelectedIndexChanged += new System.EventHandler(this.actioncontrol_SelectedIndexChanged);
 			// 
 			// tabcolors
 			// 
@@ -2855,6 +2925,10 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ListView listactions;
 		private System.Windows.Forms.ColumnHeader columncontrolaction;
 		private System.Windows.Forms.ColumnHeader columncontrolkey;
+		private System.Windows.Forms.ColumnHeader columncontrolalternate;
+		private System.Windows.Forms.TextBox alternateactionkey;
+		private System.Windows.Forms.ComboBox alternateactioncontrol;
+		private System.Windows.Forms.Button alternateactioncontrolclear;
 		private System.Windows.Forms.GroupBox actioncontrolpanel;
 		private System.Windows.Forms.ComboBox actioncontrol;
 		private System.Windows.Forms.Label actiontitle;
