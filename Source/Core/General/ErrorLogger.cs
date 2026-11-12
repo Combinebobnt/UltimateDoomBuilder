@@ -71,7 +71,7 @@ namespace CodeImp.DoomBuilder
 				errors.Clear();
 
 				//mxd
-				General.MainWindow.UpdateWarningsCount(false);
+				if(General.MainWindow != null) General.MainWindow.UpdateWarningsCount(false);
 			}
 		}
 		
@@ -107,12 +107,12 @@ namespace CodeImp.DoomBuilder
 
 					changed = true;
 					General.WriteLogLine(prefix + error.Description);
-					General.MainWindow.UpdateWarningsCount(erroradded); //mxd
+					if(General.MainWindow != null) General.MainWindow.UpdateWarningsCount(erroradded); //mxd
 				}
 				// But still blink the indicator on errors
 				else if(error.Type == ErrorType.Error)
 				{
-					General.MainWindow.UpdateWarningsCount(true);
+					if(General.MainWindow != null) General.MainWindow.UpdateWarningsCount(true);
 				}
 			}
 		}

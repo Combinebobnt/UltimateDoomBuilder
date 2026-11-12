@@ -52,14 +52,25 @@ namespace Builder.Tests
 			return parser;
 		}
 
-		// With no main window, logging anything throws after the item is stored, so either sign means a warning
 		private static void AssertFinishSetupLogsNothing(SndInfoParser parser, FakeMap map)
 		{
-			Exception? thrown = null;
-			try { parser.FinishSetup(); }
-			catch(Exception e) { thrown = e; }
+			parser.FinishSetup();
 			string logged = string.Join(" | ", map.Logger.GetErrors(0).Select(e => e.Description));
-			Assert.True(thrown == null && map.Logger.ErrorsCount == 0, "logged: " + logged + (thrown != null ? "; threw " + thrown.GetType().Name : ""));
+			Assert.True(map.Logger.ErrorsCount == 0, "logged: " + logged);
+		}
+
+		[Fact]
+		public void AliasToUndefinedSound_LogsWarningWithoutAMainWindow()
+		{
+			using(var map = new FakeMap(GameType.DOOM))
+			{
+				Assert.Null(General.MainWindow);
+				SndInfoParser parser = Parse("$alias alias missing\n");
+				parser.FinishSetup();
+				ErrorItem warning = Assert.Single(map.Logger.GetErrors(0));
+				Assert.Equal(ErrorType.Warning, warning.Type);
+				Assert.Equal("SNDINFO warning: sound \"missing\" is not defined.", warning.Description);
+			}
 		}
 
 		[Fact]
