@@ -14,7 +14,6 @@ namespace CodeImp.DoomBuilder
 		internal int SuspendDepth { get { return suspenddepth; } }
 		internal bool Running { get { return enablecount > 0 && suspenddepth == 0; } }
 
-		// The callback runs after every call except an ignored resume; its argument is true only on an off-to-on edge.
 		internal ProcessingGate(Action<bool> applied)
 		{
 			this.applied = applied;
@@ -27,7 +26,6 @@ namespace CodeImp.DoomBuilder
 			Apply(wasrunning);
 		}
 
-		// Clamped at 0 so a stray extra call from a mode or plugin cannot go negative.
 		internal void Disable()
 		{
 			bool wasrunning = Running;
@@ -36,7 +34,6 @@ namespace CodeImp.DoomBuilder
 			Apply(wasrunning);
 		}
 
-		// Holds processing off until the returned token is disposed; disposing it again is a no-op.
 		internal IDisposable Suspend()
 		{
 			bool wasrunning = Running;
@@ -45,7 +42,6 @@ namespace CodeImp.DoomBuilder
 			return new Token(this, epoch);
 		}
 
-		// Drops every enable reason and suspension; tokens taken before this are ignored.
 		internal void Reset()
 		{
 			bool wasrunning = Running;

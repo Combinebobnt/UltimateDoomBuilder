@@ -4773,7 +4773,6 @@ namespace CodeImp.DoomBuilder.Windows
 			processinggate.Disable();
 		}
 
-		// Holds processing off across a modal or slow constructor, whatever the enable count.
 		public IDisposable SuspendProcessing()
 		{
 			return processinggate.Suspend();
