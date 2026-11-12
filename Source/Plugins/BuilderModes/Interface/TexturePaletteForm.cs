@@ -34,7 +34,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				Controls.Add(empty);
 				empty.BringToFront();
 			}
-			Size preferred = view.EntryCount == 0 ? new Size(280, 100) : view.GetPaletteSize(6, 3);
+			Size preferred = view.EntryCount == 0 ? new Size(280, 100) : view.GetPaletteSize(6);
 			Rectangle display = General.Interface.Display.RectangleToScreen(General.Interface.Display.ClientRectangle);
 			Point origin = visual ? new Point(display.Left + display.Width / 2, display.Top + display.Height / 2) : cursororigin;
 			Rectangle screen = Screen.FromPoint(origin).WorkingArea;

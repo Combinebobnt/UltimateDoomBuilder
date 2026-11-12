@@ -24,6 +24,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Plugins;
@@ -74,7 +75,7 @@ namespace CodeImp.DoomBuilder.Config
 		private int previousversion;
 		private PasteOptions pasteoptions;
 		private int clipboardhistorysize = 20;
-		private int texturehistorysize = 24;
+		private int texturehistorysize = TextureHistory.MAX_CAPACITY;
 		private int dockersposition;
 		private bool collapsedockers;
 		private int dockerswidth;
@@ -217,7 +218,7 @@ namespace CodeImp.DoomBuilder.Config
 			get { return texturehistorysize; }
 			set
 			{
-				texturehistorysize = Math.Max(0, Math.Min(64, value));
+				texturehistorysize = Math.Max(0, Math.Min(TextureHistory.MAX_CAPACITY, value));
 				if(General.Map != null && General.Map.TextureHistory != null) General.Map.TextureHistory.Capacity = texturehistorysize;
 			}
 		}
@@ -389,7 +390,7 @@ namespace CodeImp.DoomBuilder.Config
 				dockerswidth = cfg.ReadSetting("dockerswidth", 300);
 				pasteoptions.ReadConfiguration(cfg, "pasteoptions");
 				ClipboardHistorySize = cfg.ReadSetting("clipboardhistorysize", 20);
-				TextureHistorySize = cfg.ReadSetting("texturehistorysize", 24);
+				TextureHistorySize = cfg.ReadSetting("texturehistorysize", TextureHistory.MAX_CAPACITY);
 				toolbarscript = cfg.ReadSetting("toolbarscript", true);
 				toolbarundo = cfg.ReadSetting("toolbarundo", true);
 				toolbarcopy = cfg.ReadSetting("toolbarcopy", true);

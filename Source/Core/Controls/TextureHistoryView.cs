@@ -84,6 +84,12 @@ namespace CodeImp.DoomBuilder.Controls
 		public TextureHistoryView()
 		{
 			list = new ImageSelectorPanel(false) { Dock = DockStyle.Fill, HideSelection = true, TakeFocusOnClick = false, Title = null };
+			// Same as the texture browser; the group headers draw white text with black browsers
+			if(General.Settings != null && General.Settings.BlackBrowsers)
+			{
+				list.BackColor = Color.Black;
+				list.ForeColor = Color.White;
+			}
 			list.ImageSize = Math.Max(1, (int)Math.Round(64 * MainForm.DPIScaler.Width));
 			list.ItemClicked += (item, e) => ClickEntry((Entry)item, e.Button);
 			list.IsFavorite = item => favorites != null && favorites.Contains(((Entry)item).Info.Kind, ((Entry)item).Info.Name);
@@ -176,10 +182,11 @@ namespace CodeImp.DoomBuilder.Controls
 			groups.Add(group);
 		}
 
-		public Size GetPaletteSize(int columns, int rows)
+		// Fits every row: recents are capped, so only the screen limits the height
+		public Size GetPaletteSize(int columns)
 		{
 			columns = Math.Max(1, Math.Min(6, columns));
-			rows = Math.Max(1, Math.Min(3, rows));
+			int rows = int.MaxValue;
 			int padding = list.ClassicView ? 26 : 4;
 			int width = CellWidth(list.Items.Select(item => item.TextureNameWidth), ImageSize);
 			int font = SystemFonts.MessageBoxFont.Height + 4;

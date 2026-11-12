@@ -12,16 +12,17 @@ namespace Builder.Tests
 	public class TextureHistoryTests
 	{
 		[Fact]
-		public void ConfigurationDefaultsToTwentyFour()
+		public void ConfigurationDefaultsToTheCap()
 		{
-			Assert.Equal(24, new ProgramConfiguration().TextureHistorySize);
+			Assert.Equal(TextureHistory.MAX_CAPACITY, new ProgramConfiguration().TextureHistorySize);
 		}
 
 		[Theory]
 		[InlineData(-1, 0)]
 		[InlineData(0, 0)]
-		[InlineData(25, 25)]
-		[InlineData(65, 64)]
+		[InlineData(TextureHistory.MAX_CAPACITY - 1, TextureHistory.MAX_CAPACITY - 1)]
+		[InlineData(TextureHistory.MAX_CAPACITY + 1, TextureHistory.MAX_CAPACITY)]
+		[InlineData(64, TextureHistory.MAX_CAPACITY)]
 		public void ConfigurationLoadsAndClampsHistorySize(int value, int expected)
 		{
 			string path = Path.Combine(Path.GetTempPath(), "texture-history-" + Guid.NewGuid().ToString("N") + ".cfg");
@@ -135,8 +136,8 @@ namespace Builder.Tests
 		[Theory]
 		[InlineData(-1, 0)]
 		[InlineData(0, 0)]
-		[InlineData(24, 24)]
-		[InlineData(65, 64)]
+		[InlineData(TextureHistory.MAX_CAPACITY - 1, TextureHistory.MAX_CAPACITY - 1)]
+		[InlineData(TextureHistory.MAX_CAPACITY + 1, TextureHistory.MAX_CAPACITY)]
 		public void CapacityClamps(int requested, int expected)
 		{
 			TextureHistory history = new TextureHistory(requested, false);

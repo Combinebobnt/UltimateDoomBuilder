@@ -14,6 +14,9 @@ namespace CodeImp.DoomBuilder.Editing
 		private readonly ReadOnlyCollection<string> flatview;
 		private int capacity;
 
+		// Two rows of the six-column palette, so it never needs a scrollbar
+		public const int MAX_CAPACITY = 12;
+
 		public event EventHandler Changed;
 		public bool Mixed { get; private set; }
 		public int Capacity
@@ -21,7 +24,7 @@ namespace CodeImp.DoomBuilder.Editing
 			get { return capacity; }
 			set
 			{
-				int next = Math.Max(0, Math.Min(64, value));
+				int next = Math.Max(0, Math.Min(MAX_CAPACITY, value));
 				if(next == capacity) return;
 				capacity = next;
 				Prune(textures);
@@ -35,7 +38,7 @@ namespace CodeImp.DoomBuilder.Editing
 			Mixed = mixed;
 			textureview = textures.AsReadOnly();
 			flatview = flats.AsReadOnly();
-			this.capacity = Math.Max(0, Math.Min(64, capacity));
+			this.capacity = Math.Max(0, Math.Min(MAX_CAPACITY, capacity));
 		}
 
 		public IReadOnlyList<string> Get(TextureHistoryKind kind)
