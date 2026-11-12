@@ -4358,24 +4358,31 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			// Show sector edit dialog
 			VertexEditForm f = new VertexEditForm();
+			DialogResult result;
 			IDisposable suspend = SuspendProcessing();
-			#if NO_WIN32
-			BreakExclusiveMouseInput();
-			f.Closed += (object sender, EventArgs e) => {
-				ResumeExclusiveMouseInput();
+			try
+			{
+				#if NO_WIN32
+				BreakExclusiveMouseInput();
+				f.Closed += (object sender, EventArgs e) => {
+					ResumeExclusiveMouseInput();
+					suspend.Dispose();
+				};
+				#endif
+				f.Setup(vertices, allowPositionChange);
+				#if !NO_WIN32
 				suspend.Dispose();
-			};
-			#endif
-			f.Setup(vertices, allowPositionChange);
-			#if !NO_WIN32
-			suspend.Dispose();
-			#endif
-			f.OnValuesChanged += EditForm_OnValuesChanged;
-			editformopen = true; //mxd
-			DialogResult result = f.ShowDialog(this);
-			editformopen = false; //mxd
-			f.Dispose();
-			suspend.Dispose();
+				#endif
+				f.OnValuesChanged += EditForm_OnValuesChanged;
+				editformopen = true; //mxd
+				result = f.ShowDialog(this);
+				editformopen = false; //mxd
+				f.Dispose();
+			}
+			finally
+			{
+				suspend.Dispose();
+			}
 
 			return result;
 		}
@@ -4398,23 +4405,29 @@ namespace CodeImp.DoomBuilder.Windows
 				using(UITiming.Request(nameof(LinedefEditFormUDMF)))
 					f = new LinedefEditFormUDMF(selectfront, selectback);
 				IDisposable suspend = SuspendProcessing();
-				#if NO_WIN32
-				BreakExclusiveMouseInput();
-				f.Closed += (object sender, EventArgs e) => {
-					ResumeExclusiveMouseInput();
+				try
+				{
+					#if NO_WIN32
+					BreakExclusiveMouseInput();
+					f.Closed += (object sender, EventArgs e) => {
+						ResumeExclusiveMouseInput();
+						suspend.Dispose();
+					};
+					#endif
+					f.Setup(lines, selectfront, selectback);
+					#if !NO_WIN32
 					suspend.Dispose();
-				};
-				#endif
-				f.Setup(lines, selectfront, selectback);
-				#if !NO_WIN32
-				suspend.Dispose();
-				#endif
-				f.OnValuesChanged += EditForm_OnValuesChanged;
-				editformopen = true; //mxd
-				result = f.ShowDialog(this);
-				editformopen = false; //mxd
-				f.Dispose();
-				suspend.Dispose();
+					#endif
+					f.OnValuesChanged += EditForm_OnValuesChanged;
+					editformopen = true; //mxd
+					result = f.ShowDialog(this);
+					editformopen = false; //mxd
+					f.Dispose();
+				}
+				finally
+				{
+					suspend.Dispose();
+				}
 			}
 			else
 			{
@@ -4422,23 +4435,29 @@ namespace CodeImp.DoomBuilder.Windows
 				using(UITiming.Request(nameof(LinedefEditForm)))
 					f = new LinedefEditForm();
 				IDisposable suspend = SuspendProcessing();
-				#if NO_WIN32
-				BreakExclusiveMouseInput();
-				f.Closed += (object sender, EventArgs e) => {
-					ResumeExclusiveMouseInput();
+				try
+				{
+					#if NO_WIN32
+					BreakExclusiveMouseInput();
+					f.Closed += (object sender, EventArgs e) => {
+						ResumeExclusiveMouseInput();
+						suspend.Dispose();
+					};
+					#endif
+					f.Setup(lines);
+					#if !NO_WIN32
 					suspend.Dispose();
-				};
-				#endif
-				f.Setup(lines);
-				#if !NO_WIN32
-				suspend.Dispose();
-				#endif
-				f.OnValuesChanged += EditForm_OnValuesChanged;
-				editformopen = true; //mxd
-				result = f.ShowDialog(this);
-				editformopen = false; //mxd
-				f.Dispose();
-				suspend.Dispose();
+					#endif
+					f.OnValuesChanged += EditForm_OnValuesChanged;
+					editformopen = true; //mxd
+					result = f.ShowDialog(this);
+					editformopen = false; //mxd
+					f.Dispose();
+				}
+				finally
+				{
+					suspend.Dispose();
+				}
 			}
 
 			return result;
@@ -4456,23 +4475,29 @@ namespace CodeImp.DoomBuilder.Windows
 				using(UITiming.Request(nameof(SectorEditFormUDMF)))
 					f = new SectorEditFormUDMF();
 				IDisposable suspend = SuspendProcessing();
-				#if NO_WIN32
-				BreakExclusiveMouseInput();
-				f.Closed += (object sender, EventArgs e) => {
-					ResumeExclusiveMouseInput();
+				try
+				{
+					#if NO_WIN32
+					BreakExclusiveMouseInput();
+					f.Closed += (object sender, EventArgs e) => {
+						ResumeExclusiveMouseInput();
+						suspend.Dispose();
+					};
+					#endif
+					f.Setup(sectors);
+					#if !NO_WIN32
 					suspend.Dispose();
-				};
-				#endif
-				f.Setup(sectors);
-				#if !NO_WIN32
-				suspend.Dispose();
-				#endif
-				f.OnValuesChanged += EditForm_OnValuesChanged;
-				editformopen = true; //mxd
-				result = f.ShowDialog(this);
-				editformopen = false; //mxd
-				f.Dispose();
-				suspend.Dispose();
+					#endif
+					f.OnValuesChanged += EditForm_OnValuesChanged;
+					editformopen = true; //mxd
+					result = f.ShowDialog(this);
+					editformopen = false; //mxd
+					f.Dispose();
+				}
+				finally
+				{
+					suspend.Dispose();
+				}
 			}
 			else
 			{
@@ -4480,23 +4505,29 @@ namespace CodeImp.DoomBuilder.Windows
 				using(UITiming.Request(nameof(SectorEditForm)))
 					f = new SectorEditForm();
 				IDisposable suspend = SuspendProcessing();
-				#if NO_WIN32
-				BreakExclusiveMouseInput();
-				f.Closed += (object sender, EventArgs e) => {
-					ResumeExclusiveMouseInput();
+				try
+				{
+					#if NO_WIN32
+					BreakExclusiveMouseInput();
+					f.Closed += (object sender, EventArgs e) => {
+						ResumeExclusiveMouseInput();
+						suspend.Dispose();
+					};
+					#endif
+					f.Setup(sectors);
+					#if !NO_WIN32
 					suspend.Dispose();
-				};
-				#endif
-				f.Setup(sectors);
-				#if !NO_WIN32
-				suspend.Dispose();
-				#endif
-				f.OnValuesChanged += EditForm_OnValuesChanged;
-				editformopen = true; //mxd
-				result = f.ShowDialog(this);
-				editformopen = false; //mxd
-				f.Dispose();
-				suspend.Dispose();
+					#endif
+					f.OnValuesChanged += EditForm_OnValuesChanged;
+					editformopen = true; //mxd
+					result = f.ShowDialog(this);
+					editformopen = false; //mxd
+					f.Dispose();
+				}
+				finally
+				{
+					suspend.Dispose();
+				}
 			}
 
 			return result;
@@ -4514,23 +4545,29 @@ namespace CodeImp.DoomBuilder.Windows
 				using(UITiming.Request(nameof(ThingEditFormUDMF)))
 					f = new ThingEditFormUDMF();
 				IDisposable suspend = SuspendProcessing();
-				#if NO_WIN32
-				BreakExclusiveMouseInput();
-				f.Closed += (object sender, EventArgs e) => {
-					ResumeExclusiveMouseInput();
+				try
+				{
+					#if NO_WIN32
+					BreakExclusiveMouseInput();
+					f.Closed += (object sender, EventArgs e) => {
+						ResumeExclusiveMouseInput();
+						suspend.Dispose();
+					};
+					#endif
+					f.Setup(things);
+					#if !NO_WIN32
 					suspend.Dispose();
-				};
-				#endif
-				f.Setup(things);
-				#if !NO_WIN32
-				suspend.Dispose();
-				#endif
-				f.OnValuesChanged += EditForm_OnValuesChanged;
-				editformopen = true; //mxd
-				result = f.ShowDialog(this);
-				editformopen = false; //mxd
-				f.Dispose();
-				suspend.Dispose();
+					#endif
+					f.OnValuesChanged += EditForm_OnValuesChanged;
+					editformopen = true; //mxd
+					result = f.ShowDialog(this);
+					editformopen = false; //mxd
+					f.Dispose();
+				}
+				finally
+				{
+					suspend.Dispose();
+				}
 			} 
 			else 
 			{
@@ -4538,23 +4575,29 @@ namespace CodeImp.DoomBuilder.Windows
 				using(UITiming.Request(nameof(ThingEditForm)))
 					f = new ThingEditForm();
 				IDisposable suspend = SuspendProcessing();
-				#if NO_WIN32
-				BreakExclusiveMouseInput();
-				f.Closed += (object sender, EventArgs e) => {
-					ResumeExclusiveMouseInput();
+				try
+				{
+					#if NO_WIN32
+					BreakExclusiveMouseInput();
+					f.Closed += (object sender, EventArgs e) => {
+						ResumeExclusiveMouseInput();
+						suspend.Dispose();
+					};
+					#endif
+					f.Setup(things);
+					#if !NO_WIN32
 					suspend.Dispose();
-				};
-				#endif
-				f.Setup(things);
-				#if !NO_WIN32
-				suspend.Dispose();
-				#endif
-				f.OnValuesChanged += EditForm_OnValuesChanged;
-				editformopen = true; //mxd
-				result = f.ShowDialog(this);
-				editformopen = false; //mxd
-				f.Dispose();
-				suspend.Dispose();
+					#endif
+					f.OnValuesChanged += EditForm_OnValuesChanged;
+					editformopen = true; //mxd
+					result = f.ShowDialog(this);
+					editformopen = false; //mxd
+					f.Dispose();
+				}
+				finally
+				{
+					suspend.Dispose();
+				}
 			}
 
 			return result;
