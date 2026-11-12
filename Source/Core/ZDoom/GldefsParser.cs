@@ -58,6 +58,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 		private readonly Dictionary<long, GlowingFlatData> glowingflats;
 		private readonly Dictionary<string, SkyboxInfo> skyboxes;
 		private readonly HashSet<string> parsedlumps;
+		private readonly List<GldefsMaterial> materials = new List<GldefsMaterial>();
 
 		#endregion
 
@@ -69,6 +70,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 		internal Dictionary<string, string> Objects { get { return objects; } }
 		internal Dictionary<long, GlowingFlatData> GlowingFlats { get { return glowingflats; } }
 		internal Dictionary<string, SkyboxInfo> Skyboxes { get { return skyboxes; } }
+		internal List<GldefsMaterial> Materials { get { return materials; } }
 
 		#endregion
 
@@ -78,7 +80,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 		{
 			// Syntax
 			whitespace = "\n \t\r\u00A0";
-			specialtokens = ",{}\n";
+			specialtokens = ",{}=\n";
 			
 			parsedlumps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			lightsbyname = new Dictionary<string, DynamicLightData>(StringComparer.OrdinalIgnoreCase); //LightName, Light params
@@ -136,6 +138,10 @@ namespace CodeImp.DoomBuilder.ZDoom
 						if(!ParseSkybox()) return false;
 						break;
 
+					case "brightmap": case "hardwareshader": case "material":
+						if(!ParseMaterial(token)) return false;
+						break;
+
 					case "#include":
 						if(!ParseInclude(clearerrors)) return false;
 
@@ -159,6 +165,95 @@ namespace CodeImp.DoomBuilder.ZDoom
 
 			// All done
 			return !this.HasError;
+		}
+
+		private bool ParseMaterial(string kind)
+		{
+			string name = MaterialValue();
+			if(kind == "hardwareshader" && string.Equals(name, "postprocess", StringComparison.OrdinalIgnoreCase))
+			{
+				SkipStructure();
+				return true;
+			}
+			var material = new GldefsMaterial { Overridable = kind != "hardwareshader" };
+			switch(name.ToLowerInvariant())
+			{
+				case "texture": material.Target = MaterialTarget.Texture; name = MaterialValue(); break;
+				case "flat": material.Target = MaterialTarget.Flat; name = MaterialValue(); break;
+				case "sprite": material.Target = MaterialTarget.Sprite; name = MaterialValue(); break;
+			}
+			if(string.IsNullOrEmpty(name) || name == "{" || name == "}")
+			{
+				ReportError("Expected material target name");
+				return false;
+			}
+			material.Name = name;
+			if(!NextTokenIs("{")) return false;
+			while(SkipWhitespace(true))
+			{
+				string token = ReadToken().ToLowerInvariant();
+				if(token == "}") { materials.Add(material); return true; }
+				switch(token)
+				{
+					case "iwad": case "thiswad": case "nomipmap": break;
+					case "disablefullbright": material.DisableFullbright = true; break;
+					case "disablealphatest": material.DisableAlphaTest = true; break;
+					case "map": material.Brightmap = MaterialValue(); break;
+					case "shader": material.Shader = MaterialValue(); break;
+					case "material":
+						material.MaterialType = MaterialValue().ToLowerInvariant();
+						if(Array.IndexOf(new[] { "normal", "brightmap", "specular", "specularbrightmap", "pbr", "pbrbrightmap" }, material.MaterialType) < 0)
+							ReportError("Unknown material type " + material.MaterialType);
+						break;
+					case "speed":
+						string speed = MaterialValue();
+						if(!float.TryParse(speed, NumberStyles.Float, CultureInfo.InvariantCulture, out material.Speed) || float.IsNaN(material.Speed) || float.IsInfinity(material.Speed))
+							ReportError("Expected material speed, got " + speed);
+						break;
+					case "define":
+						string define = MaterialValue();
+						if(NextTokenIs("=", false)) define += " " + MaterialValue();
+						material.Defines.Add(define);
+						break;
+					case "texture":
+						string sampler = MaterialValue();
+						string path = MaterialValue();
+						if(material.Textures.Exists(pair => pair.Key == sampler)) ReportError("Duplicate custom texture " + sampler);
+						else if(material.Textures.Count == 7) ReportError("Too many custom material textures (maximum 7)");
+						else material.Textures.Add(new KeyValuePair<string, string>(sampler, path));
+						break;
+					case "brightmap": case "normal": case "specular": case "metallic": case "roughness": case "ao": case "glossiness": case "specularlevel":
+						material.Layers[token] = MaterialValue();
+						if(token == "brightmap") material.Brightmap = material.Layers[token];
+						break;
+					default:
+						// Unknown properties must not consume the enclosing block or the next definition.
+						while(SkipWhitespace(false))
+						{
+							long position = datastream.Position;
+							string value = ReadToken(false);
+							if(value == "}" || value == "\n") { datastream.Position = position; break; }
+							if(value == "{")
+							{
+								datastream.Position = position;
+								SkipStructure();
+								break;
+							}
+						}
+						break;
+				}
+				if(HasError) return false;
+			}
+			ReportError("Unclosed material block");
+			return false;
+		}
+
+		private string MaterialValue()
+		{
+			SkipWhitespace(true);
+			string value = StripQuotes(ReadToken());
+			if(string.IsNullOrEmpty(value) || value == "{" || value == "}") ReportError("Expected material property value");
+			return value ?? string.Empty;
 		}
 
 		private bool ParseLight(string lighttype)

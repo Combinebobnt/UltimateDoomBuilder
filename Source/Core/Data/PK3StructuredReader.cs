@@ -918,6 +918,18 @@ namespace CodeImp.DoomBuilder.Data
 			}
 		}
 		
+		internal string FindMaterialFile(string path, bool ignoreextension)
+		{
+			if(!ignoreextension) return FileExists(path) ? ResolveFileName(path) : null;
+			string[] matches = GetAllFilesWithTitle(Path.GetDirectoryName(path) ?? "", Path.GetFileNameWithoutExtension(path), false);
+			return matches.Length > 0 ? matches[0] : null;
+		}
+
+		internal ImageData CreateMaterialImage(string path)
+		{
+			return CreateImage(path, ImageDataFormat.DOOMPICTURE);
+		}
+
 		// This must create an image
 		protected abstract ImageData CreateImage(string filename, int imagetype);
 

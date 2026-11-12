@@ -91,6 +91,7 @@ namespace CodeImp.DoomBuilder.Data
 		//mxd 
 		private Dictionary<int, ModelData> modeldefentries; //Thing.Type, Model entry
 		private Dictionary<int, DynamicLightData> gldefsentries; //Thing.Type, Light entry
+		private Dictionary<ImageData, GldefsMaterial> materials;
 		private MapInfo mapinfo;
 		private Dictionary<string, KeyValuePair<int, int>> reverbs; //<name, <arg1, arg2> 
 		private Dictionary<long, GlowingFlatData> glowingflats; // Texture name hash, Glowing Flat Data
@@ -162,6 +163,7 @@ namespace CodeImp.DoomBuilder.Data
 		//mxd
 		internal Dictionary<int, ModelData> ModeldefEntries { get { return modeldefentries; } }
 		internal Dictionary<int, DynamicLightData> GldefsEntries { get { return gldefsentries; } }
+		internal Dictionary<ImageData, GldefsMaterial> Materials { get { return materials; } }
 		public MapInfo MapInfo { get { return mapinfo; } }
 		public Dictionary<string, KeyValuePair<int, int>> Reverbs { get { return reverbs; } }
 		public Dictionary<long, GlowingFlatData> GlowingFlats { get { return glowingflats; } }
@@ -369,6 +371,7 @@ namespace CodeImp.DoomBuilder.Data
 			//mxd. Create even more collections!
 			modeldefentries = new Dictionary<int, ModelData>();
 			gldefsentries = new Dictionary<int, DynamicLightData>();
+			materials = new Dictionary<ImageData, GldefsMaterial>();
 			reverbs = new Dictionary<string, KeyValuePair<int, int>>(StringComparer.Ordinal);
 			glowingflats = new Dictionary<long, GlowingFlatData>();
 			skyboxes = new Dictionary<string, SkyboxInfo>(StringComparer.Ordinal);
@@ -669,7 +672,7 @@ namespace CodeImp.DoomBuilder.Data
 			General.WriteLogLine("Loaded " + texcount + " textures, " + flatcount + " flats, " + hirestexcount + " hires textures, " +
 				colormapcount + " colormaps, " + spritecount + " sprites, " + 
 				thingcount + " decorate things, " + modeldefentries.Count + " model/voxel definitions, " + 
-				gldefsentries.Count + " dynamic light definitions, " + 
+				gldefsentries.Count + " dynamic light definitions, " + materials.Count + " materials, " +
 				glowingflats.Count + " glowing flat definitions, " + skyboxes.Count + " skybox definitions, " +
 				reverbs.Count + " sound environment definitions, " + animator.Count + " texture animations");
 
@@ -745,6 +748,7 @@ namespace CodeImp.DoomBuilder.Data
 			sprites = null;
 			modeldefentries = null; //mxd
 			gldefsentries = null; //mxd
+			materials = null;
 			reverbs = null; //mxd
 			glowingflats = null; //mxd
 			skyboxes = null; //mxd
@@ -2723,10 +2727,8 @@ namespace CodeImp.DoomBuilder.Data
 		//mxd. This parses gldefs. Should be called after all DECORATE actors are parsed
 		private void LoadGldefs(Dictionary<string, int> actorsbyclass) 
 		{
-			// Skip if no actors defined in DECORATE or game config...
-			if(actorsbyclass.Count == 0) return;
-
 			GldefsParser parser = new GldefsParser { OnInclude = ParseFromLocation, UnresolvedClassSink = enginefold.OnUnresolvedClass };
+			materials.Clear();
 
 			// Load gldefs from resources
 			foreach(DataReader dr in containers) 
@@ -2795,6 +2797,66 @@ namespace CodeImp.DoomBuilder.Data
 
 			// And skyboxes
 			skyboxes = parser.Skyboxes;
+			foreach(GldefsMaterial definition in parser.Materials)
+			{
+				ImageData image = FindMaterialTarget(definition);
+				if(image == null) continue;
+				GldefsMaterial material;
+				if(!materials.TryGetValue(image, out material)) materials[image] = material = new GldefsMaterial();
+				material.Merge(definition);
+			}
+			if(GldefsMaterial.IsGZDoom(General.Map.Config.EngineName))
+			{
+				foreach(ImageData image in textures.Values.Concat(flats.Values).Concat(sprites.Values).Distinct())
+					AddAutoBrightmap(image);
+			}
+		}
+
+		private void AddAutoBrightmap(ImageData image)
+		{
+			GldefsMaterial material;
+			if(materials.TryGetValue(image, out material) && material.Brightmap != null) return;
+			foreach(string prefix in new[] { "brightmaps/auto/", "materials/brightmaps/auto/" })
+			{
+				for(int i = containers.Count - 1; i >= 0; i--)
+				{
+					var reader = containers[i] as PK3StructuredReader;
+					string path = reader == null ? null : reader.FindMaterialFile(prefix + image.ShortName, true);
+					if(path == null) continue;
+					if(material == null) materials[image] = material = new GldefsMaterial();
+					material.Brightmap = path;
+					return;
+				}
+			}
+		}
+
+		private ImageData FindMaterialTarget(GldefsMaterial definition)
+		{
+			bool gzdoom = GldefsMaterial.IsGZDoom(General.Map.Config.EngineName);
+			if(definition.Name.Contains("/"))
+			{
+				if(!gzdoom) return null;
+				ImageData exact = textures.Values.Concat(flats.Values).FirstOrDefault(image => string.Equals(image.Name.Replace('\\', '/'), definition.Name, StringComparison.OrdinalIgnoreCase));
+				return exact;
+			}
+			ImageData sprite = null;
+			if(definition.Target == MaterialTarget.Sprite || definition.Target == MaterialTarget.Any)
+			{
+				if(containers.Any(reader => reader.GetSpriteExists(definition.Name))) sprite = GetSpriteImage(definition.Name);
+			}
+			var candidates = animationimages.Values.Reverse().Where(image => string.Equals(image.ShortName, definition.Name, StringComparison.OrdinalIgnoreCase) || string.Equals(image.Name, definition.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+			if(gzdoom && definition.Overridable)
+			{
+				ImageData image = candidates.FirstOrDefault(candidate => candidate.AnimationUseType == 2);
+				if(image != null) return image;
+			}
+			if(definition.Target == MaterialTarget.Sprite && sprite != null) return sprite;
+			if(definition.Target == MaterialTarget.Texture || definition.Target == MaterialTarget.Flat)
+			{
+				ImageData image = candidates.FirstOrDefault(candidate => candidate.AnimationUseType == (definition.Target == MaterialTarget.Flat ? 1 : 0));
+				if(image != null) return image;
+			}
+			return candidates.FirstOrDefault() ?? sprite;
 		}
 
 		//mxd. This updates mapinfo class only
