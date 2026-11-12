@@ -49,8 +49,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		#region ================== API Declarations
 
 		[DllImport("user32.dll")]
-		internal static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-		
+		private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+		// Width a details-view ListView can give its columns without a horizontal scrollbar.
+		// Mono has no user32 and its ListView keeps the vertical scrollbar inside ClientRectangle.
+		internal static int ListViewColumnSpace(ListView list)
+		{
+			bool excluded = Environment.OSVersion.Platform != PlatformID.Unix && (GetWindowLong(list.Handle, GWL_STYLE) & WS_VSCROLL) != 0;
+			return list.ClientRectangle.Width - (excluded ? 0 : SystemInformation.VerticalScrollBarWidth);
+		}
+
 		#endregion
 		
 		#region ================== Constants

@@ -89,7 +89,8 @@ linuxdeploy_args=(
     --desktop-file "$script_dir/io.github.ultimatedoombuilder.ultimatedoombuilder.desktop"
     --icon-file "$script_dir/io.github.ultimatedoombuilder.ultimatedoombuilder.png"
 )
-for library in libgdiplus.so.0 libMonoPosixHelper.so libmono-native.so libmono-btls-shared.so; do
+# libMonoSupportW is Mono's user32 fallback; it stubs SendMessage and GetWindowLong for Core's unguarded callers.
+for library in libgdiplus.so.0 libMonoPosixHelper.so libmono-native.so libmono-btls-shared.so libMonoSupportW.so; do
     source_library=
     for candidate in "$mono_prefix/lib/$library" "$mono_prefix/lib64/$library" \
         "$mono_prefix"/lib/*-linux-gnu/"$library" \

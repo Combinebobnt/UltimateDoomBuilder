@@ -68,9 +68,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			colsize.Width = (int)Math.Round(64 * MainForm.DPIScaler.Width);
 			colsource.Width = (int)Math.Round(90 * MainForm.DPIScaler.Width);
 			colcopied.Width = (int)Math.Round(45 * MainForm.DPIScaler.Width);
-			bool scrollbar = (BuilderPlug.GetWindowLong(list.Handle, BuilderPlug.GWL_STYLE) & BuilderPlug.WS_VSCROLL) != 0;
-			coldescription.Width = Math.Max(0, list.ClientRectangle.Width - 2 - colsize.Width - colsource.Width
-				- colcopied.Width - (scrollbar ? 0 : SystemInformation.VerticalScrollBarWidth));
+			coldescription.Width = Math.Max(0, BuilderPlug.ListViewColumnSpace(list) - 2 - colsize.Width - colsource.Width - colcopied.Width);
 		}
 
 		protected override void OnLayout(LayoutEventArgs e)

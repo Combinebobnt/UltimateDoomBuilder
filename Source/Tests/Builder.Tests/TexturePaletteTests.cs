@@ -311,7 +311,7 @@ namespace Builder.Tests
 				&& offset >= clause.HandlerOffset && offset < clause.HandlerOffset + clause.HandlerLength);
 		}
 
-		private static List<KeyValuePair<int, MethodBase>> Calls(MethodInfo method)
+		internal static List<KeyValuePair<int, MethodBase>> Calls(MethodBase method)
 		{
 			var opcodes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
 				.Where(field => field.FieldType == typeof(OpCode)).Select(field => (OpCode)field.GetValue(null)).ToDictionary(op => op.Value);
