@@ -41,6 +41,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			public ExtrudeOffset Offset;
 			public ExtrudeProblem Problem;
 
+			// +1 when this run extrudes to the left of its walk, -1 to the right
+			public int Sign;
+
 			// For a loop: the sector just inside it, null when the inside is empty
 			public Sector Inside;
 		}
@@ -57,8 +60,23 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private HintLabel hintlabel;
 		private ExtrudeLinedefsOptionsPanel panel;
-		private Linedef dragline;
-		private double dragstart;
+
+		// Free translates every open chain by freeoffset; otherwise runs offset along their normals
+		private readonly bool allopen;
+		private bool free;
+		private Vector2D freeoffset;
+
+		// Mouse tracking measures from the anchor, until keyboard input takes over
+		private bool tracking = true;
+		private bool anchored;
+		private Vector2D anchor;
+		private Linedef anchorline;
+		private int trackeddistance;
+		private bool snaptogrid;
+		private bool locknormal;
+
+		// A left release only accepts after a press seen by this mode
+		private bool leftdown;
 
 		#endregion
 
@@ -98,6 +116,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 			}
 
+			allopen = (runs.Count > 0 && runs.TrueForAll(r => !r.Chain.Closed));
 			hintlabel = new HintLabel(General.Colors.InfoLine);
 		}
 
@@ -177,18 +196,65 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			ExtrudeProblem first = null;
 			foreach(Run run in runs)
 			{
-				run.Offset = ExtrudePath.Offset(run.Points, run.Chain.Closed, distance, decimals);
-				run.Problem = ExtrudePath.Validate(run.Points, run.Chain.Closed, run.Offset, distance);
+				if(free)
+				{
+					run.Offset = ExtrudePath.Translate(run.Points, freeoffset, decimals);
+					run.Problem = ExtrudePath.ValidateTranslation(run.Points, run.Offset, freeoffset, out run.Sign);
+				}
+				else
+				{
+					run.Offset = ExtrudePath.Offset(run.Points, run.Chain.Closed, distance, decimals);
+					run.Problem = ExtrudePath.Validate(run.Points, run.Chain.Closed, run.Offset, distance);
+					run.Sign = Math.Sign(distance);
 
-				// Draw Lines would fill the ring's middle, not the band next to the loop
-				if(run.Problem == null && run.Inside == null && ExtrudePath.ExtrudesInside(run.Points, run.Chain.Closed, distance))
-					run.Problem = new ExtrudeProblem(ExtrudeProblemKind.EmptyInside);
+					// Draw Lines would fill the ring's middle, not the band next to the loop
+					if(run.Problem == null && run.Inside == null && ExtrudePath.ExtrudesInside(run.Points, run.Chain.Closed, distance))
+						run.Problem = new ExtrudeProblem(ExtrudeProblemKind.EmptyInside);
+				}
 				if(first == null) first = run.Problem;
 			}
 
 			UpdateCrossings();
 
-			hintlabel.Text = "Distance: " + panel.Distance + (first != null ? " (" + first.Reason + ")" : string.Empty);
+			string value = (free ? "Offset: " + freeoffset.x + ", " + freeoffset.y : "Distance: " + panel.Distance);
+			hintlabel.Text = value + (first != null ? " (" + first.Reason + ")" : string.Empty);
+		}
+
+		private void SetAnchor(Vector2D pos)
+		{
+			anchor = pos;
+			anchorline = MapSet.NearestLinedef(selectedlines, pos);
+			anchored = true;
+		}
+
+		// Recomputes the offset from the cursor's displacement from the anchor
+		private void UpdateTracking()
+		{
+			snaptogrid = General.Interface.ShiftState ^ General.Interface.SnapToGrid;
+			locknormal = General.Interface.CtrlState;
+			free = (allopen && !locknormal);
+
+			Vector2D labelpos;
+			if(free)
+			{
+				freeoffset = (snaptogrid ? General.Map.Grid.SnappedToGrid(mousemappos) - General.Map.Grid.SnappedToGrid(anchor)
+										 : new Vector2D(Math.Round(mousemappos.x - anchor.x), Math.Round(mousemappos.y - anchor.y)));
+				UpdateOffsets();
+				labelpos = mousemappos + new Vector2D(16, 16) / renderer.Scale;
+			}
+			else
+			{
+				if(anchorline == null || !walknormals.ContainsKey(anchorline)) return;
+				Vector2D normal = walknormals[anchorline];
+				double distance = Vector2D.DotProduct(mousemappos - anchor, normal);
+				double step = (snaptogrid ? General.Map.Grid.GridSize : 1.0);
+				panel.SetValues((int)(Math.Round(distance / step) * step), panel.FloorDelta, panel.CeilingDelta);
+				trackeddistance = panel.Distance;
+				UpdateOffsets();
+				labelpos = anchorline.GetCenterPoint() + normal * (panel.Distance + 16 / renderer.Scale * (panel.Distance < 0 ? -1 : 1));
+			}
+
+			hintlabel.Move(labelpos, labelpos);
 		}
 
 		// Where the preview crosses unselected lines or another run, which Draw Lines will split
@@ -268,6 +334,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void OnValuesChanged(object sender, EventArgs e)
 		{
+			// A typed or stepped distance wins over the mouse for the rest of this session
+			if(panel.Distance != trackeddistance)
+			{
+				tracking = false;
+				free = false;
+			}
 			UpdateOffsets();
 			General.Interface.RedrawDisplay();
 		}
@@ -287,6 +359,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			base.OnEngage();
 			renderer.SetPresentation(Presentation.Standard);
 			AddInterface();
+			trackeddistance = panel.Distance;
+
+			// From the menu, mousemappos holds screen coordinates until the mouse enters the map
+			if(mouseinside) SetAnchor(mousemappos);
 			UpdateOffsets();
 			if(runs.Count > 0) hintlabel.Move(runs[0].Points[0], runs[0].Points[0]);
 		}
@@ -311,14 +387,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			// Points just off each source line on the extrusion side. Draw Lines may replace the
 			// source lines themselves when it joins them with the redrawn closing edge.
-			double sign = Math.Sign(panel.Distance);
 			List<Vector2D> probes = new List<Vector2D>();
 			List<Sector> before = new List<Sector>();
 			HashSet<Sector> strips = new HashSet<Sector>();
 			foreach(Run run in runs)
 			{
 				// An inward loop splits the inner part off as a new sector, so the old one is the band
-				if(ExtrudePath.ExtrudesInside(run.Points, run.Chain.Closed, panel.Distance))
+				if(ExtrudePath.ExtrudesInside(run.Points, run.Chain.Closed, run.Sign))
 				{
 					strips.Add(run.Inside);
 					continue;
@@ -326,7 +401,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				foreach(Linedef ld in run.Lines)
 				{
-					Vector2D probe = ld.GetCenterPoint() + walknormals[ld] * sign * 0.5;
+					Vector2D probe = ld.GetCenterPoint() + walknormals[ld] * run.Sign * 0.5;
 					probes.Add(probe);
 					before.Add(General.Map.Map.GetSectorByCoordinates(probe));
 				}
@@ -467,46 +542,49 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public override void OnMouseDown(MouseEventArgs e)
 		{
 			base.OnMouseDown(e);
-			if(e.Button != MouseButtons.Left) return;
-
-			dragline = MapSet.NearestLinedef(selectedlines, mousedownmappos);
-			if(dragline == null || !walknormals.ContainsKey(dragline)) { dragline = null; return; }
-
-			// Mouse position along the normal, less the distance it already stands for
-			dragstart = Vector2D.DotProduct(mousedownmappos - dragline.GetCenterPoint(), walknormals[dragline]) - panel.Distance;
+			if(e.Button == MouseButtons.Left) leftdown = true;
 		}
 
 		public override void OnMouseUp(MouseEventArgs e)
 		{
 			base.OnMouseUp(e);
-			dragline = null;
+			if(e.Button != MouseButtons.Left || !leftdown) return;
+			leftdown = false;
+			General.Editing.AcceptMode();
 		}
 
 		public override void OnMouseMove(MouseEventArgs e)
 		{
 			base.OnMouseMove(e);
-			if(!selectpressed || dragline == null) return;
-
-			Vector2D normal = walknormals[dragline];
-			double distance = Vector2D.DotProduct(mousemappos - dragline.GetCenterPoint(), normal) - dragstart;
-			if(!General.Interface.ShiftState)
+			if(panning || !tracking || !mouseinside) return;
+			if(!anchored)
 			{
-				double grid = General.Map.Grid.GridSize;
-				distance = Math.Round(distance / grid) * grid;
-			}
-			else
-			{
-				distance = Math.Round(distance);
+				SetAnchor(mousemappos);
+				return;
 			}
 
-			if((int)distance != panel.Distance)
-			{
-				panel.SetValues((int)distance, panel.FloorDelta, panel.CeilingDelta);
-				UpdateOffsets();
-			}
+			UpdateTracking();
+			General.Interface.RedrawDisplay();
+		}
 
-			Vector2D labelpos = dragline.GetCenterPoint() + normal * (panel.Distance + 16 / renderer.Scale * Math.Sign(panel.Distance == 0 ? 1 : panel.Distance));
-			hintlabel.Move(labelpos, labelpos);
+		// Ctrl and Shift change the result without a mouse move
+		public override void OnKeyDown(KeyEventArgs e)
+		{
+			base.OnKeyDown(e);
+			UpdateModifiers();
+		}
+
+		public override void OnKeyUp(KeyEventArgs e)
+		{
+			base.OnKeyUp(e);
+			UpdateModifiers();
+		}
+
+		private void UpdateModifiers()
+		{
+			if(!tracking || !anchored) return;
+			if(snaptogrid == (General.Interface.ShiftState ^ General.Interface.SnapToGrid) && locknormal == General.Interface.CtrlState) return;
+			UpdateTracking();
 			General.Interface.RedrawDisplay();
 		}
 

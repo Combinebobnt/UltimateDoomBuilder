@@ -39,6 +39,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		SelfIntersection,
 		CrossesSource,
 		EmptyInside,
+		MixedSides,
 	}
 
 	public sealed class ExtrudeProblem
@@ -51,7 +52,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				switch(Kind)
 				{
-					case ExtrudeProblemKind.ZeroDistance: return "distance is 0";
+					case ExtrudeProblemKind.ZeroDistance: return "the offset is 0";
+					case ExtrudeProblemKind.MixedSides: return "the offset runs along or across a selected line";
 					case ExtrudeProblemKind.Collapse: return "the distance collapses a segment";
 					case ExtrudeProblemKind.SelfIntersection: return "the extrusion crosses itself";
 					case ExtrudeProblemKind.CrossesSource: return "the extrusion crosses the selected lines";
@@ -270,6 +272,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return result;
 		}
 
+		// Moves an open chain's points by v, keeping its shape
+		public static ExtrudeOffset Translate(IList<Vector2D> points, Vector2D v, int decimals)
+		{
+			ExtrudeOffset result = new ExtrudeOffset();
+			result.Start = new int[points.Count];
+			result.End = new int[points.Count];
+			for(int i = 0; i < points.Count; i++)
+				result.Start[i] = result.End[i] = Add(result, points[i] + v, decimals);
+			return result;
+		}
+
 		private static int Add(ExtrudeOffset offset, Vector2D p, int decimals)
 		{
 			offset.Points.Add(new Vector2D(Math.Round(p.x, decimals), Math.Round(p.y, decimals)));
@@ -313,6 +326,41 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				if(moved.GetLength() < MIN_SEGMENT_LENGTH || Vector2D.DotProduct(moved, source) <= 0.0)
 					return new ExtrudeProblem(ExtrudeProblemKind.Collapse);
 			}
+
+			return ValidateOutline(points, closed, offset);
+		}
+
+		// Validates an open chain translated by v. side is +1 when every segment extrudes to its
+		// left (as a positive distance would), -1 when every one extrudes to its right, else 0.
+		public static ExtrudeProblem ValidateTranslation(IList<Vector2D> points, ExtrudeOffset offset, Vector2D v, out int side)
+		{
+			side = 0;
+			if(v.GetLength() < EPSILON) return new ExtrudeProblem(ExtrudeProblemKind.ZeroDistance);
+
+			// Every strip needs some width on the same side of its own segment
+			for(int i = 0; i < points.Count - 1; i++)
+			{
+				Vector2D normal = (points[i + 1] - points[i]).GetNormal().GetPerpendicular();
+				double along = Vector2D.DotProduct(v, normal);
+				int s = (along >= MIN_SEGMENT_LENGTH ? 1 : along <= -MIN_SEGMENT_LENGTH ? -1 : 0);
+				if(s == 0 || (side != 0 && s != side))
+				{
+					side = 0;
+					return new ExtrudeProblem(ExtrudeProblemKind.MixedSides);
+				}
+				side = s;
+			}
+
+			ExtrudeProblem problem = ValidateOutline(points, false, offset);
+			if(problem != null) side = 0;
+			return problem;
+		}
+
+		// Checks the drawn outline against itself and the source chain
+		private static ExtrudeProblem ValidateOutline(IList<Vector2D> points, bool closed, ExtrudeOffset offset)
+		{
+			int count = points.Count;
+			int segments = (closed ? count : count - 1);
 
 			// The drawn outline: offset polyline, plus side walls for an open chain
 			List<Vector2D> outline = new List<Vector2D>();

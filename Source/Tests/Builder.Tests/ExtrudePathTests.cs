@@ -211,5 +211,58 @@ namespace Builder.Tests
 			ExtrudeProblem problem = Check(Points(0, 0, 50, 0, 50, -50, -50, -50, -50, 50, 10, 100), false, 95);
 			Assert.Equal(ExtrudeProblemKind.CrossesSource, problem.Kind);
 		}
+
+		private static ExtrudeProblem Translated(List<Vector2D> points, double x, double y, out int side)
+		{
+			Vector2D v = new Vector2D(x, y);
+			return ExtrudePath.ValidateTranslation(points, ExtrudePath.Translate(points, v, 3), v, out side);
+		}
+
+		[Fact]
+		public void DiagonalTranslationKeepsGridVertices()
+		{
+			// A line about 30 degrees off the x axis, moved off its normal
+			List<Vector2D> points = Points(0, 0, 112, 64);
+			ExtrudeOffset offset = ExtrudePath.Translate(points, new Vector2D(32, 48), 3);
+			Assert.True(offset.Points[0].x == 32 && offset.Points[0].y == 48, offset.Points[0].ToString());
+			Assert.True(offset.Points[1].x == 144 && offset.Points[1].y == 112, offset.Points[1].ToString());
+
+			int side;
+			Assert.Null(Translated(points, 32, 48, out side));
+			Assert.Equal(1, side);
+			Assert.Null(Translated(points, -32, -48, out side));
+			Assert.Equal(-1, side);
+		}
+
+		[Fact]
+		public void TranslationNeedsWidthOnOneSide()
+		{
+			int side;
+			Assert.Equal(ExtrudeProblemKind.ZeroDistance, Translated(Points(0, 0, 100, 0), 0, 0, out side).Kind);
+			Assert.Equal(ExtrudeProblemKind.MixedSides, Translated(Points(0, 0, 100, 0), 64, 0, out side).Kind);
+			Assert.Equal(ExtrudeProblemKind.MixedSides, Translated(Points(0, 0, 100, 0), 64, 0.5, out side).Kind);
+			Assert.Equal(0, side);
+
+			// L chain: legs' normals are up and left
+			List<Vector2D> l = Points(0, 0, 100, 0, 100, 100);
+			Assert.Null(Translated(l, -32, 32, out side));
+			Assert.Equal(1, side);
+			Assert.Equal(ExtrudeProblemKind.MixedSides, Translated(l, 32, 32, out side).Kind);
+
+			// A U's normals span a half turn, so any offset folds one leg over the chain
+			List<Vector2D> u = Points(0, 100, 0, 0, 100, 0, 100, 100);
+			Assert.Equal(ExtrudeProblemKind.MixedSides, Translated(u, 150, 50, out side).Kind);
+			Assert.Equal(ExtrudeProblemKind.MixedSides, Translated(u, 0, 50, out side).Kind);
+		}
+
+		[Fact]
+		public void FacingLinesTranslateToOppositeSides()
+		{
+			int sidea, sideb;
+			Assert.Null(Translated(Points(0, 0, 100, 0), 0, 32, out sidea));
+			Assert.Null(Translated(Points(100, 64, 0, 64), 0, 32, out sideb));
+			Assert.Equal(1, sidea);
+			Assert.Equal(-1, sideb);
+		}
 	}
 }
