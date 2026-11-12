@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Editing;
+using CodeImp.DoomBuilder.Windows;
 
 namespace CodeImp.DoomBuilder.BuilderModes
 {
@@ -36,11 +38,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				list.Items.Clear();
 				foreach(ClipboardHistoryEntry entry in history.Entries)
 				{
-					ListViewItem item = list.Items.Add(string.Format("{0:HH:mm:ss}  {1} sectors, {2} lines, {3} things",
-						entry.CopiedUtc.ToLocalTime(), entry.Sectors, entry.Linedefs, entry.Things));
+					List<string> counts = new List<string>();
+					if(entry.Sectors > 0) counts.Add(entry.Sectors + (entry.Sectors == 1 ? " sector" : " sectors"));
+					if(entry.Linedefs > 0) counts.Add(entry.Linedefs + (entry.Linedefs == 1 ? " linedef" : " linedefs"));
+					if(entry.Things > 0) counts.Add(entry.Things + (entry.Things == 1 ? " thing" : " things"));
+					if(counts.Count == 0 && entry.Vertices > 0) counts.Add(entry.Vertices + (entry.Vertices == 1 ? " vertex" : " vertices"));
+					ListViewItem item = list.Items.Add(string.Join(", ", counts));
+					item.SubItems.Add(string.Format("{0:0.##} x {1:0.##}", entry.Width, entry.Height));
+					item.SubItems.Add(entry.SourceMap);
+					item.SubItems.Add(entry.CopiedUtc.ToLocalTime().ToString("HH:mm"));
 					item.Tag = entry;
-					item.ToolTipText = string.Format("{0}\n{1} vertices, {2} sectors, {3} lines, {4} things\n{5:0.##} x {6:0.##} map units",
-						entry.SourceMap, entry.Vertices, entry.Sectors, entry.Linedefs, entry.Things, entry.Width, entry.Height);
+					item.ToolTipText = string.Format("{0}\n{1:G}\n{2} vertices, {3} sectors, {4} linedefs, {5} things",
+						entry.SourceMap, entry.CopiedUtc.ToLocalTime(), entry.Vertices, entry.Sectors, entry.Linedefs, entry.Things);
 					item.Selected = ReferenceEquals(entry, selected);
 				}
 				clear.Enabled = history.Entries.Count > 0;
@@ -50,24 +59,28 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				list.EndUpdate();
 				updating = false;
 			}
-			UpdateColumnSize();
+			UpdateColumnSizes();
 		}
 
-		private void UpdateColumnSize()
+		private void UpdateColumnSizes()
 		{
-			if(list == null || coldescription == null || !list.IsHandleCreated) return;
+			if(list == null || colcopied == null || !list.IsHandleCreated) return;
+			colsize.Width = (int)Math.Round(64 * MainForm.DPIScaler.Width);
+			colsource.Width = (int)Math.Round(90 * MainForm.DPIScaler.Width);
+			colcopied.Width = (int)Math.Round(45 * MainForm.DPIScaler.Width);
 			bool scrollbar = (BuilderPlug.GetWindowLong(list.Handle, BuilderPlug.GWL_STYLE) & BuilderPlug.WS_VSCROLL) != 0;
-			coldescription.Width = Math.Max(0, list.ClientRectangle.Width - 2 - (scrollbar ? 0 : SystemInformation.VerticalScrollBarWidth));
+			coldescription.Width = Math.Max(0, list.ClientRectangle.Width - 2 - colsize.Width - colsource.Width
+				- colcopied.Width - (scrollbar ? 0 : SystemInformation.VerticalScrollBarWidth));
 		}
 
 		protected override void OnLayout(LayoutEventArgs e)
 		{
 			base.OnLayout(e);
-			UpdateColumnSize();
+			UpdateColumnSizes();
 		}
 
 		private void history_Changed(object sender, EventArgs e) { UpdateList(); }
-		private void list_Resize(object sender, EventArgs e) { UpdateColumnSize(); }
+		private void list_Resize(object sender, EventArgs e) { UpdateColumnSizes(); }
 
 		private void list_SelectedIndexChanged(object sender, EventArgs e)
 		{
@@ -92,7 +105,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			else if(ReferenceEquals(pendingentry, entry) && unchecked(Environment.TickCount - pendingtime) <= SystemInformation.DoubleClickTime)
 			{
 				pendingentry = null;
-				PasteSelected();
+				PasteSelected(false);
 			}
 			else
 			{
@@ -105,15 +118,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void list_KeyUp(object sender, KeyEventArgs e)
 		{
 			pendingentry = null;
-			if(e.KeyCode == Keys.Enter) PasteSelected();
-			else if(e.KeyCode == Keys.Delete) history.Remove(SelectedEntry);
 			General.Interface.FocusDisplay();
 		}
 
-		private void PasteSelected()
+		private void PasteSelected(bool askoptions)
 		{
+			pendingentry = null;
 			ClipboardHistoryEntry entry = SelectedEntry;
-			if(entry != null) CopyPasteManager.DoPasteEntry(entry);
+			if(entry != null) CopyPasteManager.PasteHistoryEntry(entry, askoptions);
 			General.Interface.FocusDisplay();
 		}
 
@@ -121,15 +133,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			bool selected = SelectedEntry != null;
 			paste.Enabled = selected && General.Map != null && !General.Map.IsDisposed;
+			pastespecial.Enabled = paste.Enabled;
 			copy.Enabled = selected;
 			remove.Enabled = selected;
 			clearall.Enabled = history.Entries.Count > 0;
 		}
 
-		private void paste_Click(object sender, EventArgs e) { PasteSelected(); }
+		private void paste_Click(object sender, EventArgs e) { PasteSelected(false); }
+		private void pastespecial_Click(object sender, EventArgs e) { PasteSelected(true); }
 		private void copy_Click(object sender, EventArgs e)
 		{
-			CopyPasteManager.CopyEntryToClipboard(SelectedEntry);
+			CopyPasteManager.PromoteHistoryEntry(SelectedEntry);
 			General.Interface.FocusDisplay();
 		}
 		private void remove_Click(object sender, EventArgs e)
@@ -139,7 +153,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		}
 		private void clear_Click(object sender, EventArgs e)
 		{
-			history.Clear();
+			pendingentry = null;
+			if(history.Entries.Count > 0 && General.ShowWarningMessage("Clear all clipboard history entries?",
+				MessageBoxButtons.OKCancel, MessageBoxDefaultButton.Button2) == DialogResult.OK) history.Clear();
 			General.Interface.FocusDisplay();
 		}
 	}

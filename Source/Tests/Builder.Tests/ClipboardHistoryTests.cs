@@ -38,6 +38,73 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void ConfigurationSetterImmediatelyPrunesTheLiveStore()
+		{
+			var field = typeof(CodeImp.DoomBuilder.General).GetField("clipboardhistory", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+			object previous = field.GetValue(null);
+			ClipboardHistory history = new ClipboardHistory(3);
+			try
+			{
+				field.SetValue(null, history);
+				history.Add(Payload(1), "one", 0, 0, DateTime.UtcNow);
+				history.Add(Payload(2), "two", 0, 0, DateTime.UtcNow);
+				ProgramConfiguration config = new ProgramConfiguration();
+				config.ClipboardHistorySize = 1;
+				Assert.Equal("two", Assert.Single(history.Entries).SourceMap);
+				config.ClipboardHistorySize = 0;
+				Assert.Empty(history.Entries);
+				Assert.Equal(ClipboardHistoryAddResult.Disabled, history.Add(Payload(), "", 0, 0, DateTime.UtcNow));
+			}
+			finally { field.SetValue(null, previous); }
+		}
+
+		[Theory]
+		[InlineData(0, 0)]
+		[InlineData(-10, 0)]
+		[InlineData(101, 100)]
+		public void ConfigurationLoadsAndClampsHistorySize(int value, int expected)
+		{
+			string path = Path.Combine(Path.GetTempPath(), "clipboard-history-" + Guid.NewGuid().ToString("N") + ".cfg");
+			try
+			{
+				File.WriteAllText(path, "currentversion = 1;\nclipboardhistorysize = " + value + ";\n");
+				ProgramConfiguration config = new ProgramConfiguration();
+				Assert.True(config.Load(path, path, path));
+				Assert.Equal(expected, config.ClipboardHistorySize);
+			}
+			finally { File.Delete(path); }
+		}
+
+		[Theory]
+		[InlineData("DoCopySelection", false)]
+		[InlineData("CopySelection", true)]
+		[InlineData("CutSelection", true)]
+		public void OnlyUserActionsOptIntoHistoryRecording(string name, bool record)
+		{
+			Type type = typeof(CopyPasteManager);
+			var target = type.GetMethod("DoCopySelection", new[] { typeof(string), typeof(bool) });
+			var method = type.GetMethod(name, name == "DoCopySelection" ? new[] { typeof(string) } : Type.EmptyTypes);
+			byte[] code = method.GetMethodBody().GetILAsByteArray();
+			bool found = false;
+			for(int i = 1; i + 4 < code.Length; i++)
+			{
+				if(code[i] != 0x28 || BitConverter.ToInt32(code, i + 1) != target.MetadataToken) continue;
+				// The call's final argument is the literal recording flag (ldc.i4.0 or ldc.i4.1).
+				Assert.Equal(record ? (byte)0x17 : (byte)0x16, code[i - 1]);
+				found = true;
+			}
+			Assert.True(found);
+		}
+
+		[Fact]
+		public void NullHistoryEntryDoesNotPasteOrPromote()
+		{
+			CopyPasteManager.PasteHistoryEntry(null, false);
+			CopyPasteManager.PasteHistoryEntry(null, true);
+			Assert.False(CopyPasteManager.PromoteHistoryEntry(null));
+		}
+
+		[Fact]
 		public void AddsNewestFirstAndParsesCounts()
 		{
 			ClipboardHistory history = new ClipboardHistory(3);

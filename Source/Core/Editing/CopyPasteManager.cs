@@ -271,7 +271,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 		public static bool DoCopySelection(string desc)
 		{
-			return DoCopySelection(desc, true);
+			return DoCopySelection(desc, false);
 		}
 
 		public static bool DoCopySelection(string desc, bool recordhistory)
@@ -346,14 +346,19 @@ namespace CodeImp.DoomBuilder.Editing
 			}
 			double width = double.IsPositiveInfinity(minx) ? 0 : maxx - minx;
 			double height = double.IsPositiveInfinity(miny) ? 0 : maxy - miny;
-			string source = (string.IsNullOrEmpty(General.Map.FileTitle) ? "Untitled" : General.Map.FileTitle)
-				+ " (" + General.Map.Options.CurrentName + ")";
+			string source = General.Map.Options.LevelName + " (" + General.Map.FileTitle + ")";
 			ClipboardHistoryAddResult result = General.ClipboardHistory.Add(payload, source, width, height, DateTime.UtcNow);
 			if(result == ClipboardHistoryAddResult.TooLarge)
 				General.Interface.DisplayStatus(StatusType.Info, "Selection copied, but too large for clipboard history (16 MB limit).");
 		}
 
-		public static void DoPasteEntry(ClipboardHistoryEntry entry)
+		private static PasteOptions AskPasteOptions()
+		{
+			using(PasteOptionsForm form = new PasteOptionsForm())
+				return form.ShowDialog(General.MainWindow) == DialogResult.OK ? form.Options : null;
+		}
+
+		public static void PasteHistoryEntry(ClipboardHistoryEntry entry, bool askoptions)
 		{
 			if(entry == null || General.Map == null || General.Map.IsDisposed || General.Editing.Mode == null) return;
 			if(!General.Editing.Mode.Attributes.AllowCopyPaste)
@@ -361,17 +366,20 @@ namespace CodeImp.DoomBuilder.Editing
 				General.Interface.DisplayStatus(StatusType.Warning, "Paste is not available in this mode.");
 				return;
 			}
-			PasteCore(General.Settings.PasteOptions, "Paste from history", map =>
+			PasteOptions options = askoptions ? AskPasteOptions() : General.Settings.PasteOptions;
+			if(options == null) return;
+			PasteCore(options, "Paste from history", map =>
 			{
 				using(Stream stream = new MemoryStream(entry.Payload, false))
 					return new ClipboardStreamReader().Read(map, stream);
 			}, true);
 		}
 
-		public static void CopyEntryToClipboard(ClipboardHistoryEntry entry)
+		public static bool PromoteHistoryEntry(ClipboardHistoryEntry entry)
 		{
-			if(entry == null) return;
-			if(SetClipboardData(entry.Payload)) General.ClipboardHistory.MoveToTop(entry);
+			if(entry == null || !SetClipboardData(entry.Payload)) return false;
+			General.ClipboardHistory.MoveToTop(entry);
+			return true;
 		}
 
 		// This performs the paste.
@@ -519,7 +527,7 @@ namespace CodeImp.DoomBuilder.Editing
 		[BeginAction("copyselection")]
 		public void CopySelection()
 		{
-			DoCopySelection("Copied selected elements.");
+			DoCopySelection("Copied selected elements.", true);
 		}
 		
 		// This cuts the current selection
@@ -527,7 +535,7 @@ namespace CodeImp.DoomBuilder.Editing
 		public void CutSelection()
 		{
 			// Copy selected geometry
-			if(DoCopySelection("Cut selected elements."))
+			if(DoCopySelection("Cut selected elements.", true))
 			{
 				// Get the delete action and check if it's bound
 				Actions.Action deleteitem = General.Actions["builder_deleteitem"];
@@ -552,10 +560,8 @@ namespace CodeImp.DoomBuilder.Editing
 			// Check if possible to copy/paste
 			if(General.Editing.Mode.Attributes.AllowCopyPaste)
 			{
-				PasteOptionsForm form = new PasteOptionsForm();
-				DialogResult result = form.ShowDialog(General.MainWindow);
-				if(result == DialogResult.OK) DoPasteSelection(form.Options);
-				form.Dispose();
+				PasteOptions options = AskPasteOptions();
+				if(options != null) DoPasteSelection(options);
 			}
 			else
 			{
