@@ -699,6 +699,42 @@ namespace CodeImp.DoomBuilder.Controls
 
 		#region ================== Updating Rectangles & Dimensions
 
+		// Mono/X11 can apply a stale window size to the list after its parent laid it out, leaving it
+		// drawn at an early layout size inside a larger panel. Lay the parent out again when that happens.
+		private bool relayoutpending;
+		private int relayoutcount;
+
+		private Size DockFillSize
+		{
+			get
+			{
+				Rectangle area = Parent.DisplayRectangle;
+				return new Size(area.Width - Parent.Padding.Horizontal, area.Height - Parent.Padding.Vertical);
+			}
+		}
+
+		private bool NeedsDockRelayout
+		{
+			get { return Dock == DockStyle.Fill && Parent != null && Parent.Controls.Count == 1 && !IsDisposed && Size != DockFillSize; }
+		}
+
+		protected override void OnSizeChanged(EventArgs e)
+		{
+			base.OnSizeChanged(e);
+			if(relayoutpending || relayoutcount >= 20 || !IsHandleCreated || !NeedsDockRelayout) return;
+
+			relayoutpending = true;
+			BeginInvoke((Action)delegate
+			{
+				relayoutpending = false;
+				if(!NeedsDockRelayout) return;
+				relayoutcount++;
+				if(DelayedForm.GeomDebugLogging) GeomDebugRecord("relayout size=" + Width + "x" + Height + " parent=" + DockFillSize.Width + "x" + DockFillSize.Height);
+				Parent.PerformLayout();
+				Invalidate();
+			});
+		}
+
 		protected override void OnResize(EventArgs e)
 		{
 			base.OnResize(e);
@@ -836,8 +872,10 @@ namespace CodeImp.DoomBuilder.Controls
 				{
 					System.Reflection.MethodBase m = f.GetMethod();
 					if(m == null) continue;
-					names.Add((m.DeclaringType != null ? m.DeclaringType.Name + "." : "") + m.Name);
-					if(names.Count == 4) break;
+					string name = (m.DeclaringType != null ? m.DeclaringType.Name + "." : "") + m.Name;
+					if(names.Count > 0 && names[names.Count - 1] == name) continue;
+					names.Add(name);
+					if(names.Count == 12) break;
 				}
 				return "via " + string.Join("<", names);
 			}
