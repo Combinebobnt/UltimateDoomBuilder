@@ -269,6 +269,7 @@
     <Compile Include="Data\SimpleTextureImage.cs" />
     <Compile Include="Data\SpriteImage.cs" />
     <Compile Include="Data\TextureImage.cs" />
+    <Compile Include="Editing\ClipboardHistory.cs" />
     <Compile Include="Editing\CopyPasteManager.cs" />
     <Compile Include="Editing\EditMode.cs" />
     <Compile Include="Editing\EditModeAttribute.cs" />
