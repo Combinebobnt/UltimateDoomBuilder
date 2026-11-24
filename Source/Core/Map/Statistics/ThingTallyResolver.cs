@@ -87,11 +87,21 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 			}
 			else
 			{
+				// A patch can move a thing to another doomednum: its base data stays the patched thing's
+				DehackedThing routebase;
+				int vanillanum = type;
 				if(patchthings.TryGetValue(type, out DehackedThing patch))
 				{
 					DehackedThing patchbase = null;
 					dehackeddata?.Things.TryGetValue(patch.Number, out patchbase);
 					info.FillFrom(FromPatch(patch, patchbase), ROUTE_PATCH);
+					routebase = patchbase;
+					if(patchbase != null)
+						vanillanum = (patchbase.Props.TryGetValue("id #", out string id) && int.TryParse(id, out int ednum)) ? ednum : -1;
+				}
+				else
+				{
+					basethings.TryGetValue(type, out routebase);
 				}
 
 				if(ti != null)
@@ -105,10 +115,10 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 				}
 
 				// Config base data only for a type the actor route didn't resolve
-				if(info.IsUnresolved && basethings.TryGetValue(type, out DehackedThing basething))
-					info.FillFrom(FromConfigBase(basething, dehackeddata.BitMnemonics), ROUTE_CONFIG);
+				if(info.IsUnresolved && routebase != null)
+					info.FillFrom(FromConfigBase(routebase, dehackeddata.BitMnemonics), ROUTE_CONFIG);
 
-				if(doombase) info.FillFrom(VanillaDoomAmounts.Get(type), ROUTE_TABLE);
+				if(doombase && vanillanum >= 0) info.FillFrom(VanillaDoomAmounts.Get(vanillanum), ROUTE_TABLE);
 			}
 
 			cache[type] = info;
@@ -138,7 +148,7 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 					break;
 				}
 
-				// A DECORATE actor with no parent inherits Actor implicitly
+				// A DECORATE actor with no parent inherits Actor implicitly (UDB rejects ZScript ": Actor" without the engine pk3)
 				if(a.BaseClass == null && !(a is ZScriptActorStructure) && string.Equals(a.InheritsClass, "actor", StringComparison.OrdinalIgnoreCase))
 				{
 					complete = true;
@@ -242,14 +252,21 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 			}
 			else if(names.Contains("Weapon"))
 			{
-				info.SetNoAmounts();
+				List<KeyValuePair<string, int>> gives = new List<KeyValuePair<string, int>>();
 				for(int slot = 1; slot <= 2; slot++)
 				{
-					string type = FirstString(chain, "weapon.ammotype" + slot);
-					int? give = FirstInt(chain, "weapon.ammogive" + slot);
-					if(!string.IsNullOrEmpty(type) && give.HasValue && give.Value > 0)
-						info.AddAmmo(ammogroup(type), give.Value);
+					// Weapon.AmmoType and Weapon.AmmoGive are the engine's aliases for slot 1
+					string[] typeprops = slot == 1 ? new[] { "weapon.ammotype1", "weapon.ammotype" } : new[] { "weapon.ammotype2" };
+					string[] giveprops = slot == 1 ? new[] { "weapon.ammogive1", "weapon.ammogive" } : new[] { "weapon.ammogive2" };
+					string type = FirstString(chain, typeprops);
+					if(string.IsNullOrEmpty(type)) continue;
+					int? give = FirstInt(chain, giveprops);
+					if(!give.HasValue && HasAny(chain, giveprops)) return; // an expression: leave it for the table
+					if(give.HasValue && give.Value > 0) gives.Add(new KeyValuePair<string, int>(type, give.Value));
 				}
+				info.SetNoAmounts();
+				foreach(KeyValuePair<string, int> g in gives)
+					info.AddAmmo(ammogroup(g.Key), g.Value);
 			}
 
 			// CustomInventory and other inventory leave amounts unresolved, for the table to fill
@@ -264,17 +281,23 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 			return null;
 		}
 
-		private static string FirstString(IList<ActorLink> chain, string prop)
+		private static string FirstString(IList<ActorLink> chain, params string[] props)
 		{
 			foreach(ActorLink link in chain)
-				if(link.Props.TryGetValue(prop, out List<string> v) && v.Count > 0)
-					return v[0].Trim().Trim('"');
+				foreach(string prop in props)
+					if(link.Props.TryGetValue(prop, out List<string> v) && v.Count > 0)
+						return v[0].Trim().Trim('"');
 			return null;
 		}
 
-		private static int? FirstInt(IList<ActorLink> chain, string prop)
+		private static bool HasAny(IList<ActorLink> chain, string[] props)
 		{
-			string v = FirstString(chain, prop);
+			return FirstString(chain, props) != null;
+		}
+
+		private static int? FirstInt(IList<ActorLink> chain, params string[] props)
+		{
+			string v = FirstString(chain, props);
 			if(v != null && int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i)) return i;
 			return null;
 		}
@@ -286,9 +309,14 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 
 			if(SetByPatch(patch, basething, "bits"))
 			{
-				info.CountKill = patch.Bits.Contains("countkill");
-				info.CountItem = patch.Bits.Contains("countitem");
-				info.Friendly = patch.Bits.Contains("friend") || patch.Bits.Contains("friendly");
+				// Process splits only on '+', the engine also on ",| \t"
+				HashSet<string> bits = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach(string b in patch.Bits)
+					foreach(string part in b.Split(new[] { ',', '+', '|', ' ', '\t', '\f', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+						bits.Add(part);
+				info.CountKill = bits.Contains("countkill");
+				info.CountItem = bits.Contains("countitem");
+				info.Friendly = bits.Contains("friend") || bits.Contains("friendly");
 			}
 
 			if(SetByPatch(patch, basething, "hit points") && int.TryParse(patch.Props["hit points"], out int hp))

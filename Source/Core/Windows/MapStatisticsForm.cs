@@ -55,6 +55,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly bool[] dirty = { true, true, true, true, true };
 		private bool tagsloaded;
 		private bool loading;
+		private bool hexen;
 
 		private List<OverviewRow> overview;
 		private List<TextureUse> textures;
@@ -82,7 +83,7 @@ namespace CodeImp.DoomBuilder.Windows
 			loading = true;
 			modes.Items.AddRange(new object[] { "Single player", "Cooperative", "Deathmatch" });
 			modes.SelectedIndex = 0;
-			bool hexen = ThingSpawnFilter.UsesPlayerClasses(General.Map.Config.BaseGame);
+			hexen = ThingSpawnFilter.UsesPlayerClasses(General.Map.Config.BaseGame);
 			classes.Items.AddRange(new object[] { "Fighter", "Cleric", "Mage" });
 			classes.SelectedIndex = 0;
 			classlabel.Visible = hexen;
@@ -159,7 +160,8 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			TallyGameMode mode = (TallyGameMode)Math.Max(0, modes.SelectedIndex);
-			int cls = classes.Visible ? classes.SelectedIndex + 1 : 0;
+			// Not classes.Visible: it stays false until the form and tab page are shown
+			int cls = hexen ? classes.SelectedIndex + 1 : 0;
 			tallycolumns = ThingTally.Compute(records, skills.Select(s => s.Index).ToList(), mode, cls);
 
 			FillTallyGrid();

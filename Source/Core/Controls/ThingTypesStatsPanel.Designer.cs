@@ -141,7 +141,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// ThingCount
 			//
-			this.ThingCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+			this.ThingCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.AllCells;
 			dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.ThingCount.DefaultCellStyle = dataGridViewCellStyle5;
 			this.ThingCount.HeaderText = "Count";

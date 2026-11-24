@@ -83,7 +83,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// TagColumn
 			//
-			this.TagColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+			this.TagColumn.Width = 51;
 			dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.TagColumn.DefaultCellStyle = dataGridViewCellStyle2;
 			this.TagColumn.HeaderText = "Tag";
@@ -92,7 +92,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// LabelColumn
 			//
-			this.LabelColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+			this.LabelColumn.Width = 200;
 			dataGridViewCellStyle3.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
 			this.LabelColumn.DefaultCellStyle = dataGridViewCellStyle3;
 			this.LabelColumn.HeaderText = "Label";
@@ -100,7 +100,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// Sectors
 			//
-			this.Sectors.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+			this.Sectors.Width = 68;
 			dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.Sectors.DefaultCellStyle = dataGridViewCellStyle4;
 			this.Sectors.HeaderText = "Sectors";
@@ -109,7 +109,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// Linedefs
 			//
-			this.Linedefs.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+			this.Linedefs.Width = 72;
 			dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.Linedefs.DefaultCellStyle = dataGridViewCellStyle5;
 			this.Linedefs.HeaderText = "Linedefs";
@@ -118,7 +118,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// Things
 			//
-			this.Things.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+			this.Things.Width = 64;
 			dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.Things.DefaultCellStyle = dataGridViewCellStyle6;
 			this.Things.HeaderText = "Things";

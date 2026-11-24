@@ -89,6 +89,11 @@ namespace Builder.Tests
 				true, s => s == "Shell" ? "ShellGroup" : s);
 			Assert.Equal(8, shotgun.Ammo!["ShellGroup"]);
 
+			// The engine's own Shotgun uses the unsuffixed slot-1 aliases
+			var aliased = ThingTallyResolver.WalkChain(new[] { Link("Shotgun", "", ("weapon.ammotype", "\"Shell\""), ("weapon.ammogive", "8")), Link("Weapon"), inventory, Root },
+				true, s => s == "Shell" ? "ShellGroup" : s);
+			Assert.Equal(8, aliased.Ammo!["ShellGroup"]);
+
 			// CustomInventory is left for the vanilla table; non-inventory gets nothing
 			Assert.Null(ThingTallyResolver.WalkChain(new[] { Link("Megasphere"), Link("CustomInventory"), inventory, Root }, true, null).HealthAmount);
 			Assert.Equal(0, ThingTallyResolver.WalkChain(new[] { Link("Imp"), Root }, true, null).HealthAmount);
@@ -120,6 +125,11 @@ namespace Builder.Tests
 			Assert.True(bits.CountKill == false);
 			Assert.True(bits.CountItem == true);
 			Assert.Null(bits.SpawnHealth);
+
+			// The engine also separates mnemonics with '|', ',' and spaces
+			var piped = ThingTallyResolver.FromPatch(Patch(new Dictionary<string, string> { { "Bits", "SOLID|SHOOTABLE | COUNTKILL" } }), Base());
+			Assert.True(piped.CountKill == true);
+			Assert.True(piped.CountItem == false);
 		}
 
 		[Fact]

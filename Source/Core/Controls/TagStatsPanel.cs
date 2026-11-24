@@ -26,6 +26,14 @@ namespace CodeImp.DoomBuilder.Controls
 		{
 			InitializeComponent();
 			General.ApplyDataGridViewFix(dataGridView);
+			dataGridView.SizeChanged += (s, e) => FitLabelColumn();
+		}
+
+		// Mono's Fill mode pushes the columns after Label past the grid's edge, so Label is sized here
+		private void FitLabelColumn()
+		{
+			int others = TagColumn.Width + Sectors.Width + Linedefs.Width + Things.Width;
+			LabelColumn.Width = Math.Max(80, dataGridView.ClientSize.Width - others - SystemInformation.VerticalScrollBarWidth - 2);
 		}
 
 		#endregion
@@ -35,6 +43,7 @@ namespace CodeImp.DoomBuilder.Controls
 		// Keeps labels typed since the window opened across a rebuild after an edit
 		public void Setup()
 		{
+			dataGridView.EndEdit();
 			Dictionary<int, string> labels = new Dictionary<int, string>(General.Map.Options.TagLabels);
 			foreach(DataGridViewRow row in dataGridView.Rows)
 				labels[(int)row.Cells[0].Value] = (string)row.Cells[1].Value ?? string.Empty;
@@ -101,6 +110,7 @@ namespace CodeImp.DoomBuilder.Controls
 			}
 
 			dataGridView.Sort(TagColumn, ListSortDirection.Ascending);
+			FitLabelColumn();
 		}
 
 		// Writes the edited labels into the map options (the window's OK)

@@ -42,7 +42,7 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 				{ 83, P(true, 200, 200) }, { 2018, P(false, 0, 100) }, { 2019, P(false, 0, 200) }, { 2015, P(true, 0, 1) },
 
 				// Powerups and keys count only as items where flagged
-				{ 2022, P(true) }, { 2023, P(true) }, { 2024, P(true) }, { 2025, P(false) }, { 2026, P(true) }, { 2045, P(true) },
+				{ 2022, P(true) }, { 2023, P(true, 100) }, { 2024, P(true) }, { 2025, P(false) }, { 2026, P(true) }, { 2045, P(true) },
 				{ 5, P(false) }, { 6, P(false) }, { 13, P(false) }, { 38, P(false) }, { 39, P(false) }, { 40, P(false) },
 
 				// Ammo: clipammo is 10/4/20/1 per clip, boxes give five clips
