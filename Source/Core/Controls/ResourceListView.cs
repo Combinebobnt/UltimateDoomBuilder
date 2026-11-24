@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using CodeImp.DoomBuilder.Windows;
 
 #endregion
 
@@ -77,7 +78,7 @@ namespace CodeImp.DoomBuilder.Controls
 			if((insertatitem == null) || (dragitems.Contains(insertatitem))) return;
 			
 			// Leave when item is grayed
-			if(insertatitem.ForeColor != SystemColors.WindowText) return;
+			if(!UITheme.IsSystemColor(insertatitem.ForeColor, KnownColor.WindowText)) return;
 			
 			// Begin updating
 			base.BeginUpdate();
@@ -150,7 +151,7 @@ namespace CodeImp.DoomBuilder.Controls
 				}
 
 				// Check if item is grayed
-				if(insertatitem.ForeColor != SystemColors.WindowText)
+				if(!UITheme.IsSystemColor(insertatitem.ForeColor, KnownColor.WindowText))
 				{
 					// Cannot insert here
 					e.Effect = DragDropEffects.None;
@@ -252,7 +253,7 @@ namespace CodeImp.DoomBuilder.Controls
 				for(int i = base.SelectedItems.Count - 1; i >= 0; i--)
 				{
 					// Item grayed? Then abort!
-					if(base.SelectedItems[i].ForeColor != SystemColors.WindowText)
+					if(!UITheme.IsSystemColor(base.SelectedItems[i].ForeColor, KnownColor.WindowText))
 						return;
 				}
 

@@ -133,7 +133,9 @@ namespace CodeImp.DoomBuilder.Controls
 				}
 				else
 				{
-					renderer.DrawBackground(g, bgbounds);
+					// Windows' visual style tab images stay light in the dark theme
+					if(Windows.UITheme.IsDark && Environment.OSVersion.Platform == PlatformID.Win32NT) g.FillRectangle(selected ? SystemBrushes.ControlLight : SystemBrushes.Control, bgbounds);
+					else renderer.DrawBackground(g, bgbounds);
 					g.DrawString(this.TabPages[index].Text, this.Font, SystemBrushes.ControlText, new RectangleF(bgbounds.Location, bounds.Size), stringformat);
 				}
 			}

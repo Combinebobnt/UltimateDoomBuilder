@@ -1302,6 +1302,8 @@
     <Compile Include="Windows\DesktopTheme.cs" />
     <Compile Include="Windows\UITheme.cs" />
     <Compile Include="Windows\WindowsDarkSupport.cs" />
+    <Compile Include="Windows\WindowsThemeNative.cs" />
+    <Compile Include="Windows\DarkControls.cs" />
     <Compile Include="Windows\ThingBrowserForm.cs">
       <SubType>Form</SubType>
     </Compile>

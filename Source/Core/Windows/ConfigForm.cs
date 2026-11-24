@@ -680,7 +680,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(configinfo == null) return;
 
 			// mxd. Not the best way to detect a disabled item, but we will go with that...
-			if(e.Item.ForeColor == SystemColors.GrayText) e.Item.Checked = false;
+			if(UITheme.IsSystemColor(e.Item.ForeColor, KnownColor.GrayText)) e.Item.Checked = false;
 			
 			// Apply changes
 			EditModeInfo emi = (e.Item.Tag as EditModeInfo);

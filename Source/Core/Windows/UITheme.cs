@@ -134,14 +134,13 @@ namespace CodeImp.DoomBuilder.Windows
 				General.WriteLogLine("Interface theme: light (environment unreadable: " + e.GetType().Name + ": " + e.Message + ")");
 				return;
 			}
-			IThemeBackend backend = CreateBackend(env);
-			if(backend != null) Apply(kind, backend, env);
+			Apply(kind, CreateBackend(env), env);
 		}
 
-		// Windows has no backend yet (IsSupported keeps it from getting here)
 		private static IThemeBackend CreateBackend(UIThemeEnvironment env)
 		{
-			return env.IsWindows ? null : new MonoThemeBackend();
+			if(env.IsWindows) return new WindowsThemeBackend(env.Build, new Win32ThemeNative());
+			return new MonoThemeBackend();
 		}
 
 		// Tests pass their own environment: platform, Windows build, High Contrast and the desktop preference sources
@@ -213,6 +212,15 @@ namespace CodeImp.DoomBuilder.Windows
 		public static Color Pick(Color light, Color dark)
 		{
 			return IsDark ? dark : light;
+		}
+
+		// For comparing a control's color with a system color: on Windows the dark theme replaces system colors
+		// on controls with their concrete palette values
+		public static bool IsSystemColor(Color c, KnownColor kc)
+		{
+			if(c == Color.FromKnownColor(kc)) return true;
+			Color dark;
+			return IsDark && !c.IsSystemColor && darkpalette.TryGetValue(kc, out dark) && c.ToArgb() == dark.ToArgb();
 		}
 
 		// A system color's light-theme value, even after the dark palette has replaced it

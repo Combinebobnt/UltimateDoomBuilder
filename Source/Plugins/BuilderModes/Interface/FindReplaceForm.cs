@@ -134,7 +134,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				labelfind.ForeColor = SystemColors.HotTrack;
 				labelfind.Cursor = Cursors.Hand;
 			}
-			else if(labelfind.ForeColor == SystemColors.HotTrack)
+			else if(UITheme.IsSystemColor(labelfind.ForeColor, KnownColor.HotTrack))
 			{
 				tooltip.SetToolTip(labelfind, string.Empty);
 				labelfind.Font = this.Font;

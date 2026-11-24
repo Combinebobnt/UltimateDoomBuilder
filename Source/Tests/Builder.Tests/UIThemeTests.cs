@@ -249,6 +249,25 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void IsSystemColorMatchesTheDarkValueOnlyInTheDarkTheme()
+		{
+			Color darkwindowtext = UITheme.DarkPalette[KnownColor.WindowText];
+			try
+			{
+				Assert.True(UITheme.IsSystemColor(SystemColors.WindowText, KnownColor.WindowText));
+				Assert.False(UITheme.IsSystemColor(darkwindowtext, KnownColor.WindowText));
+				Assert.False(UITheme.IsSystemColor(SystemColors.GrayText, KnownColor.WindowText));
+
+				UITheme.Apply(UIThemeKind.Dark, new FakeBackend());
+				Assert.True(UITheme.IsSystemColor(SystemColors.WindowText, KnownColor.WindowText));
+				Assert.True(UITheme.IsSystemColor(darkwindowtext, KnownColor.WindowText));
+				Assert.False(UITheme.IsSystemColor(UITheme.DarkPalette[KnownColor.GrayText], KnownColor.WindowText));
+				Assert.False(UITheme.IsSystemColor(Color.Red, KnownColor.WindowText));
+			}
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
 		public void ColorTableProbeFindsMonosTable()
 		{
 			// .NET has no such table; Fork Build probes the .NET Framework one separately

@@ -411,7 +411,7 @@ namespace CodeImp.DoomBuilder.Controls
 					item.ImageIndex = GetLoaderIndex();
 					anyLoading |= true;
 				}
-				else item.ImageIndex = GetIconIndex(dl.type, item.ForeColor != SystemColors.WindowText);
+				else item.ImageIndex = GetIconIndex(dl.type, !UITheme.IsSystemColor(item.ForeColor, KnownColor.WindowText));
             }
 
 			resourceitems.EndUpdate();
@@ -461,7 +461,7 @@ namespace CodeImp.DoomBuilder.Controls
 			for(int i = resourceitems.Items.Count - 1; i >= 0; i--)
 			{
 				// Remove item if not fixed
-				if (resourceitems.Items[i].ForeColor != SystemColors.WindowText)
+				if (!UITheme.IsSystemColor(resourceitems.Items[i].ForeColor, KnownColor.WindowText))
 				{
 					CancelLoading(((DataLocation)resourceitems.Items[i].Tag).location);
 					resourceitems.Items.RemoveAt(i);
@@ -514,7 +514,7 @@ namespace CodeImp.DoomBuilder.Controls
 			for(int i = resourceitems.Items.Count - 1; i >= 0; i--)
 			{
 				// Remove item unless fixed
-				if (resourceitems.Items[i].ForeColor == SystemColors.WindowText)
+				if (UITheme.IsSystemColor(resourceitems.Items[i].ForeColor, KnownColor.WindowText))
 				{
 					CancelLoading(((DataLocation)resourceitems.Items[i].Tag).location);
 					resourceitems.Items.RemoveAt(i);
@@ -692,7 +692,7 @@ namespace CodeImp.DoomBuilder.Controls
 				for(int i = resourceitems.SelectedItems.Count - 1; i >= 0; i--)
 				{
 					// Item grayed? Then deselect.
-					if(resourceitems.SelectedItems[i].ForeColor != SystemColors.WindowText)
+					if(!UITheme.IsSystemColor(resourceitems.SelectedItems[i].ForeColor, KnownColor.WindowText))
 						resourceitems.SelectedItems[i].Selected = false;
 				}
 			}
@@ -728,7 +728,7 @@ namespace CodeImp.DoomBuilder.Controls
 			for(int i = 0; i < resourceitems.Items.Count; i++)
 			{
 				// Item not grayed?
-				if(resourceitems.Items[i].ForeColor == SystemColors.WindowText)
+				if(UITheme.IsSystemColor(resourceitems.Items[i].ForeColor, KnownColor.WindowText))
 				{
 					// Add item to list
 					DataLocation dl = (DataLocation)resourceitems.Items[i].Tag;
@@ -864,7 +864,7 @@ namespace CodeImp.DoomBuilder.Controls
 			// Delete non-fixed resources
 			for(int i = resourceitems.Items.Count - 1; i > -1; i--) 
 			{
-				if(resourceitems.Items[i].ForeColor != SystemColors.WindowText) break;
+				if(!UITheme.IsSystemColor(resourceitems.Items[i].ForeColor, KnownColor.WindowText)) break;
 				resourceitems.Items.Remove(resourceitems.Items[i]);
 				pastedcount++;
 			}
@@ -897,7 +897,7 @@ namespace CodeImp.DoomBuilder.Controls
 			foreach(ListViewItem item in resourceitems.SelectedItems) 
 			{
 				// Remove item unless fixed
-				if(item.ForeColor == SystemColors.WindowText) resourceitems.Items.Remove(item);
+				if(UITheme.IsSystemColor(item.ForeColor, KnownColor.WindowText)) resourceitems.Items.Remove(item);
 			}
 
 			ResizeColumnHeader();
