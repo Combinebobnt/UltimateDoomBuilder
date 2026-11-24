@@ -126,7 +126,7 @@ namespace CodeImp.DoomBuilder.Data
 		internal int[] SequenceOf(int key)
 		{
 			foreach(int basekey in bases)
-				if(Array.IndexOf(animations[basekey].Frames, key) >= 0) return (int[])animations[basekey].Frames.Clone();
+				if(basekey == key || Array.IndexOf(animations[basekey].Frames, key) >= 0) return (int[])animations[basekey].Frames.Clone();
 			return null;
 		}
 	}

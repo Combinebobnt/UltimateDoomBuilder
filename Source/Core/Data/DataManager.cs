@@ -3631,16 +3631,20 @@ namespace CodeImp.DoomBuilder.Data
 				General.WriteLogLine("Loaded " + emissivetable.EntryCount + " emissive texture entries (" + emissivetable.Items.Count + " with animation frames).");
 		}
 
+		// Images are keyed by their original: a short name of a long-named image returns its split
+		// material copy (MaterialImageIdentity), which must match the same entry as its full path
 		internal EmissiveResolver CreateEmissiveResolver()
 		{
+			var originals = shortmaterialimages.ToDictionary(p => p.Value, p => p.Key);
+			Func<ImageData, ImageData> original = image => { ImageData o; return originals.TryGetValue(image, out o) ? o : image; };
 			return new EmissiveResolver
 			{
 				Resolve = (name, kind) =>
 				{
 					ImageData image = kind == EmissiveSurface.Walls ? GetTextureImage(name) : GetFlatImage(name);
-					return image == unknownimage ? null : image;
+					return image == unknownimage ? null : original(image);
 				},
-				Frames = image => AnimationFramesOf((ImageData)image),
+				Frames = image => AnimationFramesOf((ImageData)image, original),
 				AutoColor = image =>
 				{
 					ImageColorStats stats = ((ImageData)image).ComputeFullColorStats();
@@ -3650,9 +3654,9 @@ namespace CodeImp.DoomBuilder.Data
 			};
 		}
 
-		// The images of the ANIMATED/ANIMDEFS sequence holding image, or null. Frames are returned as
-		// GetTextureImage/GetFlatImage return them, not as their split material identities.
-		private IEnumerable<object> AnimationFramesOf(ImageData image)
+		// The images of the ANIMATED/ANIMDEFS sequence holding image (an original), or null.
+		// The animation keys may hold split material copies, mapped back through original.
+		private IEnumerable<object> AnimationFramesOf(ImageData image, Func<ImageData, ImageData> original)
 		{
 			int key;
 			ImageData copy;
@@ -3660,13 +3664,11 @@ namespace CodeImp.DoomBuilder.Data
 			if(!animationkeys.TryGetValue(image, out key) && !(shortmaterialimages.TryGetValue(image, out copy) && animationkeys.TryGetValue(copy, out key))) return null;
 			int[] frames = animator.SequenceOf(key);
 			if(frames == null) return null;
-			var originals = shortmaterialimages.ToDictionary(p => p.Value, p => p.Key);
 			var result = new List<object>();
 			foreach(int frame in frames)
 			{
-				ImageData frameimage, original;
-				if(!animationimages.TryGetValue(frame, out frameimage)) continue;
-				result.Add(originals.TryGetValue(frameimage, out original) ? original : frameimage);
+				ImageData frameimage;
+				if(animationimages.TryGetValue(frame, out frameimage)) result.Add(original(frameimage));
 			}
 			return result;
 		}

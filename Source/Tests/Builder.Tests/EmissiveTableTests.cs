@@ -112,6 +112,16 @@ namespace Builder.Tests
 			Assert.Single(w);
 			Assert.Contains("falloff", w[0]);
 
+			// A removal needs no distance; a repeated "on" keeps the last, as the baker does
+			w.Clear();
+			List<EmitdefsEntry> removal = Parse("X intensity 0\nY color 000000 on walls", w);
+			Assert.Empty(w);
+			Assert.Equal(3, removal.Count);
+			Assert.True(removal.All(e => e.IsRemoval));
+			List<EmitdefsEntry> repeated = Parse("X distance 8 on walls on flats", w);
+			Assert.Single(repeated);
+			Assert.Equal(EmissiveSurface.Flats, repeated[0].Kind);
+
 			// Intensity is clamped like the baker's keys
 			Assert.Equal(EmitdefsParser.MAX_INTENSITY, Parse("X intensity 99 distance 8 on walls")[0].Intensity);
 		}
@@ -130,7 +140,7 @@ namespace Builder.Tests
 
 			// First container, then a later one naming the same flat by its path, and removing the panel
 			var entries = Parse("LAVA1 color ff0000 distance 100\nPANEL distance 50 on walls", null, "base");
-			entries.AddRange(Parse("flats/lava1.png color 00ff00 distance 200 on flats\nPANEL intensity 0 distance 50 on walls", null, "mod"));
+			entries.AddRange(Parse("flats/lava1.png color 00ff00 distance 200 on flats\nPANEL intensity 0 on walls", null, "mod"));
 			var warnings = new List<string>();
 			EmissiveTable table = EmissiveTable.Build(entries, world.Resolver(), warnings.Add);
 			Assert.Empty(warnings);
@@ -143,6 +153,8 @@ namespace Builder.Tests
 			// base's LAVA1 for walls is a different image (the texture) and nothing replaced it
 			Assert.Equal(0xFF0000, table.Find(world.Names[0]["LAVA1"], EmissiveSurface.Walls).Color);
 			Assert.Equal(2, table.EntryCount);
+			// A line for both kinds is one entry
+			Assert.Equal(1, Build(world, "LAVA1 distance 8").EntryCount);
 		}
 
 		[Fact]

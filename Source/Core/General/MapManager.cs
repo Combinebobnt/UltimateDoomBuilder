@@ -2647,7 +2647,7 @@ namespace CodeImp.DoomBuilder
 				if(text != null)
 				{
 					emissivepath = General.MakeTempFilename(temppath, "txt");
-					try { File.WriteAllText(emissivepath, text); }
+					try { File.WriteAllText(emissivepath, text, UniversalStreamReader.ENCODING); }
 					catch(Exception e)
 					{
 						try { File.Delete(input); File.Delete(emissivepath); }

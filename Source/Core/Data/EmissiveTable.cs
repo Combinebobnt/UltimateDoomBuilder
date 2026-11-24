@@ -42,18 +42,20 @@ namespace CodeImp.DoomBuilder.Data
 		private readonly EmissiveResolver resolver;
 
 		public IReadOnlyList<EmissiveItem> Items { get { return items; } }
-		public int EntryCount { get; private set; } // EMITDEFS entries after the merge, frames not counted
+		public int EntryCount { get; private set; } // EMITDEFS lines still emitting after the merge
 		public string Digest { get; private set; }  // null when the table is empty
 
 		private EmissiveTable(List<EmissiveItem> items, EmissiveResolver resolver)
 		{
 			this.items = items;
 			this.resolver = resolver;
+			var lines = new HashSet<string>();
 			foreach(EmissiveItem item in items)
 			{
 				bykind[(int)item.Kind][item.Image] = item;
-				if(!item.FromAnimation) EntryCount++;
+				if(!item.FromAnimation) lines.Add(item.Entry.Source + "\n" + item.Entry.Line);
 			}
+			EntryCount = lines.Count;
 			Digest = ComputeDigest();
 		}
 
@@ -155,7 +157,7 @@ namespace CodeImp.DoomBuilder.Data
 				if(item == null) continue;
 
 				string cut = name.Length > ZDRAY_NAME_LENGTH ? name.Substring(0, ZDRAY_NAME_LENGTH) : name;
-				string key = (int)pair.Value + cut.ToLowerInvariant();
+				string key = (int)pair.Value + AsciiLower(cut);
 				string line = FileLine(cut, item);
 				string existing;
 				if(lines.TryGetValue(key, out existing))
@@ -184,6 +186,14 @@ namespace CodeImp.DoomBuilder.Data
 			return "color " + item.Color.ToString("x6", CultureInfo.InvariantCulture) +
 				" intensity " + item.Intensity.ToString("R", CultureInfo.InvariantCulture) +
 				" distance " + item.Distance.ToString("R", CultureInfo.InvariantCulture);
+		}
+
+		// The baker lowercases A to Z only
+		private static string AsciiLower(string s)
+		{
+			char[] c = s.ToCharArray();
+			for(int i = 0; i < c.Length; i++) if(c[i] >= 'A' && c[i] <= 'Z') c[i] = (char)(c[i] + 32);
+			return new string(c);
 		}
 
 		private static string ValuePart(string line) { return line.Substring(line.LastIndexOf('"') + 1); }

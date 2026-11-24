@@ -55,7 +55,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 			if(tokens[0].Length == 0) { warn("empty texture name, line skipped"); return; }
 
 			var entry = new EmitdefsEntry { Name = tokens[0], Source = source, Line = number };
-			bool walls = true, flats = true, distance = false;
+			bool walls = true, flats = true, distance = false; // a repeated "on" keeps the last, as in the baker
 			for(int i = 1; i < tokens.Count; i += 2)
 			{
 				string key = tokens[i];
@@ -76,16 +76,18 @@ namespace CodeImp.DoomBuilder.ZDoom
 						distance = true;
 						break;
 					case "on":
-						if(value == "walls") flats = false;
-						else if(value == "flats") walls = false;
-						else if(value != "both") { warn("on \"" + value + "\" is not walls, flats or both, line skipped"); return; }
+						if(value == "walls") { walls = true; flats = false; }
+						else if(value == "flats") { walls = false; flats = true; }
+						else if(value == "both") walls = flats = true;
+						else { warn("on \"" + value + "\" is not walls, flats or both, line skipped"); return; }
 						break;
 					default:
 						warn("unknown key \"" + key + "\" ignored");
 						break;
 				}
 			}
-			if(!distance) { warn("no distance, line skipped"); return; }
+			// A removal (intensity 0 or color 000000) needs no distance
+			if(!distance && !entry.IsRemoval) { warn("no distance, line skipped"); return; }
 
 			if(walls) result.Add(Copy(entry, EmissiveSurface.Walls));
 			if(flats) result.Add(Copy(entry, EmissiveSurface.Flats));
