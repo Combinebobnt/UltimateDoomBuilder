@@ -30,9 +30,20 @@ namespace Builder.Tests
 			Assert.Equal(new[] { "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "thingtypes.lightmaplights.9890.adduniversalfields"));
 
 			// Merged into the standard UDMF fields, not replacing them
-			Assert.Equal(new[] { "lm_sampledist", "lm_sampledist_bot", "lm_sampledist_mid", "lm_sampledist_top" }, Keys(cfg, "universalfields.sidedef").Where(k => k.StartsWith("lm_")).ToArray());
+			Assert.Equal(new[] { "lm_lightcolor", "lm_lightdistance", "lm_lightintensity", "lm_sampledist", "lm_sampledist_bot", "lm_sampledist_mid", "lm_sampledist_top" },
+				Keys(cfg, "universalfields.sidedef").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("scalex_top", Keys(cfg, "universalfields.sidedef"));
-			Assert.Equal(new[] { "lm_sampledist_ceiling", "lm_sampledist_floor" }, Keys(cfg, "universalfields.sector").Where(k => k.StartsWith("lm_")).ToArray());
+			Assert.Equal(new[] { "lm_lightcolorceiling", "lm_lightcolorfloor", "lm_lightdistanceceiling", "lm_lightdistancefloor",
+				"lm_lightintensityceiling", "lm_lightintensityfloor", "lm_sampledist_ceiling", "lm_sampledist_floor" },
+				Keys(cfg, "universalfields.sector").Where(k => k.StartsWith("lm_")).ToArray());
+
+			// Surface light colours use the colour picker, which writes the decimal int the baker reads;
+			// a distance default of 0 matches the baker's absent = off, since the grid drops default values
+			Assert.Equal(10, cfg.ReadSetting("universalfields.sidedef.lm_lightcolor.type", -1));
+			Assert.Equal(10, cfg.ReadSetting("universalfields.sector.lm_lightcolorfloor.type", -1));
+			Assert.Equal(10, cfg.ReadSetting("universalfields.sector.lm_lightcolorceiling.type", -1));
+			foreach(string path in new[] { "sidedef.lm_lightdistance", "sector.lm_lightdistancefloor", "sector.lm_lightdistanceceiling" })
+				Assert.Equal(0.0, cfg.ReadSetting("universalfields." + path + ".default", -1.0));
 			Assert.Contains("lightfloor", Keys(cfg, "universalfields.sector"));
 			Assert.Equal(new[] { "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("health", Keys(cfg, "universalfields.thing"));

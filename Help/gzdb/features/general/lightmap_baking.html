@@ -66,7 +66,19 @@
 		<li><b>Sectors:</b> <b>lm_sampledist_floor</b>, <b>lm_sampledist_ceiling</b>.</li>
 	</ul>
 	<p>
-		A smaller sample distance gives finer shadows, but uses more lightmap texture space and makes the bake take longer.<br>
+		A smaller sample distance gives finer shadows, but uses more lightmap texture space and makes the bake take longer.
+	</p>
+	<h3>Surface lights</h3>
+	<p>
+		A sidedef or a sector's floor or ceiling can glow and light the surfaces near it (lava, light panels, windows). Set them in the custom fields:
+	</p>
+	<ul>
+		<li><b>Sidedefs:</b> <b>lm_lightcolor</b> (color picker), <b>lm_lightintensity</b>, <b>lm_lightdistance</b>. They cover the side's upper, middle and lower walls. On a two-sided line only the side that has them glows.</li>
+		<li><b>Sectors:</b> <b>lm_lightcolorfloor</b>, <b>lm_lightintensityfloor</b>, <b>lm_lightdistancefloor</b>, and the same three for the ceiling.</li>
+	</ul>
+	<p>
+		The distance is how far the light reaches in map units; the surface stays unlit while it is 0, the default. The intensity is 0 to 16: 1 is faint, about 4 to 16 reads clearly. The light fades to nothing at the distance, and surfaces in the same plane as the glowing one (the floor around a lava pool, the wall beside a light panel) get none of it. On a 3D floor, the top glows with the control sector's ceiling fields and the bottom with its floor fields. Only ZDRay builds that support surface lights read these fields; upstream ZDRay ignores them.<br>
+		<br>
 		<br>
 		Things to know about the baker:
 	</p>
@@ -88,7 +100,7 @@
 			</ul>
 		</li>
 		<li>Click <b>Bake</b>. The window shows the current stage, a progress bar, the elapsed seconds and the baker's last output lines. <b>Cancel</b> (or Escape) stops the baker and leaves the map exactly as it was, including its unsaved changes state.</li>
-		<li>On success the status line reads "Baked in N s: ... Save or Test to use it." and the map is marked as changed. A bake that lights nothing fails with "the bake lit no surfaces (does the map have static light things?)".</li>
+		<li>On success the status line reads "Baked in N s: ... Save or Test to use it." and the map is marked as changed. A bake that lights nothing fails with "the bake lit no surfaces (does the map have static light things or surface lights?)".</li>
 	</ol>
 	<p>
 		Baking never writes to the map file. The result is kept until the map is saved or tested.

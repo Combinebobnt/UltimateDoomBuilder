@@ -2305,7 +2305,7 @@ namespace CodeImp.DoomBuilder
 			lump.Stream.Seek(0, SeekOrigin.Begin);
 			lightmap = LightmapLump.Read(lump.Stream, true, out error);
 			if(lightmap == null) return "the output LIGHTMAP is unreadable: " + error;
-			if(lightmap.IsEmpty) return "the bake lit no surfaces (does the map have static light things?)";
+			if(lightmap.IsEmpty) return "the bake lit no surfaces (does the map have static light things or surface lights?)";
 			return null;
 		}
 
