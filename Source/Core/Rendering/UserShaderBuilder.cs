@@ -123,6 +123,7 @@ void main()
 			}
 			fragment.AppendLine("void main() {");
 			fragment.AppendLine("vec4 baseLight = useVertexColorUniform > 0.0 ? sectorLight(vertexColor, lightoverride, PosW) : sectorLight(Color, vSectorLight, PosW);");
+			fragment.AppendLine("udbVColor = baseLight;");
 			fragment.AppendLine("baseLight = addWallGlow(baseLight, PosW);");
 			if(dialect == UserShaderDialect.Zandronum)
 			{

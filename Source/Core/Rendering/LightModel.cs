@@ -88,12 +88,11 @@ namespace CodeImp.DoomBuilder.Rendering
 			return s;
 		}
 
-		// Packs the vertex light attribute: level, its fake contrast + 128, black-fog level, and 255 for "set"
+		// Packs the vertex light attribute: level, level after fake contrast, black-fog level, and 255 for "set"
+		// (the fake contrast is shaded - level; MAPINFO wall shades reach +-255, so it can't be a signed byte)
 		public static int PackLight(int level, int shadedlevel, int foglevel)
 		{
-			int light = General.Clamp(level, 0, 255);
-			int rel = General.Clamp(General.Clamp(shadedlevel, 0, 255) - light + 128, 0, 255);
-			return light | (rel << 8) | (General.Clamp(foglevel, 0, 255) << 16) | (255 << 24);
+			return General.Clamp(level, 0, 255) | (General.Clamp(shadedlevel, 0, 255) << 8) | (General.Clamp(foglevel, 0, 255) << 16) | (255 << 24);
 		}
 
 		// A packed light with one level and no fake contrast
@@ -102,11 +101,6 @@ namespace CodeImp.DoomBuilder.Rendering
 			return PackLight(level, level, level);
 		}
 
-		// The light level a packed light shows: level plus fake contrast, as the shader reads it
-		public static int UnpackLevel(int packed)
-		{
-			return General.Clamp((packed & 0xFF) + ((packed >> 8) & 0xFF) - 128, 0, 255);
-		}
 
 		// The packed light as the shader's lightoverride uniform
 		public static Vector4f LightUniform(int packed)

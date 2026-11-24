@@ -147,6 +147,7 @@ namespace Builder.Tests
 			Assert.Contains("sectorLight(vertexColor, lightoverride, PosW)", line);
 			Assert.Contains("sectorLight(Color, vSectorLight, PosW)", line);
 			Assert.True(baselight < program.FragmentSource.IndexOf("addWallGlow(baseLight, PosW)"));
+			Assert.True(program.FragmentSource.IndexOf("udbVColor = baseLight;") > baselight);
 		}
 
 		[Fact]

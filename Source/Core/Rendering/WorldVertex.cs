@@ -43,9 +43,9 @@ namespace CodeImp.DoomBuilder.Rendering
 		public float ny;
 		public float nz;
 
-		// Sector light for the shader: level, fake contrast + 128, black-fog level, 255 when set (0: c is final)
+		// Sector light for the shader: level, level after fake contrast, black-fog level, 255 when set (0: c is final)
 		public byte light;
-		public byte rel;
+		public byte shaded;
 		public byte foglight;
 		public byte lit;
 
@@ -64,7 +64,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.ny = 0.0f;
 			this.nz = 0.0f;
 
-			this.light = this.rel = this.foglight = this.lit = 0;
+			this.light = this.shaded = this.foglight = this.lit = 0;
 		}
 
 		// Constructor
@@ -114,7 +114,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.ny = 0.0f;
 			this.nz = 0.0f;
 
-			this.light = this.rel = this.foglight = this.lit = 0;
+			this.light = this.shaded = this.foglight = this.lit = 0;
 		}
 
 		// Constructor with a packed light (LightModel.PackLight)
@@ -127,13 +127,13 @@ namespace CodeImp.DoomBuilder.Rendering
 		public void SetLight(int packed)
 		{
 			light = (byte)packed;
-			rel = (byte)(packed >> 8);
+			shaded = (byte)(packed >> 8);
 			foglight = (byte)(packed >> 16);
 			lit = (byte)(packed >> 24);
 		}
 
 		// The packed light, as SetLight takes it
-		public int PackedLight { get { return light | (rel << 8) | (foglight << 16) | (lit << 24); } }
+		public int PackedLight { get { return light | (shaded << 8) | (foglight << 16) | (lit << 24); } }
 
 		// Constructor
 		/*public WorldVertex(float x, float y, float z, float u, float v)
@@ -246,7 +246,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.ny = 0.0f;
 			this.nz = 0.0f;
 
-			this.light = this.rel = this.foglight = this.lit = 0;
+			this.light = this.shaded = this.foglight = this.lit = 0;
 		}
 
 		// Constructor
@@ -264,7 +264,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.ny = 0.0f;
 			this.nz = 0.0f;
 
-			this.light = this.rel = this.foglight = this.lit = 0;
+			this.light = this.shaded = this.foglight = this.lit = 0;
 		}
 	}
 }

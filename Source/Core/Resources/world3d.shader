@@ -73,10 +73,10 @@ functions
         return colormapColor;
     }
     
-	// The level a Light attribute carries: level plus fake contrast, before any curve
+	// The level a Light attribute carries after fake contrast, before any curve
 	float attrLightLevel(vec4 light)
 	{
-		return clamp(round(light.r * 255.0) + round(light.g * 255.0) - 128.0, 0.0, 255.0);
+		return round(light.g * 255.0);
 	}
 
 	// Sector light on a light colour by the map's light model; light.a == 0 means the colour is final

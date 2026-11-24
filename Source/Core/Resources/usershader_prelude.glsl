@@ -16,7 +16,9 @@ uniform sampler2D texture4, texture5, texture6, texture7, texture8, texture9, te
 #define uSpecularMaterial vec2(1.0)
 #define vWorldNormal vec4(Normal.xzy, 0.0)
 #define vEyeNormal vec4((view * vec4(Normal, 0.0)).xzy, 0.0)
-#define vColor Color
+// The lit vertex colour, as the baked colour was before the light moved into the shader
+vec4 udbVColor;
+#define vColor udbVColor
 #define glowdist vec3(0.0)
 #define gradientdist vec3(0.0)
 struct Material
