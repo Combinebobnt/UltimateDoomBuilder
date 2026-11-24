@@ -217,6 +217,7 @@ namespace CodeImp.DoomBuilder.Data
 		internal CubeTexture SkyBox { get { return skybox; } } //mxd
 		public List<ThingCategory> ThingCategories { get { return thingcategories; } }
 		public ICollection<ThingTypeInfo> ThingTypes { get { return thingtypes.Values; } }
+		public IReadOnlyList<DehackedThing> DehackedThings { get { return (dehacked != null) ? dehacked.Things : new List<DehackedThing>(); } }
 		public DecorateParser Decorate { get { return decorate; } }
         public ZScriptParser ZScript { get { return zscript; } }
 		internal ICollection<MatchingTextureSet> TextureSets { get { return texturesets; } }

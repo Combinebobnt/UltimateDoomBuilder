@@ -695,6 +695,11 @@
     <Compile Include="Map\LightmapLump.cs" />
     <Compile Include="Map\LightmapData.cs" />
     <Compile Include="Map\LightmapStats.cs" />
+    <Compile Include="Map\Statistics\ThingSpawnFilter.cs" />
+    <Compile Include="Map\Statistics\ThingTally.cs" />
+    <Compile Include="Map\Statistics\ThingTallyInfo.cs" />
+    <Compile Include="Map\Statistics\ThingTallyResolver.cs" />
+    <Compile Include="Map\Statistics\VanillaDoomAmounts.cs" />
     <Compile Include="Map\LightmapAtlasExport.cs" />
     <Compile Include="Map\LightmapPreview.cs" />
     <Compile Include="Map\LightmapProbeGrid.cs" />
