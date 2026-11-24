@@ -130,6 +130,16 @@ namespace CodeImp.DoomBuilder
 
 		#region ================== Parameters
 
+		// Appends the configuration's lightmap parameter when the test WAD has a LIGHTMAP, unless the
+		// arguments already carry it
+		internal static string AddLightmapParameter(string args, bool haslightmap, string parameter)
+		{
+			if(!haslightmap || string.IsNullOrWhiteSpace(parameter)) return args;
+			string[] tokens = (args ?? string.Empty).Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+			if(Array.IndexOf(tokens, parameter.Trim()) > -1) return args;
+			return (string.IsNullOrEmpty(args) ? parameter.Trim() : args + " " + parameter.Trim());
+		}
+
 		// This takes the unconverted parameters (with placeholders) and converts it
 		// to parameters with full paths, names and numbers where placeholders were put.
 		// The tempfile must be the full path and filename to the PWAD file to test.
@@ -373,6 +383,9 @@ namespace CodeImp.DoomBuilder
 						// Add additional parameters
 						if (!string.IsNullOrWhiteSpace(General.Map.ConfigSettings.TestAdditionalParameters))
 							args += " " + General.Map.ConfigSettings.TestAdditionalParameters;
+
+						// A baked lightmap only loads when the engine is told to
+						args = AddLightmapParameter(args, General.Map.SavedWithLightmap, General.Map.Config.LightmapTestParameter);
 
 						// Setup process info
 						ProcessStartInfo processinfo = new ProcessStartInfo();

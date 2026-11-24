@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Actions;
 using CodeImp.DoomBuilder.Compilers;
@@ -66,6 +67,8 @@ namespace CodeImp.DoomBuilder
 		private bool maploading; //mxd
 		private volatile bool issaving;
 		private bool lightmapdropped; // A rewrite removed the baked LIGHTMAP; the next real save reports it
+		private LightmapBakeCache lightmapbake; // The last successful bake, re-applied while the map matches it
+		private bool savedwithlightmap; // The last save wrote a LIGHTMAP
 		private string restoredbackup; // Deleted only once the load that restored it is done
 
 		// Map information
@@ -138,6 +141,8 @@ namespace CodeImp.DoomBuilder
 		public VisualCamera VisualCamera { get { return visualcamera; } set { visualcamera = value; } }
 		public bool IsScriptsWindowOpen { get { return (scriptwindow != null) && !scriptwindow.IsDisposed; } }
 		internal WADReader TemporaryMapFile { get { return tempwadreader; } } //mxd
+		internal bool SavedWithLightmap { get { return savedwithlightmap; } }
+		internal bool HasLightmapBake { get { return lightmapbake != null; } }
 
 		//mxd. Map format
 		public bool UDMF { get { return config.UDMF; } }
@@ -541,6 +546,7 @@ namespace CodeImp.DoomBuilder
 			
 			this.changed = false;
 			this.lightmapdropped = false;
+			ResetLightmapCache("another map was opened");
 			this.maploading = true;
 			this.options = options;
 
@@ -762,20 +768,7 @@ namespace CodeImp.DoomBuilder
 		{
 			StatusInfo oldstatus = General.MainWindow.Status;
 
-			// Make a copy of the map data
-			MapSet outputset = map.Clone();
-
-			// Remove all flags from all 3D Start things
-			foreach(Thing t in outputset.Things)
-			{
-				if(t.Type == config.Start3DModeThingType)
-				{
-					// We're not using SetFlag here, this doesn't have to be undone.
-					// Please note that this is totally exceptional!
-					List<string> flagkeys = new List<string>(t.Flags.Keys);
-					foreach(string k in flagkeys) t.Flags[k] = false;
-				}
-			}
+			MapSet outputset = CloneForOutput();
 
 			// Do we need sidedefs compression?
 			if(map.Sidedefs.Count > io.MaxSidedefs)
@@ -848,6 +841,27 @@ namespace CodeImp.DoomBuilder
 
 			General.MainWindow.DisplayStatus(oldstatus);
 			return true;
+		}
+
+		// The map data as it is written out; the lightmap bake writes its input from the same copy
+		private MapSet CloneForOutput()
+		{
+			// Make a copy of the map data
+			MapSet outputset = map.Clone();
+
+			// Remove all flags from all 3D Start things
+			foreach(Thing t in outputset.Things)
+			{
+				if(t.Type == config.Start3DModeThingType)
+				{
+					// We're not using SetFlag here, this doesn't have to be undone.
+					// Please note that this is totally exceptional!
+					List<string> flagkeys = new List<string>(t.Flags.Keys);
+					foreach(string k in flagkeys) t.Flags[k] = false;
+				}
+			}
+
+			return outputset;
 		}
 
 		// IsSaving holds the crash handler's kill off while the target file is being rewritten
@@ -924,13 +938,18 @@ namespace CodeImp.DoomBuilder
 
 			// Only write the map and rebuild nodes when the actual map has changed
 			// (not when only scripts have changed)
-			if(changed) 
+			if(changed || RerouteToLightmapBake(purpose))
 			{
 				// Write the current map structures to the temp file
 				if(!WriteMapToTempFile()) return false;
 
 				// Only build nodes when not autosaving
-				if (purpose != SavePurpose.Autosave)
+				if (purpose != SavePurpose.Autosave && ApplyLightmapBake())
+				{
+					// The bake's nodes, lightmap and TEXTMAP stand in for a nodebuilder run
+					includenodes = true;
+				}
+				else if (purpose != SavePurpose.Autosave)
 				{
 					// Get the corresponding nodebuilder
 					string nodebuildername = (purpose == SavePurpose.Testing) ? configinfo.NodebuilderTest : configinfo.NodebuilderSave;
@@ -954,6 +973,9 @@ namespace CodeImp.DoomBuilder
 				// Check if we have nodebuilder lumps
 				includenodes = VerifyNodebuilderLumps(tempwadreader.WadFile, TEMP_MAP_HEADER);
 			}
+
+			// Nodebuild lumps, LIGHTMAP among them, are only copied out with includenodes
+			savedwithlightmap = includenodes && FindLightmapIndex(tempwadreader.WadFile, TEMP_MAP_HEADER) > -1;
 
 			//mxd. Target file is read-only?
 			if(fileexists)
@@ -1935,11 +1957,7 @@ namespace CodeImp.DoomBuilder
 		// can hide it. Returns its header summary, or null when the map had none.
 		internal static string RemoveStaleLightmap(WAD wad, string mapheader)
 		{
-			int headerindex = wad.FindLumpIndex(mapheader);
-			if(headerindex < 0) return null;
-			int endindex = wad.FindLumpIndex("ENDMAP", headerindex + 1);
-			if(endindex < 0) return null;
-			int lumpindex = wad.FindLumpIndex(LightmapLump.LUMP_NAME, headerindex + 1, endindex);
+			int lumpindex = FindLightmapIndex(wad, mapheader);
 			if(lumpindex < 0) return null;
 
 			string error = null;
@@ -1961,6 +1979,232 @@ namespace CodeImp.DoomBuilder
 		internal static bool ReportsLightmapDrop(SavePurpose purpose)
 		{
 			return purpose == SavePurpose.Normal || purpose == SavePurpose.AsNewFile || purpose == SavePurpose.IntoFile;
+		}
+
+		// The UDMF map's LIGHTMAP index, searched by name up to ENDMAP, or -1
+		internal static int FindLightmapIndex(WAD wad, string mapheader)
+		{
+			int headerindex = wad.FindLumpIndex(mapheader);
+			if(headerindex < 0) return -1;
+			int endindex = wad.FindLumpIndex("ENDMAP", headerindex + 1);
+			if(endindex < 0) return -1;
+			return wad.FindLumpIndex(LightmapLump.LUMP_NAME, headerindex + 1, endindex);
+		}
+
+		// UZDoom reads UDMF ZNODES as GL nodes only
+		private static readonly string[] GL_NODE_MAGICS = { "XGLN", "ZGLN", "XGL2", "ZGL2", "XGL3", "ZGL3" };
+
+		// Checks a baker output WAD: TEXTMAP, GL ZNODES and a loadable, non-empty LIGHTMAP before
+		// ENDMAP. The baker exits 0 even when it baked nothing. Returns null when valid, else why not.
+		internal static string ValidateBakeOutput(WAD wad, string mapheader, out LightmapLump lightmap)
+		{
+			lightmap = null;
+			int headerindex = wad.FindLumpIndex(mapheader);
+			if(headerindex < 0) return "the output has no map " + mapheader;
+			int endindex = wad.FindLumpIndex("ENDMAP", headerindex + 1);
+			if(endindex < 0) return "the output map has no ENDMAP";
+			if(wad.FindLumpIndex("TEXTMAP", headerindex + 1, endindex) < 0) return "the output map has no TEXTMAP";
+
+			int nodesindex = wad.FindLumpIndex("ZNODES", headerindex + 1, endindex);
+			if(nodesindex < 0) return "the output map has no ZNODES";
+			Lump nodes = wad.Lumps[nodesindex];
+			byte[] magic = new byte[4];
+			nodes.Stream.Seek(0, SeekOrigin.Begin);
+			if(nodes.Length < 4 || nodes.Stream.Read(magic, 0, 4) < 4 || Array.IndexOf(GL_NODE_MAGICS, Encoding.ASCII.GetString(magic)) < 0)
+				return "the output ZNODES are not GL nodes";
+
+			int lightmapindex = wad.FindLumpIndex(LightmapLump.LUMP_NAME, headerindex + 1, endindex);
+			if(lightmapindex < 0) return "the output map has no LIGHTMAP";
+			string error;
+			Lump lump = wad.Lumps[lightmapindex];
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			lightmap = LightmapLump.Read(lump.Stream, true, out error);
+			if(lightmap == null) return "the output LIGHTMAP is unreadable: " + error;
+			if(lightmap.IsEmpty) return "the bake lit no surfaces (does the map have static light things?)";
+			return null;
+		}
+
+		// An unchanged map whose temp WAD lost its LIGHTMAP (a nodes rebuild) is rewritten so a
+		// matching bake can come back; a bake's nodes are never paired with a TEXTMAP left lying there
+		private bool RerouteToLightmapBake(SavePurpose purpose)
+		{
+			if(purpose == SavePurpose.Autosave || lightmapbake == null) return false;
+			if(FindLightmapIndex(tempwadreader.WadFile, TEMP_MAP_HEADER) > -1) return false;
+			General.WriteLogLine("Rewriting the map data to check it against the lightmap bake...");
+			return true;
+		}
+
+		// Puts the bake's TEXTMAP (with the current things), ZNODES and LIGHTMAP into the temp WAD when
+		// the map just written there still matches it. Returns false, changing nothing, on a mismatch.
+		private bool ApplyLightmapBake()
+		{
+			if(lightmapbake == null) return false;
+
+			WAD temp = tempwadreader.WadFile;
+			int headerindex = temp.FindLumpIndex(TEMP_MAP_HEADER);
+			int textmapindex = (headerindex > -1) ? FindSpecificLump(temp, "TEXTMAP", headerindex, TEMP_MAP_HEADER, config.MapLumps) : -1;
+			if(textmapindex < 0) return false;
+
+			string[] current = BakedTextmap.ReadLines(temp.Lumps[textmapindex]);
+			string fingerprint = BakeFingerprint.Compute(current, BakeFingerprint.ExcludedTypes(config.Start3DModeThingType));
+			if(fingerprint != lightmapbake.Fingerprint)
+			{
+				General.WriteLogLine("The lightmap bake does not match the map: it changed since the bake.");
+				return false;
+			}
+
+			string swapped;
+			WAD baked;
+			try { baked = new WAD(lightmapbake.WadPath, true); }
+			catch(Exception e)
+			{
+				General.WriteLogLine(e.GetType().Name + " while reading the lightmap bake: " + e.Message);
+				return false;
+			}
+
+			using(baked)
+			{
+				int bakedheader = baked.FindLumpIndex(BUILD_MAP_HEADER);
+				int bakedtextmap = (bakedheader > -1) ? FindSpecificLump(baked, "TEXTMAP", bakedheader, BUILD_MAP_HEADER, config.MapLumps) : -1;
+				swapped = (bakedtextmap > -1) ? BakedTextmap.ReplaceThings(BakedTextmap.ReadLines(baked.Lumps[bakedtextmap]), current) : null;
+				if(swapped == null)
+				{
+					General.WriteLogLine("The lightmap bake's TEXTMAP is missing or unreadable.");
+					return false;
+				}
+
+				// As BuildNodes' copy-back, with the bake as the build WAD; no earlier BLOCKMAP or REJECT survives
+				General.WriteLogLine("Applying the lightmap bake (" + lightmapbake.Summary + ")...");
+				foreach(KeyValuePair<string, MapLumpInfo> group in config.MapLumps)
+				{
+					if(!group.Value.NodeBuild) continue;
+					string lumpname = (group.Key.Contains(CONFIG_MAP_HEADER) ? group.Key.Replace(CONFIG_MAP_HEADER, TEMP_MAP_HEADER) : group.Key);
+					RemoveSpecificLump(temp, lumpname, headerindex, TEMP_MAP_HEADER, config.MapLumps);
+				}
+				CopyLumpsByType(baked, BUILD_MAP_HEADER, temp, TEMP_MAP_HEADER, false, false, true, false);
+			}
+
+			// The baker's renumbered TEXTMAP, with the things as they are now
+			textmapindex = FindSpecificLump(temp, "TEXTMAP", headerindex, TEMP_MAP_HEADER, config.MapLumps);
+			if(textmapindex < 0)
+			{
+				General.WriteLogLine("The lightmap bake could not be copied into the map.");
+				return false;
+			}
+			byte[] data = UniversalStreamReader.ENCODING.GetBytes(swapped);
+			temp.RemoveAt(textmapindex);
+			Lump lump = temp.Insert("TEXTMAP", textmapindex, data.Length);
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			lump.Stream.Write(data, 0, data.Length);
+			RestoreUnknownUDMFData(temp, TEMP_MAP_HEADER);
+
+			lightmapdropped = false;
+			General.Plugins.OnMapNodesRebuilt();
+			return true;
+		}
+
+		private void ResetLightmapCache(string reason)
+		{
+			if(lightmapbake == null) return;
+			General.WriteLogLine("Discarded the lightmap bake: " + reason + ".");
+			try { File.Delete(lightmapbake.WadPath); }
+			catch(IOException) { }
+			catch(UnauthorizedAccessException) { }
+			lightmapbake = null;
+		}
+
+		// Null when this map can be baked, else why not
+		internal string LightmapBakeUnavailable()
+		{
+			if(!config.LightmapBaking) return "The game configuration does not support lightmap baking (UZDoom UDMF configurations do).";
+			if(!(io is UniversalMapSetIO)) return "Lightmap baking needs a UDMF map.";
+			return null;
+		}
+
+		// Writes the map into a new WAD for the baker, never into the map's temp WAD, and starts it
+		internal LightmapBakeJob StartLightmapBake(LightmapBakeSettings settings, out string error)
+		{
+			error = LightmapBakeUnavailable() ?? settings.BakerProblem();
+			if(error != null) return null;
+
+			MapSet outputset = CloneForOutput();
+			MemoryStream textmap = new MemoryStream();
+			new UniversalStreamWriter().Write(outputset, textmap, config.EngineName);
+			outputset.Dispose();
+			byte[] data = textmap.ToArray();
+
+			string fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)),
+				BakeFingerprint.ExcludedTypes(config.Start3DModeThingType));
+			if(fingerprint == null)
+			{
+				error = "The map's TEXTMAP could not be parsed back.";
+				return null;
+			}
+
+			string input = General.MakeTempFilename(temppath);
+			string output = General.MakeTempFilename(temppath);
+			using(WAD wad = new WAD(input))
+			{
+				wad.Insert(BUILD_MAP_HEADER, 0, 0, false);
+				Lump lump = wad.Insert("TEXTMAP", 1, data.Length, false);
+				lump.Stream.Seek(0, SeekOrigin.Begin);
+				lump.Stream.Write(data, 0, data.Length);
+				wad.Insert("ENDMAP", 2, 0, false);
+				wad.WriteHeaders();
+			}
+
+			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint);
+			try { job.Baker.Start(settings, input, output); }
+			catch(Exception e)
+			{
+				job.Dispose();
+				error = "The baker could not be started: " + e.Message;
+				return null;
+			}
+			return job;
+		}
+
+		// Validates a finished bake and makes it the map's bake. A failed or cancelled bake changes nothing.
+		internal bool FinishLightmapBake(LightmapBakeJob job, int exitcode, out string message)
+		{
+			LightmapLump lightmap = null;
+			string error = null;
+			if(job.Baker.Cancelled) error = "cancelled";
+			else if(exitcode != 0) error = "the baker exited with code " + exitcode;
+			else if(!File.Exists(job.OutputPath)) error = "the baker wrote no output file";
+			else
+			{
+				try
+				{
+					using(WAD wad = new WAD(job.OutputPath, true)) error = ValidateBakeOutput(wad, BUILD_MAP_HEADER, out lightmap);
+				}
+				catch(Exception e) { error = "the output could not be read: " + e.Message; }
+			}
+
+			if(error != null)
+			{
+				message = "Bake failed: " + error + ".";
+				General.WriteLogLine("Lightmap bake failed: " + error);
+				job.Dispose();
+				return false;
+			}
+
+			ResetLightmapCache("a new bake replaces it");
+			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString());
+			double seconds = job.Baker.Elapsed.TotalSeconds;
+			job.Dispose();
+
+			// The next save writes the bake; a matching map makes it a cache hit
+			IsChanged = true;
+			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + ". Save or Test to use it.";
+			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary);
+			return true;
+		}
+
+		[BeginAction("bakelightmaps")]
+		internal void ShowLightmapBakeForm()
+		{
+			using(LightmapBakeForm form = new LightmapBakeForm()) form.ShowDialog(General.MainWindow);
 		}
 
 		#endregion
@@ -2738,7 +2982,9 @@ namespace CodeImp.DoomBuilder
 				General.ErrorLogger.Clear();
 
 				// Apply new options
+				string oldconfigfile = options.ConfigFile;
 				this.options = optionsform.Options;
+				if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase)) ResetLightmapCache("the game configuration changed");
 
 				// A different script compiler must rebuild BEHAVIOR on the next Save Map
 				if(!string.Equals(options.ScriptCompiler, oldscriptcompiler, StringComparison.Ordinal)) scriptschanged = true;

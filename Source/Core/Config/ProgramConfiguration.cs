@@ -24,6 +24,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using CodeImp.DoomBuilder.Compilers;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
@@ -150,6 +151,7 @@ namespace CodeImp.DoomBuilder.Config
 		private bool storeSelectedEditTab;
 		private bool checkforupdates;
 		private bool nativefiledialogs;
+		private readonly LightmapBakeSettings lightmapbake = new LightmapBakeSettings();
 		private bool rendercomments; //mxd
 		private bool fixedthingsscale; //mxd
 		private bool rendergrid;
@@ -310,6 +312,7 @@ namespace CodeImp.DoomBuilder.Config
 		public bool StoreSelectedEditTab { get { return storeSelectedEditTab; } internal set { storeSelectedEditTab = value; } }
 		internal bool CheckForUpdates { get { return checkforupdates; } set { checkforupdates = value; } } //mxd
 		internal bool NativeFileDialogs { get { return nativefiledialogs; } set { nativefiledialogs = value; } }
+		internal LightmapBakeSettings LightmapBake { get { return lightmapbake; } }
 		public bool RenderComments { get { return rendercomments; } internal set { rendercomments = value; } } //mxd
 		public bool FixedThingsScale { get { return fixedthingsscale; } internal set { fixedthingsscale = value; } } //mxd
 		public bool RenderGrid { get { return rendergrid; } internal set { rendergrid = value; } } //mxd
@@ -464,6 +467,11 @@ namespace CodeImp.DoomBuilder.Config
 				storeSelectedEditTab = cfg.ReadSetting("storeselectededittab", true);
 				checkforupdates = cfg.ReadSetting("checkforupdates", true); //mxd
 				nativefiledialogs = cfg.ReadSetting("nativefiledialogs", true);
+				lightmapbake.BakerPath = cfg.ReadSetting("lightmapbaker.path", "");
+				lightmapbake.TextureSize = cfg.ReadSetting("lightmapbaker.texturesize", LightmapBakeSettings.DEFAULT_TEXTURE_SIZE);
+				if(Array.IndexOf(LightmapBakeSettings.TEXTURE_SIZES, lightmapbake.TextureSize) < 0) lightmapbake.TextureSize = LightmapBakeSettings.DEFAULT_TEXTURE_SIZE;
+				lightmapbake.Threads = Math.Max(0, cfg.ReadSetting("lightmapbaker.threads", 0));
+				lightmapbake.CpuOnly = cfg.ReadSetting("lightmapbaker.cpuonly", false);
 				rendercomments = cfg.ReadSetting("rendercomments", true); //mxd
 				fixedthingsscale = cfg.ReadSetting("fixedthingsscale", false); //mxd
 				rendergrid = cfg.ReadSetting("rendergrid", true); //mxd
@@ -633,6 +641,10 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("storeselectededittab", storeSelectedEditTab);
 			cfg.WriteSetting("checkforupdates", checkforupdates); //mxd
 			cfg.WriteSetting("nativefiledialogs", nativefiledialogs);
+			cfg.WriteSetting("lightmapbaker.path", lightmapbake.BakerPath);
+			cfg.WriteSetting("lightmapbaker.texturesize", lightmapbake.TextureSize);
+			cfg.WriteSetting("lightmapbaker.threads", lightmapbake.Threads);
+			cfg.WriteSetting("lightmapbaker.cpuonly", lightmapbake.CpuOnly);
 			cfg.WriteSetting("rendercomments", rendercomments); //mxd
 			cfg.WriteSetting("fixedthingsscale", fixedthingsscale); //mxd
 			cfg.WriteSetting("rendergrid", rendergrid); //mxd

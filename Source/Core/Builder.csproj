@@ -146,6 +146,7 @@
     <Compile Include="Compilers\AccCompiler.cs" />
     <Compile Include="Compilers\ZtBccCompiler.cs" />
     <Compile Include="Compilers\BccCompiler.cs" />
+    <Compile Include="Compilers\LightmapBaker.cs" />
     <Compile Include="Compilers\NodesCompiler.cs" />
     <Compile Include="Config\ArgumentInfo.cs" />
     <Compile Include="Config\ExternalCommandSettings.cs" />
@@ -658,6 +659,7 @@
     <Compile Include="Map\Linedef.cs" />
     <Compile Include="Geometry\LinedefSide.cs" />
     <Compile Include="Map\MapOptions.cs" />
+    <Compile Include="Map\BakeFingerprint.cs" />
     <Compile Include="Map\LightmapLump.cs" />
     <Compile Include="Map\MapSet.cs" />
     <Compile Include="Data\DataLocation.cs" />
@@ -1250,6 +1252,9 @@
       <DependentUpon>ChangeMapForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Windows\ErrorsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\LightmapBakeForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Windows\ErrorsForm.Designer.cs">

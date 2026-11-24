@@ -85,6 +85,8 @@ namespace CodeImp.DoomBuilder.Config
 		private readonly string lowerunpeggedflag;
 		private readonly bool mixtexturesflats;
 		private readonly bool zandronumtextureblend;
+		private readonly bool lightmapbaking;
+		private readonly string lightmaptestparameter;
 		private readonly bool generalizedactions;
 		private readonly bool generalizedeffects;
 		private readonly int start3dmodethingtype;
@@ -258,6 +260,8 @@ namespace CodeImp.DoomBuilder.Config
 		public string LowerUnpeggedFlag { get { return lowerunpeggedflag; } }
 		public bool MixTexturesFlats { get { return mixtexturesflats; } }
 		public bool ZandronumTextureBlend { get { return zandronumtextureblend; } }
+		public bool LightmapBaking { get { return lightmapbaking; } }
+		public string LightmapTestParameter { get { return lightmaptestparameter; } }
 		public bool GeneralizedActions { get { return generalizedactions; } }
 		public bool GeneralizedEffects { get { return generalizedeffects; } }
 		public int Start3DModeThingType { get { return start3dmodethingtype; } }
@@ -475,6 +479,8 @@ namespace CodeImp.DoomBuilder.Config
 			formatinterface = cfg.ReadSetting("formatinterface", "");
 			mixtexturesflats = cfg.ReadSetting("mixtexturesflats", false);
 			zandronumtextureblend = cfg.ReadSetting("zandronumtextureblend", false);
+			lightmapbaking = cfg.ReadSetting("lightmapbaking", false);
+			lightmaptestparameter = cfg.ReadSetting("lightmaptestparameter", "");
 			generalizedactions = cfg.ReadSetting("generalizedlinedefs", false);
 			generalizedeffects = cfg.ReadSetting("generalizedsectors", false);
 			start3dmodethingtype = cfg.ReadSetting("start3dmode", 0);

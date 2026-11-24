@@ -143,6 +143,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemsaveeditareascreenshot = new System.Windows.Forms.ToolStripMenuItem();
 			this.separatortoolsscreenshots = new System.Windows.Forms.ToolStripSeparator();
 			this.itemtestmap = new System.Windows.Forms.ToolStripMenuItem();
+			this.itembakelightmaps = new System.Windows.Forms.ToolStripMenuItem();
 			this.menuhelp = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemhelprefmanual = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemShortcutReference = new System.Windows.Forms.ToolStripMenuItem();
@@ -1188,6 +1189,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemsavescreenshot,
 			this.itemsaveeditareascreenshot,
 			this.separatortoolsscreenshots,
+			this.itembakelightmaps,
 			this.itemtestmap});
 			this.menutools.Name = "menutools";
 			this.menutools.Size = new System.Drawing.Size(48, 20);
@@ -1290,7 +1292,15 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemtestmap.Tag = "builder_testmap";
 			this.itemtestmap.Text = "&Test Map";
 			this.itemtestmap.Click += new System.EventHandler(this.InvokeTaggedAction);
-			// 
+			//
+			// itembakelightmaps
+			//
+			this.itembakelightmaps.Name = "itembakelightmaps";
+			this.itembakelightmaps.Size = new System.Drawing.Size(246, 22);
+			this.itembakelightmaps.Tag = "builder_bakelightmaps";
+			this.itembakelightmaps.Text = "&Bake Lightmaps...";
+			this.itembakelightmaps.Click += new System.EventHandler(this.InvokeTaggedAction);
+			//
 			// menuhelp
 			// 
 			this.menuhelp.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -3135,6 +3145,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ToolStripMenuItem itemscripteditor;
 		private System.Windows.Forms.ToolStripSeparator seperatortoolsconfig;
 		private System.Windows.Forms.ToolStripMenuItem itemtestmap;
+		private System.Windows.Forms.ToolStripMenuItem itembakelightmaps;
 		private System.Windows.Forms.ToolStripMenuItem menuprefabs;
 		private System.Windows.Forms.ToolStripMenuItem itemcreateprefab;
 		private System.Windows.Forms.ToolStripSeparator seperatorprefabsinsert;

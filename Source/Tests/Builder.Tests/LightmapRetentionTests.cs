@@ -16,7 +16,7 @@ namespace Builder.Tests
 		public void Dispose() { Directory.Delete(directory, true); }
 
 		// version, texture size, texture count, surfaces, texcoords, probes, subsectors
-		private static byte[] Header(int version, ushort size, ushort textures, uint surfaces, uint texcoords, uint probes, uint subsectors)
+		internal static byte[] Header(int version, ushort size, ushort textures, uint surfaces, uint texcoords, uint probes, uint subsectors)
 		{
 			var stream = new MemoryStream();
 			var writer = new BinaryWriter(stream);
@@ -31,7 +31,7 @@ namespace Builder.Tests
 		}
 
 		// zlib framing around raw deflate; the adler32 trailer is not checked by the reader
-		private static byte[] Zlib(byte[] header, long bodylength)
+		internal static byte[] Zlib(byte[] header, long bodylength)
 		{
 			var output = new MemoryStream();
 			output.WriteByte(0x78);
