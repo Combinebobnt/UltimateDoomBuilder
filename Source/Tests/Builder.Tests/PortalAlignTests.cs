@@ -232,15 +232,19 @@ namespace Builder.Tests
 			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(), r, Find(r, PortalKind.AnchoredSector));
 
 			string refusal;
-			PortalAlignCheck check = PortalAlign.Check(b.D, Caps(), r, t, PortalAlign.Repick(b.D, t, 6, out refusal));
+			PortalAlignEdit edit = PortalAlign.Repick(b.D, t, 6, out refusal);
+			PortalAlignCheck check = PortalAlign.Check(b.D, Caps(), r, t, edit);
 			Assert.Equal(6, check.Link.Destination.Element.Index);
+			Assert.True(PortalAnalyzer.Analyze(PortalAlign.Apply(b.D, Caps(), edit), Caps()).Issues.Exists(i => i.Code == PortalIssueCode.SameGroup));
 			Assert.Empty(check.NewErrors);
 		}
 
 		[Fact]
-		public void Repick_InHexenFormat_ReassignsIdsAndFindsTheMovedLink()
+		public void Repick_InHexenFormat_ClearsTheOldLinesIdAndFindsTheMovedLink()
 		{
+			// Hexen line ids come from specials, so the stale id on the reference line must go with its special
 			Builder b = Anchored();
+			b.D.Lines[5].Ids = new[] { 9 };
 			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps(true));
 			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(true), r, Find(r, PortalKind.AnchoredSector));
 			Assert.Equal(PortalAlignHandle.Repick, t.Handle);
@@ -250,6 +254,7 @@ namespace Builder.Tests
 			PortalMapData moved = PortalAlign.Apply(b.D, Caps(true), edit);
 			Assert.Equal(SECTORPORTAL, moved.Lines[6].Action);
 			Assert.Equal(0, moved.Lines[5].Action);
+			Assert.Empty(moved.Lines[5].Ids);
 
 			PortalAlignCheck check = PortalAlign.Check(b.D, Caps(true), r, t, edit);
 			Assert.Equal(6, check.Link.Destination.Element.Index);
@@ -288,6 +293,13 @@ namespace Builder.Tests
 			Assert.False(t.CanMakeExact);
 			Assert.Contains("line " + (outside.D.Lines.Count - 1), t.MakeExactRefusal);
 			Assert.Null(PortalAlign.MakeExact(outside.D, t));
+
+			Builder sectorless = Layout(200);
+			sectorless.Line(0, null, null, 1152, 64, 2000, 64, -1, -1);
+			PortalReport sr = PortalAnalyzer.Analyze(sectorless.D, Caps());
+			PortalAlignTarget st = PortalAlign.Target(sectorless.D, Caps(), sr, Find(sr, PortalKind.LinePortal));
+			Assert.False(st.CanMakeExact);
+			Assert.Contains("line " + (sectorless.D.Lines.Count - 1), st.MakeExactRefusal);
 
 			Builder origin = Layout(200);
 			origin.D.Lines[1].V2Index = origin.D.Lines[0].V1Index;

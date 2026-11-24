@@ -228,12 +228,13 @@ namespace CodeImp.DoomBuilder.Portals
 				check.Changed.Add(new PortalAlignChange { Before = l, After = a });
 			}
 
-			// A re-pick moves an issue naming the old reference line onto the new one, which is not a new issue
+			// A re-pick moves the aligned link's own issues onto the new reference line; keys ignore the message, so only SameGroup moves
 			PortalElement from = target.Link.Destination.Element;
 			HashSet<string> old = new HashSet<string>();
 			foreach(PortalIssue i in before.Issues)
 			{
-				if(edit.RepickLine < 0 || !i.Elements.Contains(from)) { old.Add(PortalCreation.IssueKey(i)); continue; }
+				bool carried = edit.RepickLine >= 0 && i.Code == PortalIssueCode.SameGroup && target.Link.Issues.Contains(i) && i.Elements.Contains(from);
+				if(!carried) { old.Add(PortalCreation.IssueKey(i)); continue; }
 				PortalElement[] renamed = i.Elements.ConvertAll(e => e.Equals(from) ? destination : e).ToArray();
 				old.Add(PortalCreation.IssueKey(new PortalIssue(i.Severity, i.Code, i.Message, renamed)));
 			}
@@ -265,7 +266,8 @@ namespace CodeImp.DoomBuilder.Portals
 				if(dg >= 0 && ((l.Front >= 0 && group[l.Front] == dg) || (l.Back >= 0 && group[l.Back] == dg))) continue;
 				int v = (l.V1Index == d.V1Index || l.V1Index == d.V2Index) ? l.V1Index : l.V2Index;
 				t.MakeExactRefusal = "Vertex " + v + " of line " + d.Index + " is also used by line " + l.Index
-					+ ", which is outside the exit side's portal group, so moving it would drag other geometry.";
+					+ (dg >= 0 ? ", which is outside the exit side's portal group" : ", and line " + d.Index + " has no sector")
+					+ ", so moving it would drag other geometry.";
 				return;
 			}
 			t.CanMakeExact = true;
