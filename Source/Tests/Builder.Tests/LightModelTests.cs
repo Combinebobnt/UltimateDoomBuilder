@@ -112,6 +112,18 @@ namespace Builder.Tests
 			Assert.True(LightModel.UsesFogPrograms(software, false));
 		}
 
+		// CheckSpriteGlow's interpolation; MAP12's pillar sprite measures it in UZDoom
+		[Fact]
+		public void SpriteGlowRaisesTheLightTowardHalfwayToFullAtTheFloor()
+		{
+			Assert.Equal(191, LightModel.SpriteGlowLight(128, 0, 128));
+			Assert.Equal(191, LightModel.SpriteGlowLight(128, -8, 128));
+			Assert.Equal(159, LightModel.SpriteGlowLight(128, 64, 128));
+			Assert.Equal(128, LightModel.SpriteGlowLight(128, 128, 128));
+			Assert.Equal(128, LightModel.SpriteGlowLight(128, 0, 0));
+			Assert.Equal(255, LightModel.SpriteGlowLight(255, 0, 128));
+		}
+
 		[Theory]
 		[InlineData("UZDoom_DoomUDMF.cfg", 8)]
 		[InlineData("Zandronum_DoomUDMF.cfg", -1)]

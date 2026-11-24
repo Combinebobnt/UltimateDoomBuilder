@@ -194,7 +194,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 
 			int sectorcolor = new PixelColor(alpha, 255, 255, 255).ToInt();
-			int sectorlight = 0; // Bright things keep their colour as it is
+			int sectorlight = mode.CalculateLight(255); // Bright things (and things with no level above): full light, still under black fog as in UZDoom
 			fogfactor = 0f; //mxd
 			
 			//mxd. Check thing size 
@@ -231,11 +231,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					//mxd. Let's use point on floor plane instead of Thing.Sector.FloorHeight;
 					if (nointeraction && level == null && sd.LightLevels.Count > 0) level = sd.LightLevels[sd.LightLevels.Count - 1];
 
+					// Glow levels only clip; the light comes from the next real level above
+					while(level != null && level.type == SectorLevelType.Glow)
+						level = sd.GetLevelAbove(new Vector3D(thingpos, level.plane.GetZ(thingpos)));
+
 					//mxd. Use the light level of the highest surface when a thing is above highest sector level.
 					if(level != null)
 					{
-						// TECH: In GZDoom, ceiling glow doesn't affect thing brightness 
-						// Use sector brightness for color shading
 						int brightness = level.brightnessbelow;
 
 						//mxd. Apply lightfloor value
@@ -250,49 +252,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 								brightness += UniFields.GetInteger(sd.Sector.Fields, "lightfloor");
 						}*/
 
-						// Level is glowing
-						if(level.affectedbyglow && level.type == SectorLevelType.Floor)
-						{
-							// Extrafloor glow doesn't affect thing brightness
-							if(level.sector == Thing.Sector)
-							{
-								double planez = level.plane.GetZ(thingpos);
-
-								// Get glow brightness
-								int glowbrightness = sd.FloorGlow.Brightness / 2;
-								SectorLevel nexthigher = sd.GetLevelAbove(new Vector3D(thingpos, planez));
-
-								// Interpolate thing brightness between glow and regular ones
-								if(nexthigher != null)
-								{
-									double higherz = nexthigher.plane.GetZ(thingpos);
-									double delta = General.Clamp(1.0f - (thingpos.z - planez) / (higherz - planez), 0f, 1f);
-									brightness = (int)((glowbrightness + level.sector.Brightness / 2) * delta + nexthigher.sector.Brightness * (1.0f - delta));
-								}
-							}
-						}
-						// Level below this one is glowing. Only possible for floor glow(?)
-						else if(level.type == SectorLevelType.Glow)
-						{
-							// Interpolate thing brightness between glow and regular ones
-							if(sd.Floor != null && sd.FloorGlow != null)
-							{
-								// Get glow brightness
-								double glowz = level.plane.GetZ(thingpos);
-								double floorz = floor.GetZ(thingpos);
-								double delta = General.Clamp((thingpos.z - floorz) / (glowz - floorz), 0f, 1f);
-
-								brightness = (int)((sd.FloorGlow.Brightness / 2 + sd.Floor.sector.Brightness / 2) * (1.0f - delta) + sd.Floor.sector.Brightness * delta);
-							}
-						}
+						// CheckSpriteGlow: only the thing's own sector floor glows on it, measured from the real floor; black fog follows the glowed light
+						if(sd.FloorGlow != null)
+							brightness = LightModel.SpriteGlowLight(brightness, thingpos.z - floor.GetZ(thingpos), sd.FloorGlow.Height);
 
 						sectorlight = mode.CalculateLight(brightness);
 
                         // [ZZ] if sector is using Doom64 lighting, apply thing color here.
                         sectorcolor = PixelColor.Modulate(sd.ColorSprites, level.colorbelow).WithAlpha(alpha).ToInt();
 
-						//mxd. Calculate fogfactor
-						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, brightness);
+						//mxd. Calculate fogfactor (UZDoom: coloured fog takes the sector's own light level)
+						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, Thing.Sector.Brightness);
 					}
 				}
 				//TECH: even Bright Thing frames are affected by custom fade...
@@ -304,7 +274,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					if(level != null && level.sector.FogMode > SectorFogMode.CLASSIC)
 					{
 						//mxd. Calculate fogfactor
-						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, level.brightnessbelow);
+						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, Thing.Sector.Brightness);
 					}
 				}
             }

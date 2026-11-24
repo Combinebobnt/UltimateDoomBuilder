@@ -102,6 +102,14 @@ namespace CodeImp.DoomBuilder.Rendering
 			return PackLight(level, level, level);
 		}
 
+		// CheckSpriteGlow: a thing within a floor glow's height brightens toward (255 + light) / 2 at the floor; ceiling glow never applies
+		public static int SpriteGlowLight(int light, double floordiff, double glowheight)
+		{
+			if(glowheight <= 0 || floordiff >= glowheight) return light;
+			int maxlight = (255 + light) >> 1;
+			double frac = Math.Max(floordiff / glowheight, 0.0);
+			return (int)(frac * light + maxlight * (1 - frac));
+		}
 
 		// The packed light as the shader's lightoverride uniform
 		public static Vector4f LightUniform(int packed)

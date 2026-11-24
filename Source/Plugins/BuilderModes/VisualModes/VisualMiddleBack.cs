@@ -241,6 +241,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				if(polygons.Count > 0)
 				{
 					List<WorldVertex> verts = CreatePolygonVertices(polygons, tp, sd, lightvalue, lightabsolute);
+
+					// The glow is the front sector's (the one holding the 3D floor), as UZDoom's InverseFloors draws it
+					SectorData front = mode.GetSectorData(Sidedef.Sector);
+					SetGlow(front.CeilingGlow, front.Ceiling.plane, front.FloorGlow, front.Floor.plane);
+
 					if(verts.Count > 2)
 					{
 						if(extrafloor.Sloped3dFloor) this.RenderPass = RenderPass.Mask; //mxd
