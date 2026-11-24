@@ -3048,7 +3048,12 @@ namespace CodeImp.DoomBuilder
 				// Apply new options
 				string oldconfigfile = options.ConfigFile;
 				this.options = optionsform.Options;
-				if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase)) ResetLightmapCache("the game configuration changed");
+				if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase))
+				{
+					// Discarding a bake the map still had leaves Test without it, so the next Test says so
+					if(lightmapbake != null) lightmapstale = true;
+					ResetLightmapCache("the game configuration changed");
+				}
 
 				// A different script compiler must rebuild BEHAVIOR on the next Save Map
 				if(!string.Equals(options.ScriptCompiler, oldscriptcompiler, StringComparison.Ordinal)) scriptschanged = true;
