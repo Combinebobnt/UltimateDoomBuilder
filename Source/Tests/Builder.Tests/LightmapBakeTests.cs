@@ -381,6 +381,149 @@ namespace Builder.Tests
 			}
 		}
 
+		[Fact]
+		public void MissLogShowsTheStartOfBothFingerprints()
+		{
+			Assert.Equal("0123456789AB", MapManager.ShortFingerprint("0123456789ABCDEF"));
+			Assert.Equal("ABC", MapManager.ShortFingerprint("ABC"));
+			Assert.Equal("unparsed", MapManager.ShortFingerprint(null));
+		}
+
+		#endregion
+
+		#region Seeding from the opened map
+
+		private static byte[] Ascii(string text) { return Encoding.ASCII.GetBytes(text); }
+
+		private string SeedPath() { return Path.Combine(directory, Guid.NewGuid().ToString("N") + ".wad"); }
+
+		[Theory]
+		[InlineData(true, false, true, true)]
+		[InlineData(true, true, true, false)]
+		[InlineData(true, false, false, false)]
+		[InlineData(true, true, false, false)]
+		[InlineData(false, false, true, false)]
+		[InlineData(false, true, true, false)]
+		[InlineData(false, false, false, false)]
+		[InlineData(false, true, false, false)]
+		public void OnlyAnOpenedUdmfMapWithALightmapIsSeeded(bool udmf, bool maprestored, bool haslightmap, bool expected)
+		{
+			Assert.Equal(expected, MapManager.ShouldSeedLightmapBake(udmf, maprestored, haslightmap));
+		}
+
+		[Fact]
+		public void SeedHoldsTheOpenedNodebuildLumpsAsABakeOutput()
+		{
+			Dictionary<string, MapLumpInfo> lumps = LightmapRetentionTests.MapLumps("UZDoom_DoomUDMF.cfg");
+			byte[] lightmap = GoodLightmap();
+			Func<string, byte[]> data = n => n == "ZNODES" ? Ascii("XGLNopened") : n == "LIGHTMAP" ? lightmap : Ascii("opened " + n);
+			string[] names = { "TEMPMAP", "TEXTMAP", "BEHAVIOR", "ZNODES", "BLOCKMAP", "LIGHTMAP", "ENDMAP" };
+			using(WAD temp = CreateWad(names, data))
+			{
+				string path = SeedPath();
+				LightmapLump header;
+				Assert.Null(MapManager.WriteSeedWad(temp, "TEMPMAP", path, lumps, out header));
+				Assert.NotNull(header);
+				Assert.Equal(1u, header.SurfaceCount);
+				Assert.Equal(names, temp.Lumps.Select(l => l.Name).ToArray());
+
+				// A stray BLOCKMAP goes too: a hit writes what the unchanged branch would
+				using(WAD seed = new WAD(path, true))
+				{
+					Assert.Equal(new[] { "MAP01", "TEXTMAP", "ZNODES", "BLOCKMAP", "LIGHTMAP", "ENDMAP" }, seed.Lumps.Select(l => l.Name).ToArray());
+					for(int i = 1; i < 5; i++) Assert.Equal(data(seed.Lumps[i].Name), Bytes(seed.Lumps[i]));
+					Assert.Equal(0, seed.Lumps[0].Length);
+					Assert.Equal(0, seed.Lumps[5].Length);
+				}
+			}
+		}
+
+		private string Seed(string nodesmagic, byte[] lightmap, string path, params string[] names)
+		{
+			Dictionary<string, MapLumpInfo> lumps = LightmapRetentionTests.MapLumps("UZDoom_DoomUDMF.cfg");
+			using(WAD temp = CreateWad(names, n => n == "ZNODES" ? Ascii(nodesmagic + "rest") : n == "LIGHTMAP" ? lightmap : Ascii("opened " + n)))
+			{
+				LightmapLump header;
+				string error = MapManager.WriteSeedWad(temp, "TEMPMAP", path, lumps, out header);
+				if(error != null) Assert.Null(header);
+				return error;
+			}
+		}
+
+		[Fact]
+		public void SeedIsRefusedAndRemovedWhenTheOpenedLumpsDoNotValidate()
+		{
+			string[] full = { "TEMPMAP", "TEXTMAP", "ZNODES", "LIGHTMAP", "ENDMAP" };
+			byte[] unlit = LightmapRetentionTests.Zlib(LightmapRetentionTests.Header(0, 16, 1, 0, 0, 0, 1), 16 * 16 * 6);
+			byte[] truncated = LightmapRetentionTests.Zlib(LightmapRetentionTests.Header(0, 16, 1, 1, 4, 0, 1), 10);
+			var cases = new List<Tuple<string, Func<string, string>>>
+			{
+				Tuple.Create("the output map has no LIGHTMAP", (Func<string, string>)(p => Seed("XGLN", GoodLightmap(), p, "TEMPMAP", "TEXTMAP", "ZNODES", "ENDMAP"))),
+				Tuple.Create("the output map has no ZNODES", (Func<string, string>)(p => Seed("XGLN", GoodLightmap(), p, "TEMPMAP", "TEXTMAP", "LIGHTMAP", "ENDMAP"))),
+				Tuple.Create("the output ZNODES are not GL nodes", (Func<string, string>)(p => Seed("XNOD", GoodLightmap(), p, full))),
+				Tuple.Create("the output LIGHTMAP is unreadable: truncated", (Func<string, string>)(p => Seed("XGLN", truncated, p, full))),
+				Tuple.Create("the bake lit no surfaces", (Func<string, string>)(p => Seed("XGLN", unlit, p, full))),
+				Tuple.Create("the map has no TEMPMAP", (Func<string, string>)(p => Seed("XGLN", GoodLightmap(), p, "MAP01", "TEXTMAP", "ZNODES", "LIGHTMAP", "ENDMAP"))),
+			};
+			foreach(Tuple<string, Func<string, string>> c in cases)
+			{
+				string path = SeedPath();
+				string error = c.Item2(path);
+				Assert.NotNull(error);
+				Assert.StartsWith(c.Item1, error);
+				Assert.False(File.Exists(path), c.Item1);
+			}
+			Assert.Null(Seed("XGLN", GoodLightmap(), SeedPath(), full));
+		}
+
+		[Fact]
+		public void SeededBakeBringsBackTheOpenedLumpsAfterTheMapIsRewritten()
+		{
+			Dictionary<string, MapLumpInfo> lumps = LightmapRetentionTests.MapLumps("UZDoom_DoomUDMF.cfg");
+			string opened = GEOMETRY + Thing(1, 16) + Thing(9876, 32);
+			byte[] znodes = Ascii("XGLNopened nodes");
+			byte[] lightmap = GoodLightmap();
+			Func<string, byte[]> data = n => n == "TEXTMAP" ? UniversalStreamReader.ENCODING.GetBytes(opened)
+				: n == "ZNODES" ? znodes : n == "LIGHTMAP" ? lightmap : Ascii("opened " + n);
+			using(WAD temp = CreateWad(new[] { "TEMPMAP", "TEXTMAP", "BEHAVIOR", "ZNODES", "LIGHTMAP", "ENDMAP" }, data))
+			{
+				string path = SeedPath();
+				LightmapLump header;
+				Assert.Null(MapManager.WriteSeedWad(temp, "TEMPMAP", path, lumps, out header));
+
+				// The save rewrites the TEXTMAP (same map, other formatting), dropping the LIGHTMAP; a nodes rebuild replaced ZNODES
+				string rewritten = Parse(opened).OutputConfiguration();
+				Assert.NotEqual(opened, rewritten);
+				Assert.Equal(Fingerprint(opened), Fingerprint(rewritten));
+				ReplaceLump(temp, "TEXTMAP", UniversalStreamReader.ENCODING.GetBytes(rewritten));
+				ReplaceLump(temp, "ZNODES", Ascii("XGLNrebuilt"));
+				Assert.NotNull(MapManager.RemoveStaleLightmap(temp, "TEMPMAP"));
+
+				using(WAD seed = new WAD(path, true))
+				{
+					string swapped = BakedTextmap.ReplaceThings(BakedTextmap.ReadLines(seed.Lumps[seed.FindLumpIndex("TEXTMAP")]), Lines(rewritten));
+					Assert.NotNull(swapped);
+					Assert.True(MapManager.CopyBakeLumps(temp, "TEMPMAP", seed, "MAP01", lumps, UniversalStreamReader.ENCODING.GetBytes(swapped)));
+				}
+
+				Assert.Equal(new[] { "TEMPMAP", "TEXTMAP", "ZNODES", "LIGHTMAP", "BEHAVIOR", "ENDMAP" }, temp.Lumps.Select(l => l.Name).ToArray());
+				Assert.Equal(znodes, Bytes(temp.Lumps[2]));
+				Assert.Equal(lightmap, Bytes(temp.Lumps[3]));
+				Assert.Equal(Ascii("opened BEHAVIOR"), Bytes(temp.Lumps[4]));
+				string result = UniversalStreamReader.ENCODING.GetString(Bytes(temp.Lumps[1]));
+				Assert.Equal(Parse(opened).Root.Select(Entry).ToArray(), Parse(result).Root.Select(Entry).ToArray());
+			}
+		}
+
+		private static void ReplaceLump(WAD wad, string name, byte[] data)
+		{
+			int index = wad.FindLumpIndex(name);
+			wad.RemoveAt(index);
+			Lump lump = wad.Insert(name, index, data.Length);
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			lump.Stream.Write(data, 0, data.Length);
+		}
+
 		#endregion
 
 		#region Test launch
