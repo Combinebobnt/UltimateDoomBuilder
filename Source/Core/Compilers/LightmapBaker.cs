@@ -24,15 +24,16 @@ namespace CodeImp.DoomBuilder.Compilers
 		public bool CpuOnly;
 		public LightmapBakerFeatures Features = LightmapBakerFeatures.None;
 
-		// This machine's CPU tracer cost in thread seconds per traced texel, by preset; absent until a bake measures it
-		public readonly Dictionary<LightmapQualityPreset, double> Cost = new Dictionary<LightmapQualityPreset, double>();
+		// This machine's CPU bake cost in thread seconds per estimated texel, by LightmapBakeEstimate.CostKey;
+		// absent until a bake measures it
+		public readonly Dictionary<string, double> Cost = new Dictionary<string, double>(StringComparer.Ordinal);
 
 		public int TextureSize { get { return Quality.TextureSize; } set { Quality.TextureSize = value; } }
 
-		public double CostOf(LightmapQualityPreset preset)
+		public double CostOf(LightmapBakeQuality quality)
 		{
 			double cost;
-			return (Cost.TryGetValue(preset, out cost) ? cost : 0);
+			return (Cost.TryGetValue(LightmapBakeEstimate.CostKey(quality), out cost) ? cost : 0);
 		}
 
 		// The quality this baker will actually bake at

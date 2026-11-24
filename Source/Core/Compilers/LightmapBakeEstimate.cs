@@ -54,12 +54,13 @@ namespace CodeImp.DoomBuilder.Compilers
 		}
 
 		// A surface's block: its extent snapped outward to the texel grid plus a texel of border on each
-		// side, so on average three texels more than extent / spacing along each axis. For a w x h
-		// rectangle that is (w/d + 3)(h/d + 3) = area/d^2 + 1.5 perimeter/d + 9, which also serves a
-		// sector's flats. The baker clamps a surface to a page less its border.
+		// side, two texels more than extent / spacing along each axis on grid-aligned geometry. For a
+		// w x h rectangle that is (w/d + 2)(h/d + 2) = area/d^2 + perimeter/d + 4, which stands in for a
+		// sector's flats (the baker makes one block per subsector). The baker clamps each axis to a page
+		// less its border.
 		private static double Block(double area, double perimeter, int d, int texturesize)
 		{
-			double texels = area / ((double)d * d) + 1.5 * perimeter / d + 9;
+			double texels = area / ((double)d * d) + perimeter / d + 4;
 			double page = (double)(texturesize - 2) * (texturesize - 2);
 			return Math.Min(texels, page);
 		}
@@ -67,11 +68,13 @@ namespace CodeImp.DoomBuilder.Compilers
 		private static double Wall(double length, double height, int d, int texturesize)
 		{
 			if(height <= 0) return 0;
-			return Block(length * height, 2 * (length + height), d, texturesize);
+			double max = texturesize - 2;
+			return Math.Min(length / d + 2, max) * Math.Min(height / d + 2, max);
 		}
 
 		// The surfaces ZDRay lights on the map: one-sided middles, textured uppers and lowers, and every
-		// sector's floor and ceiling. 3D floors and slopes are left out.
+		// sector's floor and ceiling. 3D floors, sky uppers and slopes are left out and 3D floor control
+		// sectors counted; calibrating against this count absorbs that bias on similar maps.
 		public static long Texels(IList<LightmapEstimateSide> sides, IList<LightmapEstimateSector> sectors, int mapdistance, float scale, int texturesize)
 		{
 			double total = 0;
@@ -160,6 +163,15 @@ namespace CodeImp.DoomBuilder.Compilers
 
 		private static bool HasTexture(string name) { return !string.IsNullOrEmpty(name) && name[0] != '-'; }
 
+		// Where a quality's cost is kept: per preset, and a custom mix per sample counts, which drive the
+		// cost per texel (the scale only changes the texel count)
+		public static string CostKey(LightmapBakeQuality quality)
+		{
+			LightmapQualityPreset preset = quality.Preset;
+			if(preset != LightmapQualityPreset.Custom) return preset.ToString().ToLowerInvariant();
+			return "custom_" + quality.Samples + "_" + quality.BounceSamples;
+		}
+
 		// Seconds for texels at a cost in thread seconds per texel; negative when there is no cost yet
 		public static double Seconds(long texels, double cost, int threads)
 		{
@@ -167,12 +179,14 @@ namespace CodeImp.DoomBuilder.Compilers
 			return texels * cost / Math.Max(1, threads);
 		}
 
-		// The cost after a CPU trace of traced texels (light probes included) that took seconds on threads.
-		// The first measurement sets it, later ones move it halfway, so one odd bake can't dominate.
-		public static double Calibrate(double cost, long traced, double seconds, int threads)
+		// The cost after a CPU bake of texels (the estimate's count, so probes and the model's bias are
+		// priced in) that took seconds of wall time on threads. The baker's serial stages and the UI's
+		// poll interval inflate it on small bakes. The first measurement sets it, later ones move it
+		// halfway, so one odd bake can't dominate.
+		public static double Calibrate(double cost, long texels, double seconds, int threads)
 		{
-			if(traced <= 0 || seconds <= 0 || threads <= 0) return cost;
-			double measured = seconds * threads / traced;
+			if(texels <= 0 || seconds <= 0 || threads <= 0) return cost;
+			double measured = seconds * threads / texels;
 			return (cost > 0 ? (cost + measured) / 2 : measured);
 		}
 

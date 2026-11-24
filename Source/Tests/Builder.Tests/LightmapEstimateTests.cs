@@ -27,10 +27,11 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void FixtureEstimateIsWithinTwiceWhatTheBakerTraced()
+		public void FixtureEstimateIsCloseToWhatTheBakerLit()
 		{
-			// The lightmap fixture's geometry: two rooms, a pillar sector and a 3D floor control
-			// sector, plus a zero length line the baker removes. No upper or lower textures.
+			// The lightmap fixture's geometry: two rooms, a pillar sector carrying a 3D floor, its
+			// control sector (which the baker skips and the estimate counts), and a zero length line
+			// the baker removes. No upper or lower textures.
 			var sectors = new List<LightmapEstimateSector> { Sec(0, 128), Sec(0, 160), Sec(0, 160), Sec(48, 64) };
 			var sides = new List<LightmapEstimateSide>();
 			Line(sides, 0, 0, 0, 256, 0);
@@ -53,7 +54,7 @@ namespace Builder.Tests
 			// The fork's CPU tracer ran 10,587 work items on it: 10,056 surface texels and 531 light probes
 			const long BAKED = 10587 - 531;
 			long estimate = LightmapBakeEstimate.Texels(sides, sectors, LightmapBakeEstimate.DEFAULT_MAP_DISTANCE, 1.0f, 1024);
-			Assert.True(estimate >= BAKED / 2 && estimate <= BAKED * 2, estimate + " against " + BAKED);
+			Assert.True(Math.Abs(estimate - BAKED) <= BAKED / 4, estimate + " against " + BAKED);
 		}
 
 		[Fact]
@@ -114,10 +115,12 @@ namespace Builder.Tests
 			sides[1] = wall;
 			Assert.Equal(coarsefloor, LightmapBakeEstimate.Texels(sides, sectors, 8, 1.0f, 1024));
 
-			// No surface outgrows a page less its border
-			var huge = new List<LightmapEstimateSector> { Sec(0, 8) };
-			long clamped = LightmapBakeEstimate.Texels(Box(65536, 0), huge, 8, 1.0f, 128);
-			Assert.True(clamped <= 6 * 126 * 126, clamped.ToString());
+			// The baker clamps each axis of a surface to a page less its border: a 65536 x 8 wall at
+			// size 128 is 126 x 3 texels; its sector's flats have no area, only the perimeter's border
+			var longwall = new List<LightmapEstimateSide>();
+			Line(longwall, 0, 0, 65536, 0, 0);
+			long clamped = LightmapBakeEstimate.Texels(longwall,new List<LightmapEstimateSector> { Sec(0, 8) }, 8, 1.0f, 128);
+			Assert.Equal(126L * 3 + 2 * (65536 / 8 + 4), clamped);
 		}
 
 		[Fact]
@@ -154,7 +157,26 @@ namespace Builder.Tests
 			Assert.Equal(100.0, LightmapBakeEstimate.Seconds(100000, 0.001, 1), 6);
 
 			var settings = new LightmapBakeSettings();
-			Assert.Equal(0.0, settings.CostOf(LightmapQualityPreset.Final));
+			Assert.Equal(0.0, settings.CostOf(new LightmapBakeQuality()));
+		}
+
+		[Fact]
+		public void CostIsKeptPerPresetAndPerCustomSampleMix()
+		{
+			Assert.Equal("final", LightmapBakeEstimate.CostKey(new LightmapBakeQuality()));
+			Assert.Equal("draft", LightmapBakeEstimate.CostKey(LightmapBakeQuality.Quick(1024)));
+
+			// The scale changes the texel count, not the cost per texel; the sample counts change the cost
+			var a = new LightmapBakeQuality { SampleScale = 0.25f, Samples = 1024 };
+			var b = new LightmapBakeQuality { SampleScale = 1.0f, Samples = 1024 };
+			var c = new LightmapBakeQuality { SampleScale = 0.25f, Samples = 16 };
+			Assert.Equal(LightmapBakeEstimate.CostKey(a), LightmapBakeEstimate.CostKey(b));
+			Assert.NotEqual(LightmapBakeEstimate.CostKey(a), LightmapBakeEstimate.CostKey(c));
+
+			var settings = new LightmapBakeSettings();
+			settings.Cost[LightmapBakeEstimate.CostKey(a)] = 0.001;
+			Assert.Equal(0.001, settings.CostOf(b));
+			Assert.Equal(0.0, settings.CostOf(c));
 		}
 
 		[Fact]

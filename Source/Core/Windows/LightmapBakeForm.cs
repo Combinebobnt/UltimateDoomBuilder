@@ -239,7 +239,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private Control CreateControl(Row r)
 		{
 			LightmapBakeOption o = r.Option;
-			if(o.Kind == LightmapOptionKind.ReadOnly)
+			if(o.Id == "estimate")
 			{
 				estimate = new Label { AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 3, 3), MaximumSize = new Size(420, 0) };
 				return estimate;
@@ -632,7 +632,7 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 
 		// The bake's seconds on this machine, negative before a bake of its preset has measured the cost
-		private double EstimateSeconds(LightmapBakeQuality requested, out long count, out LightmapQualityPreset preset)
+		private double EstimateSeconds(LightmapBakeQuality requested, out long count, out string kind)
 		{
 			LightmapBakeQuality q = requested.Effective(Features(Settings.BakerPath, false));
 			int distance = Convert.ToInt32(edited["sampledistance"], CultureInfo.InvariantCulture);
@@ -643,8 +643,8 @@ namespace CodeImp.DoomBuilder.Windows
 				texelskey = key;
 			}
 			count = texels;
-			preset = q.Preset;
-			return LightmapBakeEstimate.Seconds(texels, Settings.CostOf(preset), Settings.EffectiveThreads(Environment.ProcessorCount));
+			kind = (q.Preset == LightmapQualityPreset.Custom ? "Custom bake with these sample counts" : q.Preset + " bake");
+			return LightmapBakeEstimate.Seconds(texels, Settings.CostOf(q), Settings.EffectiveThreads(Environment.ProcessorCount));
 		}
 
 		// The Run tab's estimate row; returns the estimate in words, null when there is none
@@ -652,27 +652,26 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			if(estimate == null) return null;
 			long count;
-			LightmapQualityPreset preset;
-			string described = LightmapBakeEstimate.Describe(EstimateSeconds(quality, out count, out preset));
-			string texeltext = count.ToString("N0", CultureInfo.InvariantCulture) + " texels";
+			string kind;
+			string described = LightmapBakeEstimate.Describe(EstimateSeconds(quality, out count, out kind));
+			string texeltext = "about " + count.ToString("N0", CultureInfo.InvariantCulture) + " surface texels";
 			if(described == null)
-				estimate.Text = "No estimate until the first " + preset + " bake on this machine (" + texeltext + " to trace).";
+				estimate.Text = "No estimate until the first CPU-traced " + kind + " on this machine (" + texeltext + ").";
 			else
-				estimate.Text = described + " for " + texeltext + ", from this machine's earlier " + preset + " bakes" +
-					(Settings.CpuOnly ? "" : " on the CPU tracer") + ".";
+				estimate.Text = described + " for " + texeltext + ", from this machine's earlier CPU-traced " + kind + "s.";
 			return described;
 		}
 
-		// A bake estimated past a minute asks once per dialog session
+		// A bake estimated past a minute asks until one is agreed to in this dialog session
 		private bool ConfirmLongBake(LightmapBakeQuality run)
 		{
 			if(longbakeconfirmed) return true;
 			long count;
-			LightmapQualityPreset preset;
-			double seconds = EstimateSeconds(run, out count, out preset);
+			string kind;
+			double seconds = EstimateSeconds(run, out count, out kind);
 			if(seconds <= LightmapBakeEstimate.CONFIRM_SECONDS) return true;
-			string message = "This bake is estimated to take " + LightmapBakeEstimate.Describe(seconds) + " (" +
-				count.ToString("N0", CultureInfo.InvariantCulture) + " texels at " + preset + " quality). Bake anyway?";
+			string message = "This bake is estimated to take " + LightmapBakeEstimate.Describe(seconds) + " on the CPU tracer (about " +
+				count.ToString("N0", CultureInfo.InvariantCulture) + " surface texels). Bake anyway?";
 			if(MessageBox.Show(this, message, "Bake Lightmaps", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return false;
 			longbakeconfirmed = true;
 			return true;
@@ -754,24 +753,28 @@ namespace CodeImp.DoomBuilder.Windows
 		private void StartBake(bool quick)
 		{
 			if(job != null) return;
-			ApplyLighting();
-			showingresult = false;
-			bakesucceeded = false;
-
 			LightmapBakeSettings settings = Settings;
 			settings.Features = Features(settings.BakerPath, true);
 			UpdateAvailability();
+
+			// Asked before anything reaches the map. An auto-bake was already agreed to where it started.
+			CommitTypedNumbers();
+			LightmapBakeQuality runquality = (quick ? LightmapBakeQuality.Quick(quality.TextureSize) : quality);
+			if(!autostart && !ConfirmLongBake(runquality))
+			{
+				UpdateState();
+				return;
+			}
+
+			ApplyLighting();
+			showingresult = false;
+			bakesucceeded = false;
 			if(!quick)
 			{
 				General.Map.Options.LightmapBake.Quality = quality.Clone();
 				settings.Quality = quality.Clone();
 			}
-			LightmapBakeSettings run = settings.With(quick ? LightmapBakeQuality.Quick(quality.TextureSize) : quality);
-			if(!ConfirmLongBake(run.Quality))
-			{
-				UpdateState();
-				return;
-			}
+			LightmapBakeSettings run = settings.With(runquality);
 
 			string error;
 			job = General.Map.StartLightmapBake(run, out error);

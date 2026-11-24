@@ -2786,12 +2786,11 @@ namespace CodeImp.DoomBuilder
 			double seconds = job.Baker.Elapsed.TotalSeconds;
 			long traced = job.Baker.TracedTexels;
 			bool cpu = job.Baker.CpuTraced;
-			if(quality != null && cpu && traced > 0)
+			if(quality != null && cpu && job.EstimatedTexels > 0)
 			{
 				// The whole bake's wall time: the baker's buffered output can't time its trace alone
 				LightmapBakeSettings settings = General.Settings.LightmapBake;
-				LightmapQualityPreset preset = quality.Preset;
-				settings.Cost[preset] = LightmapBakeEstimate.Calibrate(settings.CostOf(preset), traced, seconds, job.Threads);
+				settings.Cost[LightmapBakeEstimate.CostKey(quality)] = LightmapBakeEstimate.Calibrate(settings.CostOf(quality), job.EstimatedTexels, seconds, job.Threads);
 			}
 			General.WriteLogLine("Lightmap bake estimate: " + job.EstimatedTexels + " texels estimated, " + traced + " traced" +
 				(cpu ? " by the CPU tracer" : "") + " in " + seconds.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s on " + job.Threads + " threads");
