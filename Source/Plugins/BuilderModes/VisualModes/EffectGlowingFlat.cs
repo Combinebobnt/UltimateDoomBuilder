@@ -35,7 +35,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				ceillevel.color = 0;            // so we need to reset all shading and coloring
 				ceillevel.plane = data.Ceiling.plane;
 				ceillevel.plane.Offset -= data.CeilingGlow.Height;
-				data.CeilingGlowPlane = ceillevel.plane;
 			}
 
 			// Create floor glow effect?
@@ -67,7 +66,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					floorlevel.colorbelow = data.Ceiling.colorbelow;
 				}
 
-				data.FloorGlowPlane = floorlevel.plane;
 			}
 		}
 

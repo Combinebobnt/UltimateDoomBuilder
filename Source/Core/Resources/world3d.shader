@@ -10,6 +10,12 @@ uniforms
 	vec4 stencilColor;
 	float desaturation;
 
+	// Wall glow: colour with height in alpha, and the ceiling and floor planes (a, b, c, d) it fades from
+	vec4 glowTopColor;
+	vec4 glowBottomColor;
+	vec4 glowTopPlane;
+	vec4 glowBottomPlane;
+
 	vec4 fogsettings;
 	vec4 fogcolor;
 	vec4 sectorfogcolor;
@@ -203,6 +209,29 @@ functions
 		return vec4(tcolor.rgb*(baselight.rgb+light)+addlight, tcolor.a*baselight.a);
 	}
 
+	// Glow from the ceiling and floor flats, fading over its height (the engine's main.fp arithmetic)
+	vec3 wallGlow(vec3 PosW)
+	{
+		vec3 glow = vec3(0.0);
+		if (glowTopColor.a > 0.0)
+		{
+			float dist = -(glowTopPlane.w + glowTopPlane.x * PosW.x + glowTopPlane.y * PosW.y) / glowTopPlane.z - PosW.z;
+			if (dist < glowTopColor.a) glow += glowTopColor.rgb * (1.0 - dist / glowTopColor.a);
+		}
+		if (glowBottomColor.a > 0.0)
+		{
+			float dist = PosW.z + (glowBottomPlane.w + glowBottomPlane.x * PosW.x + glowBottomPlane.y * PosW.y) / glowBottomPlane.z;
+			if (dist < glowBottomColor.a) glow += glowBottomColor.rgb * (1.0 - dist / glowBottomColor.a);
+		}
+		return glow;
+	}
+
+	// The glow is added after the sector light and before brightmaps and dynamic lights
+	vec4 addWallGlow(vec4 light, vec3 PosW)
+	{
+		return vec4(min(light.rgb + wallGlow(PosW), vec3(1.0)), light.a);
+	}
+
 	vec4 getMaterialLight(vec4 baselight, vec2 uv)
 	{
 		if(brightmapEnabled > 0.0)
@@ -256,7 +285,7 @@ shader world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
 		out.FragColor = desaturate(tcolor);
 
 		#if defined(ALPHA_TEST)
@@ -290,7 +319,7 @@ shader world3d_main_highlight extends world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -399,7 +428,7 @@ shader world3d_main_fog extends world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -423,7 +452,7 @@ shader world3d_main_highlight_fog extends world3d_main_fog
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = vec4(getDynLightContribution(tcolor, getMaterialLight(v2f.Color, v2f.UV), v2f.PosW, v2f.Normal).rgb, tcolor.a);
+		tcolor = vec4(getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal).rgb, tcolor.a);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;

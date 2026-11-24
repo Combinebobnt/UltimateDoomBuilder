@@ -37,8 +37,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		internal GlowingFlatData CeilingGlow; //mxd
 		internal GlowingFlatData FloorGlow; //mxd
-		internal Plane FloorGlowPlane; //mxd
-		internal Plane CeilingGlowPlane; //mxd
 
         // [ZZ] Doom64 lighting system
         internal PixelColor ColorCeiling;

@@ -123,6 +123,7 @@ void main()
 			}
 			fragment.AppendLine("void main() {");
 			fragment.AppendLine("vec4 baseLight = useVertexColorUniform > 0.0 ? vertexColor : Color;");
+			fragment.AppendLine("baseLight = addWallGlow(baseLight, PosW);");
 			if(dialect == UserShaderDialect.Zandronum)
 			{
 				fragment.AppendLine("vec3 additive = getDynLightContribution(vec4(0.0), vec4(0.0), PosW, Normal).rgb;");

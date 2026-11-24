@@ -78,6 +78,12 @@ namespace CodeImp.DoomBuilder.VisualModes
 		protected bool renderassky;
 
 		protected Vector2f skew;
+
+		// Wall glow added after the light: colour with height in w, and the planes as (a, b, c, d)
+		private Vector4f glowtopcolor;
+		private Vector4f glowbottomcolor;
+		private Vector4f glowtopplane;
+		private Vector4f glowbottomplane;
 		
 		#endregion
 
@@ -123,6 +129,11 @@ namespace CodeImp.DoomBuilder.VisualModes
 		/// How much a texture is skewed.
 		/// </summary>
 		public Vector2f Skew { get { return skew; } }
+
+		public Vector4f GlowTopColor { get { return glowtopcolor; } }
+		public Vector4f GlowBottomColor { get { return glowbottomcolor; } }
+		public Vector4f GlowTopPlane { get { return glowtopplane; } }
+		public Vector4f GlowBottomPlane { get { return glowbottomplane; } }
 
 		#endregion
 
@@ -172,6 +183,26 @@ namespace CodeImp.DoomBuilder.VisualModes
 			}
 
 			if(sector != null) sector.NeedsUpdateGeo = true;
+		}
+
+		// Sets the wall glow from the ceiling and floor; a null glow is off
+		protected void SetGlow(GlowingFlatData top, Plane topplane, GlowingFlatData bottom, Plane bottomplane)
+		{
+			glowtopcolor = GlowVector(top);
+			glowbottomcolor = GlowVector(bottom);
+			glowtopplane = PlaneVector(topplane);
+			glowbottomplane = PlaneVector(bottomplane);
+		}
+
+		private static Vector4f GlowVector(GlowingFlatData glow)
+		{
+			if(glow == null || glow.Height <= 0) return new Vector4f();
+			return new Vector4f(glow.Color.r / 255f, glow.Color.g / 255f, glow.Color.b / 255f, (float)glow.Height);
+		}
+
+		private static Vector4f PlaneVector(Plane p)
+		{
+			return new Vector4f((float)p.a, (float)p.b, (float)p.c, (float)p.d);
 		}
 
 		//mxd. Normals calculation algorithm taken from OpenGl wiki 

@@ -19,7 +19,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 	{
 		#region ================== Constants
 
-		private const int DEFAULT_GLOW_HEIGHT = 64;
+		private const int DEFAULT_GLOW_HEIGHT = 128;
 
 		#endregion
 
@@ -705,7 +705,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 							long flatnamehash = Lump.MakeLongName(token, true);
 							glowingflats[flatnamehash] = new GlowingFlatData
 														 {
-                                                             Height = DEFAULT_GLOW_HEIGHT * 2,
+                                                             Height = DEFAULT_GLOW_HEIGHT,
                                                              Fullbright = true,
                                                              Color = new PixelColor(255, 255, 255, 255),
                                                              CalculateTextureColor = true
@@ -752,7 +752,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 							// Add glow data
 							glowingflats[texturehash] = new GlowingFlatData
 							                            {
-								                            Height = glowheight * 2,
+								                            Height = glowheight,
 								                            Color = color.WithAlpha(255),
 								                            CalculateTextureColor = false
 							                            };
@@ -775,7 +775,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 								// Add glow data
 								glowingflats[texturehash] = new GlowingFlatData
 								                            {
-									                            Height = glowheight * 2,
+									                            Height = glowheight,
 									                            Color = color.WithAlpha(255),
 									                            CalculateTextureColor = false
 								                            };
@@ -797,7 +797,7 @@ namespace CodeImp.DoomBuilder.ZDoom
 						// Add glow data
 						glowingflats[texturehash] = new GlowingFlatData
 						                            {
-							                            Height = glowheight * 2,
+							                            Height = glowheight,
 							                            Fullbright = true,
 							                            Color = color.WithAlpha(255),
 							                            CalculateTextureColor = false

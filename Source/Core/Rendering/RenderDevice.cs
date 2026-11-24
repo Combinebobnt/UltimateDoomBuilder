@@ -82,6 +82,10 @@ namespace CodeImp.DoomBuilder.Rendering
 			DeclareUniform(UniformName.fogEnabled, "fogEnabled", UniformType.Float);
 			DeclareUniform(UniformName.useVertexColorUniform, "useVertexColorUniform", UniformType.Float);
 			DeclareUniform(UniformName.disableAlphaTest, "disableAlphaTest", UniformType.Float);
+			DeclareUniform(UniformName.glowTopColor, "glowTopColor", UniformType.Vec4f);
+			DeclareUniform(UniformName.glowBottomColor, "glowBottomColor", UniformType.Vec4f);
+			DeclareUniform(UniformName.glowTopPlane, "glowTopPlane", UniformType.Vec4f);
+			DeclareUniform(UniformName.glowBottomPlane, "glowBottomPlane", UniformType.Vec4f);
 
             // 2d fsaa
             CompileShader(ShaderName.display2d_fsaa, "display2d.shader", "display2d_fsaa");
@@ -833,7 +837,11 @@ namespace CodeImp.DoomBuilder.Rendering
 		timer,
 		fogEnabled,
 		useVertexColorUniform,
-		disableAlphaTest
+		disableAlphaTest,
+		glowTopColor,
+		glowBottomColor,
+		glowTopPlane,
+		glowBottomPlane
     }
 
     public enum VertexFormat : int { Flat, World }

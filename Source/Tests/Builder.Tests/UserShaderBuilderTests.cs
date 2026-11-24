@@ -120,6 +120,18 @@ namespace Builder.Tests
 			Assert.Contains("#if defined(ALPHA_TEST)", zan.FragmentSource);
 		}
 
+		[Theory]
+		[InlineData(1)]
+		[InlineData(2)]
+		public void WallGlowIsAddedToTheLightBeforeMaterialLighting(int dialect)
+		{
+			string fragment = Build("vec4 Process(vec4 c) { return c; }", (UserShaderDialect)dialect).FragmentSource;
+			Assert.True(System.Text.RegularExpressions.Regex.IsMatch(fragment, @"vec3 wallGlow\s*\(vec3 PosW\)\s*\{"));
+			int glow = fragment.IndexOf("baseLight = addWallGlow(baseLight, PosW);");
+			Assert.True(glow > fragment.IndexOf("vec4 baseLight ="));
+			Assert.True(glow < fragment.IndexOf("getDynLightContribution(", glow));
+		}
+
 		[Fact]
 		public void ProgramKeySharesCodeButNotDefinesOrSamplerLayout()
 		{

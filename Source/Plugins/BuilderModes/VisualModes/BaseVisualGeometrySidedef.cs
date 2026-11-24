@@ -278,12 +278,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 			}
 
+			// Glow is added after the light in the shader, from the front sector's planes
+			SetGlow(sd.CeilingGlow, sd.Ceiling.plane, sd.FloorGlow, sd.Floor.plane);
+
 			//mxd. Interpolate vertex colors?
 			for(int i = 0; i < verts.Count; i++)
-			{
-				//if(verts[i].c == PixelColor.INT_WHITE) continue; // Fullbright verts are not affected by glows.
 				verts[i] = InterpolateVertexColor(verts[i], sd);
-			}
 			
 			return verts;
 		}
@@ -291,42 +291,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd
 		private static WorldVertex InterpolateVertexColor(WorldVertex v, SectorData data) 
 		{
-            // don't process glows if fullbright.
-            //if (v.c == PixelColor.INT_WHITE)
-            //    return v;
-
-			// Apply ceiling glow?
-			if(data.CeilingGlow != null)
-			{
-				double cgz = data.CeilingGlowPlane.GetZ(v.x, v.y);
-
-				// Vertex is above ceiling glow plane?
-				if(v.z > cgz)
-				{
-					double cz = data.Ceiling.plane.GetZ(v.x, v.y);
-					double delta = 1.0f - (((v.z - cgz) / (cz - cgz)) * 0.9f);
-					PixelColor vertexcolor = PixelColor.FromInt(v.c);
-					PixelColor glowcolor = PixelColor.Add(vertexcolor, data.CeilingGlow.Color);
-					v.c = InterpolationTools.InterpolateColor(glowcolor, vertexcolor, delta).WithAlpha(255).ToInt();
-				}
-			}
-
-			// Apply floor glow?
-			if(data.FloorGlow != null)
-			{
-				double fgz = data.FloorGlowPlane.GetZ(v.x, v.y);
-
-				// Vertex is below floor glow plane?
-				if(v.z < fgz)
-				{
-					double fz = data.Floor.plane.GetZ(v.x, v.y);
-					double delta = 1.0f - (((v.z - fz) / (fgz - fz)) * 0.9f);
-					PixelColor vertexcolor = PixelColor.FromInt(v.c);
-					PixelColor glowcolor = PixelColor.Add(vertexcolor, data.FloorGlow.Color);
-					v.c = InterpolationTools.InterpolateColor(vertexcolor, glowcolor, delta).WithAlpha(255).ToInt();
-				}
-			}
-
             // [ZZ] process sector top and bottom colors.
             // block
             {

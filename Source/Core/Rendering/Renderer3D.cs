@@ -1022,6 +1022,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
 						// Skew
 						graphics.SetUniform(UniformName.skew, g.Skew);
+						SetGlowUniforms(g);
 
 						// Render!
 						graphics.Draw(PrimitiveType.TriangleList, g.VertexOffset, g.Triangles);
@@ -1031,6 +1032,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// Done with geometry, reset potentially lingering skew setting
 			graphics.SetUniform(UniformName.skew, new Vector2f(0.0f, 0.0f));
+			SetGlowUniforms(null);
 
 			graphics.SetUniform(UniformName.lightsEnabled, false);
 
@@ -1161,6 +1163,15 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetCullMode(Cull.Clockwise); //mxd
 			}
 			UnbindMaterials();
+		}
+
+		// Wall glow of one geometry, or none
+		private void SetGlowUniforms(VisualGeometry g)
+		{
+			graphics.SetUniform(UniformName.glowTopColor, g != null ? g.GlowTopColor : new Vector4f());
+			graphics.SetUniform(UniformName.glowBottomColor, g != null ? g.GlowBottomColor : new Vector4f());
+			graphics.SetUniform(UniformName.glowTopPlane, g != null ? g.GlowTopPlane : new Vector4f());
+			graphics.SetUniform(UniformName.glowBottomPlane, g != null ? g.GlowBottomPlane : new Vector4f());
 		}
 
 		//mxd
@@ -1367,6 +1378,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
 					// Skew
 					graphics.SetUniform(UniformName.skew, g.Skew);
+					SetGlowUniforms(g);
 
 					// Set the colors to use
 					graphics.SetUniform(UniformName.sectorfogcolor, sector.Sector.FogColor);
@@ -1380,6 +1392,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// Done with geometry, reset potentially lingering skew setting
 			graphics.SetUniform(UniformName.skew, new Vector2f(0.0f, 0.0f));
+			SetGlowUniforms(null);
 
 			graphics.SetUniform(UniformName.lightsEnabled, false);
 
