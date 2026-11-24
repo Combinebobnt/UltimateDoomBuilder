@@ -22,7 +22,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		#region ================== Mirror
 
 		// Mirrors path across the vertical (mirrorx) and/or horizontal (mirrory) line through pivot.
-		// The original (or the path merged with its mirror image) comes first.
+		// Off-axis pieces (each merged with its mirror image where it touches the axis) come before on-axis runs.
 		public static List<List<DrawnVertex>> Mirror(IList<DrawnVertex> path, Vector2D pivot, bool mirrorx, bool mirrory)
 		{
 			List<List<DrawnVertex>> result = new List<List<DrawnVertex>> { Deduped(path) };
