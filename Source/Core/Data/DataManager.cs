@@ -86,6 +86,7 @@ namespace CodeImp.DoomBuilder.Data
 		private TextureAnimationOrder animationorder;
 		private Dictionary<int, ImageData> animationimages;
 		private Dictionary<ImageData, int> animationkeys;
+		private EmissiveTable emissivetable = EmissiveTable.Empty;
 		private struct MaterialImageRegistration
 		{
 			internal int Resource, Source, Order;
@@ -224,6 +225,7 @@ namespace CodeImp.DoomBuilder.Data
 		internal AllTextureSet WallTextureSet { get { return walltextureset; } }
 		internal AllTextureSet FlatTextureSet { get { return flattextureset; } }
 		public TextureAnimator Animator { get { return animator; } }
+		internal EmissiveTable EmissiveTable { get { return emissivetable; } }
 		
 		public bool IsLoading
 		{
@@ -687,6 +689,10 @@ namespace CodeImp.DoomBuilder.Data
             // [ZZ] clear texture/flat cache in ImageSelectorPanel
             ImageSelectorPanel.ClearCachedPreviews();
 			
+			// The bake's emissive table: on this thread, before the loader takes the images
+			LoadEmitdefs();
+			timing.Mark("emitdefs");
+
 			// Start background loading
 			StartBackgroundLoader(true);
 			timing.Mark("skybox preview clear and loader start");
@@ -761,6 +767,7 @@ namespace CodeImp.DoomBuilder.Data
 			warps.Clear();
 			animator = null;
 			animationorder = null;
+			emissivetable = EmissiveTable.Empty;
 			palette = null;
 
 			//mxd. Dispose models
@@ -3601,6 +3608,67 @@ namespace CodeImp.DoomBuilder.Data
 		{
 			WarpInfo warp;
 			return warps.TryGetValue(image, out warp) ? (WarpInfo?)warp : null;
+		}
+
+		// Merges EMITDEFS from every resource in load order into the bake's emissive texture table
+		private void LoadEmitdefs()
+		{
+			Action<string> warn = message => General.ErrorLogger.Add(ErrorType.Warning, "EMITDEFS " + message);
+			var entries = new List<EmitdefsEntry>();
+			foreach(DataReader dr in containers)
+			{
+				foreach(TextResourceData data in dr.GetEmitdefsData())
+				{
+					string text;
+					data.Stream.Seek(0, SeekOrigin.Begin);
+					using(StreamReader reader = new StreamReader(data.Stream, System.Text.Encoding.UTF8, true, 1024, true)) text = reader.ReadToEnd();
+					string source = Path.Combine(dr.Location.GetDisplayName(), data.Filename);
+					entries.AddRange(EmitdefsParser.Parse(text, source, warn));
+				}
+			}
+			emissivetable = entries.Count == 0 ? EmissiveTable.Empty : EmissiveTable.Build(entries, CreateEmissiveResolver(), warn);
+			if(emissivetable.EntryCount > 0)
+				General.WriteLogLine("Loaded " + emissivetable.EntryCount + " emissive texture entries (" + emissivetable.Items.Count + " with animation frames).");
+		}
+
+		internal EmissiveResolver CreateEmissiveResolver()
+		{
+			return new EmissiveResolver
+			{
+				Resolve = (name, kind) =>
+				{
+					ImageData image = kind == EmissiveSurface.Walls ? GetTextureImage(name) : GetFlatImage(name);
+					return image == unknownimage ? null : image;
+				},
+				Frames = image => AnimationFramesOf((ImageData)image),
+				AutoColor = image =>
+				{
+					ImageColorStats stats = ((ImageData)image).ComputeFullColorStats();
+					return stats.HasColor ? EmissiveTable.ScaleToFull(stats.Mean.r, stats.Mean.g, stats.Mean.b) : null;
+				},
+				Describe = image => ((ImageData)image).Name,
+			};
+		}
+
+		// The images of the ANIMATED/ANIMDEFS sequence holding image, or null. Frames are returned as
+		// GetTextureImage/GetFlatImage return them, not as their split material identities.
+		private IEnumerable<object> AnimationFramesOf(ImageData image)
+		{
+			int key;
+			ImageData copy;
+			if(animator == null) return null;
+			if(!animationkeys.TryGetValue(image, out key) && !(shortmaterialimages.TryGetValue(image, out copy) && animationkeys.TryGetValue(copy, out key))) return null;
+			int[] frames = animator.SequenceOf(key);
+			if(frames == null) return null;
+			var originals = shortmaterialimages.ToDictionary(p => p.Value, p => p.Key);
+			var result = new List<object>();
+			foreach(int frame in frames)
+			{
+				ImageData frameimage, original;
+				if(!animationimages.TryGetValue(frame, out frameimage)) continue;
+				result.Add(originals.TryGetValue(frameimage, out original) ? original : frameimage);
+			}
+			return result;
 		}
 
 		//mxd. This loads TERRAIN

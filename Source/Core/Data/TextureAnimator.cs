@@ -121,6 +121,14 @@ namespace CodeImp.DoomBuilder.Data
 		}
 
 		internal int Resolve(int key) { int frame; return translations.TryGetValue(key, out frame) ? frame : key; }
+
+		// The frames of the first sequence holding key, or null when key isn't animated
+		internal int[] SequenceOf(int key)
+		{
+			foreach(int basekey in bases)
+				if(Array.IndexOf(animations[basekey].Frames, key) >= 0) return (int[])animations[basekey].Frames.Clone();
+			return null;
+		}
 	}
 
 	internal sealed class TextureAnimationOrder

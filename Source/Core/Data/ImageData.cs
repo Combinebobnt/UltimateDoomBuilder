@@ -661,6 +661,20 @@ namespace CodeImp.DoomBuilder.Data
 			return true;
 		}
 
+		// The full image's colour stats, decoded now on the calling thread with no colour correction.
+		// Skips ConvertImageFormat, which updates this image's state; LockBits converts the format.
+		internal ImageColorStats ComputeFullColorStats()
+		{
+			LocalLoadResult result = LocalLoadImage();
+			bool failed = result.bitmap == null || result.messages.Any(x => x.Type == ErrorType.Error);
+			try { return ComputePreviewColorStats(result.bitmap, failed); }
+			finally
+			{
+				foreach(Bitmap b in new[] { result.bitmap, result.preview, result.uncorrected })
+					if(b != null) b.Dispose();
+			}
+		}
+
 		private static ImageColorStats ComputePreviewColorStats(Bitmap preview, bool failed)
 		{
 			if(failed || preview == null) return ImageColorStats.Compute(new PixelColor[0]);

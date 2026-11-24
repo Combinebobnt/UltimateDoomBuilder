@@ -58,14 +58,18 @@ namespace CodeImp.DoomBuilder.Compilers
 		public readonly string InputPath;
 		public readonly string OutputPath;
 		public readonly string Fingerprint;
+		public readonly string EmissivePath;    // the baker's --emissive file, null when none is passed
+		public readonly string EmissiveSummary; // null when no EMITDEFS is loaded
 		public readonly LightmapBaker Baker = new LightmapBaker();
 		private bool outputtaken;
 
-		public LightmapBakeJob(string inputpath, string outputpath, string fingerprint)
+		public LightmapBakeJob(string inputpath, string outputpath, string fingerprint, string emissivepath = null, string emissivesummary = null)
 		{
 			InputPath = inputpath;
 			OutputPath = outputpath;
 			Fingerprint = fingerprint;
+			EmissivePath = emissivepath;
+			EmissiveSummary = emissivesummary;
 		}
 
 		public string TakeOutput()
@@ -78,6 +82,7 @@ namespace CodeImp.DoomBuilder.Compilers
 		{
 			Baker.Dispose();
 			Delete(InputPath);
+			if(EmissivePath != null) Delete(EmissivePath);
 			if(!outputtaken) Delete(OutputPath);
 		}
 
@@ -188,7 +193,7 @@ namespace CodeImp.DoomBuilder.Compilers
 		public TimeSpan Elapsed { get { return timer.Elapsed; } }
 
 		// Arguments in zdbsp style: GL nodes in XGLN form, as UDB's zdbsp profiles write them
-		public static string BuildArguments(LightmapBakeSettings settings, int processorcount, string mapname, string inputfile, string outputfile)
+		public static string BuildArguments(LightmapBakeSettings settings, int processorcount, string mapname, string inputfile, string outputfile, string emissivefile = null)
 		{
 			List<string> args = new List<string> { "-c", "-X", "-m", mapname };
 			if(settings.CpuOnly) args.Add("-C");
@@ -196,6 +201,11 @@ namespace CodeImp.DoomBuilder.Compilers
 			args.Add(settings.EffectiveThreads(processorcount).ToString(CultureInfo.InvariantCulture));
 			args.Add("-S");
 			args.Add(settings.TextureSize.ToString(CultureInfo.InvariantCulture));
+			if(emissivefile != null)
+			{
+				args.Add("--emissive");
+				args.Add(Quote(emissivefile));
+			}
 			args.Add("-o");
 			args.Add(Quote(outputfile));
 			args.Add(Quote(inputfile));
@@ -204,12 +214,12 @@ namespace CodeImp.DoomBuilder.Compilers
 
 		private static string Quote(string path) { return "\"" + path + "\""; }
 
-		public void Start(LightmapBakeSettings settings, string inputfile, string outputfile)
+		public void Start(LightmapBakeSettings settings, string inputfile, string outputfile, string emissivefile = null)
 		{
 			ProcessStartInfo info = new ProcessStartInfo
 			{
 				FileName = settings.BakerPath,
-				Arguments = BuildArguments(settings, Environment.ProcessorCount, MapManager.BUILD_MAP_HEADER, inputfile, outputfile),
+				Arguments = BuildArguments(settings, Environment.ProcessorCount, MapManager.BUILD_MAP_HEADER, inputfile, outputfile, emissivefile),
 				WorkingDirectory = Path.GetDirectoryName(inputfile),
 				UseShellExecute = false,
 				CreateNoWindow = true,

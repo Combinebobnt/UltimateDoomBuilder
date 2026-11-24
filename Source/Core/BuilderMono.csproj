@@ -277,6 +277,7 @@
     <Compile Include="Data\TextureFavorites.cs" />
     <Compile Include="Data\TextureNameMatcher.cs" />
     <Compile Include="Data\ImageColorStats.cs" />
+    <Compile Include="Data\EmissiveTable.cs" />
     <Compile Include="Controls\TextureHistoryView.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -1338,6 +1339,7 @@
     <Compile Include="ZDoom\ActorStructure.cs" />
     <Compile Include="ZDoom\AnimdefsParser.cs" />
     <Compile Include="ZDoom\AnimatedLump.cs" />
+    <Compile Include="ZDoom\EmitdefsParser.cs" />
     <Compile Include="ZDoom\CvarInfoParser.cs" />
     <Compile Include="ZDoom\PatchStructure.cs" />
     <Compile Include="ZDoom\ReverbsParser.cs" />

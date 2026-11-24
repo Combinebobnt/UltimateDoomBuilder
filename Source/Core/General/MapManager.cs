@@ -2367,7 +2367,7 @@ namespace CodeImp.DoomBuilder
 			if(textmapindex < 0) return false;
 
 			string[] current = BakedTextmap.ReadLines(temp.Lumps[textmapindex]);
-			string fingerprint = BakeFingerprint.Compute(current);
+			string fingerprint = BakeFingerprint.Combine(BakeFingerprint.Compute(current), EmissiveDigest);
 			if(fingerprint != lightmapbake.Fingerprint)
 			{
 				General.WriteLogLine("The lightmap bake does not match the map: it changed since the bake (map " +
@@ -2467,8 +2467,27 @@ namespace CodeImp.DoomBuilder
 				if(!waschanged) ForceMapIsChangedFalse();
 			}
 
-			fingerprint = TextmapFingerprint(data);
+			fingerprint = BakeFingerprint.Combine(TextmapFingerprint(data), EmissiveDigest);
 			return data;
+		}
+
+		// The loaded emissive table's digest, part of every bake fingerprint; null without a table
+		private string EmissiveDigest { get { return data != null ? data.EmissiveTable.Digest : null; } }
+
+		// Every wall and flat texture string the map uses, for the baker's emissive file
+		private IEnumerable<KeyValuePair<string, ZDoom.EmissiveSurface>> EmissiveMapNames()
+		{
+			foreach(Sidedef sd in map.Sidedefs)
+			{
+				yield return new KeyValuePair<string, ZDoom.EmissiveSurface>(sd.HighTexture, ZDoom.EmissiveSurface.Walls);
+				yield return new KeyValuePair<string, ZDoom.EmissiveSurface>(sd.MiddleTexture, ZDoom.EmissiveSurface.Walls);
+				yield return new KeyValuePair<string, ZDoom.EmissiveSurface>(sd.LowTexture, ZDoom.EmissiveSurface.Walls);
+			}
+			foreach(Sector s in map.Sectors)
+			{
+				yield return new KeyValuePair<string, ZDoom.EmissiveSurface>(s.FloorTexture, ZDoom.EmissiveSurface.Flats);
+				yield return new KeyValuePair<string, ZDoom.EmissiveSurface>(s.CeilTexture, ZDoom.EmissiveSurface.Flats);
+			}
 		}
 
 		// The output TEXTMAP of a copy made by CloneForOutput; touches nothing but the copy and the writer
@@ -2616,8 +2635,32 @@ namespace CodeImp.DoomBuilder
 				wad.WriteHeaders();
 			}
 
-			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint);
-			try { job.Baker.Start(settings, input, output); }
+			// The emissive file goes to the baker only when some map texture emits
+			string emissivepath = null, emissivesummary = null;
+			EmissiveTable table = this.data.EmissiveTable;
+			if(table.EntryCount > 0)
+			{
+				int used;
+				string text = table.BuildBakeFile(EmissiveMapNames(), w => General.ErrorLogger.Add(ErrorType.Warning, w), out used);
+				emissivesummary = "Emissive textures: " + table.EntryCount + (table.EntryCount == 1 ? " entry, " : " entries, ") + used + " used by this map";
+				General.WriteLogLine(emissivesummary + ".");
+				if(text != null)
+				{
+					emissivepath = General.MakeTempFilename(temppath, "txt");
+					try { File.WriteAllText(emissivepath, text); }
+					catch(Exception e)
+					{
+						try { File.Delete(input); File.Delete(emissivepath); }
+						catch(IOException) { }
+						catch(UnauthorizedAccessException) { }
+						error = "The emissive texture file could not be written: " + e.Message;
+						return null;
+					}
+				}
+			}
+
+			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint, emissivepath, emissivesummary);
+			try { job.Baker.Start(settings, input, output, emissivepath); }
 			catch(Exception e)
 			{
 				job.Dispose();
@@ -2633,7 +2676,12 @@ namespace CodeImp.DoomBuilder
 			LightmapLump lightmap = null;
 			string error = null;
 			if(job.Baker.Cancelled) error = "cancelled";
-			else if(exitcode != 0) error = "the baker exited with code " + exitcode;
+			else if(exitcode != 0)
+			{
+				error = "the baker exited with code " + exitcode;
+				// Upstream ZDRay has no --emissive and exits on an unknown option
+				if(job.EmissivePath != null) error += " (the emissive texture table needs the forked ZDRay build described in its README)";
+			}
 			else if(!File.Exists(job.OutputPath)) error = "the baker wrote no output file";
 			else
 			{
@@ -2661,7 +2709,8 @@ namespace CodeImp.DoomBuilder
 
 			// The next save writes the bake; a matching map makes it a cache hit
 			IsChanged = true;
-			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + ". Save or Test to use it.";
+			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + "." +
+				(job.EmissiveSummary != null ? " " + job.EmissiveSummary + "." : "") + " Save or Test to use it.";
 			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary);
 			return true;
 		}
@@ -2754,10 +2803,11 @@ namespace CodeImp.DoomBuilder
 			MapSet copy = check.Copy;
 			UniversalStreamWriter writer = new UniversalStreamWriter();
 			string engine = config.EngineName;
+			string emissive = EmissiveDigest;
 			check.Fingerprint = Task.Run(() =>
 			{
 				Stopwatch worker = Stopwatch.StartNew();
-				string fingerprint = TextmapFingerprint(WriteTextmap(writer, copy, engine));
+				string fingerprint = BakeFingerprint.Combine(TextmapFingerprint(WriteTextmap(writer, copy, engine)), emissive);
 				check.WorkerTime = worker.ElapsedMilliseconds;
 				return fingerprint;
 			});
@@ -3563,6 +3613,9 @@ namespace CodeImp.DoomBuilder
 			Cursor.Current = Cursors.WaitCursor;
 			timing.Mark("pre-command");
 
+			// An EMITDEFS change makes the bake stale, so the preview checks again
+			string olddigest = EmissiveDigest;
+
 			// Clean up
 			using(ResourceReaderPool readers = incremental ? data.DetachReadersForReload() : null)
 			{
@@ -3600,6 +3653,7 @@ namespace CodeImp.DoomBuilder
 				}
 			}
 			timing.Mark("data load");
+			if(EmissiveDigest != olddigest) lightmapsourceversion++;
 			UpdateFavorites();
 
 			// Apply new settings to map elements

@@ -793,6 +793,17 @@ namespace CodeImp.DoomBuilder.Data
 			return result;
 		}
 
+		public override IEnumerable<TextResourceData> GetEmitdefsData()
+		{
+			if(issuspended) throw new Exception("Data reader is suspended");
+
+			List<TextResourceData> result = new List<TextResourceData>();
+			foreach(string s in GetAllFilesWhichTitleStartsWith("", "EMITDEFS", false))
+				result.Add(new TextResourceData(this, LoadFile(s), s, true));
+			foreach(WADReader wr in wads) result.AddRange(wr.GetEmitdefsData());
+			return result;
+		}
+
 		#endregion
 
 		#region ================== Generic text lumps loading (mxd)

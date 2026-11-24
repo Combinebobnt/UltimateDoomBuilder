@@ -257,6 +257,9 @@ namespace CodeImp.DoomBuilder.Data
 		//mxd. When implemented, this returns GLDEFS lumps
 		public abstract IEnumerable<TextResourceData> GetGldefsData(string basegame);
 
+		// When implemented, this returns EMITDEFS lumps (the bake's emissive texture table)
+		public abstract IEnumerable<TextResourceData> GetEmitdefsData();
+
 		//mxd. When implemented, this returns generic text lump data
 		public abstract IEnumerable<TextResourceData> GetTextLumpData(ScriptType scripttype, bool singular, bool partialtitlematch);
 		public virtual Stream GetAnimatedData() { return null; }

@@ -1152,6 +1152,12 @@ namespace CodeImp.DoomBuilder.Data
 			return result;
 		}
 
+		public override IEnumerable<TextResourceData> GetEmitdefsData()
+		{
+			if(issuspended) throw new Exception("Data reader is suspended");
+			return GetAllLumpsData("EMITDEFS");
+		}
+
 		//mxd
 		public override IEnumerable<TextResourceData> GetTextLumpData(ScriptType scripttype, bool singular, bool ignored)
 		{

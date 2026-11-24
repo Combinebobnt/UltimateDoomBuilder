@@ -61,6 +61,17 @@ namespace CodeImp.DoomBuilder.Map
 			}
 		}
 
+		// Folds the emissive table's digest in; no table keeps the TEXTMAP fingerprint as it was
+		public static string Combine(string textmapfingerprint, string emissivedigest)
+		{
+			if(textmapfingerprint == null || string.IsNullOrEmpty(emissivedigest)) return textmapfingerprint;
+			using(SHA256 sha = SHA256.Create())
+			{
+				byte[] data = Encoding.UTF8.GetBytes(textmapfingerprint + "\nemissive " + emissivedigest);
+				return BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "");
+			}
+		}
+
 		internal static bool IsThing(UniversalEntry entry)
 		{
 			return entry.Value is UniversalCollection && string.Equals(entry.Key, "thing", StringComparison.OrdinalIgnoreCase);
