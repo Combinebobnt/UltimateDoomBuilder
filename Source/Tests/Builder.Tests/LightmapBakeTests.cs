@@ -4,6 +4,7 @@ using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
 using System.Text;
+using System.Windows.Forms;
 
 namespace Builder.Tests
 {
@@ -141,32 +142,83 @@ namespace Builder.Tests
 
 		private static string[] Lines(string text) { return BakedTextmap.Lines(text); }
 
-		private static readonly ICollection<int> EXCLUDED = BakeFingerprint.ExcludedTypes(32000);
-
-		private static string Fingerprint(string textmap) { return BakeFingerprint.Compute(Lines(textmap), EXCLUDED); }
+		private static string Fingerprint(string textmap) { return BakeFingerprint.Compute(Lines(textmap)); }
 
 		[Fact]
-		public void FingerprintIgnoresOnlyTestStartsAndTheVisualCamera()
+		public void FingerprintIgnoresThingsTheBakerDoesNotRead()
 		{
-			string baseline = Fingerprint(GEOMETRY + Thing(1, 16) + Thing(9876, 32) + Thing(32000, 48));
+			string lights = Thing(9876, 32) + Thing(9881, 64, "angle = 90;\n");
+			string baseline = Fingerprint(GEOMETRY + Thing(1, 16) + Thing(9876, 32) + Thing(3004, 40) + Thing(9881, 64, "angle = 90;\n") + Thing(2011, 80) + Thing(32000, 48));
 			Assert.NotNull(baseline);
 
-			// Player 1 start moved, added or removed, the 3D-mode camera moved, index comments changed
-			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(1, 40) + Thing(9876, 32) + Thing(32000, 48)));
-			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(32000, 48)));
-			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(32000, 48) + Thing(1, 8)));
-			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(1, 16) + Thing(9876, 32) + Thing(32000, 96)));
-			Assert.Equal(baseline, Fingerprint(GEOMETRY.Replace("// 1", "// 7") + Thing(1, 16) + Thing(9876, 32) + Thing(32000, 48)));
+			// A monster, an item, player 1 start and the 3D-mode camera moved, added or removed
+			Assert.Equal(baseline, Fingerprint(GEOMETRY + lights));
+			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(1, 24) + Thing(9876, 32) + Thing(3004, 8) + Thing(9881, 64, "angle = 90;\n") + Thing(2011, 0) + Thing(32000, 96)));
+			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(3004, 0) + Thing(2011, 0) + lights + Thing(1, 8) + Thing(32000, 8) + Thing(3004, 99)));
+			// The monster between the two lights deleted
+			Assert.Equal(baseline, Fingerprint(GEOMETRY + Thing(1, 16) + Thing(9876, 32) + Thing(9881, 64, "angle = 90;\n") + Thing(2011, 80) + Thing(32000, 48)));
+			// Index comments changed
+			Assert.Equal(baseline, Fingerprint(GEOMETRY.Replace("// 1", "// 7") + lights));
 
-			// Any other thing, a vertex, a custom field
-			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(1, 16) + Thing(9876, 33) + Thing(32000, 48)));
-			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(1, 16) + Thing(9876, 32) + Thing(3004, 0) + Thing(32000, 48)));
-			Assert.NotEqual(baseline, Fingerprint(GEOMETRY.Replace("x = 64.0;", "x = 65.0;") + Thing(1, 16) + Thing(9876, 32) + Thing(32000, 48)));
-			Assert.NotEqual(baseline, Fingerprint(GEOMETRY.Replace("user_v = 3;", "user_v = 4;") + Thing(1, 16) + Thing(9876, 32) + Thing(32000, 48)));
+			// A vertex, a custom field, the lights' order
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY.Replace("x = 64.0;", "x = 65.0;") + lights));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY.Replace("user_v = 3;", "user_v = 4;") + lights));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(9881, 64, "angle = 90;\n") + Thing(9876, 32)));
 
-			// No 3D-mode camera type configured: only player 1 starts are left out
-			Assert.Equal(new[] { 1 }, BakeFingerprint.ExcludedTypes(0).ToArray());
 			Assert.Null(Fingerprint("vertex { x = bogus; }"));
+		}
+
+		[Theory]
+		[InlineData(9875)]
+		[InlineData(9876)]
+		[InlineData(9881)]
+		[InlineData(9890)]
+		[InlineData(9300)]
+		[InlineData(3000)]
+		[InlineData(1504)]
+		[InlineData(9500)]
+		public void FingerprintTracksEveryBakerThing(int type)
+		{
+			Assert.Contains(type, BakeFingerprint.BAKER_THING_TYPES);
+			string others = Thing(3004, 40) + Thing(9876, 200);
+			string baseline = Fingerprint(GEOMETRY + Thing(type, 16, "angle = 0;\narg0 = 1;\n") + others);
+			Assert.NotNull(baseline);
+
+			// Moved, a field changed, removed, added again
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(type, 17, "angle = 0;\narg0 = 1;\n") + others));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(type, 16, "angle = 0;\narg0 = 2;\n") + others));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(type, 16, "angle = 45;\narg0 = 1;\n") + others));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + others));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(type, 16, "angle = 0;\narg0 = 1;\n") + others + Thing(type, 96)));
+
+			// Retyped from a monster, or to one
+			Assert.NotEqual(Fingerprint(GEOMETRY + Thing(3004, 16) + others), Fingerprint(GEOMETRY + Thing(type, 16) + others));
+			Assert.NotEqual(baseline, Fingerprint(GEOMETRY + Thing(3004, 16, "angle = 0;\narg0 = 1;\n") + others));
+		}
+
+		[Fact]
+		public void FingerprintTracksHexenPolySpawnsOnlyWithAnAnchor()
+		{
+			foreach(int spawn in new[] { 3001, 3002 })
+			{
+				Assert.Contains(spawn, BakeFingerprint.HEXEN_POLY_SPAWN_TYPES);
+				Assert.DoesNotContain(spawn, BakeFingerprint.BAKER_THING_TYPES);
+
+				// No anchor: Doom's Imp and Demon, moved, removed or added
+				string doom = Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(spawn, 16, "angle = 1;\n"));
+				Assert.Equal(doom, Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(spawn, 80, "angle = 1;\n")));
+				Assert.Equal(doom, Fingerprint(GEOMETRY + Thing(9876, 32)));
+
+				// With an anchor: polyobject spawn spots
+				string anchor = Thing(3000, 48, "angle = 1;\n");
+				string hexen = Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(spawn, 16, "angle = 1;\n") + anchor);
+				Assert.NotEqual(hexen, Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(spawn, 80, "angle = 1;\n") + anchor));
+				Assert.NotEqual(hexen, Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(spawn, 16, "angle = 2;\n") + anchor));
+				Assert.NotEqual(hexen, Fingerprint(GEOMETRY + Thing(9876, 32) + anchor));
+
+				// The first anchor added
+				Assert.NotEqual(doom, hexen);
+			}
 		}
 
 		private static UniversalParser Parse(string text)
@@ -343,6 +395,38 @@ namespace Builder.Tests
 		public void TestLaunchAddsTheLightmapParameterOnce(string args, bool haslightmap, string parameter, string expected)
 		{
 			Assert.Equal(expected, Launcher.AddLightmapParameter(args, haslightmap, parameter));
+		}
+
+		[Theory]
+		[InlineData(true, false, false, "None")]
+		[InlineData(true, true, false, "None")]
+		[InlineData(true, true, true, "None")]
+		[InlineData(false, false, false, "None")]
+		[InlineData(false, false, true, "None")]
+		[InlineData(false, true, false, "Ask")]
+		[InlineData(false, true, true, "Warn")]
+		public void TestAsksOncePerStaleBakeThenWarns(bool savedwithlightmap, bool stale, bool asked, string expected)
+		{
+			Assert.Equal(expected, Launcher.StaleLightmapNotice(savedwithlightmap, stale, asked).ToString());
+		}
+
+		[Fact]
+		public void StaleQuestionOffersARebakeOnlyWhenTheMapCanBeBaked()
+		{
+			MessageBoxButtons buttons;
+			MessageBoxDefaultButton defaultbutton;
+
+			string withbake = Launcher.StaleLightmapQuestion(true, out buttons, out defaultbutton);
+			Assert.Equal(MessageBoxButtons.YesNoCancel, buttons);
+			Assert.Equal(MessageBoxDefaultButton.Button2, defaultbutton); // No: test without
+
+			string withoutbake = Launcher.StaleLightmapQuestion(false, out buttons, out defaultbutton);
+			Assert.Equal(MessageBoxButtons.OKCancel, buttons);
+			Assert.Equal(MessageBoxDefaultButton.Button1, defaultbutton); // OK: test without
+
+			Assert.StartsWith(withoutbake.Substring(0, withoutbake.IndexOf('\n')), withbake);
+			Assert.Contains("Yes", withbake);
+			Assert.DoesNotContain("Yes", withoutbake);
 		}
 
 		#endregion

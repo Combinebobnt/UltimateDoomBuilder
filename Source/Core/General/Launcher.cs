@@ -35,6 +35,18 @@ namespace CodeImp.DoomBuilder
 	{
 		#region ================== Constants
 
+		internal const string STALE_LIGHTMAP_WARNING = "Testing without the lightmap: the map changed since it was baked (Tools > Bake Lightmaps).";
+		private const string STALE_LIGHTMAP_QUESTION = "This map changed since its lightmap was baked, so the test will run without the lightmap.";
+		private const string STALE_LIGHTMAP_REBAKE = "\n\nRebake before testing?\nYes: bake, then test.\nNo: test without the lightmap.\nCancel: don't test.";
+		private const string STALE_LIGHTMAP_NO_REBAKE = "\n\nOK: test without the lightmap.\nCancel: don't test.";
+
+		#endregion
+
+		#region ================== Enums
+
+		// What Test does about a bake its save could not write
+		internal enum StaleLightmapAction { None, Warn, Ask }
+
 		#endregion
 
 		#region ================== Variables
@@ -138,6 +150,21 @@ namespace CodeImp.DoomBuilder
 			string[] tokens = (args ?? string.Empty).Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 			if(Array.IndexOf(tokens, parameter.Trim()) > -1) return args;
 			return (string.IsNullOrEmpty(args) ? parameter.Trim() : args + " " + parameter.Trim());
+		}
+
+		// Asks once per stale episode, then only warns; a save that wrote a lightmap needs neither
+		internal static StaleLightmapAction StaleLightmapNotice(bool savedwithlightmap, bool stale, bool asked)
+		{
+			if(savedwithlightmap || !stale) return StaleLightmapAction.None;
+			return (asked ? StaleLightmapAction.Warn : StaleLightmapAction.Ask);
+		}
+
+		// The stale-lightmap question offers a rebake only when the map can be baked; testing without is the default
+		internal static string StaleLightmapQuestion(bool canbake, out MessageBoxButtons buttons, out MessageBoxDefaultButton defaultbutton)
+		{
+			buttons = (canbake ? MessageBoxButtons.YesNoCancel : MessageBoxButtons.OKCancel);
+			defaultbutton = (canbake ? MessageBoxDefaultButton.Button2 : MessageBoxDefaultButton.Button1);
+			return STALE_LIGHTMAP_QUESTION + (canbake ? STALE_LIGHTMAP_REBAKE : STALE_LIGHTMAP_NO_REBAKE);
 		}
 
 		// This takes the unconverted parameters (with placeholders) and converts it
@@ -354,6 +381,7 @@ namespace CodeImp.DoomBuilder
 			
 			// Save map to temporary file
 			Cursor.Current = Cursors.WaitCursor;
+			bool rebake = false;
 			General.Plugins.OnMapSaveBegin(SavePurpose.Testing);
 			if(General.Map.SaveMap(tempwad, SavePurpose.Testing))
 			{
@@ -362,8 +390,35 @@ namespace CodeImp.DoomBuilder
 				// No compiler errors?
 				if (General.Map.Errors.Count == 0)
 				{
+					// The map had a bake this save could not write
+					StaleLightmapAction stalenotice = StaleLightmapNotice(General.Map.SavedWithLightmap, General.Map.LightmapStale, General.Map.LightmapStaleAsked);
+					if (stalenotice == StaleLightmapAction.Ask)
+					{
+						General.Map.MarkLightmapStaleAsked();
+						MessageBoxButtons buttons;
+						MessageBoxDefaultButton defaultbutton;
+						string question = StaleLightmapQuestion(General.Map.LightmapBakeUnavailable() == null, out buttons, out defaultbutton);
+						DialogResult answer = General.ShowWarningMessage(question, buttons, defaultbutton);
+						if (answer == DialogResult.Yes)
+						{
+							General.WriteLogLine("Stale lightmap on Test: rebake");
+							rebake = true;
+							canceled = true;
+						}
+						else if (answer == DialogResult.No || answer == DialogResult.OK)
+						{
+							General.WriteLogLine("Stale lightmap on Test: test without");
+						}
+						else
+						{
+							General.WriteLogLine("Stale lightmap on Test: cancel");
+							General.MainWindow.DisplayStatus(StatusType.Warning, "Testing was canceled.");
+							canceled = true;
+						}
+					}
+
 					// Check if there's a pre command to run, and try to execute it
-					if (!string.IsNullOrWhiteSpace(General.Map.Options.TestPreCommand.Commands))
+					if (!canceled && !string.IsNullOrWhiteSpace(General.Map.Options.TestPreCommand.Commands))
 					{
 						if (!General.Map.ExecuteExternalCommand(General.Map.Options.TestPreCommand, tempwad))
 						{
@@ -400,7 +455,12 @@ namespace CodeImp.DoomBuilder
 						// Output info
 						General.WriteLogLine("Running test program: " + processinfo.FileName);
 						General.WriteLogLine("Program parameters:  " + processinfo.Arguments);
-						General.MainWindow.DisplayStatus(StatusType.Info, "Launching " + processinfo.FileName + "...");
+						if (stalenotice != StaleLightmapAction.None)
+						{
+							General.WriteLogLine(STALE_LIGHTMAP_WARNING);
+							General.MainWindow.DisplayStatus(StatusType.Warning, STALE_LIGHTMAP_WARNING);
+						}
+						else General.MainWindow.DisplayStatus(StatusType.Info, "Launching " + processinfo.FileName + "...");
 
 						try
 						{
@@ -445,6 +505,9 @@ namespace CodeImp.DoomBuilder
 			}
 			General.Plugins.OnMapSaveEnd(SavePurpose.Testing);
 			General.Editing.Mode.OnMapTestEnd(testfromcurrentposition); //mxd
+
+			// Only once the aborted test has unwound, so a moved player start is back before the bake copies the map
+			if(rebake && General.Map.ShowLightmapBakeForm(true)) TestAtSkill(skill, testfromcurrentposition);
 		}
 
 		//mxd
