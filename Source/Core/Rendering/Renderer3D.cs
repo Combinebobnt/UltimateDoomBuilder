@@ -57,7 +57,10 @@ namespace CodeImp.DoomBuilder.Rendering
 		
 		// Frustum
 		private ProjectedFrustum2D frustum;
-		
+		private float frustumfov;
+		private float frustumfovy;
+		private float frustumnear;
+
 		// Thing cage
 		private bool renderthingcages;
 		//mxd
@@ -172,9 +175,11 @@ namespace CodeImp.DoomBuilder.Rendering
 			showhighlight = true;
 			eventlines = new List<Line3D>(); //mxd
 			
-			// Dummy frustum
-			frustum = new ProjectedFrustum2D(new Vector2D(), 0.0f, 0.0f, PROJ_NEAR_PLANE,
-				General.Settings.ViewDistance, (float)Angle2D.DegToRad(General.Settings.VisualFOV));
+			// Dummy frustum, until CreateProjection sets the real angles
+			frustumfov = frustumfovy = (float)Angle2D.DegToRad(General.Settings.VisualFOV);
+			frustumnear = PROJ_NEAR_PLANE;
+			frustum = new ProjectedFrustum2D(new Vector2D(), 0.0f, (float)Angle2D.PI, frustumnear,
+				General.Settings.ViewDistance, frustumfov, frustumfovy);
 
 			fpsLabel = new TextLabel
 			{
@@ -298,12 +303,25 @@ namespace CodeImp.DoomBuilder.Rendering
 			// Make the projection matrix
 			projection = Matrix.PerspectiveFov(fovy, aspect, PROJ_NEAR_PLANE, General.Settings.ViewDistance);
 
+			GetRenderedFrustum(projection, out frustumfov, out frustumfovy, out frustumnear);
+
 			// We also need to re-create the 2D matrices, otherwise the corsshair will be distorted after the viewport is resized. See
 			// https://github.com/jewalky/UltimateDoomBuilder/issues/321
 			// and
 			// https://github.com/jewalky/UltimateDoomBuilder/issues/777
 			CreateMatrices2D();
 			crosshairverts = null;
+		}
+
+		// The angles and near depth a projection actually shows, for culling
+		internal static void GetRenderedFrustum(Matrix projection, out float fov, out float fovy, out float near)
+		{
+			// The shaders multiply row vectors (v * view * projection), so clip w is M34 * z (about -2z), not -z;
+			// that doubles the tangents PerspectiveFov's fov asks for, and leaves no far clip at all
+			float w = Math.Abs(projection.M34);
+			fov = 2.0f * (float)Math.Atan(w / projection.M11);
+			fovy = 2.0f * (float)Math.Atan(w / projection.M22);
+			near = projection.M43 / (projection.M33 + projection.M34); // depth where clip z reaches -w
 		}
 		
 		// This creates matrices for a camera view
@@ -317,8 +335,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			double anglez = delta.GetAngleZ();
 
 			// Create frustum
-			frustum = new ProjectedFrustum2D(pos, (float)anglexy, (float)anglez, PROJ_NEAR_PLANE,
-				General.Settings.ViewDistance, (float)Angle2D.DegToRad(General.Settings.VisualFOV));
+			frustum = new ProjectedFrustum2D(pos, (float)anglexy, (float)anglez, frustumnear,
+				General.Settings.ViewDistance, frustumfov, frustumfovy);
 
             // Make the view matrix
             view3d = Matrix.LookAt(RenderDevice.V3(pos), RenderDevice.V3(lookat), new Vector3f(0f, 0f, 1f));

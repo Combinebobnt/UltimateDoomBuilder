@@ -59,13 +59,9 @@ namespace CodeImp.DoomBuilder.VisualModes
         public List<VisualBlockEntry> GetFrustumRange(ProjectedFrustum2D frustum2D)
         {
             var frustum = new Frustum();
-            frustum.planes = new Plane[4]
-            {
-                new Plane(frustum2D.Lines[0]),
-                new Plane(frustum2D.Lines[1]),
-                new Plane(frustum2D.Lines[2]),
-                new Plane(frustum2D.Lines[3])
-            };
+            frustum.planes = new Plane[frustum2D.Lines.Length];
+            for (int i = 0; i < frustum.planes.Length; i++)
+                frustum.planes[i] = new Plane(frustum2D.Lines[i]);
 
             var result = new List<VisualBlockEntry>();
             root.GetBlocks(frustum, ref result);
@@ -240,7 +236,7 @@ namespace CodeImp.DoomBuilder.VisualModes
             Visibility TestVisibility(Frustum frustum)
             {
                 Visibility result = Visibility.Inside;
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < frustum.planes.Length; i++)
                 {
                     Visibility vis = TestFrustumLineVisibility(frustum.planes[i]);
                     if (vis == Visibility.Outside)

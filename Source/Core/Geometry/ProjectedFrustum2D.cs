@@ -30,6 +30,7 @@ namespace CodeImp.DoomBuilder.Geometry
 		private readonly float near;
 		private readonly float far;
 		private readonly float fov;
+		private readonly float fovy;
 		private readonly Vector2D pos;
 		private readonly float xyangle;
 		private readonly float zangle;
@@ -48,6 +49,7 @@ namespace CodeImp.DoomBuilder.Geometry
 		public float Near { get { return near; } }
 		public float Far { get { return far; } }
 		public float Fov { get { return fov; } }
+		public float FovY { get { return fovy; } }
 		public Vector2D Position { get { return pos; } }
 		public float XYAngle { get { return xyangle; } }
 		public float ZAngle { get { return zangle; } }
@@ -59,13 +61,10 @@ namespace CodeImp.DoomBuilder.Geometry
 
 		#region ================== Constructor / Destructor
 
-		// Constructor
-		public ProjectedFrustum2D(Vector2D pos, float xyangle, float zangle, float near, float far, float fov)
+		// Constructor. fov and fovy are the full horizontal and vertical angles the screen shows, near and
+		// far the depth range drawn; zangle is Vector3D.GetAngleZ of the view direction.
+		public ProjectedFrustum2D(Vector2D pos, float xyangle, float zangle, float near, float far, float fov, float fovy)
 		{
-			Vector2D[] forwards = new Vector2D[4];
-			Vector2D[] downwards = new Vector2D[4];
-			Vector2D[] corners = new Vector2D[4];
-			
 			// Initialize
 			this.pos = pos;
 			this.xyangle = xyangle;
@@ -73,53 +72,62 @@ namespace CodeImp.DoomBuilder.Geometry
 			this.near = near;
 			this.far = far;
 			this.fov = fov;
-			
-			// Make the corners for a forward frustum
-			// The corners are in this order: Left-Far, Right-Far, Left-Near, Right-Near
-			float fovhalf = fov * 0.5f;
-			float fovhalfcos = (float)Math.Cos(fovhalf);
-			float farsidelength = far / fovhalfcos;
-			float nearsidelength = near / fovhalfcos;
-			forwards[0] = pos + Vector2D.FromAngle(xyangle - fovhalf, farsidelength);
-			forwards[1] = pos + Vector2D.FromAngle(xyangle + fovhalf, farsidelength);
-			forwards[2] = pos + Vector2D.FromAngle(xyangle - fovhalf, nearsidelength);
-			forwards[3] = pos + Vector2D.FromAngle(xyangle + fovhalf, nearsidelength);
-			
-			// Make the corners for a downward frustum
-			// The corners are in the same order as above
-			//float farradius = far * (float)Math.Tan(fovhalf) * Angle2D.SQRT2;
-			float farradius = (float)(far * 0.5f * Angle2D.SQRT2);
-			downwards[0] = pos + Vector2D.FromAngle(xyangle - Angle2D.PI * 0.25f, farradius);
-			downwards[1] = pos + Vector2D.FromAngle(xyangle + Angle2D.PI * 0.25f, farradius);
-			downwards[2] = pos + Vector2D.FromAngle(xyangle - Angle2D.PI * 0.75f, farradius);
-			downwards[3] = pos + Vector2D.FromAngle(xyangle + Angle2D.PI * 0.75f, farradius);
-			
-			// Interpolate between the two to make the final corners depending on the z angle
-			float d = Math.Abs((float)Math.Sin(zangle));
-			corners[0] = forwards[0] * (1.0f - d) + downwards[0] * d;
-			corners[1] = forwards[1] * (1.0f - d) + downwards[1] * d;
-			corners[2] = forwards[2] * (1.0f - d) + downwards[2] * d;
-			corners[3] = forwards[3] * (1.0f - d) + downwards[3] * d;
-			
-			// Make the frustum lines
-			// Note that the lines all have their right side inside the frustum!
-			lines = new Line2D[4];
-			lines[0] = new Line2D(corners[2], corners[0]);
-			lines[1] = new Line2D(corners[1], corners[3]);
-			lines[2] = new Line2D(corners[3], corners[2]);
-			lines[3] = new Line2D(corners[0], corners[1]);
+			this.fovy = fovy;
+
+			// The 2D shadow of the 3D view frustum is the convex hull of its 8 corners projected onto the map
+			double pitchcos = -Math.Cos(zangle); // pitch = zangle - PI, positive when looking down
+			double pitchsin = -Math.Sin(zangle);
+			double tanx = Math.Tan(fov * 0.5);
+			double tany = Math.Tan(fovy * 0.5);
+			Vector2D forward = Vector2D.FromAngle(xyangle);
+			Vector2D right = forward.GetPerpendicular();
+			Vector2D[] corners = new Vector2D[8];
+			int c = 0;
+			foreach(double depth in new double[] { near, far })
+				for(int sy = -1; sy <= 1; sy += 2)
+					for(int sx = -1; sx <= 1; sx += 2)
+						corners[c++] = pos + forward * (depth * (pitchcos + sy * tany * pitchsin)) + right * (depth * sx * tanx);
+
+			// Make the frustum lines, which all have the inside on their positive GetSideOfLine side
+			Vector2D[] hull = ConvexHull(corners);
+			lines = new Line2D[hull.Length];
+			for(int i = 0; i < hull.Length; i++)
+				lines[i] = new Line2D(hull[i], hull[(i + 1) % hull.Length]);
 
 			// Calculate the circle center
-			center = (corners[0] + corners[1] + corners[2] + corners[3]) * 0.25f;
-			
+			center = new Vector2D();
+			foreach(Vector2D v in hull) center += v;
+			center = center * (1.0 / hull.Length);
+
 			// Calculate the radius from the center to the farthest corner
 			float radius2 = 0.0f;
-			for(int i = 0; i < corners.Length; i++)
+			for(int i = 0; i < hull.Length; i++)
 			{
-				float distance2 = (float)Vector2D.DistanceSq(center, corners[i]);
+				float distance2 = (float)Vector2D.DistanceSq(center, hull[i]);
 				if(distance2 > radius2) radius2 = distance2;
 			}
 			radius = (float)Math.Sqrt(radius2);
+		}
+
+		// Andrew's monotone chain, counterclockwise, collinear points dropped
+		private static Vector2D[] ConvexHull(Vector2D[] points)
+		{
+			Vector2D[] sorted = (Vector2D[])points.Clone();
+			Array.Sort(sorted, (a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.y.CompareTo(b.y));
+			Vector2D[] hull = new Vector2D[sorted.Length * 2];
+			int k = 0;
+			for(int i = 0; i < sorted.Length; i++)
+			{
+				while(k >= 2 && Line2D.GetSideOfLine(hull[k - 2], hull[k - 1], sorted[i]) <= 0) k--;
+				hull[k++] = sorted[i];
+			}
+			for(int i = sorted.Length - 2, lower = k + 1; i >= 0; i--)
+			{
+				while(k >= lower && Line2D.GetSideOfLine(hull[k - 2], hull[k - 1], sorted[i]) <= 0) k--;
+				hull[k++] = sorted[i];
+			}
+			Array.Resize(ref hull, k - 1);
+			return hull;
 		}
 
 		#endregion
