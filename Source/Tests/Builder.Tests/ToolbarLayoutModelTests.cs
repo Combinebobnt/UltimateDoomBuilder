@@ -199,6 +199,33 @@ namespace Builder.Tests
 			Assert.True(m.Get(row[3]).Offset > 700);
 		}
 
+		[Fact]
+		public void JoinInFrontKeepsHiddenStripsBehind()
+		{
+			// script is hidden (no span) and still has its default offset; undo is dropped in front of file
+			ToolbarLayoutModel m = ToolbarLayoutModel.Default();
+			List<string> row = m.Rows(TOP, 0)[0];
+			Dictionary<string, ToolbarSpan> spans = new Dictionary<string, ToolbarSpan>();
+			int at = 0;
+			foreach(string id in row)
+			{
+				if(id == "script") continue;
+				spans[id] = new ToolbarSpan(at, at + 50);
+				at += 50;
+			}
+
+			int offset = 0;
+			List<string> order = new List<string>();
+			List<bool> flush = new List<bool>();
+			int index = ToolbarLayoutModel.JoinOrder("undo", row, spans, "file", ref offset, order, flush);
+			Assert.True(m.Join("undo", TOP, 0, order, flush, index, offset));
+
+			List<string> after = m.Rows(TOP, 0)[0];
+			Assert.Equal("undo", after[0]);
+			Assert.Equal("file", after[1]);
+			Assert.Equal("script", after[2]);
+		}
+
 		private static List<bool> Packed(List<string> row)
 		{
 			List<bool> r = new List<bool>();

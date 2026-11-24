@@ -37,6 +37,15 @@ namespace CodeImp.DoomBuilder.Windows
 		public int Offset;
 	}
 
+	// Where a shown strip starts and ends along its row, in pixels
+	internal struct ToolbarSpan
+	{
+		public int Start;
+		public int End;
+
+		public ToolbarSpan(int start, int end) { Start = start; End = end; }
+	}
+
 	// The geometry of one edge, in main window client coordinates
 	internal sealed class ToolbarEdgeGeometry
 	{
@@ -193,6 +202,37 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			Compact();
 			return true;
+		}
+
+		// Join's arguments for a drop into the model's whole row; spans holds the shown strips. Hidden ones
+		// go flush behind the strip ahead, so a stale offset can't sort them past the drop.
+		public static int JoinOrder(string id, IList<string> row, IDictionary<string, ToolbarSpan> spans, string before, ref int offset, List<string> order, List<bool> flush)
+		{
+			int index = 0, prevend = 0, end = 0;
+			foreach(string other in row)
+			{
+				ToolbarSpan span;
+				if(!spans.TryGetValue(other, out span))
+				{
+					if(other == id) continue;
+					order.Add(other);
+					flush.Add(true);
+					continue;
+				}
+
+				bool touching = (span.Start <= end);
+				end = span.End;
+				if(other == id) continue;
+				if(other != before && span.Start <= offset)
+				{
+					index = order.Count + 1;
+					prevend = end;
+				}
+				order.Add(other);
+				flush.Add(touching);
+			}
+			if(offset <= prevend) offset = 0; // Flush, so it follows if the strips ahead shrink
+			return index;
 		}
 
 		// Moves a strip onto a row of an edge, or into a new row inserted at that index

@@ -55,6 +55,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly ContextMenuStrip menu;
 		private readonly Dictionary<string, StripState> strips = new Dictionary<string, StripState>(StringComparer.Ordinal);
 		private readonly Dictionary<ToolStripItem, ItemStyle> itemstyles = new Dictionary<ToolStripItem, ItemStyle>();
+		private readonly Dictionary<ToolStrip, Padding> basepadding = new Dictionary<ToolStrip, Padding>();
 		private readonly Panel[] edges = new Panel[4];
 		private readonly List<LaidRow>[] laidrows = { new List<LaidRow>(), new List<LaidRow>(), new List<LaidRow>(), new List<LaidRow>() };
 		private ToolbarLayoutModel model;
@@ -125,11 +126,48 @@ namespace CodeImp.DoomBuilder.Windows
 			strip.Dock = DockStyle.None;
 			strip.AutoSize = false;
 			strip.ContextMenuStrip = menu;
-			strip.GripStyle = model.Locked ? ToolStripGripStyle.Hidden : ToolStripGripStyle.Visible;
+			basepadding[strip] = strip.Padding;
+			strip.Paint += strip_Paint;
+			ApplyGrip(strip);
 			strip.ResumeLayout(false);
 
 			strips[id] = new StripState { Id = id, Strip = strip };
 			return strip;
+		}
+
+		// .NET hands a press on its own grip to an internal item and never raises MouseDown, so strips
+		// hide it and paint one in a leading padding band that the drag controller hit-tests
+		public static int GripBand { get { return (int)Math.Round(8 * MainForm.DPIScaler.Width); } }
+
+		private void ApplyGrip(ToolStrip strip)
+		{
+			int band = model.Locked ? 0 : GripBand;
+			Padding p = basepadding[strip];
+			if(strip.Orientation == Orientation.Horizontal) p.Left += band; else p.Top += band;
+			if(strip.GripStyle != ToolStripGripStyle.Hidden) strip.GripStyle = ToolStripGripStyle.Hidden;
+			if(strip.Padding != p) strip.Padding = p;
+		}
+
+		private void strip_Paint(object sender, PaintEventArgs e)
+		{
+			if(model.Locked) return;
+			ToolStrip strip = (ToolStrip)sender;
+			Padding bp = basepadding[strip];
+			bool horizontal = (strip.Orientation == Orientation.Horizontal);
+			int band = GripBand;
+			int dot = Math.Max(2, (int)Math.Round(2 * MainForm.DPIScaler.Width));
+			int step = dot * 2;
+
+			// A dotted line across the band, each dot with a highlight below and right of it
+			int across = (band - dot - 1) / 2;
+			int length = horizontal ? strip.Height : strip.Width;
+			for(int along = step; along + dot <= length - step; along += step)
+			{
+				int x = horizontal ? bp.Left + across : along;
+				int y = horizontal ? along : bp.Top + across;
+				e.Graphics.FillRectangle(SystemBrushes.ControlLightLight, x + 1, y + 1, dot, dot);
+				e.Graphics.FillRectangle(SystemBrushes.ControlDark, x, y, dot, dot);
+			}
 		}
 
 		// Adds the edge panels to the form around the display: top under the menu row, bottom above the
@@ -361,6 +399,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 				// Mono's preferred size keeps the old orientation's length as the new thickness
 				strip.Size = Size.Empty;
+				ApplyGrip(strip);
 			}
 			ApplyItemStyles(strip, vertical);
 		}
@@ -522,27 +561,28 @@ namespace CodeImp.DoomBuilder.Windows
 				return;
 			}
 
-			// Joining a row: the drop goes in the row's shown order, flush behind the strip it lands on
+			// Joining a row: the drop goes in the row's order, flush behind the strip it lands on
 			bool vertical = ToolbarLayoutModel.IsVertical(t.Edge);
+			Dictionary<string, ToolbarSpan> spans = new Dictionary<string, ToolbarSpan>(StringComparer.Ordinal);
+			foreach(StripState s in rows[t.Row].Strips)
+				spans[s.Id] = vertical ? new ToolbarSpan(s.Bounds.Top, s.Bounds.Bottom) : new ToolbarSpan(s.Bounds.Left, s.Bounds.Right);
 			List<string> order = new List<string>();
 			List<bool> flush = new List<bool>();
-			int index = 0, prevend = 0, end = 0;
-			foreach(StripState s in rows[t.Row].Strips)
-			{
-				int start = vertical ? s.Bounds.Y : s.Bounds.X;
-				bool touching = (start <= end);
-				end = vertical ? s.Bounds.Bottom : s.Bounds.Right;
-				if(s.Id == id) continue;
-				if(s != before && start <= offset)
-				{
-					index = order.Count + 1;
-					prevend = end;
-				}
-				order.Add(s.Id);
-				flush.Add(touching);
-			}
-			if(offset <= prevend) offset = 0; // Flush, so it follows if the strips ahead shrink
+			int index = ToolbarLayoutModel.JoinOrder(id, ModelRow(t.Edge, rows[t.Row]), spans, (before != null) ? before.Id : null, ref offset, order, flush);
 			if(model.Join(id, t.Edge, modelrow, order, flush, index, offset)) Changed();
+		}
+
+		// Every strip of a laid row's model row, hidden ones included, in the model's order
+		private List<string> ModelRow(int edge, LaidRow laid)
+		{
+			foreach(List<string> row in model.Rows(edge, General.Settings.DockersPosition))
+			{
+				ToolbarPlacement p = model.Get(row[0]);
+				if(p.Edge == edge && p.Row == laid.ModelRow) return row;
+			}
+			List<string> shown = new List<string>();
+			foreach(StripState s in laid.Strips) shown.Add(s.Id);
+			return shown;
 		}
 
 		// A drop on the leading half of a strip in the joined row takes that strip's place and pushes it on
@@ -597,8 +637,7 @@ namespace CodeImp.DoomBuilder.Windows
 		public void SetLocked(bool locked)
 		{
 			model.Locked = locked;
-			foreach(StripState s in strips.Values)
-				s.Strip.GripStyle = locked ? ToolStripGripStyle.Hidden : ToolStripGripStyle.Visible;
+			foreach(StripState s in strips.Values) ApplyGrip(s.Strip);
 			Changed();
 		}
 

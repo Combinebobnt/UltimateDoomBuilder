@@ -18,6 +18,10 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly ToolbarDock dock;
 		private readonly Panel indicator;
 
+		// .NET's ToolStrip raises neither MouseMove nor MouseUp over its own items, so a press is
+		// followed by polling the pointer and buttons as well
+		private readonly Timer poll;
+
 		private ToolStrip pressed; // Strip pressed in its grip band, before or during a drag
 		private string pressedid;
 		private Point pressclient; // Press point in form client coordinates
@@ -41,6 +45,10 @@ namespace CodeImp.DoomBuilder.Windows
 			indicator.BackColor = SystemColors.Highlight;
 			indicator.Visible = false;
 			form.Controls.Add(indicator);
+
+			poll = new Timer();
+			poll.Interval = 50;
+			poll.Tick += poll_Tick;
 
 			foreach(ToolStrip strip in dock.Strips)
 			{
@@ -73,6 +81,7 @@ namespace CodeImp.DoomBuilder.Windows
 			pressclient = form.PointToClient(strip.PointToScreen(e.Location));
 			grab = (strip.Orientation == Orientation.Horizontal) ? e.X : e.Y;
 			strip.Capture = true;
+			poll.Start();
 		}
 
 		private void strip_MouseMove(object sender, MouseEventArgs e)
@@ -86,13 +95,25 @@ namespace CodeImp.DoomBuilder.Windows
 				return;
 			}
 
-			Point p = form.PointToClient(strip.PointToScreen(e.Location));
+			Track(form.PointToClient(strip.PointToScreen(e.Location)));
+		}
+
+		private void poll_Tick(object sender, EventArgs e)
+		{
+			if(pressed == null) { poll.Stop(); return; }
+			if((Control.MouseButtons & MouseButtons.Left) == 0) End(dragging);
+			else Track(form.PointToClient(Control.MousePosition));
+		}
+
+		// p is in form client coordinates
+		private void Track(Point p)
+		{
 			if(!dragging)
 			{
 				Size threshold = SystemInformation.DragSize;
 				if(Math.Abs(p.X - pressclient.X) < threshold.Width && Math.Abs(p.Y - pressclient.Y) < threshold.Height) return;
 				dragging = true;
-				strip.Cursor = Cursors.SizeAll;
+				pressed.Cursor = Cursors.SizeAll;
 			}
 
 			UpdateTarget(p);
@@ -170,6 +191,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void End(bool commit)
 		{
 			ending = true;
+			poll.Stop();
 			ToolStrip strip = pressed;
 			string id = pressedid;
 			bool wasdragging = dragging;
