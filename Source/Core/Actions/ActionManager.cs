@@ -365,15 +365,13 @@ namespace CodeImp.DoomBuilder.Actions
             MethodInfo root = m.GetBaseDefinition();
             if (root.MethodHandle == m.MethodHandle) yield break;
 
-            Type[] parameters = Array.ConvertAll(m.GetParameters(), p => p.ParameterType);
             BindingFlags flags = BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             for (Type t = m.DeclaringType.BaseType; t != null; t = t.BaseType)
             {
-                MethodInfo b = t.GetMethod(m.Name, flags, null, parameters, null);
-                if (b == null) continue;
-                if (b.GetBaseDefinition().MethodHandle != root.MethodHandle) yield break;
-                yield return b;
-                if (b.MethodHandle == root.MethodHandle) yield break;
+                foreach (MethodInfo b in t.GetMethods(flags))
+                    if (b.Name == m.Name && b.IsVirtual && b.GetBaseDefinition().MethodHandle == root.MethodHandle)
+                        yield return b;
+                if (t == root.DeclaringType) yield break;
             }
         }
 

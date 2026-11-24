@@ -29,6 +29,17 @@ namespace Builder.Tests
 			public override void ZoomIn() { }
 		}
 
+		private class ModeHiding : ModeBase
+		{
+			private new void ZoomIn() { }
+		}
+
+		private class ModeOverridePastHidden : ModeHiding
+		{
+			[BeginAction("zoomout")]
+			public override void ZoomIn() { }
+		}
+
 		private static List<string> Names(System.Type type, System.Type attributetype)
 		{
 			MethodInfo m = type.GetMethod("ZoomIn", BindingFlags.Instance | BindingFlags.Public);
@@ -55,9 +66,12 @@ namespace Builder.Tests
 		[Fact]
 		public void OverrideKeepsItsOwnActionAndTheInheritedOne()
 		{
-			List<string> names = Names(typeof(ModeOverrideOwn), typeof(BeginActionAttribute));
-			names.Sort();
-			Assert.Equal(new List<string> { Full("zoomin"), Full("zoomout") }, names);
+			foreach(System.Type type in new[] { typeof(ModeOverrideOwn), typeof(ModeOverridePastHidden) })
+			{
+				List<string> names = Names(type, typeof(BeginActionAttribute));
+				names.Sort();
+				Assert.Equal(new List<string> { Full("zoomin"), Full("zoomout") }, names);
+			}
 		}
 	}
 }
