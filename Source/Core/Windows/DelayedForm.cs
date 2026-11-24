@@ -273,7 +273,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Let the base class know
 			base.OnLoad(e);
 
-			// Not in OnShown: on Mono a form shown at 0% opacity may never raise Shown
+			// At load, before the form can take any input
 			DialogCancelWatch.Attach(this);
 
 			if(this.DesignMode) return;
