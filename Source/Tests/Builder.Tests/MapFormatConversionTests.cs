@@ -1,4 +1,5 @@
 using CodeImp.DoomBuilder.Config;
+using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Map.Conversion;
 
@@ -50,6 +51,33 @@ namespace Builder.Tests
 			}
 			Assert.Equal(0x200, Lines("doom.txt").PassthroughFlag);
 			Assert.Equal(0, Lines("strife.txt").PassthroughFlag); // bit 9 is ML_RAILING there
+		}
+
+		// Doom-format configs name the table the engine reads them with; Eternity and EDGE read Doom maps their own way
+		[Fact]
+		public void Configs_NameABundledTableForDoomFormat()
+		{
+			string dir = Path.GetDirectoryName(XlatFolder);
+			List<string> failures = new List<string>();
+			int withtable = 0;
+			foreach(string path in Directory.GetFiles(dir, "*.cfg"))
+			{
+				string name = Path.GetFileName(path);
+				var cfg = new Configuration(path, true);
+				if(cfg.ErrorResult) { failures.Add(name + ": " + cfg.ErrorDescription); continue; }
+				string table = cfg.ReadSetting("xlattranslator", "");
+				bool doomformat = cfg.ReadSetting("formatinterface", "") == "DoomMapSetIO";
+				bool ownxlat = name.StartsWith("Eternity_") || name.StartsWith("EdgeC_");
+				if(doomformat && !ownxlat && table == "") failures.Add(name + ": no xlattranslator");
+				if((!doomformat || ownxlat) && table != "") failures.Add(name + ": xlattranslator on a config that doesn't need one");
+				if(table == "") continue;
+				withtable++;
+				string game = cfg.ReadSetting("basegame", "").ToLowerInvariant();
+				if(table != game + ".txt") failures.Add(name + ": " + table + " for base game " + game);
+				else if(XlatTable.LoadFromFolder(XlatFolder, table).Warnings.Count != 0) failures.Add(name + ": " + table + " has warnings");
+			}
+			Assert.True(failures.Count == 0, string.Join("\n", failures));
+			Assert.True(withtable >= 16, withtable + " configs name a table");
 		}
 
 		// Where the engine's parser only prints a message, it keeps going the way these cases expect

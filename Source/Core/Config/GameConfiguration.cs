@@ -78,6 +78,7 @@ namespace CodeImp.DoomBuilder.Config
 		private readonly string defaulttestcompiler;
 		private readonly string formatinterface;
 		private readonly string defaultlinedefactivation; //mxd
+		private readonly string xlattranslator;
 		private readonly string singlesidedflag;
 		private readonly string doublesidedflag;
 		private readonly string impassableflag;
@@ -253,6 +254,7 @@ namespace CodeImp.DoomBuilder.Config
 		public bool ScaledTextureOffsets { get { return scaledtextureoffsets; } }
 		public string FormatInterface { get { return formatinterface; } }
 		public string DefaultLinedefActivationFlag { get { return defaultlinedefactivation; } } //mxd
+		public string XlatTranslator { get { return xlattranslator; } } // Configurations/Xlat table the engine reads this config's Doom-format maps with; empty when none
 		public string SingleSidedFlag { get { return singlesidedflag; } }
 		public string DoubleSidedFlag { get { return doublesidedflag; } }
 		public string ImpassableFlag { get { return impassableflag; } }
@@ -508,6 +510,7 @@ namespace CodeImp.DoomBuilder.Config
 			thingclasshelp = cfg.ReadSetting("thingclasshelp", string.Empty); //mxd
 			sidedefcompressionignoresaction = cfg.ReadSetting("sidedefcompressionignoresaction", false); //mxd
 			defaultlinedefactivation = cfg.ReadSetting("defaultlinedefactivation", ""); //mxd
+			xlattranslator = cfg.ReadSetting("xlattranslator", "");
 			localsidedeftextureoffsets = (cfg.ReadSetting("localsidedeftextureoffsets", false)); //MaxW
 			effect3dfloorsupport = cfg.ReadSetting("effect3dfloorsupport", false);
 			planeequationsupport = cfg.ReadSetting("planeequationsupport", false);
