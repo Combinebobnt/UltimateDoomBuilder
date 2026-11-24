@@ -167,39 +167,56 @@ namespace Builder.Tests
 		[Fact]
 		public void RewriteDropsOnlyTheMapsOwnLightmapOnce()
 		{
-			Dictionary<string, MapLumpInfo> lumps = MapLumps("UZDoom_DoomUDMF.cfg");
-			using(WAD wad = CreateWad("TEMPMAP", "TEXTMAP", "ZNODES", "LIGHTMAP", "ENDMAP", "MAP02", "TEXTMAP", "LIGHTMAP", "ENDMAP"))
+			// STRAY: a lump the current configuration doesn't list must not hide the LIGHTMAP
+			using(WAD wad = CreateWad("TEMPMAP", "TEXTMAP", "ZNODES", "STRAY", "LIGHTMAP", "ENDMAP", "MAP02", "TEXTMAP", "LIGHTMAP", "ENDMAP"))
 			{
-				string summary = MapManager.RemoveStaleLightmap(wad, "TEMPMAP", lumps);
+				string summary = MapManager.RemoveStaleLightmap(wad, "TEMPMAP");
 				Assert.Equal("version 0, 1 texture(s) of 16x16, 1 surfaces, 0 light probes, 1 subsectors", summary);
-				Assert.Equal(new[] { "TEMPMAP", "TEXTMAP", "ZNODES", "ENDMAP", "MAP02", "TEXTMAP", "LIGHTMAP", "ENDMAP" }, Names(wad));
+				Assert.Equal(new[] { "TEMPMAP", "TEXTMAP", "ZNODES", "STRAY", "ENDMAP", "MAP02", "TEXTMAP", "LIGHTMAP", "ENDMAP" }, Names(wad));
 
-				Assert.Null(MapManager.RemoveStaleLightmap(wad, "TEMPMAP", lumps));
-				Assert.Equal(8, wad.Lumps.Count);
+				Assert.Null(MapManager.RemoveStaleLightmap(wad, "TEMPMAP"));
+				Assert.Equal(9, wad.Lumps.Count);
 			}
 		}
 
 		[Fact]
-		public void LightmapPastEndmapOrMissingHeaderIsLeftAlone()
+		public void LightmapPastEndmapOrOutsideAUdmfMapIsLeftAlone()
 		{
-			Dictionary<string, MapLumpInfo> lumps = MapLumps("UZDoom_DoomUDMF.cfg");
-			using(WAD wad = CreateWad("TEMPMAP", "TEXTMAP", "ENDMAP", "STRAY", "LIGHTMAP"))
+			using(WAD wad = CreateWad("TEMPMAP", "TEXTMAP", "ENDMAP", "LIGHTMAP"))
 			{
-				Assert.Null(MapManager.RemoveStaleLightmap(wad, "TEMPMAP", lumps));
-				Assert.Null(MapManager.RemoveStaleLightmap(wad, "NOMAP", lumps));
-				Assert.Equal(5, wad.Lumps.Count);
+				Assert.Null(MapManager.RemoveStaleLightmap(wad, "TEMPMAP"));
+				Assert.Null(MapManager.RemoveStaleLightmap(wad, "NOMAP"));
+				Assert.Equal(4, wad.Lumps.Count);
+			}
+			using(WAD wad = CreateWad("TEMPMAP", "THINGS", "LINEDEFS", "LIGHTMAP"))
+			{
+				Assert.Null(MapManager.RemoveStaleLightmap(wad, "TEMPMAP"));
+				Assert.Equal(4, wad.Lumps.Count);
 			}
 		}
 
-		[Fact]
-		public void UnreadableLightmapIsStillDropped()
+		[Theory]
+		[InlineData(new byte[0], "unreadable: not zlib data")]
+		[InlineData(new byte[] { 0x78, 0x20, 0, 0, 0, 0 }, "unreadable: not zlib data")]
+		[InlineData(new byte[] { 0x78, 0x9C, 0xFF, 0xFF, 0xFF }, "unreadable: corrupt data")]
+		public void UnreadableLightmapIsStillDropped(byte[] data, string expected)
 		{
-			Dictionary<string, MapLumpInfo> lumps = MapLumps("UZDoom_DoomUDMF.cfg");
 			using(WAD wad = CreateWad("TEMPMAP", "TEXTMAP", "ZNODES", "ENDMAP"))
 			{
-				wad.Insert("LIGHTMAP", 3, 0);
-				Assert.Equal("unreadable: not zlib data", MapManager.RemoveStaleLightmap(wad, "TEMPMAP", lumps));
+				Lump lump = wad.Insert("LIGHTMAP", 3, data.Length);
+				lump.Stream.Write(data, 0, data.Length);
+				Assert.StartsWith(expected, MapManager.RemoveStaleLightmap(wad, "TEMPMAP"));
 				Assert.Equal(new[] { "TEMPMAP", "TEXTMAP", "ZNODES", "ENDMAP" }, Names(wad));
+			}
+		}
+
+		[Fact]
+		public void OnlySavesIntoAFileReportADroppedLightmap()
+		{
+			foreach(SavePurpose purpose in Enum.GetValues(typeof(SavePurpose)))
+			{
+				bool expected = purpose != SavePurpose.Autosave && purpose != SavePurpose.Testing;
+				Assert.True(expected == MapManager.ReportsLightmapDrop(purpose), purpose.ToString());
 			}
 		}
 	}

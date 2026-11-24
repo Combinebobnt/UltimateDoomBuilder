@@ -64,7 +64,9 @@ namespace CodeImp.DoomBuilder.Map
 			{
 				// Read, not ReadByte: a lump's ClippedStream throws on ReadByte past its end
 				byte[] zlibheader = new byte[2];
-				if(ReadFully(compressed, zlibheader, 2) < 2 || (zlibheader[0] & 0x0F) != 8 || ((zlibheader[0] << 8) | zlibheader[1]) % 31 != 0)
+				// Deflate, valid check bits, no preset dictionary (FDICT)
+				if(ReadFully(compressed, zlibheader, 2) < 2 || (zlibheader[0] & 0x0F) != 8
+					|| ((zlibheader[0] << 8) | zlibheader[1]) % 31 != 0 || (zlibheader[1] & 0x20) != 0)
 				{
 					error = "not zlib data";
 					return null;
@@ -119,6 +121,12 @@ namespace CodeImp.DoomBuilder.Map
 
 					return result;
 				}
+			}
+			// .NET throws InvalidDataException on a corrupt deflate stream, Mono an IOException
+			catch(IOException e)
+			{
+				error = "corrupt data: " + e.Message;
+				return null;
 			}
 			catch(InvalidDataException e)
 			{
