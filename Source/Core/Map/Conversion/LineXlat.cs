@@ -67,6 +67,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public int Tag;
 		public int Flags; // Doom flag bits the match needs (the table's passthrough bit)
 		public bool LostPassthrough; // UseThrough matched as Use: the table has no passthrough bit
+		public bool UsesTag; // the type targets sectors by its tag (not a manual or push type)
 	}
 
 	// Doom-format line types to and from the engine's specials, per p_xlat.cpp's TranslateLineDef
@@ -353,7 +354,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 						else if(tag == int.MinValue) tag = c.Args[i];
 						else ok = tag == c.Args[i];
 					}
-					if(ok) found.Add(new DoomLine { Type = p.Type, Tag = tag == int.MinValue ? c.LineId : tag, Flags = ptflags, LostPassthrough = lostpt });
+					if(ok) found.Add(new DoomLine { Type = p.Type, Tag = tag == int.MinValue ? c.LineId : tag, Flags = ptflags, LostPassthrough = lostpt, UsesTag = tag != int.MinValue });
 				}
 			}
 
@@ -365,20 +366,26 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 			int boomtype;
 			if(boombykey.TryGetValue(BoomKey(n, true), out boomtype))
-				found.Add(new DoomLine { Type = boomtype, Tag = c.Args[0], Flags = ptflags, LostPassthrough = lostpt });
+				found.Add(new DoomLine { Type = boomtype, Tag = c.Args[0], Flags = ptflags, LostPassthrough = lostpt, UsesTag = true });
 			if(c.Args[0] == 0 && boombykey.TryGetValue(BoomKey(n, false), out boomtype))
 				found.Add(new DoomLine { Type = boomtype, Tag = c.LineId, Flags = ptflags, LostPassthrough = lostpt });
 
-			// Lowest type, preferring one whose tag keeps the line ID
+			// Lowest type, preferring one whose tag keeps the line ID, then one that doesn't target tag 0, which only xlat reads as
+			// arg 0: Boom ignores a non-push generalized type with no tag, and vanilla types hit every untagged sector
 			DoomLine? best = null;
 			foreach(DoomLine d in found)
 			{
 				if(allowed != null && !allowed(d.Type)) continue;
 				if(best == null) { best = d; continue; }
-				bool keeps = d.Tag == c.LineId, bestkeeps = best.Value.Tag == c.LineId;
-				if((keeps && !bestkeeps) || (keeps == bestkeeps && d.Type < best.Value.Type)) best = d;
+				int rank = Rank(d, c.LineId), bestrank = Rank(best.Value, c.LineId);
+				if(rank < bestrank || (rank == bestrank && d.Type < best.Value.Type)) best = d;
 			}
 			return best;
+		}
+
+		private static int Rank(DoomLine d, int lineid)
+		{
+			return (d.Tag == lineid ? 0 : 2) + (d.UsesTag && d.Tag == 0 ? 1 : 0);
 		}
 
 		#endregion

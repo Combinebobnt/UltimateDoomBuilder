@@ -108,7 +108,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				int dot = name.LastIndexOf('.');
 				if(dot > 0) name = name.Substring(0, dot);
 			}
-			return name.Length > 8 ? name.Substring(0, 8) : name;
+			return (name.Length > 8 ? name.Substring(0, 8) : name).ToUpperInvariant();
 		}
 
 		private static void CheckMap(MapRecords map, FormatProfile source, FormatProfile target, ConversionReport report)
@@ -276,6 +276,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				r.Action = d.Value.Type;
 				tag = d.Value.Tag;
+				if(d.Value.UsesTag && tag == 0 && !p.ReadsWholeTable)
+					report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "type " + r.Action + " gets tag 0: ZDoom-family engines pass 0 to the special, but the target's engine ignores the line (Boom generalized types) or acts on every untagged sector");
 				r.Bits |= d.Value.Flags & p.DoomLineFlagBits;
 				if(d.Value.LostPassthrough || (d.Value.Flags & ~p.DoomLineFlagBits) != 0) report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "use-through activation written as plain use: the target has no passthrough flag");
 				if(c.LineId != 0 && tag != c.LineId)

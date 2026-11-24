@@ -472,8 +472,8 @@ namespace Builder.Tests
 		[Fact]
 		public void LongTextureNames_CutToTheEnginesShortName()
 		{
-			Assert.Equal("brick01", MapFormatConverter.ShortTextureName("textures/walls/brick01.png"));
-			Assert.Equal("abcdefgh", MapFormatConverter.ShortTextureName("textures/abcdefghijk.png"));
+			Assert.Equal("BRICK01", MapFormatConverter.ShortTextureName("textures/walls/brick01.png"));
+			Assert.Equal("ABCDEFGH", MapFormatConverter.ShortTextureName("textures/abcdefghijk.png"));
 			Assert.Equal("VERYLONG", MapFormatConverter.ShortTextureName("VERYLONGNAME1"));
 			Assert.Equal("STARTAN2", MapFormatConverter.ShortTextureName("STARTAN2"));
 
@@ -481,7 +481,7 @@ namespace Builder.Tests
 			map.LongTextureNames.Add("textures/walls/brick01.png");
 			ConversionReport report;
 			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
-			Assert.Contains("textures/walls/brick01.png -> brick01", report.ToString());
+			Assert.Contains("textures/walls/brick01.png -> BRICK01", report.ToString());
 		}
 
 		// The engine ignores Doom thing bits 5-7 when bit 8 is set (maploader.cpp LoadThings), except in Strife, where bit 8 is a flag
@@ -500,6 +500,26 @@ namespace Builder.Tests
 			Assert.True(Profile("GZDoom_StrifeDoom").ThingFlagTable.Any(t => t.Flag == 0x100), "Strife names bit 8");
 			Convert(map, "GZDoom_StrifeDoom", "GZDoom_StrifeUDMF", out report);
 			Assert.Empty(report.Dropped);
+		}
+
+		// With no line ID, a push type and the switch type with tag 0 translate alike, but only the push type works in Boom
+		[Fact]
+		public void TagZero_PrefersPushTypesAndReportsTaggedTypesOutsideXlat()
+		{
+			MapRecords map = new MapRecords();
+			map.Lines.Add(DoomRecord(0x7fff, 0)); // generalized floor, DR (push)
+			map.Lines.Add(DoomRecord(62, 0)); // SR lift with no tag
+			ConversionReport report;
+			MapRecords udmf = Convert(map, "GZDoom_DoomDoom", "GZDoom_DoomUDMF", out report);
+			foreach(string target in new[] { "Boom_DoomDoom", "GZDoom_DoomDoom" })
+			{
+				MapRecords back = Convert(udmf, "GZDoom_DoomUDMF", target, out report);
+				Assert.Equal(0x7fff, back.Lines[0].Action);
+				Assert.Equal(62, back.Lines[1].Action);
+				bool reported = report.Issues.Any(i => i.Index == 1 && i.Message.Contains("tag 0"));
+				Assert.True(reported == target.StartsWith("Boom"), target + ":\n" + report);
+				Assert.DoesNotContain(report.Issues, i => i.Index == 0);
+			}
 		}
 
 		// The conversion dialog preselects the source's own port, whatever the configs' engine keys say
