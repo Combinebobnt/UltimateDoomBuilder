@@ -3032,6 +3032,8 @@ namespace CodeImp.DoomBuilder
 			General.Editing.DisengageVolatileMode();
 
 			// Show map options dialog
+			// The form edits options in place, so read the old values before it opens
+			string oldconfigfile = options.ConfigFile;
 			string oldscriptcompiler = options.ScriptCompiler;
 			MapOptionsForm optionsform = new MapOptionsForm(options, false);
 			if(optionsform.ShowDialog(General.MainWindow) == DialogResult.OK) 
@@ -3046,7 +3048,6 @@ namespace CodeImp.DoomBuilder
 				General.ErrorLogger.Clear();
 
 				// Apply new options
-				string oldconfigfile = options.ConfigFile;
 				this.options = optionsform.Options;
 				if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase))
 				{
