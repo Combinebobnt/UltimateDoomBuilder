@@ -1821,6 +1821,52 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
+		// This pastes only the copied floor and ceiling flats
+		[BeginAction("classicpastetextures")]
+		public void PasteTextures()
+		{
+			if(BuilderPlug.Me.CopiedSectorProps == null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Copy sector properties first!");
+				return;
+			}
+
+			ICollection<Sector> sel = null;
+			if(General.Map.Map.SelectedSectorsCount > 0) sel = General.Map.Map.GetSelectedSectors(true);
+			else if(highlighted != null) sel = new List<Sector> { highlighted };
+			if(sel == null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "This action requires highlight or selection!");
+				return;
+			}
+
+			List<TextureChange> changes = BuilderPlug.Me.CopiedSectorProps.PlanTextures(sel);
+			if(changes.Count == 0)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Nothing to paste: the targets already have these textures or don't use those parts.");
+				return;
+			}
+
+			HashSet<Sector> sectors = new HashSet<Sector>(changes.Select(c => (Sector)c.Target));
+			string rest = (sectors.Count == 1 ? "a single sector" : sectors.Count + " sectors");
+			General.Map.UndoRedo.CreateUndo("Paste textures to " + rest);
+			TextureChange.Apply(changes);
+			foreach(Sector s in sectors)
+			{
+				s.UpdateCeilingSurface();
+				s.UpdateFloorSurface();
+			}
+			foreach(string name in changes.Select(c => c.Name).Distinct()) General.Map.RecordTextureUse(name, true);
+			General.Map.Data.UpdateUsedTextures();
+			General.Interface.DisplayStatus(StatusType.Action, "Pasted textures to " + rest + ".");
+
+			General.Map.IsChanged = true;
+			General.Interface.RefreshInfo();
+			General.Map.Renderer2D.UpdateExtraFloorFlag();
+			UpdateEffectLabels();
+			General.Interface.RedrawDisplay();
+		}
+
 		//mxd. This pastes the properties with options
 		[BeginAction("classicpastepropertieswithoptions")]
 		public void PastePropertiesWithOptions()

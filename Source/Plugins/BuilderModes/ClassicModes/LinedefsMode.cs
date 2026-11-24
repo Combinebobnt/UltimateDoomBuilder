@@ -1414,6 +1414,47 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
+		// This pastes only the copied textures, into the parts each target uses
+		[BeginAction("classicpastetextures")]
+		public void PasteTextures()
+		{
+			if(BuilderPlug.Me.CopiedLinedefProps == null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Copy linedef properties first!");
+				return;
+			}
+
+			ICollection<Linedef> sel = null;
+			if(General.Map.Map.SelectedLinedefsCount > 0) sel = General.Map.Map.GetSelectedLinedefs(true);
+			else if(highlighted != null) sel = new List<Linedef> { highlighted };
+			if(sel == null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "This action requires highlight or selection!");
+				return;
+			}
+
+			List<TextureChange> changes = BuilderPlug.Me.CopiedLinedefProps.PlanTextures(sel);
+			if(changes.Count == 0)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Nothing to paste: the targets already have these textures or don't use those parts.");
+				return;
+			}
+
+			HashSet<Linedef> lines = new HashSet<Linedef>(changes.Select(c => ((Sidedef)c.Target).Line));
+			string rest = (lines.Count == 1 ? "a single linedef" : lines.Count + " linedefs");
+			General.Map.UndoRedo.CreateUndo("Paste textures to " + rest);
+			TextureChange.Apply(changes);
+			foreach(Linedef l in lines) l.UpdateCache();
+			foreach(string name in changes.Select(c => c.Name).Distinct()) General.Map.RecordTextureUse(name, false);
+			General.Map.Data.UpdateUsedTextures();
+			General.Interface.DisplayStatus(StatusType.Action, "Pasted textures to " + rest + ".");
+
+			General.Map.IsChanged = true;
+			General.Interface.RefreshInfo();
+			General.Map.Renderer2D.UpdateExtraFloorFlag();
+			General.Interface.RedrawDisplay();
+		}
+
 		//mxd. This pastes the properties with options
 		[BeginAction("classicpastepropertieswithoptions")]
 		public void PastePropertiesWithOptions()

@@ -353,6 +353,40 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public bool Comment = true;
 	}
 
+	internal enum TexturePart { Upper, Middle, Lower, Floor, Ceiling }
+
+	// One planned texture write of Paste Textures
+	internal struct TextureChange
+	{
+		public readonly MapElement Target;
+		public readonly TexturePart Part;
+		public readonly string Name;
+
+		public TextureChange(MapElement target, TexturePart part, string name)
+		{
+			Target = target;
+			Part = part;
+			Name = name;
+		}
+
+		internal static bool HasTexture(string name) { return !string.IsNullOrEmpty(name) && name != "-"; }
+
+		internal static void Apply(IEnumerable<TextureChange> changes)
+		{
+			foreach(TextureChange c in changes)
+			{
+				switch(c.Part)
+				{
+					case TexturePart.Upper: ((Sidedef)c.Target).SetTextureHigh(c.Name); break;
+					case TexturePart.Middle: ((Sidedef)c.Target).SetTextureMid(c.Name); break;
+					case TexturePart.Lower: ((Sidedef)c.Target).SetTextureLow(c.Name); break;
+					case TexturePart.Floor: ((Sector)c.Target).SetFloorTexture(c.Name); break;
+					case TexturePart.Ceiling: ((Sector)c.Target).SetCeilTexture(c.Name); break;
+				}
+			}
+		}
+	}
+
 	// Sector
 	public class SectorProperties : MapElementProperties
 	{
@@ -388,7 +422,22 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			tags = new List<int>(s.Tags); //mxd
 			flags = s.GetFlags(); //mxd
 		}
-		
+
+		// Both flats, skipping "-" and unchanged ones
+		internal List<TextureChange> PlanTextures(ICollection<Sector> sectors)
+		{
+			List<TextureChange> changes = new List<TextureChange>();
+			foreach(Sector s in sectors)
+			{
+				if(s == null || s.IsDisposed) continue;
+				if(TextureChange.HasTexture(floortexture) && s.FloorTexture != floortexture)
+					changes.Add(new TextureChange(s, TexturePart.Floor, floortexture));
+				if(TextureChange.HasTexture(ceilingtexture) && s.CeilTexture != ceilingtexture)
+					changes.Add(new TextureChange(s, TexturePart.Ceiling, ceilingtexture));
+			}
+			return changes;
+		}
+
 		//mxd. Applies coped properties
 		public void Apply(ICollection<Sector> sectors, bool usecopysettings)
 		{
@@ -514,6 +563,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			flags = s.GetFlags(); //mxd
 		}
 
+		internal string HighTexture { get { return hightexture; } }
+		internal string MiddleTexture { get { return middletexture; } }
+		internal string LowTexture { get { return lowtexture; } }
+
 		//mxd. Applies coped properties with all settings enabled
 		public void Apply(ICollection<Sidedef> sides, bool usecopysettings)
 		{
@@ -616,6 +669,35 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			activate = l.Activate;
 			tags = new List<int>(l.Tags); //mxd
 			args = (int[])(l.Args.Clone());
+		}
+
+		internal bool TwoSided { get { return back != null; } }
+
+		// Textures only, same part to same part: fills only the parts each target uses and never writes "-".
+		internal List<TextureChange> PlanTextures(ICollection<Linedef> lines)
+		{
+			List<TextureChange> changes = new List<TextureChange>();
+			foreach(Linedef l in lines)
+			{
+				if(l == null || l.IsDisposed) continue;
+				PlanSide(changes, l.Front, front);
+				PlanSide(changes, l.Back, back);
+			}
+			return changes;
+		}
+
+		private void PlanSide(List<TextureChange> changes, Sidedef target, SidedefProperties source)
+		{
+			if(target == null || source == null) return;
+			if(TextureChange.HasTexture(source.HighTexture) && target.HighTexture != source.HighTexture
+				&& (target.HighRequired() || TextureChange.HasTexture(target.HighTexture)))
+				changes.Add(new TextureChange(target, TexturePart.Upper, source.HighTexture));
+			if(TextureChange.HasTexture(source.MiddleTexture) && target.MiddleTexture != source.MiddleTexture
+				&& (target.MiddleRequired() || (TwoSided && TextureChange.HasTexture(target.MiddleTexture))))
+				changes.Add(new TextureChange(target, TexturePart.Middle, source.MiddleTexture));
+			if(TextureChange.HasTexture(source.LowTexture) && target.LowTexture != source.LowTexture
+				&& (target.LowRequired() || TextureChange.HasTexture(target.LowTexture)))
+				changes.Add(new TextureChange(target, TexturePart.Lower, source.LowTexture));
 		}
 
 		//mxd. Applies coped properties with all settings enabled

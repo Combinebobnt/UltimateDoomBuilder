@@ -123,6 +123,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.separatorcopyprops = new System.Windows.Forms.ToolStripSeparator();
             this.itemcopyprops = new System.Windows.Forms.ToolStripMenuItem();
             this.itempasteprops = new System.Windows.Forms.ToolStripMenuItem();
+            this.itempastetextures = new System.Windows.Forms.ToolStripMenuItem();
             this.itempastepropsoptions = new System.Windows.Forms.ToolStripMenuItem();
             this.viewmenuitem = new System.Windows.Forms.ToolStripMenuItem();
             this.itemlightradii = new System.Windows.Forms.ToolStripMenuItem();
@@ -1028,6 +1029,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.separatorcopyprops,
             this.itemcopyprops,
             this.itempasteprops,
+            this.itempastetextures,
             this.itempastepropsoptions,
             this.itemmarqueselecttouching,
             this.itemtextureoffsetlock,
@@ -1062,6 +1064,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.itempasteprops.Tag = "classicpasteproperties";
             this.itempasteprops.Text = "Paste Properties";
             this.itempasteprops.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itempastetextures
+            // 
+            this.itempastetextures.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.PasteProperties;
+            this.itempastetextures.Name = "itempastetextures";
+            this.itempastetextures.Size = new System.Drawing.Size(207, 22);
+            this.itempastetextures.Tag = "classicpastetextures";
+            this.itempastetextures.Text = "Paste Textures";
+            this.itempastetextures.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 
             // itempastepropsoptions
             // 
@@ -1344,6 +1355,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripMenuItem editmenuitem;
 		private System.Windows.Forms.ToolStripMenuItem itemcopyprops;
 		private System.Windows.Forms.ToolStripMenuItem itempasteprops;
+		private System.Windows.Forms.ToolStripMenuItem itempastetextures;
 		private System.Windows.Forms.ToolStripMenuItem itempastepropsoptions;
 		private System.Windows.Forms.ToolStripSeparator separatorcopyprops;
 		private System.Windows.Forms.ToolStripMenuItem alignsectorlinedefsitem;

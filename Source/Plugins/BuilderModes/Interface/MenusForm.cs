@@ -131,7 +131,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				exportmenuitems[i] = exportStripMenuItem.DropDownItems[i];
 
 			//mxd. Copy-paste propserties items
-			propsmenuitems = new ToolStripItem[] { separatorcopyprops, itemcopyprops, itempasteprops, itempastepropsoptions };
+			propsmenuitems = new ToolStripItem[] { separatorcopyprops, itemcopyprops, itempasteprops, itempastetextures, itempastepropsoptions };
 
 			// List all buttons
 			buttons = new ToolStripItem[globalstrip.Items.Count];
@@ -309,6 +309,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd. Copy-paste properties items
 			foreach(ToolStripItem i in propsmenuitems)
 				i.Visible = showcopyprops;
+			itempastetextures.Visible = (sourcemode == typeof(LinedefsMode) || sourcemode == typeof(SectorsMode));
 		}
 
 		// This invokes an action from control event
