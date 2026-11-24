@@ -260,8 +260,12 @@ jobs:
           body: |
             Based on upstream R${{ needs.version.outputs.upstream }}.
 
-            Changes since the previous fork release:
+            <details>
+            <summary>Changes since the previous fork release</summary>
+
             ${{ needs.version.outputs.notes }}
+
+            </details>
 
             The Linux AppImage bundles Mono and libgdiplus. Windows zips need .NET Framework 4.7.2 (included in Windows 10 and 11).
           files: artifacts/*
