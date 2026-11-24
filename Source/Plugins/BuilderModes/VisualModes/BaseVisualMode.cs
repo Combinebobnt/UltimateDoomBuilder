@@ -1019,13 +1019,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return (sectordata.ContainsKey(s) ? sectordata[s] : null);
 		}
 
-		// Slope effects and 3D floors can put a surface below every sector's own floor and ceiling
+		// Slope effects and 3D floors can put a surface below every sector's own floor and ceiling (computed once per map change)
 		protected override double GetLowestSurfaceHeight()
 		{
 			double lowest = base.GetLowestSurfaceHeight();
 			if(sectordata == null) return lowest;
-			foreach(SectorData sd in sectordata.Values)
+			foreach(SectorData sd in new List<SectorData>(sectordata.Values)) // Update can add sector data
 			{
+				if(!sd.Updated) sd.Update(); // effects only shape the levels once updated
 				foreach(SectorLevel l in sd.LightLevels) lowest = Math.Min(lowest, LowestLevelHeight(l, sd.Sector));
 				foreach(Effect3DFloor f in sd.ExtraFloors)
 					lowest = Math.Min(lowest, Math.Min(LowestLevelHeight(f.Floor, sd.Sector), LowestLevelHeight(f.Ceiling, sd.Sector)));
@@ -1079,6 +1080,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// This requires that the blockmap is up-to-date!
 		internal void RebuildElementData()
 		{
+			InvalidateLowestSurface();
 			HashSet<Sector> effectsectors = null; //mxd
 			List<Linedef>[] slopelinedefpass = new List<Linedef>[] { new List<Linedef>(), new List<Linedef>() };
 			List<Thing>[] slopethingpass = new List<Thing>[] { new List<Thing>(), new List<Thing>() };

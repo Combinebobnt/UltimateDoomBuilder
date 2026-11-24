@@ -198,6 +198,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 			
 			// Fill the blockmap
 			FillBlockMap();
+			InvalidateLowestSurface();
 
 			//mxd. Synch camera position to cursor position or center of the screen in 2d-mode
 			if(General.Settings.GZSynchCameras) 
@@ -653,45 +654,26 @@ namespace CodeImp.DoomBuilder.VisualModes
 
         int lastProcessed = 0;
 
-		// A height nothing in the map is rendered below, so culling can leave out the view under it.
-		// Errs low: slopes are taken at the sector's bounding box, things at their most sunken placement.
-		private double GetLowestRenderedHeight()
-		{
-			// Things sit on a floor, hang from a ceiling or use an absolute height, offset either way by their z
-			double sectorlowest = GetLowestSurfaceHeight();
-			double lowest = sectorlowest;
-			bool lights = General.Settings.GZDrawLightsMode != LightRenderMode.NONE;
-			Dictionary<int, GZBuilder.Data.DynamicLightData> gldefs = General.Map.Data.GldefsEntries;
-			foreach(Thing t in General.Map.Map.Things)
-			{
-				double z = t.Position.z;
-				double low = Math.Min(z, sectorlowest - Math.Abs(z) - t.Height);
-				if(t.RenderMode == ThingRenderMode.MODEL || t.RenderMode == ThingRenderMode.VOXEL)
-				{
-					GZBuilder.Data.ModelData md;
-					GZBuilder.Models.GZModel model = General.Map.Data.ModeldefEntries.TryGetValue(t.Type, out md) ? md.Model : null;
-					if(model != null)
-						low -= Math.Max(Math.Max(Math.Max(Math.Abs(model.BBox.MinX), Math.Abs(model.BBox.MaxX)), Math.Max(Math.Abs(model.BBox.MinY), Math.Abs(model.BBox.MaxY))),
-							Math.Max(Math.Abs(model.BBox.MinZ), Math.Abs(model.BBox.MaxZ))); // rotated any way
-					else
-						low -= Math.Max(t.Height, t.Size * 2);
-				}
+		private double lowestsurface = double.NaN; // NaN until computed
 
-				// Lights come only from things culling keeps, so a light must be kept wherever its radius reaches a kept surface
-				if(lights)
-				{
-					double reach = 0;
-					if(t.DynamicLightType != null)
-						reach = Math.Max(Math.Max(t.Args[0] * 8, t.Args[4] * 2), t.Args[3] * Math.Max(2, t.Sector != null ? t.Sector.Brightness / 4 : 1));
-					GZBuilder.Data.DynamicLightData gl;
-					if(gldefs.Count > 0 && gldefs.TryGetValue(t.Type, out gl))
-						reach = Math.Max(reach, Math.Max(Math.Max(gl.PrimaryRadius, gl.SecondaryRadius), gl.Interval * 51)
-							+ Math.Abs(gl.Offset.X) + Math.Abs(gl.Offset.Y) + Math.Abs(gl.Offset.Z)); // sector lights: interval * brightness / 5
-					low -= reach;
-				}
-				lowest = Math.Min(lowest, low);
+		// Makes the next frame recompute the lowest surface, after anything may have moved surfaces
+		protected void InvalidateLowestSurface()
+		{
+			lowestsurface = double.NaN;
+		}
+
+		// A height no sector geometry is drawn below, so geometry culling can leave out the view under it.
+		// Things are culled to the whole view, since they can draw well below their origin.
+		private double GetLowestGeometryHeight()
+		{
+			if(double.IsNaN(lowestsurface))
+			{
+				lowestsurface = GetLowestSurfaceHeight();
+				VisualGeometry.LowestBuiltZ = double.PositiveInfinity;
 			}
 
+			// Geometry built since then (an edit lowering a floor) counts from the next frame; a unit of slack for the floor itself
+			double lowest = Math.Min(lowestsurface, VisualGeometry.LowestBuiltZ) - 1.0;
 			return double.IsInfinity(lowest) || double.IsNaN(lowest) ? double.NegativeInfinity : lowest;
 		}
 
@@ -742,10 +724,11 @@ namespace CodeImp.DoomBuilder.VisualModes
 			visiblegeometry = new List<VisualGeometry>(visiblegeometry.Count * 2);
 			visiblethings = new List<VisualThing>(visiblethings.Count * 2);
 
-			// Get the blocks within view range
-			visibleblocks = blockmap.GetFrustumRange(renderer.Frustum2D);
-			
-			// Fill collections with geometry and things
+			// Get the blocks within view range: for geometry the view above the lowest surface, for things all of it
+			visibleblocks = blockmap.GetFrustumRange(renderer.GeometryFrustum2D);
+			List<VisualBlockEntry> thingblocks = (renderer.GeometryFrustum2D == renderer.Frustum2D) ? visibleblocks : blockmap.GetFrustumRange(renderer.Frustum2D);
+
+			// Fill collections with geometry
 			foreach(VisualBlockEntry block in visibleblocks)
 			{
 				if(processgeometry)
@@ -765,16 +748,22 @@ namespace CodeImp.DoomBuilder.VisualModes
 							{
 								// Do front of line
 								if(ld.Front != null) ProcessSidedefCulling(ld.Front);
+								if(ld.Back != null) ProcessSectorCulling(ld.Back.Sector);
 							}
 							else
 							{
 								// Do back of line
 								if(ld.Back != null) ProcessSidedefCulling(ld.Back);
+								if(ld.Front != null) ProcessSectorCulling(ld.Front.Sector);
 							}
 						}
 					}
 				}
+			}
 
+			// Fill collections with things
+			foreach(VisualBlockEntry block in thingblocks)
+			{
 				if(processthings)
 				{
 					// Things
@@ -814,6 +803,9 @@ namespace CodeImp.DoomBuilder.VisualModes
                 if (camsector != null)
                 {
                     General.Map.VisualCamera.Sector = camsector;
+
+                    // A view down at its floor may hold none of its lines
+                    ProcessSectorCulling(camsector);
                 }
                 else
                 {
@@ -823,6 +815,7 @@ namespace CodeImp.DoomBuilder.VisualModes
                     if (nld != null)
                     {
                         General.Map.VisualCamera.Sector = GetCameraSectorFromLinedef(nld);
+                        if (General.Map.VisualCamera.Sector != null) ProcessSectorCulling(General.Map.VisualCamera.Sector);
                     }
                     else
                     {
@@ -861,6 +854,31 @@ namespace CodeImp.DoomBuilder.VisualModes
 			}
 		}
 
+		// This adds a sector's floors and ceilings, making its visualsector if needed
+		private VisualSector ProcessSectorCulling(Sector s)
+		{
+			VisualSector vs;
+			if(allsectors.ContainsKey(s))
+			{
+				// Take existing visualsector
+				vs = allsectors[s];
+			}
+			else
+			{
+				// Make new visualsector
+				vs = CreateVisualSector(s);
+				//if(vs != null) allsectors.Add(sd.Sector, vs); //mxd
+			}
+
+			if(vs != null && s.LastProcessed != lastProcessed)
+			{
+				s.LastProcessed = lastProcessed;
+				visiblesectors.Add(vs);
+				visiblegeometry.AddRange(vs.FixedGeometry);
+			}
+			return vs;
+		}
+
 		// This finds and adds visible sectors
 		private void ProcessSidedefCulling(Sidedef sd)
 		{
@@ -870,30 +888,9 @@ namespace CodeImp.DoomBuilder.VisualModes
 
             sd.LastProcessed = lastProcessed;
 
-            VisualSector vs;
-			
-			// Find the visualsector and make it if needed
-			if(allsectors.ContainsKey(sd.Sector))
-			{
-				// Take existing visualsector
-				vs = allsectors[sd.Sector];
-			}
-			else
-			{
-				// Make new visualsector
-				vs = CreateVisualSector(sd.Sector);
-				//if(vs != null) allsectors.Add(sd.Sector, vs); //mxd
-			}
-			
+			VisualSector vs = ProcessSectorCulling(sd.Sector);
 			if(vs != null)
 			{
-                if (sd.Sector.LastProcessed != lastProcessed)
-                {
-                    sd.Sector.LastProcessed = lastProcessed;
-                    visiblesectors.Add(vs);
-                    visiblegeometry.AddRange(vs.FixedGeometry);
-                }
-				
 				// Add sidedef geometry
 				visiblegeometry.AddRange(vs.GetSidedefGeometry(sd));
 			}
@@ -1129,6 +1126,8 @@ namespace CodeImp.DoomBuilder.VisualModes
 		/// </summary>
 		protected virtual void ResourcesReloaded()
 		{
+			InvalidateLowestSurface();
+
 			// Dispose
 			foreach(KeyValuePair<Sector, VisualSector> vs in allsectors)
 				if(vs.Value != null) vs.Value.Dispose();
@@ -1159,6 +1158,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 		/// </summary>
 		protected virtual void ResourcesReloadedPartial()
 		{
+			InvalidateLowestSurface();
 			Dictionary<Sector, VisualSector> newsectors = new Dictionary<Sector,VisualSector>(allsectors.Count);
 			
 			// Neighbour sectors must be updated as well
@@ -1416,7 +1416,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 			}
 
 			// Apply new camera matrices
-			renderer.PositionAndLookAt(General.Map.VisualCamera.Position, General.Map.VisualCamera.Target, GetLowestRenderedHeight());
+			renderer.PositionAndLookAt(General.Map.VisualCamera.Position, General.Map.VisualCamera.Target, GetLowestGeometryHeight());
 			FrameTiming.NoteCamera(General.Map.VisualCamera.Position, General.Map.VisualCamera.AngleXY, General.Map.VisualCamera.AngleZ);
 			FrameTiming.Lap(FrameBucket.Move);
 

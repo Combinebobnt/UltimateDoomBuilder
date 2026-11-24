@@ -30,6 +30,7 @@ namespace CodeImp.DoomBuilder.Rendering
 	{
 		// Properties
 		ProjectedFrustum2D Frustum2D { get; }
+		ProjectedFrustum2D GeometryFrustum2D { get; }
 		bool DrawThingCages { get; set; }
 		bool ShowSelection { get; set; }
 		bool ShowHighlight { get; set; }

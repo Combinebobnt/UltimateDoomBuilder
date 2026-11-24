@@ -57,6 +57,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		
 		// Frustum
 		private ProjectedFrustum2D frustum;
+		private ProjectedFrustum2D geometryfrustum; // frustum above the lowest surface
 		private float frustumfov;
 		private float frustumfovy;
 		private float frustumnear;
@@ -151,6 +152,7 @@ namespace CodeImp.DoomBuilder.Rendering
         #region ================== Properties
 
         public ProjectedFrustum2D Frustum2D { get { return frustum; } }
+        public ProjectedFrustum2D GeometryFrustum2D { get { return geometryfrustum; } }
 		public bool DrawThingCages { get { return renderthingcages; } set { renderthingcages = value; } }
 		public bool ShowSelection { get { return showselection; } set { showselection = value; } }
 		public bool ShowHighlight { get { return showhighlight; } set { showhighlight = value; } }
@@ -180,6 +182,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			frustumnear = PROJ_NEAR_PLANE;
 			frustum = new ProjectedFrustum2D(new Vector3D(), 0.0f, (float)Angle2D.PI, frustumnear,
 				General.Settings.ViewDistance, frustumfov, frustumfovy, double.NegativeInfinity);
+			geometryfrustum = frustum;
 
 			fpsLabel = new TextLabel
 			{
@@ -330,7 +333,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			PositionAndLookAt(pos, lookat, double.NegativeInfinity);
 		}
 
-		// Same, with nothing rendered below lowestz, so culling can leave that part of the view out
+		// Same, with no sector geometry drawn below lowestz, so geometry culling can leave that part of the view out
 		public void PositionAndLookAt(Vector3D pos, Vector3D lookat, double lowestz)
 		{
 			// Calculate delta vector
@@ -342,7 +345,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// Create frustum
 			frustum = new ProjectedFrustum2D(pos, (float)anglexy, (float)anglez, frustumnear,
-				General.Settings.ViewDistance, frustumfov, frustumfovy, lowestz);
+				General.Settings.ViewDistance, frustumfov, frustumfovy, double.NegativeInfinity);
+			geometryfrustum = double.IsNegativeInfinity(lowestz) ? frustum : new ProjectedFrustum2D(pos, (float)anglexy, (float)anglez,
+				frustumnear, General.Settings.ViewDistance, frustumfov, frustumfovy, lowestz);
 
             // Make the view matrix
             view3d = Matrix.LookAt(RenderDevice.V3(pos), RenderDevice.V3(lookat), new Vector3f(0f, 0f, 1f));

@@ -45,7 +45,10 @@ namespace CodeImp.DoomBuilder.VisualModes
 		// Vertices
 		private WorldVertex[] vertices;
 		private int triangles;
-		
+
+		// Lowest vertex height built since visual mode last reset it, for culling
+		internal static double LowestBuiltZ = double.PositiveInfinity;
+
 		// Selected?
 		protected bool selected;
 		
@@ -173,6 +176,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 				vertices = new WorldVertex[verts.Count];
 				verts.CopyTo(vertices, 0);
 				triangles = vertices.Length / 3;
+				foreach(WorldVertex v in vertices) if(v.z < LowestBuiltZ) LowestBuiltZ = v.z;
 
 				CalculateNormals(); //mxd
 			} 
