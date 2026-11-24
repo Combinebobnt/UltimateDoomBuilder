@@ -87,6 +87,8 @@ namespace CodeImp.DoomBuilder.Controls
 			InitializeComponent();
 			// StatusStrip defaults to the system renderer, which draws a white top edge
 			if(Windows.UITheme.IsDark) statusbar.RenderMode = ToolStripRenderMode.ManagerRenderMode;
+			// The designer's HotTrack tab fill is too light under white text in the dark palette
+			if(Windows.UITheme.IsDark) tabs.ActiveColor = Windows.UITheme.DarkAccent;
 			iconsmgr = new ScriptIconsManager(scripticons); //mxd
 			tabs.ImageList = scripticons; //mxd
 			PreviewKeyDown += new PreviewKeyDownEventHandler(ScriptEditorPanel_PreviewKeyDown);
