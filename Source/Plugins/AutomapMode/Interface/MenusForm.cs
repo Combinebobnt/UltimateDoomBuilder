@@ -46,7 +46,7 @@ namespace CodeImp.DoomBuilder.AutomapMode
 			// Menu-bar twin of the toggles
 			if(automapmenu == null)
 			{
-				automapmenu = new ToolStripMenuItem("Auto&map");
+				automapmenu = new ToolStripMenuItem("&Automap");
 				automapmenu.DropDownItems.Add(CreateMenuItem(showhiddenlines));
 				automapmenu.DropDownItems.Add(CreateMenuItem(showsecretsectors));
 				showlocksitem = CreateMenuItem(showlocks);

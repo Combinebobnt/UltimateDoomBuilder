@@ -145,6 +145,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			globalstrip.Items.Clear();
 			manualstrip.Items.Clear();
 			editmenuitem.DropDownItems.Clear();
+			viewmenuitem.DropDownItems.Clear();
 #endif
 
 			// Menu-bar twins follow their toolbar buttons on and off the toolbar
@@ -253,6 +254,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				menu.DropDownItems.Add(item);
 			}
 			return menu;
+		}
+
+		// Some modes register their panel twice (base OnEngage and their own), so adding must not duplicate the menu
+		internal static void ShowPanelMenu(ToolStripMenuItem menu)
+		{
+			General.Interface.RemoveMenu(menu);
+			General.Interface.AddMenu(menu);
 		}
 
 		// A menu click doesn't toggle the button, so flip it before the shared handler reads it

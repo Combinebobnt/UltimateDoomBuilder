@@ -58,7 +58,7 @@ namespace CodeImp.DoomBuilder.Plugins.VisplaneExplorer
 			RedrawViewHeightMenuItems();
 
 			// Menu-bar twin of the toolbar controls, refilled on opening (it needs items to open at all)
-			visplanesmenu = new ToolStripMenuItem("&Visplanes");
+			visplanesmenu = new ToolStripMenuItem("V&isplanes");
 			visplanesmenu.DropDownOpening += delegate { FillVisplanesMenu(); };
 			FillVisplanesMenu();
 		}
@@ -103,8 +103,8 @@ namespace CodeImp.DoomBuilder.Plugins.VisplaneExplorer
 		{
 			visplanesmenu.DropDownItems.Clear();
 			visplanesmenu.DropDownItems.Add(MirrorDropDown(statsbutton, "&Statistic"));
-			visplanesmenu.DropDownItems.Add(MirrorItem(cbopendoors));
-			visplanesmenu.DropDownItems.Add(MirrorItem(cbheatmap));
+			visplanesmenu.DropDownItems.Add(MirrorCheckBox(cbopendoors, cbopendoors_Click));
+			visplanesmenu.DropDownItems.Add(MirrorCheckBox(cbheatmap, cbheatmap_Click));
 			visplanesmenu.DropDownItems.Add(MirrorDropDown(heightbutton, "View &Height"));
 		}
 
@@ -114,10 +114,19 @@ namespace CodeImp.DoomBuilder.Plugins.VisplaneExplorer
 			ToolStripMenuItem menu = new ToolStripMenuItem(title, source.Image);
 			foreach(ToolStripItem i in source.DropDownItems)
 			{
+				if(!i.Available) continue;
 				if(i is ToolStripSeparator) menu.DropDownItems.Add(new ToolStripSeparator());
 				else menu.DropDownItems.Add(MirrorItem(i));
 			}
 			return menu;
+		}
+
+		// A hosted check box flips only on a real click, so flip it here, then run its handler
+		private static ToolStripMenuItem MirrorCheckBox(CodeImp.DoomBuilder.Controls.ToolStripCheckBox source, EventHandler handler)
+		{
+			ToolStripMenuItem item = new ToolStripMenuItem(source.Text) { Checked = source.Checked };
+			item.Click += delegate(object sender, EventArgs e) { source.Checked = !source.Checked; handler(source, e); };
+			return item;
 		}
 
 		// The toolbar buttons sit in the custom section, which is never hidden, so PerformClick runs

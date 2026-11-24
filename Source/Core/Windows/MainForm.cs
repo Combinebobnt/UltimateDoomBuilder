@@ -2628,7 +2628,7 @@ namespace CodeImp.DoomBuilder.Windows
 					if(count > 0 && !(target.DropDownItems[count - 1] is ToolStripSeparator))
 						target.DropDownItems.Add(new ToolStripSeparator());
 				}
-				else if(src is ToolStripMenuItem srcitem)
+				else if(src is ToolStripMenuItem srcitem && srcitem.Available)
 				{
 					ToolStripMenuItem item = new ToolStripMenuItem(srcitem.Text, srcitem.Image) { Checked = srcitem.Checked, Enabled = srcitem.Enabled, Tag = srcitem };
 					item.Click += mirroreditem_Click;

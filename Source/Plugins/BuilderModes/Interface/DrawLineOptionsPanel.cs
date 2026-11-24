@@ -34,7 +34,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(showguidelines);
 			General.Interface.EndToolbarUpdate();
 			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, showguidelines);
-			General.Interface.AddMenu(menu);
+			MenusForm.ShowPanelMenu(menu);
 		}
 
 		public void Unregister()

@@ -81,7 +81,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			General.Interface.AddButton(cancel);
 			General.Interface.EndToolbarUpdate();
 			if(menu == null) menu = MenusForm.CreatePanelMenu("&Curve", flip, reset, separator1, fixedcurve, separator2, apply, cancel);
-			General.Interface.AddMenu(menu);
+			MenusForm.ShowPanelMenu(menu);
 		}
 
 		public void Unregister()
