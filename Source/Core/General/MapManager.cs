@@ -4007,7 +4007,7 @@ namespace CodeImp.DoomBuilder
 			General.Editing.DisengageVolatileMode();
 			using(ConvertMapFormatForm form = new ConvertMapFormatForm())
 			{
-				if(form.ShowDialog(General.MainWindow) != DialogResult.OK) return;
+				if(form.ShowDialog(General.MainWindow) != DialogResult.OK || form.Conversion == null || form.Target == null) return;
 				ConvertMapFormat(form.Target, form.Conversion);
 			}
 		}

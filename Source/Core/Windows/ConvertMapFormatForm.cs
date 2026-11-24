@@ -186,15 +186,16 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			string name = System.IO.Path.GetFileName(filename ?? "");
 			int cut = name.IndexOf('_');
-			return (cut > 0 ? name.Substring(0, cut) : name).ToLowerInvariant();
+			string prefix = (cut > 0 ? name.Substring(0, cut) : name).ToLowerInvariant();
+			return prefix == "uzdoom" ? "gzdoom" : prefix; // UZDoom ships only UDMF configs; GZDoom's are its other formats
 		}
 
 		private void FillConfigs(MapFormat format)
 		{
-			// The configuration with the map's engine comes preselected
+			// The same port comes preselected: by file name prefix (GZDoom_, Zandronum_), since every ZDoom-family UDMF
+			// config's engine key is its namespace "zdoom"; the engine key only breaks ties between other configs
 			configs.BeginUpdate();
 			configs.Items.Clear();
-			// Same port by file name prefix (GZDoom_, Zandronum_) beats the same engine key, which DnD shares with Zandronum
 			int select = 0, best = -1;
 			foreach(ConfigurationInfo info in EligibleConfigs(format))
 			{
