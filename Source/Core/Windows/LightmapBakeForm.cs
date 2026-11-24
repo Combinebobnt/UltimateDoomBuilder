@@ -28,13 +28,26 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly Timer timer = new Timer();
 		private LightmapBakeJob job;
 		private bool showingresult;
+		private readonly bool autostart;
+		private bool bakesucceeded;
+
+		#endregion
+
+		#region ================== Properties
+
+		// The last bake run in this form succeeded
+		public bool BakeSucceeded { get { return bakesucceeded; } }
 
 		#endregion
 
 		#region ================== Constructor
 
-		public LightmapBakeForm()
+		public LightmapBakeForm() : this(false) { }
+
+		// With autostart, Bake is pressed as the form shows, when nothing stops a bake
+		public LightmapBakeForm(bool autostart)
 		{
+			this.autostart = autostart;
 			Text = "Bake Lightmaps";
 			FormBorderStyle = FormBorderStyle.FixedDialog;
 			MaximizeBox = false;
@@ -184,10 +197,17 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 		}
 
+		protected override void OnShown(EventArgs e)
+		{
+			base.OnShown(e);
+			if(autostart && bake.Enabled) BakeClick(this, EventArgs.Empty);
+		}
+
 		private void BakeClick(object sender, EventArgs e)
 		{
 			if(job != null) return;
 			showingresult = false;
+			bakesucceeded = false;
 			string error;
 			job = General.Map.StartLightmapBake(ReadControls(), out error);
 			if(job == null)
@@ -232,6 +252,7 @@ namespace CodeImp.DoomBuilder.Windows
 			timer.Stop();
 			string message;
 			bool ok = General.Map.FinishLightmapBake(job, exitcode, out message);
+			bakesucceeded = ok;
 			job = null;
 			progress.Style = ProgressBarStyle.Continuous;
 			progress.Value = (ok ? progress.Maximum : 0);

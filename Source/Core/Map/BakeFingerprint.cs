@@ -12,22 +12,45 @@ using CodeImp.DoomBuilder.IO;
 namespace CodeImp.DoomBuilder.Map
 {
 	// Identifies the map a lightmap was baked from. Hashes the TEXTMAP as the UDMF parser re-emits it
-	// (no index comments), minus things that cannot change geometry or light but move during testing.
+	// (no index comments), keeping only the things the baker reads, in map order.
 	internal static class BakeFingerprint
 	{
-		// Player 1 start, the only thing Test from current position moves or creates
-		public const int PLAYER1_START_TYPE = 1;
+		// ZDRay fd3c6bb reads these fixed numbers (src/level/doomdata.h, level_light.cpp, level.cpp
+		// GetPolySpots); slope things are kept because the engine applies them. Re-derive on a baker change.
+		public static readonly HashSet<int> BAKER_THING_TYPES = new HashSet<int> {
+			9875, 9876, 9881, 9890, // Light probe, point light, spotlight, ZDRayInfo
+			3000, 9300, 9301, 9302, 9303, // Polyobject anchors and spawn spots
+			1500, 1501, 1504, 1505, 9500, 9501, 9502, 9503, 9510, 9511 // Slopes and vertex heights
+		};
+
+		// Hexen polyobject spawn spots, read only when a 3000 anchor exists; otherwise Doom's Imp and Demon
+		public static readonly HashSet<int> HEXEN_POLY_SPAWN_TYPES = new HashSet<int> { 3001, 3002 };
+		private const int HEXEN_POLY_ANCHOR_TYPE = 3000;
 
 		// Returns null when the TEXTMAP does not parse
-		public static string Compute(string[] textmap, ICollection<int> excludedtypes)
+		public static string Compute(string[] textmap)
 		{
 			UniversalParser parser = new UniversalParser();
 			if(!parser.InputConfiguration(textmap)) return null;
 
+			bool hexenpolyobjects = false;
+			foreach(UniversalEntry entry in parser.Root)
+			{
+				if(IsThing(entry) && ThingType((UniversalCollection)entry.Value) == HEXEN_POLY_ANCHOR_TYPE)
+				{
+					hexenpolyobjects = true;
+					break;
+				}
+			}
+
 			UniversalParser kept = new UniversalParser();
 			foreach(UniversalEntry entry in parser.Root)
 			{
-				if(IsThing(entry) && excludedtypes.Contains(ThingType((UniversalCollection)entry.Value))) continue;
+				if(IsThing(entry))
+				{
+					int type = ThingType((UniversalCollection)entry.Value);
+					if(!BAKER_THING_TYPES.Contains(type) && !(hexenpolyobjects && HEXEN_POLY_SPAWN_TYPES.Contains(type))) continue;
+				}
 				kept.Root.Add(entry);
 			}
 
@@ -36,14 +59,6 @@ namespace CodeImp.DoomBuilder.Map
 			{
 				return BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "");
 			}
-		}
-
-		// The thing types a fingerprint leaves out for this configuration
-		public static ICollection<int> ExcludedTypes(int start3dmodethingtype)
-		{
-			HashSet<int> types = new HashSet<int> { PLAYER1_START_TYPE };
-			if(start3dmodethingtype != 0) types.Add(start3dmodethingtype);
-			return types;
 		}
 
 		internal static bool IsThing(UniversalEntry entry)

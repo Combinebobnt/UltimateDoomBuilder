@@ -70,6 +70,8 @@ namespace CodeImp.DoomBuilder
 		private LightmapBakeCache lightmapbake; // The last successful bake, re-applied while the map matches it
 		private bool lightmapbakemissed; // A save found the map no longer matches the bake
 		private bool savedwithlightmap; // The last save wrote a LIGHTMAP
+		private bool lightmapstale; // The map had a bake that saves can no longer write; only a match, a bake or a map switch clears it
+		private bool lightmapstaleasked; // Test already offered a rebake for this stale episode
 		private string restoredbackup; // Deleted only once the load that restored it is done
 
 		// Map information
@@ -143,6 +145,8 @@ namespace CodeImp.DoomBuilder
 		public bool IsScriptsWindowOpen { get { return (scriptwindow != null) && !scriptwindow.IsDisposed; } }
 		internal WADReader TemporaryMapFile { get { return tempwadreader; } } //mxd
 		internal bool SavedWithLightmap { get { return savedwithlightmap; } }
+		internal bool LightmapStale { get { return lightmapstale; } }
+		internal bool LightmapStaleAsked { get { return lightmapstaleasked; } }
 
 		//mxd. Map format
 		public bool UDMF { get { return config.UDMF; } }
@@ -546,6 +550,7 @@ namespace CodeImp.DoomBuilder
 			
 			this.changed = false;
 			this.lightmapdropped = false;
+			ClearLightmapStale();
 			ResetLightmapCache("another map was opened");
 			this.maploading = true;
 			this.options = options;
@@ -837,6 +842,7 @@ namespace CodeImp.DoomBuilder
 			{
 				General.WriteLogLine("Removed the baked LIGHTMAP (" + droppedlightmap + ") because the map data was rewritten.");
 				lightmapdropped = true;
+				lightmapstale = true;
 			}
 
 			General.MainWindow.DisplayStatus(oldstatus);
@@ -2082,13 +2088,14 @@ namespace CodeImp.DoomBuilder
 			if(textmapindex < 0) return false;
 
 			string[] current = BakedTextmap.ReadLines(temp.Lumps[textmapindex]);
-			string fingerprint = BakeFingerprint.Compute(current, BakeFingerprint.ExcludedTypes(config.Start3DModeThingType));
+			string fingerprint = BakeFingerprint.Compute(current);
 			if(fingerprint != lightmapbake.Fingerprint)
 			{
 				General.WriteLogLine("The lightmap bake does not match the map: it changed since the bake.");
 				// A bake that was never saved is dropped here, not by WriteMapToTempFile; report the first miss
 				if(!lightmapbakemissed) lightmapdropped = true;
 				lightmapbakemissed = true;
+				lightmapstale = true;
 				return false;
 			}
 
@@ -2121,8 +2128,21 @@ namespace CodeImp.DoomBuilder
 			RestoreUnknownUDMFData(temp, TEMP_MAP_HEADER);
 			lightmapbakemissed = false;
 			lightmapdropped = false;
+			ClearLightmapStale();
 			General.Plugins.OnMapNodesRebuilt();
 			return true;
+		}
+
+		private void ClearLightmapStale()
+		{
+			lightmapstale = false;
+			lightmapstaleasked = false;
+		}
+
+		// Test offered a rebake once for this stale episode; later stale Tests only warn
+		internal void MarkLightmapStaleAsked()
+		{
+			lightmapstaleasked = true;
 		}
 
 		private void ResetLightmapCache(string reason)
@@ -2167,8 +2187,7 @@ namespace CodeImp.DoomBuilder
 				if(!waschanged) ForceMapIsChangedFalse();
 			}
 
-			string fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)),
-				BakeFingerprint.ExcludedTypes(config.Start3DModeThingType));
+			string fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)));
 			if(fingerprint == null)
 			{
 				error = "The map's TEXTMAP could not be parsed back.";
@@ -2225,6 +2244,7 @@ namespace CodeImp.DoomBuilder
 
 			ResetLightmapCache("a new bake replaces it");
 			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString());
+			ClearLightmapStale();
 			double seconds = job.Baker.Elapsed.TotalSeconds;
 			job.Dispose();
 
@@ -2238,7 +2258,17 @@ namespace CodeImp.DoomBuilder
 		[BeginAction("bakelightmaps")]
 		internal void ShowLightmapBakeForm()
 		{
-			using(LightmapBakeForm form = new LightmapBakeForm()) form.ShowDialog(General.MainWindow);
+			ShowLightmapBakeForm(false);
+		}
+
+		// Returns true when the form's last bake succeeded
+		internal bool ShowLightmapBakeForm(bool autostart)
+		{
+			using(LightmapBakeForm form = new LightmapBakeForm(autostart))
+			{
+				form.ShowDialog(General.MainWindow);
+				return form.BakeSucceeded;
+			}
 		}
 
 		#endregion
