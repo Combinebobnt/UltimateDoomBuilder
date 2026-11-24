@@ -59,7 +59,7 @@ namespace CodeImp.DoomBuilder.Windows
 			List<ListViewItem> mapnames = new List<ListViewItem>();
 
 			// Open the Map Settings configuration
-			string dbsfile = filepathname.Substring(0, filepathname.Length - 4) + ".dbs";
+			string dbsfile = General.Map != null ? General.Map.SettingsFilePath(filepathname) : filepathname.Substring(0, filepathname.Length - 4) + ".dbs";
 			if(File.Exists(dbsfile))
 			{
 				try

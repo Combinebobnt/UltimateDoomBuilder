@@ -54,8 +54,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			} 
 			else 
 			{
-				saveFileDialog.InitialDirectory = General.Map.FilePathName;
-				saveFileDialog.FileName = Path.GetDirectoryName(General.Map.FilePathName) + Path.DirectorySeparatorChar + name;
+				saveFileDialog.InitialDirectory = General.Map.SourcePathName;
+				saveFileDialog.FileName = General.Map.SourceDirectory + Path.DirectorySeparatorChar + name;
 				tbExportPath.Text = saveFileDialog.FileName;
 			}
 
@@ -76,7 +76,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			string mapname = Path.GetFileNameWithoutExtension(General.Map.FileTitle);
 			tbActorName.Text = char.ToUpper(mapname[0]) + mapname.Substring(1);
 
-			string initialPath = General.Map.FilePathName == "" ? Path.GetTempPath() : General.Map.FilePathName;
+			string initialPath = General.Map.SourcePathName == "" ? Path.GetTempPath() : General.Map.SourcePathName;
 			tbBasePath.Text = General.Settings.ReadPluginSetting("objbasepath", Path.GetDirectoryName(initialPath));
 			tbActorPath.Text = General.Settings.ReadPluginSetting("objactorpath", Path.GetDirectoryName(initialPath));
 			tbModelPath.Text = General.Settings.ReadPluginSetting("objmodelpath", Path.GetDirectoryName(initialPath));
@@ -320,7 +320,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 
 		private void bResetPaths_Click(object sender, EventArgs e)
 		{
-			tbBasePath.Text = tbActorPath.Text = tbModelPath.Text = Path.GetDirectoryName(General.Map.FilePathName);
+			tbBasePath.Text = tbActorPath.Text = tbModelPath.Text = General.Map.SourceDirectory;
 		}
 
 		private void cbSpawnOnCeiling_CheckedChanged(object sender, EventArgs e)

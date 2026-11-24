@@ -1115,7 +1115,7 @@ namespace CodeImp.DoomBuilder.TagExplorer
 			if(treeView.Nodes == null || treeView.Nodes.Count == 0) return;
 
 			// Show save dialog
-			string path = Path.GetDirectoryName(General.Map.FilePathName);
+			string path = General.Map.SourceDirectory;
 			saveFileDialog.InitialDirectory = path;
 			saveFileDialog.FileName = Path.GetFileNameWithoutExtension(General.Map.FileTitle) + "_info.txt";
 			if(NativeFileDialogs.Show(saveFileDialog, this) == DialogResult.Cancel) return;

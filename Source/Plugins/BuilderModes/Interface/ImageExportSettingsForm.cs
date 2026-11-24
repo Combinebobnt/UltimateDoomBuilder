@@ -91,8 +91,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			}
 			else
 			{
-				saveFileDialog.InitialDirectory = Path.GetDirectoryName(General.Map.FilePathName);
-				saveFileDialog.FileName = Path.GetDirectoryName(General.Map.FilePathName) + Path.DirectorySeparatorChar + name + ".png";
+				saveFileDialog.InitialDirectory = General.Map.SourceDirectory;
+				saveFileDialog.FileName = General.Map.SourceDirectory + Path.DirectorySeparatorChar + name + ".png";
 				tbExportPath.Text = saveFileDialog.FileName;
 			}
 

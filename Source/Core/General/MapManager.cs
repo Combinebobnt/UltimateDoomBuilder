@@ -407,8 +407,16 @@ namespace CodeImp.DoomBuilder
 			string sourcedir = Path.Combine(temppath, "source");
 			Directory.CreateDirectory(sourcedir);
 			string workingpath = Path.Combine(sourcedir, candidate.Source.EntryFileName);
-			File.Copy(candidate.ScanPath, workingpath, true);
-			File.SetLastWriteTime(workingpath, candidate.Source.EntryTime);
+			try
+			{
+				File.Copy(candidate.ScanPath, workingpath, true);
+				File.SetLastWriteTime(workingpath, candidate.Source.EntryTime);
+			}
+			catch(Exception e) when(e is IOException || e is UnauthorizedAccessException)
+			{
+				General.ShowErrorMessage("Unable to copy \"" + candidate.Source.DisplayName + "\" to a working file: " + e.Message, MessageBoxButtons.OK);
+				return false;
+			}
 
 			archivesource = candidate.Source;
 			archivestore = ArchiveMapStore.ForArchive(archivesource.ArchivePath);

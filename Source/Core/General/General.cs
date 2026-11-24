@@ -1298,6 +1298,34 @@ namespace CodeImp.DoomBuilder
 			}
 		}
 
+		// File dialog patterns for an extension; non-Windows matching is case-sensitive, so every letter case is listed
+		internal static string FilterPatterns(string extension)
+		{
+#if NO_WIN32
+			List<string> patterns = new List<string> { "*." };
+			foreach(char c in extension.ToLowerInvariant())
+			{
+				List<string> next = new List<string>();
+				foreach(string p in patterns)
+				{
+					next.Add(p + c);
+					if(char.ToUpperInvariant(c) != c) next.Add(p + char.ToUpperInvariant(c));
+				}
+				patterns = next;
+			}
+			return string.Join(";", patterns);
+#else
+			return "*." + extension;
+#endif
+		}
+
+		// A PK3/ZIP to pick a map from. A .pk3/.zip that is not a zip still routes here, so the user gets the archive error.
+		internal static bool IsArchiveFile(string path)
+		{
+			string ext = Path.GetExtension(path).ToLowerInvariant();
+			return ext == ".pk3" || ext == ".zip" || ZipDirectory.IsZip(path);
+		}
+
 		// This loads a map from file
 		[BeginAction("openmap")]
 		internal static void OpenMap()
@@ -1308,13 +1336,8 @@ namespace CodeImp.DoomBuilder
 			// Open map file dialog
 			OpenFileDialog openfile = new OpenFileDialog();
 			openfile.Title = "Open Map";
-
-#if NO_WIN32
-			// No easy way to have case-insesitivity for non-Windows platforms
-			openfile.Filter = "Doom WAD Files (*.wad)|*.wad;*.Wad;*.wAd;*.WAd;*.waD;*.WaD;*.wAD;*.WAD";
-#else
-			openfile.Filter = "Doom WAD Files (*.wad)|*.wad";
-#endif			
+			string wads = FilterPatterns("wad"), archives = FilterPatterns("pk3") + ";" + FilterPatterns("zip");
+			openfile.Filter = "All supported (*.wad;*.pk3;*.zip)|" + wads + ";" + archives + "|Doom WAD Files (*.wad)|" + wads + "|PK3/ZIP Archives (*.pk3;*.zip)|" + archives;
 
 			if (!string.IsNullOrEmpty(settings.LastUsedMapFolder) && Directory.Exists(settings.LastUsedMapFolder)) //mxd
 			{
@@ -1425,6 +1448,12 @@ namespace CodeImp.DoomBuilder
 			// Ask the user to save changes (if any)
 			if(AskSaveMap())
 			{
+				if(IsArchiveFile(filename))
+				{
+					OpenArchiveMapFile(filename, options);
+					return;
+				}
+
 				// Open map options dialog
 				OpenMapOptionsForm openmapwindow = (options != null ? new OpenMapOptionsForm(filename, options) : new OpenMapOptionsForm(filename));
 
@@ -1432,9 +1461,52 @@ namespace CodeImp.DoomBuilder
 					OpenMapFileWithOptions(filename, openmapwindow.Options);
 			}
 		}
-		
-		// This opens the specified file without dialog
-		internal static void OpenMapFileWithOptions(string filename, MapOptions options)
+
+		// Lists the maps of every WAD in a PK3/ZIP and opens the chosen one. options, when given, preselects a map.
+		private static void OpenArchiveMapFile(string filename, MapOptions options)
+		{
+			ArchiveMapScan scan;
+			Cursor.Current = Cursors.WaitCursor;
+			try
+			{
+				scan = ArchiveMapScan.Open(filename, temppath);
+			}
+			catch(Exception e) when(e is InvalidDataException || e is IOException || e is UnauthorizedAccessException)
+			{
+				Cursor.Current = Cursors.Default;
+				ShowErrorMessage("Could not open \"" + filename + "\": " + e.Message, MessageBoxButtons.OK);
+				return;
+			}
+
+			// The scan folder goes away on every path out of here
+			using(scan)
+			{
+				Cursor.Current = Cursors.Default;
+				ArchiveMapCandidate candidate;
+				MapOptions chosen;
+				using(OpenMapOptionsForm openmapwindow = new OpenMapOptionsForm(scan, options))
+				{
+					if(openmapwindow.ShowDialog(mainwindow) != DialogResult.OK || openmapwindow.SelectedCandidate == null) return;
+					candidate = openmapwindow.SelectedCandidate;
+					chosen = openmapwindow.Options;
+				}
+
+				OpenMapFileWithOptions(scan.ArchivePath, chosen, candidate, scan.Warnings);
+				if(map == null || map.ArchiveSource == null) return;
+
+				try
+				{
+					ArchiveMapStore.ForArchive(scan.ArchivePath).WriteIndex(candidate.Source, chosen.CurrentName);
+				}
+				catch(Exception e) when(e is IOException || e is UnauthorizedAccessException)
+				{
+					WriteLogLine("WARNING: could not record the last map opened from \"" + scan.ArchivePath + "\": " + e.Message);
+				}
+			}
+		}
+
+		// This opens the specified file without dialog. With a candidate, filename is its archive.
+		internal static void OpenMapFileWithOptions(string filename, MapOptions options, ArchiveMapCandidate candidate = null, List<string> archivewarnings = null)
 		{
 			// Display status
 			mainwindow.DisplayStatus(StatusType.Busy, "Opening map file...");
@@ -1452,17 +1524,19 @@ namespace CodeImp.DoomBuilder
 
 			// mxd. Clear old errors
 			errorlogger.Clear();
+			if(archivewarnings != null)
+				foreach(string w in archivewarnings) errorlogger.Add(ErrorType.Warning, Path.GetFileName(filename) + ": " + w);
 
 			// Create map manager with given options
 			map = new MapManager();
-			if(map.InitializeOpenMap(filename, options))
+			if(candidate != null ? map.InitializeOpenArchiveMap(candidate, options) : map.InitializeOpenMap(filename, options))
 			{
 				// Add recent file
-				mainwindow.AddRecentFile(filename);
+				mainwindow.AddRecentFile(map.SourcePathName);
 
 				//mxd
 				mainwindow.UpdateGZDoomPanel();
-				settings.LastUsedMapFolder = Path.GetDirectoryName(filename);
+				settings.LastUsedMapFolder = map.SourceDirectory;
 				settings.FindDefaultDrawSettings();
 
 				// Let the plugins know
@@ -1566,7 +1640,7 @@ namespace CodeImp.DoomBuilder
 				if(map.SaveMap(map.FilePathName, SavePurpose.Normal))
 				{
 					// Add recent file
-					mainwindow.AddRecentFile(map.FilePathName);
+					mainwindow.AddRecentFile(map.SourcePathName);
 					result = true;
 				}
 				plugins.OnMapSaveEnd(SavePurpose.Normal);
@@ -1582,7 +1656,7 @@ namespace CodeImp.DoomBuilder
 				}
 				else if(result)
 				{
-					mainwindow.DisplayStatus(StatusType.Info, "Map saved in " + map.FileTitle + ".");
+					mainwindow.DisplayStatus(StatusType.Info, "Map saved in " + map.DisplayTitle + ".");
 				}
 				else
 				{
@@ -1628,10 +1702,10 @@ namespace CodeImp.DoomBuilder
 			if(map.FilePathName.Length > 0) //mxd
 			{
 				savefile.RestoreDirectory = true;
-				savefile.InitialDirectory = Path.GetDirectoryName(map.FilePathName);
+				savefile.InitialDirectory = map.SourceDirectory;
 			}
 
-			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK)
+			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK && !IsSourceArchive(savefile.FileName))
 			{
 				// Check if we're saving to the same file as the original.
 				// Because some muppets use Save As even when saving to the same file.
@@ -1655,7 +1729,7 @@ namespace CodeImp.DoomBuilder
 					if(map.SaveMap(savefile.FileName, SavePurpose.AsNewFile))
 					{
 						// Add recent file
-						mainwindow.AddRecentFile(map.FilePathName);
+						mainwindow.AddRecentFile(map.SourcePathName);
 						settings.LastUsedMapFolder = Path.GetDirectoryName(map.FilePathName); //mxd
 						result = true;
 					}
@@ -1672,7 +1746,7 @@ namespace CodeImp.DoomBuilder
 					}
 					else if(result)
 					{
-						mainwindow.DisplayStatus(StatusType.Info, "Map saved in " + map.FileTitle + ".");
+						mainwindow.DisplayStatus(StatusType.Info, "Map saved in " + map.DisplayTitle + ".");
 					}
 					else
 					{
@@ -1721,7 +1795,14 @@ namespace CodeImp.DoomBuilder
 			savefile.CheckPathExists = true;
 			savefile.OverwritePrompt = false;
 			savefile.ValidateNames = true;
-			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK)
+			if(map.ArchiveSource != null)
+			{
+				// Not the working copy's temp folder
+				savefile.RestoreDirectory = true;
+				savefile.InitialDirectory = map.SourceDirectory;
+			}
+
+			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK && !IsSourceArchive(savefile.FileName))
 			{
 				// Display status
 				mainwindow.DisplayStatus(StatusType.Busy, "Saving map file...");
@@ -1735,7 +1816,7 @@ namespace CodeImp.DoomBuilder
 				if(map.SaveMap(savefile.FileName, SavePurpose.IntoFile))
 				{
 					// Add recent file
-					mainwindow.AddRecentFile(map.FilePathName);
+					mainwindow.AddRecentFile(map.SourcePathName);
 					result = true;
 				}
 				plugins.OnMapSaveEnd(SavePurpose.IntoFile);
@@ -1751,7 +1832,7 @@ namespace CodeImp.DoomBuilder
 				}
 				else if(result)
 				{
-					mainwindow.DisplayStatus(StatusType.Info, "Map saved in " + map.FileTitle + ".");
+					mainwindow.DisplayStatus(StatusType.Info, "Map saved in " + map.DisplayTitle + ".");
 				}
 				else
 				{
@@ -1769,6 +1850,14 @@ namespace CodeImp.DoomBuilder
 			return result;
 		}
 		
+		// Save As/Into naming the archive the map came from would overwrite the whole archive with a WAD
+		private static bool IsSourceArchive(string savefilename)
+		{
+			if(map.ArchiveSource == null || ArchiveMapStore.NormalizePath(savefilename) != ArchiveMapStore.NormalizePath(map.SourcePathName)) return false;
+			ShowWarningMessage("\"" + Path.GetFileName(savefilename) + "\" is the archive this map was opened from. Use Save to write the map back into it, or pick a WAD file.", MessageBoxButtons.OK);
+			return true;
+		}
+
 		// This asks to save the map if needed
 		// Returns false when action was cancelled
 		internal static bool AskSaveMap()
@@ -1782,7 +1871,7 @@ namespace CodeImp.DoomBuilder
 			if (map.IsChanged)
 			{
 				// Ask to save changes
-				DialogResult result = MessageBox.Show(mainwindow, "Do you want to save changes to " + map.FileTitle + " (" + map.Options.CurrentName + ")?", Application.ProductName, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+				DialogResult result = MessageBox.Show(mainwindow, "Do you want to save changes to " + map.DisplayTitle + " (" + map.Options.CurrentName + ")?", Application.ProductName, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
 				if (result == DialogResult.Yes)
 				{
 					// Save map

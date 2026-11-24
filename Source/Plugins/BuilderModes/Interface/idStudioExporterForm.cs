@@ -58,7 +58,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		{
 			InitializeComponent();
 
-			gui_ModPath.Text = Path.GetDirectoryName(General.Map.FilePathName);
+			gui_ModPath.Text = General.Map.SourceDirectory;
 			gui_MapName.Text = General.Map.Options.LevelName.ToLower();
 			gui_Downscale.Value = 20;
 			gui_xShift.Value = 0;

@@ -23,7 +23,7 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		
 		public ObjExporterSettingsForm() {
 			InitializeComponent();
-			saveFileDialog.InitialDirectory = General.Map.FilePathName;
+			saveFileDialog.InitialDirectory = General.Map.SourcePathName;
 			saveFileDialog.FileName = General.Map.FileTitle + "_" + General.Map.Options.LevelName;
 		}
 

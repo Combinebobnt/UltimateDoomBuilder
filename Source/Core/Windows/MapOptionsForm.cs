@@ -115,7 +115,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Find whatever was selected after the previous step
 
 			//mxd
-			if(General.Map != null) datalocations.StartPath = General.Map.FilePathName;
+			if(General.Map != null) datalocations.StartPath = General.Map.SourcePathName;
 
 			// Set the level name
 			if(!string.IsNullOrEmpty(options.CurrentName)) levelname.Text = options.CurrentName;  //mxd

@@ -455,7 +455,7 @@ namespace CodeImp.DoomBuilder.Windows
 				string maptitle = (!string.IsNullOrEmpty(General.Map.Data.MapInfo.Title) ? ": " + General.Map.Data.MapInfo.Title : "");
 				
 				// Show map name and filename in caption
-				this.Text = (mapchanged ? ChangedTitleMarker : "") + General.Map.FileTitle + " (" + General.Map.Options.CurrentName + maptitle + ") - " + programname;
+				this.Text = (mapchanged ? ChangedTitleMarker : "") + General.Map.DisplayTitle + " (" + General.Map.Options.CurrentName + maptitle + ") - " + programname;
 			}
 			else
 			{
@@ -559,7 +559,10 @@ namespace CodeImp.DoomBuilder.Windows
 			{
 				bool showdialog = false;
 				MapOptions options = new MapOptions();
-				
+
+				// An archive always shows the open dialog, -map only preselecting a row
+				bool archive = General.IsArchiveFile(General.AutoLoadFile);
+
 				// Any of the options already given?
 				if(General.AutoLoadMap != null)
 				{
@@ -568,7 +571,7 @@ namespace CodeImp.DoomBuilder.Windows
 					// Try to find existing options in the settings file
 					//string dbsfile = General.AutoLoadFile.Substring(0, General.AutoLoadFile.Length - 4) + ".dbs";
 					string dbsfile = Path.ChangeExtension(General.AutoLoadFile, "dbs");
-					if (File.Exists(dbsfile))
+					if (!archive && File.Exists(dbsfile))
 						try { mapsettings = new Configuration(dbsfile, true); }
 						catch(Exception) { mapsettings = new Configuration(true); }
 					else
@@ -628,7 +631,11 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 
 				// Show open map dialog?
-				if(showdialog)
+				if(archive)
+				{
+					General.OpenMapFile(General.AutoLoadFile, General.AutoLoadMap != null ? options : null);
+				}
+				else if(showdialog)
 				{
 					// Show open dialog
 					General.OpenMapFile(General.AutoLoadFile, null);
@@ -756,9 +763,9 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 
 				string ext = Path.GetExtension(filepaths[0]);
-				if(string.IsNullOrEmpty(ext) || ext.ToLower() != ".wad") 
+				if((string.IsNullOrEmpty(ext) || ext.ToLower() != ".wad") && !General.IsArchiveFile(filepaths[0]))
 				{
-					General.Interface.DisplayStatus(StatusType.Warning, "Cannot open \"" + filepaths[0] + "\": only WAD files can be loaded this way!");
+					General.Interface.DisplayStatus(StatusType.Warning, "Cannot open \"" + filepaths[0] + "\": only WAD, PK3 and ZIP files can be loaded this way!");
 					return;
 				}
 
