@@ -1469,7 +1469,11 @@ namespace CodeImp.DoomBuilder.Windows
 
 				// All break levels resumed? Then lock the mouse again.
 				if(mouseexclusivebreaklevel == 0)
+				{
+					// An unpaired resume (a dialog that never deactivated us) can use up the free-cursor level
+					visualcursorfree = false;
 					StartMouseExclusive();
+				}
 			}
 		}
 

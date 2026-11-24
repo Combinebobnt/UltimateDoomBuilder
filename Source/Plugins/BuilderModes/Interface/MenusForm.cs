@@ -369,7 +369,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				vertexpicking,
 				adjacentvertices);
 
-			ToolStripMenuItem things = Submenu("T&hings",
+			ToolStripMenuItem things = Submenu("Th&ings",
 				ActionItem("Move Left", "builder_movethingleft"),
 				ActionItem("Move Right", "builder_movethingright"),
 				ActionItem("Move Forward", "builder_movethingfwd"),
@@ -391,15 +391,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				ActionItem("Create Group", "creategroup"),
 				ActionItem("Update or Delete Last Selected Group", "updateordeletelastselectedgroup"));
 
-			ToolStripMenuItem gravity = ActionItem("&Gravity", "togglegravity");
+			ToolStripMenuItem gravity = ActionItem("Gra&vity", "togglegravity");
 			ToolStripMenuItem alphahighlight = ActionItem("Alpha-based Texture Highlighting", "alphabasedtexturehighlighting");
 
-			ToolStripMenuItem menu = Submenu("&Visual", freecursor, new ToolStripSeparator(),
+			ToolStripMenuItem menu = Submenu("V&isual", freecursor, new ToolStripSeparator(),
 				offsets, scale, align, textures, heights, properties, slopes, things, groups,
 				new ToolStripSeparator(),
 				ActionItem("Cycle Thing Display", "showvisualthings"),
 				gravity,
 				alphahighlight);
+			menu.Visible = false;
 
 			menu.DropDownOpening += delegate
 			{
