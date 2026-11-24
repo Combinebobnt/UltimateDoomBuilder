@@ -487,6 +487,12 @@ namespace CodeImp.DoomBuilder.Config
 				lightmapbake.Quality.SampleScale = General.Clamp(cfg.ReadSetting("lightmapbaker.samplescale", 1.0f), 0.25f, 16f);
 				lightmapbake.Quality.Samples = General.Clamp(cfg.ReadSetting("lightmapbaker.samples", 256), 1, 4096);
 				lightmapbake.Quality.BounceSamples = General.Clamp(cfg.ReadSetting("lightmapbaker.bouncesamples", 2048), 1, 65536);
+				foreach(LightmapQualityPreset preset in Enum.GetValues(typeof(LightmapQualityPreset)))
+				{
+					// Stored in microseconds, which the configuration writes without an exponent
+					float micro = cfg.ReadSetting("lightmapbaker.cost." + preset.ToString().ToLowerInvariant(), 0f);
+					if(micro > 0 && !float.IsInfinity(micro)) lightmapbake.Cost[preset] = micro / 1e6;
+				}
 				rendercomments = cfg.ReadSetting("rendercomments", true); //mxd
 				fixedthingsscale = cfg.ReadSetting("fixedthingsscale", false); //mxd
 				rendergrid = cfg.ReadSetting("rendergrid", true); //mxd
@@ -676,6 +682,8 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("lightmapbaker.samplescale", lightmapbake.Quality.SampleScale);
 			cfg.WriteSetting("lightmapbaker.samples", lightmapbake.Quality.Samples);
 			cfg.WriteSetting("lightmapbaker.bouncesamples", lightmapbake.Quality.BounceSamples);
+			foreach(KeyValuePair<LightmapQualityPreset, double> cost in lightmapbake.Cost)
+				cfg.WriteSetting("lightmapbaker.cost." + cost.Key.ToString().ToLowerInvariant(), (float)(cost.Value * 1e6));
 			cfg.WriteSetting("rendercomments", rendercomments); //mxd
 			cfg.WriteSetting("fixedthingsscale", fixedthingsscale); //mxd
 			cfg.WriteSetting("rendergrid", rendergrid); //mxd

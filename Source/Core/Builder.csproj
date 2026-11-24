@@ -147,6 +147,7 @@
     <Compile Include="Compilers\ZtBccCompiler.cs" />
     <Compile Include="Compilers\BccCompiler.cs" />
     <Compile Include="Compilers\LightmapBaker.cs" />
+    <Compile Include="Compilers\LightmapBakeEstimate.cs" />
     <Compile Include="Compilers\LightmapBakeOptions.cs" />
     <Compile Include="Compilers\LightmapLighting.cs" />
     <Compile Include="Compilers\NodesCompiler.cs" />

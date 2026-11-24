@@ -2734,6 +2734,8 @@ namespace CodeImp.DoomBuilder
 
 			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint, emissivepath, emissivesummary, settings.EffectiveQuality());
 			job.Features = settings.Features;
+			job.Threads = settings.EffectiveThreads(Environment.ProcessorCount);
+			job.EstimatedTexels = EstimateLightmapTexels(job.Quality);
 			try { job.Baker.Start(settings, input, output, emissivepath); }
 			catch(Exception e)
 			{
@@ -2782,6 +2784,17 @@ namespace CodeImp.DoomBuilder
 				quality.BounceSamples = 2048;
 			}
 			double seconds = job.Baker.Elapsed.TotalSeconds;
+			long traced = job.Baker.TracedTexels;
+			bool cpu = job.Baker.CpuTraced;
+			if(quality != null && cpu && traced > 0)
+			{
+				// The whole bake's wall time: the baker's buffered output can't time its trace alone
+				LightmapBakeSettings settings = General.Settings.LightmapBake;
+				LightmapQualityPreset preset = quality.Preset;
+				settings.Cost[preset] = LightmapBakeEstimate.Calibrate(settings.CostOf(preset), traced, seconds, job.Threads);
+			}
+			General.WriteLogLine("Lightmap bake estimate: " + job.EstimatedTexels + " texels estimated, " + traced + " traced" +
+				(cpu ? " by the CPU tracer" : "") + " in " + seconds.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s on " + job.Threads + " threads");
 			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString(), quality, lumpsha, seconds, job.Baker.Lines);
 			lightmapsourceversion++;
 			ClearLightmapStale();
@@ -2801,6 +2814,17 @@ namespace CodeImp.DoomBuilder
 			HashSet<ZDoom.EmitdefsEntry> used;
 			data.EmissiveTable.BuildBakeFile(EmissiveMapNames(), null, out used);
 			return used;
+		}
+
+		// The texels a bake at this quality would trace; mapdistance is the ZDRayInfo sample distance, the map's own when null
+		internal long EstimateLightmapTexels(LightmapBakeQuality quality, int? mapdistance = null)
+		{
+			int count;
+			int distance = mapdistance ?? Convert.ToInt32(ReadLightmapLighting(out count)["sampledistance"], System.Globalization.CultureInfo.InvariantCulture);
+			List<LightmapEstimateSide> sides;
+			List<LightmapEstimateSector> sectors;
+			LightmapBakeEstimate.Read(map, out sides, out sectors);
+			return LightmapBakeEstimate.Texels(sides, sectors, LightmapBakeEstimate.MapDistance(distance), quality.SampleScale, quality.TextureSize);
 		}
 
 		// The bake lighting the map has now; count is the number of ZDRayInfo things

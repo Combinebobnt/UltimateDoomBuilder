@@ -66,6 +66,10 @@ namespace CodeImp.DoomBuilder.Windows
 		private bool bakesucceeded;
 		private Task<LightmapBakerFeatures> probe; // --features of the baker at probepath
 		private string probepath;
+		private Label estimate;
+		private string texelskey; // the quality and sample distance texels was estimated for
+		private long texels;
+		private bool longbakeconfirmed; // asked once per dialog session
 
 		#endregion
 
@@ -193,7 +197,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			foreach(LightmapBakeOption o in LightmapBakeOptions.OnTab(tab))
 			{
-				if(o.Id == "autobake" || o.Id == "estimate") continue; // rows the form doesn't offer yet
+				if(o.Id == "autobake") continue; // a row the form doesn't offer yet
 				Row r = new Row { Option = o };
 				r.Note = new Label { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = SystemColors.GrayText, Visible = false };
 				int row = table.RowCount++;
@@ -235,6 +239,11 @@ namespace CodeImp.DoomBuilder.Windows
 		private Control CreateControl(Row r)
 		{
 			LightmapBakeOption o = r.Option;
+			if(o.Kind == LightmapOptionKind.ReadOnly)
+			{
+				estimate = new Label { AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 3, 3), MaximumSize = new Size(420, 0) };
+				return estimate;
+			}
 			switch(o.Type)
 			{
 				case LightmapOptionType.Bool:
@@ -609,6 +618,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			string problem = General.Map.LightmapBakeUnavailable() ?? Settings.BakerProblem();
 			bake.Enabled = quickbake.Enabled = (problem == null);
+			string estimated = UpdateEstimate();
 			if(problem != null) status.Text = problem;
 			else if(!showingresult)
 			{
@@ -616,8 +626,56 @@ namespace CodeImp.DoomBuilder.Windows
 				LightmapBakerFeatures features = Features(Settings.BakerPath, false);
 				if(probe.IsCompleted && quality.TextureSize > 1024 && !features.Has(LightmapBakeOptions.FEATURE_SIZE4096))
 					text = "Baking at 1024: this ZDRay has no " + LightmapBakeOptions.FEATURE_SIZE4096 + ". " + text;
+				if(estimated != null) text += " Estimated: " + estimated + ".";
 				status.Text = text;
 			}
+		}
+
+		// The bake's seconds on this machine, negative before a bake of its preset has measured the cost
+		private double EstimateSeconds(LightmapBakeQuality requested, out long count, out LightmapQualityPreset preset)
+		{
+			LightmapBakeQuality q = requested.Effective(Features(Settings.BakerPath, false));
+			int distance = Convert.ToInt32(edited["sampledistance"], CultureInfo.InvariantCulture);
+			string key = q.SampleScale.ToString("R", CultureInfo.InvariantCulture) + "|" + q.TextureSize + "|" + distance;
+			if(key != texelskey)
+			{
+				texels = General.Map.EstimateLightmapTexels(q, distance);
+				texelskey = key;
+			}
+			count = texels;
+			preset = q.Preset;
+			return LightmapBakeEstimate.Seconds(texels, Settings.CostOf(preset), Settings.EffectiveThreads(Environment.ProcessorCount));
+		}
+
+		// The Run tab's estimate row; returns the estimate in words, null when there is none
+		private string UpdateEstimate()
+		{
+			if(estimate == null) return null;
+			long count;
+			LightmapQualityPreset preset;
+			string described = LightmapBakeEstimate.Describe(EstimateSeconds(quality, out count, out preset));
+			string texeltext = count.ToString("N0", CultureInfo.InvariantCulture) + " texels";
+			if(described == null)
+				estimate.Text = "No estimate until the first " + preset + " bake on this machine (" + texeltext + " to trace).";
+			else
+				estimate.Text = described + " for " + texeltext + ", from this machine's earlier " + preset + " bakes" +
+					(Settings.CpuOnly ? "" : " on the CPU tracer") + ".";
+			return described;
+		}
+
+		// A bake estimated past a minute asks once per dialog session
+		private bool ConfirmLongBake(LightmapBakeQuality run)
+		{
+			if(longbakeconfirmed) return true;
+			long count;
+			LightmapQualityPreset preset;
+			double seconds = EstimateSeconds(run, out count, out preset);
+			if(seconds <= LightmapBakeEstimate.CONFIRM_SECONDS) return true;
+			string message = "This bake is estimated to take " + LightmapBakeEstimate.Describe(seconds) + " (" +
+				count.ToString("N0", CultureInfo.InvariantCulture) + " texels at " + preset + " quality). Bake anyway?";
+			if(MessageBox.Show(this, message, "Bake Lightmaps", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return false;
+			longbakeconfirmed = true;
+			return true;
 		}
 
 		// The baker's features, probed off the UI thread once per path. A bake waits for the probe, and
@@ -709,6 +767,11 @@ namespace CodeImp.DoomBuilder.Windows
 				settings.Quality = quality.Clone();
 			}
 			LightmapBakeSettings run = settings.With(quick ? LightmapBakeQuality.Quick(quality.TextureSize) : quality);
+			if(!ConfirmLongBake(run.Quality))
+			{
+				UpdateState();
+				return;
+			}
 
 			string error;
 			job = General.Map.StartLightmapBake(run, out error);

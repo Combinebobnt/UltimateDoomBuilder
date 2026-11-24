@@ -24,7 +24,16 @@ namespace CodeImp.DoomBuilder.Compilers
 		public bool CpuOnly;
 		public LightmapBakerFeatures Features = LightmapBakerFeatures.None;
 
+		// This machine's CPU tracer cost in thread seconds per traced texel, by preset; absent until a bake measures it
+		public readonly Dictionary<LightmapQualityPreset, double> Cost = new Dictionary<LightmapQualityPreset, double>();
+
 		public int TextureSize { get { return Quality.TextureSize; } set { Quality.TextureSize = value; } }
+
+		public double CostOf(LightmapQualityPreset preset)
+		{
+			double cost;
+			return (Cost.TryGetValue(preset, out cost) ? cost : 0);
+		}
 
 		// The quality this baker will actually bake at
 		public LightmapBakeQuality EffectiveQuality() { return Quality.Effective(Features); }
@@ -85,6 +94,8 @@ namespace CodeImp.DoomBuilder.Compilers
 		public readonly string EmissiveSummary; // null when no EMITDEFS is loaded
 		public readonly LightmapBakeQuality Quality; // what the baker was asked to run at, after its features
 		public LightmapBakerFeatures Features = LightmapBakerFeatures.None; // the baker's, as probed when it started
+		public int Threads = 1;            // the -j the baker ran with
+		public long EstimatedTexels = -1;  // the estimate's texel count for this bake
 		public readonly LightmapBaker Baker = new LightmapBaker();
 		private bool outputtaken;
 
@@ -136,6 +147,8 @@ namespace CodeImp.DoomBuilder.Compilers
 		public string Stage { get; private set; }
 		public bool GpuIgnoredSamples { get; private set; } // the GPU tracer ran at its own sample counts
 		public double Fraction { get; private set; } // -1 when unknown
+		public long TracedTexels { get; private set; } // the tracer's work items (texels and light probes), 0 when unknown
+		public bool CpuTraced { get; private set; } // the CPU tracer finished; its stage can't be timed, as a pipe buffers the baker's output
 
 		public LightmapBakeProgress()
 		{
@@ -202,7 +215,11 @@ namespace CodeImp.DoomBuilder.Compilers
 			Match m;
 			if((m = SIDES.Match(s)).Success) SetFraction("Building side surfaces", m.Groups[1].Value, m.Groups[2].Value);
 			else if((m = SUBSECTORS.Match(s)).Success) SetFraction("Building subsector surfaces", m.Groups[1].Value, m.Groups[2].Value);
-			else if((m = TRACING.Match(s)).Success) SetFraction("Ray tracing", m.Groups[2].Value, m.Groups[3].Value);
+			else if((m = TRACING.Match(s)).Success)
+			{
+				SetFraction("Ray tracing", m.Groups[2].Value, m.Groups[3].Value);
+				TracedTexels = long.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture);
+			}
 			else if((m = BSP.Match(s)).Success)
 			{
 				Stage = "Building nodes";
@@ -212,7 +229,13 @@ namespace CodeImp.DoomBuilder.Compilers
 			{
 				if(s == "Ray tracing in progress...") { Stage = "Ray tracing"; Fraction = 0; }
 				else if(s.StartsWith("GPU ray tracing ignores --samples", StringComparison.Ordinal)) GpuIgnoredSamples = true;
-				else if(s == "Ray tracing complete") { Stage = "Writing output"; Fraction = -1; }
+				else if(s == "Ray tracing complete" || s == "Ray trace complete")
+				{
+					// "Ray trace complete" is the GPU tracer's, whose cost says nothing about the CPU's
+					Stage = "Writing output";
+					Fraction = -1;
+					if(s == "Ray tracing complete") CpuTraced = true;
+				}
 				lines.Enqueue(s);
 				while(lines.Count > MAX_LINES)
 				{
@@ -249,6 +272,8 @@ namespace CodeImp.DoomBuilder.Compilers
 		public bool Cancelled { get { return cancelled; } }
 		public TimeSpan Elapsed { get { return timer.Elapsed; } }
 		public bool GpuIgnoredSamples { get { lock(sync) return progress.GpuIgnoredSamples; } }
+		public long TracedTexels { get { lock(sync) return progress.TracedTexels; } }
+		public bool CpuTraced { get { lock(sync) return progress.CpuTraced; } }
 
 		// Arguments in zdbsp style: GL nodes in XGLN form, as UDB's zdbsp profiles write them
 		public static string BuildArguments(LightmapBakeSettings settings, int processorcount, string mapname, string inputfile, string outputfile, string emissivefile = null)
