@@ -653,6 +653,83 @@ namespace CodeImp.DoomBuilder.VisualModes
 
         int lastProcessed = 0;
 
+		// A height nothing in the map is rendered below, so culling can leave out the view under it.
+		// Errs low: slopes are taken at the sector's bounding box, things at their most sunken placement.
+		private double GetLowestRenderedHeight()
+		{
+			// Things sit on a floor, hang from a ceiling or use an absolute height, offset either way by their z
+			double sectorlowest = GetLowestSurfaceHeight();
+			double lowest = sectorlowest;
+			bool lights = General.Settings.GZDrawLightsMode != LightRenderMode.NONE;
+			Dictionary<int, GZBuilder.Data.DynamicLightData> gldefs = General.Map.Data.GldefsEntries;
+			foreach(Thing t in General.Map.Map.Things)
+			{
+				double z = t.Position.z;
+				double low = Math.Min(z, sectorlowest - Math.Abs(z) - t.Height);
+				if(t.RenderMode == ThingRenderMode.MODEL || t.RenderMode == ThingRenderMode.VOXEL)
+				{
+					GZBuilder.Data.ModelData md;
+					GZBuilder.Models.GZModel model = General.Map.Data.ModeldefEntries.TryGetValue(t.Type, out md) ? md.Model : null;
+					if(model != null)
+						low -= Math.Max(Math.Max(Math.Max(Math.Abs(model.BBox.MinX), Math.Abs(model.BBox.MaxX)), Math.Max(Math.Abs(model.BBox.MinY), Math.Abs(model.BBox.MaxY))),
+							Math.Max(Math.Abs(model.BBox.MinZ), Math.Abs(model.BBox.MaxZ))); // rotated any way
+					else
+						low -= Math.Max(t.Height, t.Size * 2);
+				}
+
+				// Lights come only from things culling keeps, so a light must be kept wherever its radius reaches a kept surface
+				if(lights)
+				{
+					double reach = 0;
+					if(t.DynamicLightType != null)
+						reach = Math.Max(Math.Max(t.Args[0] * 8, t.Args[4] * 2), t.Args[3] * Math.Max(2, t.Sector != null ? t.Sector.Brightness / 4 : 1));
+					GZBuilder.Data.DynamicLightData gl;
+					if(gldefs.Count > 0 && gldefs.TryGetValue(t.Type, out gl))
+						reach = Math.Max(reach, Math.Max(Math.Max(gl.PrimaryRadius, gl.SecondaryRadius), gl.Interval * 51)
+							+ Math.Abs(gl.Offset.X) + Math.Abs(gl.Offset.Y) + Math.Abs(gl.Offset.Z)); // sector lights: interval * brightness / 5
+					low -= reach;
+				}
+				lowest = Math.Min(lowest, low);
+			}
+
+			return double.IsInfinity(lowest) || double.IsNaN(lowest) ? double.NegativeInfinity : lowest;
+		}
+
+		// The lowest floor or ceiling anywhere in the map; a mode that adds surfaces of its own (slope effects, 3D floors) includes them
+		protected virtual double GetLowestSurfaceHeight()
+		{
+			double lowest = double.PositiveInfinity;
+			foreach(Sector s in General.Map.Map.Sectors)
+			{
+				lowest = Math.Min(lowest, Math.Min(s.FloorHeight, s.CeilHeight));
+				if(General.Map.UDMF)
+				{
+					if(s.FloorSlope.GetLengthSq() > 0) lowest = Math.Min(lowest, LowestOnSector(new Plane(s.FloorSlope, s.FloorSlopeOffset), s));
+					if(s.CeilSlope.GetLengthSq() > 0) lowest = Math.Min(lowest, LowestOnSector(new Plane(s.CeilSlope, s.CeilSlopeOffset), s));
+				}
+			}
+
+			if(General.Map.UDMF)
+			{
+				foreach(Vertex v in General.Map.Map.Vertices)
+				{
+					if(!double.IsNaN(v.ZFloor)) lowest = Math.Min(lowest, v.ZFloor);
+					if(!double.IsNaN(v.ZCeiling)) lowest = Math.Min(lowest, v.ZCeiling);
+				}
+			}
+
+			return lowest;
+		}
+
+		// The lowest a plane gets over a sector, taken at its bounding box corners; a vertical plane isn't drawn as a surface
+		protected static double LowestOnSector(Plane plane, Sector s)
+		{
+			if(plane.Normal.z == 0) return double.PositiveInfinity;
+			System.Drawing.RectangleF b = s.BBox;
+			return Math.Min(Math.Min(plane.GetZ(b.Left, b.Top), plane.GetZ(b.Right, b.Top)),
+				Math.Min(plane.GetZ(b.Left, b.Bottom), plane.GetZ(b.Right, b.Bottom)));
+		}
+
 		// This preforms visibility culling
 		protected void DoCulling()
 		{
@@ -1339,7 +1416,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 			}
 
 			// Apply new camera matrices
-			renderer.PositionAndLookAt(General.Map.VisualCamera.Position, General.Map.VisualCamera.Target);
+			renderer.PositionAndLookAt(General.Map.VisualCamera.Position, General.Map.VisualCamera.Target, GetLowestRenderedHeight());
 			FrameTiming.NoteCamera(General.Map.VisualCamera.Position, General.Map.VisualCamera.AngleXY, General.Map.VisualCamera.AngleZ);
 			FrameTiming.Lap(FrameBucket.Move);
 

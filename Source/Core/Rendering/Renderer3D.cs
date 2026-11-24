@@ -178,8 +178,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			// Dummy frustum, until CreateProjection sets the real angles
 			frustumfov = frustumfovy = (float)Angle2D.DegToRad(General.Settings.VisualFOV);
 			frustumnear = PROJ_NEAR_PLANE;
-			frustum = new ProjectedFrustum2D(new Vector2D(), 0.0f, (float)Angle2D.PI, frustumnear,
-				General.Settings.ViewDistance, frustumfov, frustumfovy);
+			frustum = new ProjectedFrustum2D(new Vector3D(), 0.0f, (float)Angle2D.PI, frustumnear,
+				General.Settings.ViewDistance, frustumfov, frustumfovy, double.NegativeInfinity);
 
 			fpsLabel = new TextLabel
 			{
@@ -327,6 +327,12 @@ namespace CodeImp.DoomBuilder.Rendering
 		// This creates matrices for a camera view
 		public void PositionAndLookAt(Vector3D pos, Vector3D lookat)
 		{
+			PositionAndLookAt(pos, lookat, double.NegativeInfinity);
+		}
+
+		// Same, with nothing rendered below lowestz, so culling can leave that part of the view out
+		public void PositionAndLookAt(Vector3D pos, Vector3D lookat, double lowestz)
+		{
 			// Calculate delta vector
 			cameraposition = pos;
             Vector3D delta = lookat - pos;
@@ -336,7 +342,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// Create frustum
 			frustum = new ProjectedFrustum2D(pos, (float)anglexy, (float)anglez, frustumnear,
-				General.Settings.ViewDistance, frustumfov, frustumfovy);
+				General.Settings.ViewDistance, frustumfov, frustumfovy, lowestz);
 
             // Make the view matrix
             view3d = Matrix.LookAt(RenderDevice.V3(pos), RenderDevice.V3(lookat), new Vector3f(0f, 0f, 1f));

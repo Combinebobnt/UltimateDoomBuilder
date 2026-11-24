@@ -296,7 +296,7 @@ namespace CodeImp.DoomBuilder.Rendering
         {
             float f = (float)(1.0 / Math.Tan(fov * 0.5f));
 
-            Matrix result = Null;
+            Matrix result = new Matrix(); // all zeros without the native call, so tests can build projections
             result.M11 = f / aspect;
             result.M22 = f;
             result.M33 = (zfar + znear) / (znear - zfar);

@@ -17,6 +17,7 @@
 #region ================== Namespaces
 
 using System;
+using System.Collections.Generic;
 
 #endregion
 
@@ -62,11 +63,12 @@ namespace CodeImp.DoomBuilder.Geometry
 		#region ================== Constructor / Destructor
 
 		// Constructor. fov and fovy are the full horizontal and vertical angles the screen shows, near and
-		// far the depth range drawn; zangle is Vector3D.GetAngleZ of the view direction.
-		public ProjectedFrustum2D(Vector2D pos, float xyangle, float zangle, float near, float far, float fov, float fovy)
+		// far the depth range drawn; zangle is Vector3D.GetAngleZ of the view direction. The part of the view
+		// below minz is left out, since nothing is rendered there.
+		public ProjectedFrustum2D(Vector3D pos, float xyangle, float zangle, float near, float far, float fov, float fovy, double minz)
 		{
 			// Initialize
-			this.pos = pos;
+			this.pos = new Vector2D(pos.x, pos.y);
 			this.xyangle = xyangle;
 			this.zangle = zangle;
 			this.near = near;
@@ -74,22 +76,47 @@ namespace CodeImp.DoomBuilder.Geometry
 			this.fov = fov;
 			this.fovy = fovy;
 
-			// The 2D shadow of the 3D view frustum is the convex hull of its 8 corners projected onto the map
+			// The 3D view frustum's 8 corners, indexed depth * 4 + y * 2 + x
 			double pitchcos = -Math.Cos(zangle); // pitch = zangle - PI, positive when looking down
 			double pitchsin = -Math.Sin(zangle);
 			double tanx = Math.Tan(fov * 0.5);
 			double tany = Math.Tan(fovy * 0.5);
 			Vector2D forward = Vector2D.FromAngle(xyangle);
 			Vector2D right = forward.GetPerpendicular();
-			Vector2D[] corners = new Vector2D[8];
+			Vector3D[] corners = new Vector3D[8];
 			int c = 0;
 			foreach(double depth in new double[] { near, far })
 				for(int sy = -1; sy <= 1; sy += 2)
 					for(int sx = -1; sx <= 1; sx += 2)
-						corners[c++] = pos + forward * (depth * (pitchcos + sy * tany * pitchsin)) + right * (depth * sx * tanx);
+					{
+						Vector2D xy = this.pos + forward * (depth * (pitchcos + sy * tany * pitchsin)) + right * (depth * sx * tanx);
+						corners[c++] = new Vector3D(xy, pos.z + depth * (sy * tany * pitchcos - pitchsin));
+					}
 
-			// Make the frustum lines, which all have the inside on their positive GetSideOfLine side
-			Vector2D[] hull = ConvexHull(corners);
+			// Its 2D shadow above minz is the convex hull of the corners above minz and the points where edges cross it
+			int[,] edges = { { 0, 1 }, { 2, 3 }, { 0, 2 }, { 1, 3 }, { 4, 5 }, { 6, 7 }, { 4, 6 }, { 5, 7 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
+			List<Vector2D> points = new List<Vector2D>(12);
+			foreach(Vector3D v in corners)
+				if(v.z >= minz) points.Add(new Vector2D(v.x, v.y));
+			for(int i = 0; i < edges.GetLength(0); i++)
+			{
+				Vector3D a = corners[edges[i, 0]], b = corners[edges[i, 1]];
+				if((a.z < minz) != (b.z < minz))
+				{
+					double t = (minz - a.z) / (b.z - a.z);
+					points.Add(new Vector2D(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
+				}
+			}
+
+			// Make the frustum lines, which all have the inside on their positive GetSideOfLine side.
+			// A view entirely below minz, or only touching it, shows nothing; it keeps the whole shadow so culling still has an area.
+			Vector2D[] hull = ConvexHull(points.ToArray());
+			if(hull.Length < 3)
+			{
+				points.Clear();
+				foreach(Vector3D v in corners) points.Add(new Vector2D(v.x, v.y));
+				hull = ConvexHull(points.ToArray());
+			}
 			lines = new Line2D[hull.Length];
 			for(int i = 0; i < hull.Length; i++)
 				lines[i] = new Line2D(hull[i], hull[(i + 1) % hull.Length]);
@@ -112,6 +139,7 @@ namespace CodeImp.DoomBuilder.Geometry
 		// Andrew's monotone chain, counterclockwise, collinear points dropped
 		private static Vector2D[] ConvexHull(Vector2D[] points)
 		{
+			if(points.Length == 0) return points;
 			Vector2D[] sorted = (Vector2D[])points.Clone();
 			Array.Sort(sorted, (a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.y.CompareTo(b.y));
 			Vector2D[] hull = new Vector2D[sorted.Length * 2];

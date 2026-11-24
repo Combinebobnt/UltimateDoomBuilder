@@ -36,6 +36,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		
 		// General methods
 		void PositionAndLookAt(Vector3D pos, Vector3D lookat);
+		void PositionAndLookAt(Vector3D pos, Vector3D lookat, double lowestz);
 		
 		// Presenting methods
 		void Finish();

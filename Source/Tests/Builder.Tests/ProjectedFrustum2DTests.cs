@@ -45,10 +45,17 @@ namespace Builder.Tests
 		}
 
 		// Built the way Renderer3D.PositionAndLookAt does, from a look direction
-		private static ProjectedFrustum2D Make(Matrix p, Vector3D pos, Vector3D dir)
+		private static ProjectedFrustum2D Make(Matrix p, Vector3D pos, Vector3D dir, double minz = double.NegativeInfinity)
 		{
 			Renderer3D.GetRenderedFrustum(p, out float fov, out float fovy, out float near);
-			return new ProjectedFrustum2D(new Vector2D(pos.x, pos.y), (float)dir.GetAngleXY(), (float)dir.GetAngleZ(), near, FAR, fov, fovy);
+			return new ProjectedFrustum2D(pos, (float)dir.GetAngleXY(), (float)dir.GetAngleZ(), near, FAR, fov, fovy, minz);
+		}
+
+		private static double Area(ProjectedFrustum2D f)
+		{
+			double a = 0;
+			foreach(Line2D l in f.Lines) a += l.v1.x * l.v2.y - l.v2.x * l.v1.y;
+			return Math.Abs(a) / 2;
 		}
 
 		private static double WorstOutside(ProjectedFrustum2D f, Vector2D p)
@@ -78,27 +85,37 @@ namespace Builder.Tests
 
 				for(int yawdeg = -180; yawdeg < 180; yawdeg += 37)
 				for(int pitchdeg = -88; pitchdeg <= 88; pitchdeg += 4)
+				foreach(double floor in new[] { double.NegativeInfinity, pos.z - 1000, pos.z - 41, pos.z - 0.5, pos.z + 30 })
 				{
 					Vector3D dir = Direction(yawdeg * Math.PI / 180.0, pitchdeg * Math.PI / 180.0);
-					ProjectedFrustum2D f = Make(p, pos, dir);
+					ProjectedFrustum2D f = Make(p, pos, dir, floor);
 
 					// Camera basis as Matrix.LookAt builds it, with world up +z
 					Vector3D right = Vector3D.CrossProduct(dir, new Vector3D(0, 0, 1)).GetNormal();
 					Vector3D up = Vector3D.CrossProduct(right, dir);
 					double worst = 0;
-					foreach(double d in depths)
 					for(int ix = -2; ix <= 2; ix++)
 					for(int iy = -2; iy <= 2; iy++)
 					{
-						double x = tx * d * ix / 2.0, y = ty * d * iy / 2.0;
-						if(!Visible(p, x, y, -d)) { failures.Add("sample not visible: " + x + ", " + y + ", " + d); continue; }
-						Vector3D w = pos + dir * d + right * x + up * y;
-						worst = Math.Max(worst, WorstOutside(f, new Vector2D(w.x, w.y)));
+						// The sample depths, plus where this ray meets the floor, since the clipped edge runs through there
+						Vector3D ray = dir + right * (tx * ix / 2.0) + up * (ty * iy / 2.0);
+						List<double> raydepths = new List<double>(depths);
+						double hit = (floor - pos.z) / ray.z;
+						if(hit >= near && hit <= FAR) raydepths.Add(hit * (1 - 1e-9));
+
+						foreach(double d in raydepths)
+						{
+							double x = tx * d * ix / 2.0, y = ty * d * iy / 2.0;
+							if(!Visible(p, x, y, -d)) { failures.Add("sample not visible: " + x + ", " + y + ", " + d); continue; }
+							Vector3D w = pos + ray * d;
+							if(w.z < floor) continue; // nothing is rendered there
+							worst = Math.Max(worst, WorstOutside(f, new Vector2D(w.x, w.y)));
+						}
 					}
 
 					// The angles go in as floats, worth about 0.001 units at the frustum's far corners
 					if(worst > 0.01)
-						failures.Add("fov " + visualfov + " aspect " + aspect + " yaw " + yawdeg + " pitch " + pitchdeg + ": " + worst.ToString("0.###") + " units outside");
+						failures.Add("fov " + visualfov + " aspect " + aspect + " yaw " + yawdeg + " pitch " + pitchdeg + " floor " + floor + ": " + worst.ToString("0.###") + " units outside");
 				}
 			}
 			Assert.True(failures.Count == 0, failures.Count + " views cull on-screen points:\n" + string.Join("\n", failures));
@@ -119,6 +136,24 @@ namespace Builder.Tests
 				Assert.True(WorstOutside(f, forward * 1000 + side * (s * edge * 1.01)) > 0, "just outside the edge is kept");
 			}
 			Assert.True(WorstOutside(f, forward * -10) > 0, "behind the camera is kept");
+		}
+
+		[Fact]
+		public void FloorClipShrinksSteepViews()
+		{
+			Matrix p = Projection(90, 1.6);
+			Vector3D pos = new Vector3D(10, 20, 41);
+			foreach(double pitch in new[] { 34.0, 70.0, 89.0 })
+			{
+				Vector3D dir = Direction(0.3, pitch * Math.PI / 180.0);
+				double unclipped = Area(Make(p, pos, dir));
+				double clipped = Area(Make(p, pos, dir, 0));
+				Assert.True(clipped < unclipped * 0.5, "pitch " + pitch + ": " + clipped + " of " + unclipped);
+			}
+
+			// A view wholly under the floor keeps its unclipped shadow rather than none
+			Vector3D down = Direction(0.3, 80 * Math.PI / 180.0);
+			Assert.True(Area(Make(p, new Vector3D(0, 0, -100), down, 0)) == Area(Make(p, new Vector3D(0, 0, -100), down)), "below the floor");
 		}
 	}
 }

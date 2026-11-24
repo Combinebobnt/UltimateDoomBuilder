@@ -1019,6 +1019,27 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return (sectordata.ContainsKey(s) ? sectordata[s] : null);
 		}
 
+		// Slope effects and 3D floors can put a surface below every sector's own floor and ceiling
+		protected override double GetLowestSurfaceHeight()
+		{
+			double lowest = base.GetLowestSurfaceHeight();
+			if(sectordata == null) return lowest;
+			foreach(SectorData sd in sectordata.Values)
+			{
+				foreach(SectorLevel l in sd.LightLevels) lowest = Math.Min(lowest, LowestLevelHeight(l, sd.Sector));
+				foreach(Effect3DFloor f in sd.ExtraFloors)
+					lowest = Math.Min(lowest, Math.Min(LowestLevelHeight(f.Floor, sd.Sector), LowestLevelHeight(f.Ceiling, sd.Sector)));
+			}
+			return lowest;
+		}
+
+		private static double LowestLevelHeight(SectorLevel l, Sector s)
+		{
+			if(l == null) return double.PositiveInfinity;
+			Vector3D n = l.plane.Normal;
+			return (n.x == 0 && n.y == 0) ? l.plane.GetZ(0, 0) : LowestOnSector(l.plane, s);
+		}
+
 		// This requests a things's extra data
 		internal ThingData GetThingData(Thing t)
 		{
