@@ -24,6 +24,7 @@ using System.Windows.Forms;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.Controls;
+using CodeImp.DoomBuilder.Map;
 
 #endregion
 
@@ -50,11 +51,30 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 		}
 
+		// A combo box entry carrying a value under a display title
+		private class RuleItem
+		{
+			public readonly object Value;
+			public readonly string Title;
+
+			public RuleItem(object value, string title)
+			{
+				Value = value;
+				Title = title;
+			}
+
+			public override string ToString()
+			{
+				return Title;
+			}
+		}
+
 		#endregion
 
 		#region ================== Variables
 
 		private bool settingup;
+		private bool settingrule;
 
 		#endregion
 		
@@ -79,7 +99,13 @@ namespace CodeImp.DoomBuilder.Windows
 
 			//mxd. Add ThingCategories with subcategories
 			AddThingFilterCategories(General.Map.Data.ThingCategories, string.Empty);
-			
+			foreach(object c in filtercategory.Items)
+				if(c is ThingCategoryData) rulevaluecategory.Items.Add(c);
+
+			// Rule subjects
+			foreach(ThingsFilterRuleSubject s in ThingsFilterRule.AllSubjects)
+				rulesubject.Items.Add(new RuleItem(s, ThingsFilterRule.SubjectTitle(s)));
+
 			// Fill actions list
 			filteraction.GeneralizedCategories = General.Map.Config.GenActionCategories;
 			filteraction.AddInfo(General.Map.Config.SortedLinedefActions.ToArray());
@@ -117,7 +143,8 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Sort the list
 			listfilters.Sort();
-			
+			ValidateAllFilters();
+
 			// Map format specific fields
 			filterzheight.Visible = General.Map.FormatInterface.HasThingHeight;
 			labelzheight.Visible = General.Map.FormatInterface.HasThingHeight;
@@ -147,12 +174,39 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd
 		private void ValidateFilter(ListViewItem item, ThingsFilter f)
 		{
-			int imageindex = (f.IsValid() ? -1 : 0);
+			int imageindex = (f.IsValid() && !f.HasInvalidRules(DialogContext()) ? -1 : 0);
 			if(item.ImageIndex != imageindex)
 			{
 				item.ImageIndex = imageindex;
 				listfilters.Invalidate();
 			}
+		}
+
+		// Rule validity depends on other filters' names and rules
+		private void ValidateAllFilters()
+		{
+			foreach(ListViewItem item in listfilters.Items) ValidateFilter(item, (ThingsFilter)item.Tag);
+		}
+
+		// Resolves "Matches filter" rules against the filters being edited
+		private ThingsFilterContext DialogContext()
+		{
+			return ThingsFilterContext.FromMap(DialogFilters());
+		}
+
+		private List<ThingsFilter> DialogFilters()
+		{
+			List<ThingsFilter> filters = new List<ThingsFilter>(listfilters.Items.Count);
+			foreach(ListViewItem item in listfilters.Items) filters.Add((ThingsFilter)item.Tag);
+			return filters;
+		}
+
+		private HashSet<string> FilterNames(ThingsFilter except)
+		{
+			HashSet<string> names = new HashSet<string>();
+			foreach(ThingsFilter f in DialogFilters())
+				if(f != except) names.Add(f.Name);
+			return names;
 		}
 
 		#endregion
@@ -182,7 +236,10 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Map.ChangeThingFilter(currentfilter);
 			General.MainWindow.UpdateThingsFilters();
 			General.Map.ConfigSettings.Changed = true;
-			
+
+			// Log problems made in the dialog
+			foreach(ThingsFilter f in General.Map.ConfigSettings.ThingsFilters) f.Validate();
+
 			// Close
 			this.DialogResult = DialogResult.OK;
 			this.Close();
@@ -200,12 +257,14 @@ namespace CodeImp.DoomBuilder.Windows
 		private void addfilter_Click(object sender, EventArgs e)
 		{
 			ThingsFilter newf = new ThingsFilter();
+			newf.Name = ThingsFilter.UniqueName(newf.Name, FilterNames(null));
 
 			// Make item in list and select it
 			ListViewItem item = new ListViewItem(newf.Name);
 			item.Tag = newf;
 			listfilters.Items.Add(item);
 			item.Selected = true;
+			ValidateAllFilters();
 
 			// Focus on the name field
 			//filtername.Focus();
@@ -218,9 +277,40 @@ namespace CodeImp.DoomBuilder.Windows
 			// Anything selected?
 			if(listfilters.SelectedItems.Count > 0)
 			{
+				// Ask first when other filters' rules use this one
+				ThingsFilter f = listfilters.SelectedItems[0].Tag as ThingsFilter;
+				List<string> users = ReferencingFilters(f);
+				if(users.Count > 0)
+				{
+					string text = "These filters have a \"Matches filter\" rule using \"" + f.Name + "\":\n\n" + string.Join("\n", users.ToArray())
+						+ "\n\nDelete it anyway? Those rules will stop matching until you change them.";
+					if(MessageBox.Show(this, text, "Delete Things Filter", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+				}
+
 				// Remove item
 				listfilters.Items.Remove(listfilters.SelectedItems[0]);
+				ValidateAllFilters();
 			}
+		}
+
+		// Names of the other filters with a "Matches filter" rule that resolves to this one
+		private List<string> ReferencingFilters(ThingsFilter target)
+		{
+			List<string> users = new List<string>();
+			ThingsFilterContext ctx = DialogContext();
+			foreach(ThingsFilter f in DialogFilters())
+			{
+				if(f == target) continue;
+				foreach(ThingsFilterRule r in f.Rules)
+				{
+					if(r.Subject == ThingsFilterRuleSubject.MatchesFilter && ctx.Resolve(r.Key) == target)
+					{
+						users.Add(f.Name);
+						break;
+					}
+				}
+			}
+			return users;
 		}
 		
 		// Item selected
@@ -253,7 +343,9 @@ namespace CodeImp.DoomBuilder.Windows
 					if((tc != null) && (tc.Category.Name == f.CategoryName)) filtercategory.SelectedItem = tc;
 				}
 				if(filtercategory.SelectedIndex == -1) filtercategory.SelectedIndex = 0;
-				
+				includesubcategories.Checked = f.IncludeSubcategories;
+				includesubcategories.Enabled = (filtercategory.SelectedIndex > 0);
+
 				if(f.ThingType > -1)
 					filtertype.Value = f.ThingType;
 				else
@@ -313,6 +405,8 @@ namespace CodeImp.DoomBuilder.Windows
 					fieldslist.SetValues(f.ThingCustomFields, true);
 				}
 
+				ShowRules(f);
+
 				// Done
 				settingup = false;
 			}
@@ -324,6 +418,7 @@ namespace CodeImp.DoomBuilder.Windows
 				filtername.Text = "";
 				filtercategory.SelectedIndex = -1;
 				foreach(CheckBox c in filterfields.Checkboxes) c.CheckState = CheckState.Indeterminate;
+				ShowRules(null);
 			}
 		}
 
@@ -361,6 +456,13 @@ namespace CodeImp.DoomBuilder.Windows
 
 				ValidateFilter(listfilters.SelectedItems[0], f); //mxd
 			}
+			includesubcategories.Enabled = (filtercategory.SelectedIndex > 0);
+		}
+
+		private void includesubcategories_CheckedChanged(object sender, EventArgs e)
+		{
+			if(!settingup && listfilters.SelectedItems.Count > 0)
+				((ThingsFilter)listfilters.SelectedItems[0].Tag).IncludeSubcategories = includesubcategories.Checked;
 		}
 		
 		// Rename filter
@@ -376,10 +478,25 @@ namespace CodeImp.DoomBuilder.Windows
 				if(string.IsNullOrEmpty(filtername.Text)) filtername.Text = ThingsFilter.DEFAULT_NAME; //mxd
 				if(f.Name != filtername.Text)
 				{
+					// Names must be unique, so "Matches filter" rules can find them
+					string oldname = f.Name;
+					HashSet<string> others = FilterNames(f);
+					filtername.Text = ThingsFilter.UniqueName(filtername.Text, others);
+
 					// Update name
 					f.Name = filtername.Text;
 					listfilters.SelectedItems[0].Text = f.Name;
 					listfilters.Sort();
+
+					// Rules that used the old name follow the rename, unless another filter still has it
+					if(!others.Contains(oldname))
+					{
+						foreach(ThingsFilter other in DialogFilters())
+							foreach(ThingsFilterRule r in other.Rules)
+								if(r.Subject == ThingsFilterRuleSubject.MatchesFilter && r.Key == oldname) r.Key = f.Name;
+					}
+					ValidateAllFilters();
+					ShowRules(f);
 				}
 			}
 		}
@@ -525,6 +642,9 @@ namespace CodeImp.DoomBuilder.Windows
 			arg2.Setup(arginfo[2]);
 			arg3.Setup(arginfo[3]);
 			arg4.Setup(arginfo[4]);
+
+			// Argument rules are labelled with the action's argument names
+			if(!settingup) RefreshRuleRows();
 		}
 		
 		private void browseaction_Click(object sender, EventArgs e)
@@ -599,7 +719,387 @@ namespace CodeImp.DoomBuilder.Windows
 				f.DisplayMode = (ThingsFilterDisplayMode)filtermode.SelectedIndex;
 			}
 		}
-		
+
+		#endregion
+
+		#region ================== Rules
+
+		private ThingsFilter SelectedFilter { get { return (listfilters.SelectedItems.Count > 0 ? listfilters.SelectedItems[0].Tag as ThingsFilter : null); } }
+
+		private ThingsFilterRule SelectedRule
+		{
+			get
+			{
+				ThingsFilter f = SelectedFilter;
+				int i = SelectedRuleIndex;
+				return (f != null && i >= 0 && i < f.Rules.Count ? f.Rules[i] : null);
+			}
+		}
+
+		private int SelectedRuleIndex { get { return (rulesgrid.SelectedRows.Count > 0 ? rulesgrid.SelectedRows[0].Index : -1); } }
+
+		// Fills the grid from a filter (or clears it) and selects the given row
+		private void ShowRules(ThingsFilter f, int select = 0)
+		{
+			settingrule = true;
+			rulesgrid.Rows.Clear();
+			if(f != null)
+			{
+				rulematchmode.SelectedIndex = (int)f.MatchMode;
+				foreach(ThingsFilterRule r in f.Rules) rulesgrid.Rows.Add();
+				RefreshRuleRows();
+			}
+			else
+			{
+				rulematchmode.SelectedIndex = -1;
+			}
+			rulesgrid.ClearSelection();
+			if(f != null && f.Rules.Count > 0)
+			{
+				select = Math.Max(0, Math.Min(select, f.Rules.Count - 1));
+				rulesgrid.Rows[select].Selected = true;
+				rulesgrid.CurrentCell = rulesgrid.Rows[select].Cells[0];
+			}
+			settingrule = false;
+			LoadRuleEditor();
+		}
+
+		private void RefreshRuleRows()
+		{
+			ThingsFilter f = SelectedFilter;
+			if(f == null) return;
+			ThingsFilterContext ctx = DialogContext();
+			for(int i = 0; i < f.Rules.Count && i < rulesgrid.Rows.Count; i++)
+			{
+				ThingsFilterRule r = f.Rules[i];
+				DataGridViewRow row = rulesgrid.Rows[i];
+				row.Cells[0].Value = ThingsFilterRule.SubjectTitle(r.Subject);
+				row.Cells[1].Value = KeyTitle(f, r);
+				row.Cells[2].Value = ThingsFilterRule.OperatorTitle(r.Subject, r.Operator);
+				row.Cells[3].Value = ValueTitle(r);
+
+				string error = f.RuleError(r, ctx);
+				string tip = "";
+				Color color = SystemColors.WindowText;
+				if(!ctx.IsAvailable(r))
+				{
+					color = SystemColors.GrayText;
+					tip = "Not available in this map format; this rule is skipped";
+				}
+				else if(error != null)
+				{
+					color = Color.Red;
+					tip = error;
+				}
+				row.DefaultCellStyle.ForeColor = color;
+				row.DefaultCellStyle.SelectionForeColor = (color == SystemColors.WindowText ? SystemColors.HighlightText : color);
+				foreach(DataGridViewCell cell in row.Cells) cell.ToolTipText = tip;
+			}
+		}
+
+		private static string KeyTitle(ThingsFilter f, ThingsFilterRule r)
+		{
+			switch(r.Subject)
+			{
+				case ThingsFilterRuleSubject.Flag:
+					string title;
+					return (General.Map.Config.ThingFlags.TryGetValue(r.Key, out title) ? title : r.Key);
+				case ThingsFilterRuleSubject.Arg:
+					int index;
+					if(int.TryParse(r.Key, out index)) return ArgTitle(f, index);
+					return r.Key;
+				case ThingsFilterRuleSubject.Field:
+				case ThingsFilterRuleSubject.MatchesFilter:
+					return r.Key;
+				default:
+					return "";
+			}
+		}
+
+		// "Arg 2", or the filter's action's name for that argument
+		private static string ArgTitle(ThingsFilter f, int index)
+		{
+			string title = "Arg " + index;
+			if(index >= 0 && index < Thing.NUM_ARGS && f.ThingAction > 0 && General.Map.Config.LinedefActions.ContainsKey(f.ThingAction))
+			{
+				ArgumentInfo info = General.Map.Config.LinedefActions[f.ThingAction].Args[index];
+				if(info.Used) title += ": " + info.Title;
+			}
+			return title;
+		}
+
+		private string ValueTitle(ThingsFilterRule r)
+		{
+			if(!ThingsFilterRule.UsesValue(r.Subject, r.Operator)) return "";
+			if(r.Subject == ThingsFilterRuleSubject.Category)
+			{
+				ThingCategoryData data = FindCategory(r.Value);
+				string title = (data != null ? data.FullName : r.Value);
+				return (r.IncludeSubcategories ? title + " (and subcategories)" : title);
+			}
+			return r.Value;
+		}
+
+		private ThingCategoryData FindCategory(string name)
+		{
+			foreach(object o in rulevaluecategory.Items)
+			{
+				ThingCategoryData data = o as ThingCategoryData;
+				if(data != null && string.Equals(data.Category.Name, name, StringComparison.OrdinalIgnoreCase)) return data;
+			}
+			return null;
+		}
+
+		// Shows the selected rule in the edit row
+		private void LoadRuleEditor()
+		{
+			ThingsFilter f = SelectedFilter;
+			ThingsFilterRule r = SelectedRule;
+			settingrule = true;
+
+			addrule.Enabled = (f != null);
+			rulematchmode.Enabled = (f != null);
+			removerule.Enabled = (r != null);
+			moveruleup.Enabled = (r != null && SelectedRuleIndex > 0);
+			moveruledown.Enabled = (r != null && SelectedRuleIndex < f.Rules.Count - 1);
+			rulesubject.Enabled = rulekeylist.Enabled = rulekeytext.Enabled = ruleoperator.Enabled = (r != null);
+			rulevaluetext.Enabled = rulevaluecategory.Enabled = rulesubcategories.Enabled = (r != null);
+
+			if(r == null)
+			{
+				rulesubject.SelectedIndex = -1;
+				rulekeylist.Items.Clear();
+				rulekeylist.Visible = true;
+				rulekeytext.Visible = false;
+				ruleoperator.Items.Clear();
+				rulevaluetext.Text = "";
+				rulevaluetext.Visible = true;
+				rulevaluecategory.Visible = false;
+				rulesubcategories.Visible = false;
+				ruleerror.Text = "";
+				settingrule = false;
+				return;
+			}
+
+			rulesubject.SelectedIndex = Array.IndexOf(ThingsFilterRule.AllSubjects, r.Subject);
+
+			// Key editor
+			bool keytext = (r.Subject == ThingsFilterRuleSubject.Field);
+			rulekeytext.Visible = keytext;
+			rulekeylist.Visible = !keytext;
+			rulekeylist.Items.Clear();
+			if(keytext)
+			{
+				rulekeytext.Text = r.Key;
+			}
+			else
+			{
+				foreach(RuleItem item in KeyItems(f, r.Subject)) rulekeylist.Items.Add(item);
+				if(r.Key.Length > 0 && FindItem(rulekeylist, r.Key) == -1)
+					rulekeylist.Items.Add(new RuleItem(r.Key, r.Key + (r.Subject == ThingsFilterRuleSubject.MatchesFilter ? " (missing)" : " (unknown)")));
+				rulekeylist.SelectedIndex = FindItem(rulekeylist, r.Key);
+				rulekeylist.Enabled = ThingsFilterRule.UsesKey(r.Subject);
+			}
+
+			// Operators
+			ruleoperator.Items.Clear();
+			foreach(ThingsFilterRuleOperator o in ThingsFilterRule.OperatorsFor(r.Subject))
+				ruleoperator.Items.Add(new RuleItem(o, ThingsFilterRule.OperatorTitle(r.Subject, o)));
+			ruleoperator.SelectedIndex = FindItem(ruleoperator, r.Operator);
+
+			// Value editor
+			bool category = (r.Subject == ThingsFilterRuleSubject.Category);
+			rulevaluecategory.Visible = category;
+			rulesubcategories.Visible = category;
+			rulevaluetext.Visible = !category;
+			if(category)
+			{
+				ThingCategoryData data = FindCategory(r.Value);
+				rulevaluecategory.SelectedItem = data;
+				if(data == null) rulevaluecategory.SelectedIndex = -1;
+				rulesubcategories.Checked = r.IncludeSubcategories;
+			}
+			else
+			{
+				if(rulevaluetext.Text != r.Value) rulevaluetext.Text = r.Value;
+				rulevaluetext.Enabled = ThingsFilterRule.UsesValue(r.Subject, r.Operator);
+			}
+
+			string error = f.RuleError(r, DialogContext());
+			ruleerror.Text = (error ?? "");
+			settingrule = false;
+		}
+
+		private List<RuleItem> KeyItems(ThingsFilter f, ThingsFilterRuleSubject subject)
+		{
+			List<RuleItem> items = new List<RuleItem>();
+			switch(subject)
+			{
+				case ThingsFilterRuleSubject.Flag:
+					foreach(KeyValuePair<string, string> flag in General.Map.Config.ThingFlags)
+						items.Add(new RuleItem(flag.Key, flag.Value));
+					break;
+				case ThingsFilterRuleSubject.Arg:
+					for(int i = 0; i < Thing.NUM_ARGS; i++)
+						items.Add(new RuleItem(i.ToString(), ArgTitle(f, i)));
+					break;
+				case ThingsFilterRuleSubject.MatchesFilter:
+					HashSet<string> seen = new HashSet<string>();
+					foreach(ThingsFilter other in DialogFilters())
+						if(other != f && seen.Add(other.Name)) items.Add(new RuleItem(other.Name, other.Name));
+					break;
+			}
+			return items;
+		}
+
+		private static int FindItem(ComboBox box, object value)
+		{
+			for(int i = 0; i < box.Items.Count; i++)
+			{
+				RuleItem item = box.Items[i] as RuleItem;
+				if(item != null && Equals(item.Value, value)) return i;
+			}
+			return -1;
+		}
+
+		// After any rule edit
+		private void RuleChanged()
+		{
+			RefreshRuleRows();
+			ThingsFilter f = SelectedFilter;
+			ThingsFilterRule r = SelectedRule;
+			if(f != null && r != null)
+			{
+				string error = f.RuleError(r, DialogContext());
+				ruleerror.Text = (error ?? "");
+			}
+			ValidateAllFilters();
+		}
+
+		private void rulesgrid_SelectionChanged(object sender, EventArgs e)
+		{
+			if(!settingrule) LoadRuleEditor();
+		}
+
+		private void rulematchmode_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			ThingsFilter f = SelectedFilter;
+			if(settingrule || f == null || rulematchmode.SelectedIndex < 0) return;
+			f.MatchMode = (ThingsFilterMatchMode)rulematchmode.SelectedIndex;
+		}
+
+		private void addrule_Click(object sender, EventArgs e)
+		{
+			ThingsFilter f = SelectedFilter;
+			if(f == null) return;
+			f.Rules.Add(new ThingsFilterRule(ThingsFilterRuleSubject.Type, ThingsFilterRuleOperator.IsOneOf, "", ""));
+			ShowRules(f, f.Rules.Count - 1);
+			ValidateAllFilters();
+			rulevaluetext.Focus();
+		}
+
+		private void removerule_Click(object sender, EventArgs e)
+		{
+			ThingsFilter f = SelectedFilter;
+			int i = SelectedRuleIndex;
+			if(f == null || i < 0 || i >= f.Rules.Count) return;
+			f.Rules.RemoveAt(i);
+			ShowRules(f, i);
+			ValidateAllFilters();
+		}
+
+		private void moveruleup_Click(object sender, EventArgs e)
+		{
+			MoveRule(-1);
+		}
+
+		private void moveruledown_Click(object sender, EventArgs e)
+		{
+			MoveRule(1);
+		}
+
+		private void MoveRule(int delta)
+		{
+			ThingsFilter f = SelectedFilter;
+			int i = SelectedRuleIndex;
+			int j = i + delta;
+			if(f == null || i < 0 || j < 0 || j >= f.Rules.Count) return;
+			ThingsFilterRule r = f.Rules[i];
+			f.Rules[i] = f.Rules[j];
+			f.Rules[j] = r;
+			ShowRules(f, j);
+		}
+
+		private void rulesubject_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			RuleItem item = rulesubject.SelectedItem as RuleItem;
+			if(settingrule || r == null || item == null) return;
+			ThingsFilterRuleSubject s = (ThingsFilterRuleSubject)item.Value;
+			if(s == r.Subject) return;
+
+			// A new subject starts from its first operator and a fresh key
+			r.Subject = s;
+			ThingsFilterRuleOperator[] ops = ThingsFilterRule.OperatorsFor(s);
+			if(Array.IndexOf(ops, r.Operator) < 0) r.Operator = ops[0];
+			r.Key = (s == ThingsFilterRuleSubject.Arg ? "0" : "");
+			if(!ThingsFilterRule.UsesValue(s, r.Operator) || s == ThingsFilterRuleSubject.Category) r.Value = "";
+			LoadRuleEditor();
+			RuleChanged();
+		}
+
+		private void rulekeylist_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			RuleItem item = rulekeylist.SelectedItem as RuleItem;
+			if(settingrule || r == null || item == null) return;
+			r.Key = (string)item.Value;
+			RuleChanged();
+		}
+
+		private void rulekeytext_TextChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			if(settingrule || r == null) return;
+			r.Key = rulekeytext.Text.Trim();
+			RuleChanged();
+		}
+
+		private void ruleoperator_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			RuleItem item = ruleoperator.SelectedItem as RuleItem;
+			if(settingrule || r == null || item == null) return;
+			r.Operator = (ThingsFilterRuleOperator)item.Value;
+			rulevaluetext.Enabled = ThingsFilterRule.UsesValue(r.Subject, r.Operator);
+			RuleChanged();
+		}
+
+		private void rulevaluetext_TextChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			if(settingrule || r == null) return;
+			r.Value = rulevaluetext.Text;
+			RuleChanged();
+		}
+
+		private void rulevaluecategory_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			ThingCategoryData data = rulevaluecategory.SelectedItem as ThingCategoryData;
+			if(settingrule || r == null || data == null) return;
+			r.Value = data.Category.Name;
+			RuleChanged();
+		}
+
+		private void rulesubcategories_CheckedChanged(object sender, EventArgs e)
+		{
+			ThingsFilterRule r = SelectedRule;
+			if(settingrule || r == null) return;
+			r.IncludeSubcategories = rulesubcategories.Checked;
+			RuleChanged();
+		}
+
 		#endregion
 	}
 }

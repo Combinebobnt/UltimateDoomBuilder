@@ -75,6 +75,31 @@ namespace CodeImp.DoomBuilder.Windows
 			this.labeltag = new System.Windows.Forms.Label();
 			this.tabcustom = new System.Windows.Forms.TabPage();
 			this.fieldslist = new CodeImp.DoomBuilder.Controls.FieldsEditorControl();
+			this.includesubcategories = new System.Windows.Forms.CheckBox();
+			this.tabrules = new System.Windows.Forms.TabPage();
+			this.labelmatch = new System.Windows.Forms.Label();
+			this.rulematchmode = new System.Windows.Forms.ComboBox();
+			this.rulesgrid = new System.Windows.Forms.DataGridView();
+			this.columnsubject = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.columnkey = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.columnoperator = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.columnvalue = new System.Windows.Forms.DataGridViewTextBoxColumn();
+			this.addrule = new System.Windows.Forms.Button();
+			this.removerule = new System.Windows.Forms.Button();
+			this.moveruleup = new System.Windows.Forms.Button();
+			this.moveruledown = new System.Windows.Forms.Button();
+			this.labelrulesubject = new System.Windows.Forms.Label();
+			this.labelrulekey = new System.Windows.Forms.Label();
+			this.labelruleoperator = new System.Windows.Forms.Label();
+			this.labelrulevalue = new System.Windows.Forms.Label();
+			this.rulesubject = new System.Windows.Forms.ComboBox();
+			this.rulekeylist = new System.Windows.Forms.ComboBox();
+			this.rulekeytext = new System.Windows.Forms.TextBox();
+			this.ruleoperator = new System.Windows.Forms.ComboBox();
+			this.rulevaluetext = new System.Windows.Forms.TextBox();
+			this.rulevaluecategory = new System.Windows.Forms.ComboBox();
+			this.rulesubcategories = new System.Windows.Forms.CheckBox();
+			this.ruleerror = new System.Windows.Forms.Label();
 			this.filtername = new System.Windows.Forms.TextBox();
 			this.label1 = new System.Windows.Forms.Label();
 			this.cancel = new System.Windows.Forms.Button();
@@ -86,6 +111,8 @@ namespace CodeImp.DoomBuilder.Windows
 			this.tabaction.SuspendLayout();
 			this.argumentspanel.SuspendLayout();
 			this.tabcustom.SuspendLayout();
+			this.tabrules.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.rulesgrid)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// listfilters
@@ -204,6 +231,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.tabs.Controls.Add(this.tabflags);
 			this.tabs.Controls.Add(this.tabaction);
 			this.tabs.Controls.Add(this.tabcustom);
+			this.tabs.Controls.Add(this.tabrules);
 			this.tabs.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
 			this.tabs.Location = new System.Drawing.Point(6, 82);
 			this.tabs.Name = "tabs";
@@ -224,6 +252,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.tabbasic.Controls.Add(this.browsetype);
 			this.tabbasic.Controls.Add(this.label4);
 			this.tabbasic.Controls.Add(this.filtercategory);
+			this.tabbasic.Controls.Add(this.includesubcategories);
 			this.tabbasic.Controls.Add(this.label2);
 			this.tabbasic.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.tabbasic.Location = new System.Drawing.Point(4, 22);
@@ -355,6 +384,18 @@ namespace CodeImp.DoomBuilder.Windows
 			this.filtercategory.Size = new System.Drawing.Size(328, 21);
 			this.filtercategory.TabIndex = 1;
 			this.filtercategory.SelectedIndexChanged += new System.EventHandler(this.filtercategory_SelectedIndexChanged);
+			// 
+			// includesubcategories
+			// 
+			this.includesubcategories.AutoSize = true;
+			this.includesubcategories.Enabled = false;
+			this.includesubcategories.Location = new System.Drawing.Point(111, 54);
+			this.includesubcategories.Name = "includesubcategories";
+			this.includesubcategories.Size = new System.Drawing.Size(132, 17);
+			this.includesubcategories.TabIndex = 16;
+			this.includesubcategories.Text = "Include subcategories";
+			this.includesubcategories.UseVisualStyleBackColor = true;
+			this.includesubcategories.CheckedChanged += new System.EventHandler(this.includesubcategories_CheckedChanged);
 			// 
 			// label2
 			// 
@@ -637,6 +678,269 @@ namespace CodeImp.DoomBuilder.Windows
 			this.fieldslist.ValueColumnVisible = true;
 			this.fieldslist.Validated += new System.EventHandler(this.fieldslist_Validated);
 			// 
+			// tabrules
+			// 
+			this.tabrules.Controls.Add(this.labelmatch);
+			this.tabrules.Controls.Add(this.rulematchmode);
+			this.tabrules.Controls.Add(this.rulesgrid);
+			this.tabrules.Controls.Add(this.addrule);
+			this.tabrules.Controls.Add(this.removerule);
+			this.tabrules.Controls.Add(this.moveruleup);
+			this.tabrules.Controls.Add(this.moveruledown);
+			this.tabrules.Controls.Add(this.labelrulesubject);
+			this.tabrules.Controls.Add(this.labelrulekey);
+			this.tabrules.Controls.Add(this.labelruleoperator);
+			this.tabrules.Controls.Add(this.labelrulevalue);
+			this.tabrules.Controls.Add(this.rulesubject);
+			this.tabrules.Controls.Add(this.rulekeylist);
+			this.tabrules.Controls.Add(this.rulekeytext);
+			this.tabrules.Controls.Add(this.ruleoperator);
+			this.tabrules.Controls.Add(this.rulevaluetext);
+			this.tabrules.Controls.Add(this.rulevaluecategory);
+			this.tabrules.Controls.Add(this.rulesubcategories);
+			this.tabrules.Controls.Add(this.ruleerror);
+			this.tabrules.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.tabrules.Location = new System.Drawing.Point(4, 22);
+			this.tabrules.Name = "tabrules";
+			this.tabrules.Padding = new System.Windows.Forms.Padding(3);
+			this.tabrules.Size = new System.Drawing.Size(445, 303);
+			this.tabrules.TabIndex = 4;
+			this.tabrules.Text = "Rules";
+			this.tabrules.UseVisualStyleBackColor = true;
+			// 
+			// labelmatch
+			// 
+			this.labelmatch.AutoSize = true;
+			this.labelmatch.Location = new System.Drawing.Point(8, 15);
+			this.labelmatch.Name = "labelmatch";
+			this.labelmatch.Size = new System.Drawing.Size(40, 13);
+			this.labelmatch.TabIndex = 0;
+			this.labelmatch.Text = "Match:";
+			// 
+			// rulematchmode
+			// 
+			this.rulematchmode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.rulematchmode.FormattingEnabled = true;
+			this.rulematchmode.Items.AddRange(new object[] {
+            "All rules",
+            "Any rule"});
+			this.rulematchmode.Location = new System.Drawing.Point(54, 12);
+			this.rulematchmode.Name = "rulematchmode";
+			this.rulematchmode.Size = new System.Drawing.Size(120, 21);
+			this.rulematchmode.TabIndex = 1;
+			this.rulematchmode.SelectedIndexChanged += new System.EventHandler(this.rulematchmode_SelectedIndexChanged);
+			// 
+			// rulesgrid
+			// 
+			this.rulesgrid.AllowUserToAddRows = false;
+			this.rulesgrid.AllowUserToDeleteRows = false;
+			this.rulesgrid.AllowUserToResizeRows = false;
+			this.rulesgrid.BackgroundColor = System.Drawing.SystemColors.Window;
+			this.rulesgrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+			this.rulesgrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.columnsubject,
+            this.columnkey,
+            this.columnoperator,
+            this.columnvalue});
+			this.rulesgrid.Location = new System.Drawing.Point(8, 40);
+			this.rulesgrid.MultiSelect = false;
+			this.rulesgrid.Name = "rulesgrid";
+			this.rulesgrid.ReadOnly = true;
+			this.rulesgrid.RowHeadersVisible = false;
+			this.rulesgrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+			this.rulesgrid.Size = new System.Drawing.Size(429, 140);
+			this.rulesgrid.TabIndex = 2;
+			this.rulesgrid.SelectionChanged += new System.EventHandler(this.rulesgrid_SelectionChanged);
+			// 
+			// columnsubject
+			// 
+			this.columnsubject.HeaderText = "Subject";
+			this.columnsubject.Name = "columnsubject";
+			this.columnsubject.ReadOnly = true;
+			this.columnsubject.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+			this.columnsubject.Width = 95;
+			// 
+			// columnkey
+			// 
+			this.columnkey.HeaderText = "Key";
+			this.columnkey.Name = "columnkey";
+			this.columnkey.ReadOnly = true;
+			this.columnkey.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+			this.columnkey.Width = 105;
+			// 
+			// columnoperator
+			// 
+			this.columnoperator.HeaderText = "Operator";
+			this.columnoperator.Name = "columnoperator";
+			this.columnoperator.ReadOnly = true;
+			this.columnoperator.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+			this.columnoperator.Width = 80;
+			// 
+			// columnvalue
+			// 
+			this.columnvalue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+			this.columnvalue.HeaderText = "Value";
+			this.columnvalue.Name = "columnvalue";
+			this.columnvalue.ReadOnly = true;
+			this.columnvalue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+			// 
+			// addrule
+			// 
+			this.addrule.Location = new System.Drawing.Point(8, 186);
+			this.addrule.Name = "addrule";
+			this.addrule.Size = new System.Drawing.Size(80, 25);
+			this.addrule.TabIndex = 3;
+			this.addrule.Text = "Add rule";
+			this.addrule.UseVisualStyleBackColor = true;
+			this.addrule.Click += new System.EventHandler(this.addrule_Click);
+			// 
+			// removerule
+			// 
+			this.removerule.Location = new System.Drawing.Point(92, 186);
+			this.removerule.Name = "removerule";
+			this.removerule.Size = new System.Drawing.Size(80, 25);
+			this.removerule.TabIndex = 4;
+			this.removerule.Text = "Remove";
+			this.removerule.UseVisualStyleBackColor = true;
+			this.removerule.Click += new System.EventHandler(this.removerule_Click);
+			// 
+			// moveruleup
+			// 
+			this.moveruleup.Location = new System.Drawing.Point(176, 186);
+			this.moveruleup.Name = "moveruleup";
+			this.moveruleup.Size = new System.Drawing.Size(80, 25);
+			this.moveruleup.TabIndex = 5;
+			this.moveruleup.Text = "Move up";
+			this.moveruleup.UseVisualStyleBackColor = true;
+			this.moveruleup.Click += new System.EventHandler(this.moveruleup_Click);
+			// 
+			// moveruledown
+			// 
+			this.moveruledown.Location = new System.Drawing.Point(260, 186);
+			this.moveruledown.Name = "moveruledown";
+			this.moveruledown.Size = new System.Drawing.Size(80, 25);
+			this.moveruledown.TabIndex = 6;
+			this.moveruledown.Text = "Move down";
+			this.moveruledown.UseVisualStyleBackColor = true;
+			this.moveruledown.Click += new System.EventHandler(this.moveruledown_Click);
+			// 
+			// labelrulesubject
+			// 
+			this.labelrulesubject.AutoSize = true;
+			this.labelrulesubject.Location = new System.Drawing.Point(8, 218);
+			this.labelrulesubject.Name = "labelrulesubject";
+			this.labelrulesubject.Size = new System.Drawing.Size(46, 13);
+			this.labelrulesubject.TabIndex = 7;
+			this.labelrulesubject.Text = "Subject:";
+			// 
+			// labelrulekey
+			// 
+			this.labelrulekey.AutoSize = true;
+			this.labelrulekey.Location = new System.Drawing.Point(112, 218);
+			this.labelrulekey.Name = "labelrulekey";
+			this.labelrulekey.Size = new System.Drawing.Size(28, 13);
+			this.labelrulekey.TabIndex = 8;
+			this.labelrulekey.Text = "Key:";
+			// 
+			// labelruleoperator
+			// 
+			this.labelruleoperator.AutoSize = true;
+			this.labelruleoperator.Location = new System.Drawing.Point(226, 218);
+			this.labelruleoperator.Name = "labelruleoperator";
+			this.labelruleoperator.Size = new System.Drawing.Size(51, 13);
+			this.labelruleoperator.TabIndex = 9;
+			this.labelruleoperator.Text = "Operator:";
+			// 
+			// labelrulevalue
+			// 
+			this.labelrulevalue.AutoSize = true;
+			this.labelrulevalue.Location = new System.Drawing.Point(315, 218);
+			this.labelrulevalue.Name = "labelrulevalue";
+			this.labelrulevalue.Size = new System.Drawing.Size(37, 13);
+			this.labelrulevalue.TabIndex = 10;
+			this.labelrulevalue.Text = "Value:";
+			// 
+			// rulesubject
+			// 
+			this.rulesubject.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.rulesubject.FormattingEnabled = true;
+			this.rulesubject.Location = new System.Drawing.Point(8, 234);
+			this.rulesubject.MaxDropDownItems = 13;
+			this.rulesubject.Name = "rulesubject";
+			this.rulesubject.Size = new System.Drawing.Size(100, 21);
+			this.rulesubject.TabIndex = 11;
+			this.rulesubject.SelectedIndexChanged += new System.EventHandler(this.rulesubject_SelectedIndexChanged);
+			// 
+			// rulekeylist
+			// 
+			this.rulekeylist.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.rulekeylist.DropDownWidth = 220;
+			this.rulekeylist.FormattingEnabled = true;
+			this.rulekeylist.Location = new System.Drawing.Point(112, 234);
+			this.rulekeylist.Name = "rulekeylist";
+			this.rulekeylist.Size = new System.Drawing.Size(110, 21);
+			this.rulekeylist.TabIndex = 12;
+			this.rulekeylist.SelectedIndexChanged += new System.EventHandler(this.rulekeylist_SelectedIndexChanged);
+			// 
+			// rulekeytext
+			// 
+			this.rulekeytext.Location = new System.Drawing.Point(112, 234);
+			this.rulekeytext.Name = "rulekeytext";
+			this.rulekeytext.Size = new System.Drawing.Size(110, 20);
+			this.rulekeytext.TabIndex = 13;
+			this.rulekeytext.Visible = false;
+			this.rulekeytext.TextChanged += new System.EventHandler(this.rulekeytext_TextChanged);
+			// 
+			// ruleoperator
+			// 
+			this.ruleoperator.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.ruleoperator.FormattingEnabled = true;
+			this.ruleoperator.Location = new System.Drawing.Point(226, 234);
+			this.ruleoperator.Name = "ruleoperator";
+			this.ruleoperator.Size = new System.Drawing.Size(85, 21);
+			this.ruleoperator.TabIndex = 14;
+			this.ruleoperator.SelectedIndexChanged += new System.EventHandler(this.ruleoperator_SelectedIndexChanged);
+			// 
+			// rulevaluetext
+			// 
+			this.rulevaluetext.Location = new System.Drawing.Point(315, 234);
+			this.rulevaluetext.Name = "rulevaluetext";
+			this.rulevaluetext.Size = new System.Drawing.Size(122, 20);
+			this.rulevaluetext.TabIndex = 15;
+			this.rulevaluetext.TextChanged += new System.EventHandler(this.rulevaluetext_TextChanged);
+			// 
+			// rulevaluecategory
+			// 
+			this.rulevaluecategory.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.rulevaluecategory.DropDownWidth = 300;
+			this.rulevaluecategory.FormattingEnabled = true;
+			this.rulevaluecategory.Location = new System.Drawing.Point(315, 234);
+			this.rulevaluecategory.Name = "rulevaluecategory";
+			this.rulevaluecategory.Size = new System.Drawing.Size(122, 21);
+			this.rulevaluecategory.TabIndex = 16;
+			this.rulevaluecategory.Visible = false;
+			this.rulevaluecategory.SelectedIndexChanged += new System.EventHandler(this.rulevaluecategory_SelectedIndexChanged);
+			// 
+			// rulesubcategories
+			// 
+			this.rulesubcategories.AutoSize = true;
+			this.rulesubcategories.Location = new System.Drawing.Point(315, 260);
+			this.rulesubcategories.Name = "rulesubcategories";
+			this.rulesubcategories.Size = new System.Drawing.Size(105, 17);
+			this.rulesubcategories.TabIndex = 17;
+			this.rulesubcategories.Text = "Subcategories";
+			this.rulesubcategories.UseVisualStyleBackColor = true;
+			this.rulesubcategories.Visible = false;
+			this.rulesubcategories.CheckedChanged += new System.EventHandler(this.rulesubcategories_CheckedChanged);
+			// 
+			// ruleerror
+			// 
+			this.ruleerror.ForeColor = System.Drawing.Color.DarkRed;
+			this.ruleerror.Location = new System.Drawing.Point(8, 282);
+			this.ruleerror.Name = "ruleerror";
+			this.ruleerror.Size = new System.Drawing.Size(429, 16);
+			this.ruleerror.TabIndex = 18;
+			// 
 			// filtername
 			// 
 			this.filtername.Location = new System.Drawing.Point(92, 24);
@@ -714,6 +1018,9 @@ namespace CodeImp.DoomBuilder.Windows
 			this.argumentspanel.ResumeLayout(false);
 			this.argumentspanel.PerformLayout();
 			this.tabcustom.ResumeLayout(false);
+			((System.ComponentModel.ISupportInitialize)(this.rulesgrid)).EndInit();
+			this.tabrules.ResumeLayout(false);
+			this.tabrules.PerformLayout();
 			this.ResumeLayout(false);
 
 		}
@@ -769,5 +1076,30 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ComboBox filtermode;
 		private System.Windows.Forms.Label label9;
 		private System.Windows.Forms.ImageList imagelist;
+		private System.Windows.Forms.CheckBox includesubcategories;
+		private System.Windows.Forms.TabPage tabrules;
+		private System.Windows.Forms.Label labelmatch;
+		private System.Windows.Forms.ComboBox rulematchmode;
+		private System.Windows.Forms.DataGridView rulesgrid;
+		private System.Windows.Forms.DataGridViewTextBoxColumn columnsubject;
+		private System.Windows.Forms.DataGridViewTextBoxColumn columnkey;
+		private System.Windows.Forms.DataGridViewTextBoxColumn columnoperator;
+		private System.Windows.Forms.DataGridViewTextBoxColumn columnvalue;
+		private System.Windows.Forms.Button addrule;
+		private System.Windows.Forms.Button removerule;
+		private System.Windows.Forms.Button moveruleup;
+		private System.Windows.Forms.Button moveruledown;
+		private System.Windows.Forms.Label labelrulesubject;
+		private System.Windows.Forms.Label labelrulekey;
+		private System.Windows.Forms.Label labelruleoperator;
+		private System.Windows.Forms.Label labelrulevalue;
+		private System.Windows.Forms.ComboBox rulesubject;
+		private System.Windows.Forms.ComboBox rulekeylist;
+		private System.Windows.Forms.TextBox rulekeytext;
+		private System.Windows.Forms.ComboBox ruleoperator;
+		private System.Windows.Forms.TextBox rulevaluetext;
+		private System.Windows.Forms.ComboBox rulevaluecategory;
+		private System.Windows.Forms.CheckBox rulesubcategories;
+		private System.Windows.Forms.Label ruleerror;
 	}
 }

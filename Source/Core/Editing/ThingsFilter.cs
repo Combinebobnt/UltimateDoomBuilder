@@ -20,6 +20,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Config;
@@ -314,6 +315,20 @@ namespace CodeImp.DoomBuilder.Editing
 				|| forbiddenfields.Count > 0 
 				|| customfields.Count > 0
 				|| rules.Count > 0);
+		}
+
+		// "name", or "name (2)", "name (3)"... when another filter has it; a " (N)" suffix is replaced, not stacked
+		internal static string UniqueName(string name, ICollection<string> taken)
+		{
+			if(string.IsNullOrEmpty(name)) name = DEFAULT_NAME;
+			if(!taken.Contains(name)) return name;
+			Match m = Regex.Match(name, @"^(.*) \([0-9]+\)$");
+			string basename = (m.Success ? m.Groups[1].Value : name);
+			for(int i = 2; ; i++)
+			{
+				string candidate = basename + " (" + i.ToString(CultureInfo.InvariantCulture) + ")";
+				if(!taken.Contains(candidate)) return candidate;
+			}
 		}
 
 		// Any rule that doesn't parse, names a missing filter or reaches a reference cycle

@@ -19,9 +19,38 @@
 	<p>
 		With the Things Filters dialog window, you can set up your own Things filters that you can use to show only relevant things in the editor. You can access this dialog from the View menu. Select a filter on the left to edit it, or click on <b>New Filter</b> to create a new one. You can remove the selected filter by clicking on the <b>Delete Selected</b> button. On the right is the <b>Filter Settings</b> are where you can edit the selected filter.<br />
 		<br />
-		Enter the name of your filter in the <b>Name</b> field. If you want to show only Things from a specific category, select the category in the <b>Filter by category</b> box. Below that you can select the settings by which you want to filter the Things (<b>Filter by settings)</b>. A grayed/filled checkbox means it is not used for the filter. If the checkbox is empty, it means that the setting may not be set on the Things to pass the filter. If the checkbox is checked, it means that the setting must be set on the Things to pass the filter.<br />
+		Enter the name of your filter in the <b>Name</b> field. Filter names are unique: a name another filter already has gets a number added, like <b>Monsters (2)</b>. If you want to show only Things from a specific category, select the category in the <b>Filter by category</b> box on the <b>Properties</b> tab. Tick <b>Include subcategories</b> to also show Things from the categories inside it (new filters have it ticked). On the <b>Flags</b> tab you can select the settings by which you want to filter the Things (<b>Filter by settings</b>). A grayed/filled checkbox means it is not used for the filter. If the checkbox is empty, it means that the setting may not be set on the Things to pass the filter. If the checkbox is checked, it means that the setting must be set on the Things to pass the filter.<br />
 		<br />
 		Things Filters are stored separately for each Game Configuration.
+	</p>
+
+	<h2>Rules</h2>
+	<p>
+		The <b>Rules</b> tab holds a list of rules for what the other tabs can't express: lists and ranges of numbers, comparisons, either-or conditions, name matching and other filters. Click <b>Add rule</b>, then pick the rule's <b>Subject</b>, <b>Key</b>, <b>Operator</b> and <b>Value</b> in the row below the list. <b>Move up</b> and <b>Move down</b> change the order the rules are listed in; they don't change the result.<br />
+		<br />
+		<b>Match: All rules</b> shows a Thing only when every rule passes; <b>Match: Any rule</b> shows it when at least one rule passes. A Thing is shown when it passes the other tabs <i>and</i> the rule list. <b>Invert</b> is applied last, to that combined result.
+	</p>
+	<table>
+		<tr><th>Subject</th><th>Operators</th><th>Value</th></tr>
+		<tr><td>Type</td><td>is one of, is not one of</td><td>Numbers and ranges</td></tr>
+		<tr><td>Angle, Z height, Tag, Action, Argument</td><td>is one of, is not one of, &lt;, &lt;=, &gt;, &gt;=</td><td>Numbers and ranges; one number for the comparisons. The Key of an Argument rule is the argument, named after the filter's action when the Action tab has one.</td></tr>
+		<tr><td>Category</td><td>is, is not</td><td>A category; the rule's own <b>Subcategories</b> box includes the categories inside it</td></tr>
+		<tr><td>Class name, Title</td><td>equals, not equals, contains, matches</td><td>Text, ignoring case. <b>matches</b> takes wildcards: <b>*</b> for any text, <b>?</b> for one character, so <b>*Light*</b> matches every class with Light in its name.</td></tr>
+		<tr><td>Flag</td><td>is set, is not set</td><td>The Key is the flag</td></tr>
+		<tr><td>UDMF field</td><td>exists, is absent, equals, not equals, &lt;, &lt;=, &gt;, &gt;=, contains</td><td>The Key is the field name. Numbers are compared as numbers, other values as text ignoring case. A field the Thing doesn't have only passes <b>is absent</b> and <b>not equals</b>.</td></tr>
+		<tr><td>Unknown type</td><td>is true, is false</td><td>Things whose type the game configuration and resources don't define</td></tr>
+		<tr><td>Matches filter</td><td>is true, is false</td><td>The Key is another filter. Its tabs, rules and Invert apply; its display mode doesn't. That filter doesn't need to be the active one.</td></tr>
+	</table>
+	<p>
+		Numbers and ranges are written like <b>3001-3006, 9</b>. For negative numbers use <b>..</b> between the ends of a range, like <b>-10..-1</b>.<br />
+		<br />
+		<b>Rules that don't apply.</b> A rule about something the map format doesn't have (Tag, Action, Argument and UDMF field rules in a Doom-format map, Z height without Thing heights, or a flag the game configuration doesn't define) is shown grayed and skipped: the list is decided by the other rules, and a list with only skipped rules passes every Thing. The rule stays in the filter for maps where it applies.<br />
+		<br />
+		<b>Broken rules.</b> A rule whose value doesn't make sense, that names a filter which doesn't exist, or whose filters refer to each other in a loop, is shown in red with the reason below the list, and the filter gets a warning icon. A broken rule never passes, so with <b>Invert</b> it shows Things, and with <b>Any rule</b> the other rules still decide. If two filters share a name from an older version, a Matches filter rule uses the first one in the list.<br />
+		<br />
+		Renaming a filter updates the Matches filter rules that use it. Deleting a filter that other filters use asks first.<br />
+		<br />
+		The rule list and the subcategory option are saved with the filters in the program's settings. The original Ultimate Doom Builder doesn't know about them, and if it saves the same settings file they are lost from it.
 	</p>
 	</div>
 </body>

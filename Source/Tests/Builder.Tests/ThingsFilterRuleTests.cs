@@ -347,6 +347,16 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void UniqueName_SuffixesWithoutStacking()
+		{
+			var taken = new HashSet<string> { "Imps", "Imps (2)", "Unnamed filter" };
+			Assert.Equal("Demons", ThingsFilter.UniqueName("Demons", taken));
+			Assert.Equal("Imps (3)", ThingsFilter.UniqueName("Imps", taken));
+			Assert.Equal("Imps (3)", ThingsFilter.UniqueName("Imps (2)", taken));
+			Assert.Equal("Unnamed filter (2)", ThingsFilter.UniqueName("", taken));
+		}
+
+		[Fact]
 		public void CopyConstructor_CopiesRulesDeeply()
 		{
 			using(new FakeMap())
