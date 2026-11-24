@@ -31,8 +31,6 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public int Spac;
 		public bool Repeat;
 		public bool Monsters;
-
-		public int Activate { get { return Spac << 10; } } // UDB's Hexen activation value
 	}
 
 	// Hexen-format specials to and from the canonical line, per maploader.cpp's Hexen line loading and SetLineID
@@ -46,12 +44,10 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return a;
 		}
 
-		// Null when Hexen has no SPAC for this combination
 		public static int? ToSpac(LineActivation a)
 		{
 			switch(a)
 			{
-				case LineActivation.None: return 0;
 				case LineActivation.Cross: return 0;
 				case LineActivation.Use: return 1;
 				case LineActivation.MCross: return 2;
@@ -63,9 +59,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		// The arg holding this line's own ID, and whether the canonical line keeps it in the arg too
 		internal static int IdArg(int special, int[] args, out bool keeparg)
 		{
+			// keeparg: the arg means something besides the ID, so canonical lines keep it
 			keeparg = true;
 			switch(special)
 			{
@@ -82,20 +78,12 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		// Canonical lines keep ID-only args at 0, as UDMF does: clears one holding the line's ID
 		public static void ClearIdArg(CanonicalLine c)
 		{
+			// Canonical lines keep ID-only args at 0, as UDMF does
 			bool keeparg;
 			int idarg = IdArg(c.Special, c.Args, out keeparg);
 			if(idarg >= 0 && !keeparg && c.Args[idarg] == c.LineId) c.Args[idarg] = 0;
-		}
-
-		// The reverse, for formats whose single tag fills the ID arg (Doom)
-		public static void FillIdArg(CanonicalLine c)
-		{
-			bool keeparg;
-			int idarg = IdArg(c.Special, c.Args, out keeparg);
-			if(idarg >= 0 && !keeparg && c.Args[idarg] == 0) c.Args[idarg] = c.LineId;
 		}
 
 		public static CanonicalLine Read(HexenLine h)
@@ -158,25 +146,40 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		// needid: some special references this line's ID, so it must survive
-		public static HexenLine Write(CanonicalLine c, bool needid, List<string> issues)
+		// needid: some special references this line's ID. requiresactivation: false for specials the engine runs at load
+		public static HexenLine Write(CanonicalLine c, bool needid, List<string> issues, bool requiresactivation = true)
 		{
+			int spac = 0;
+			string dropped = null;
+			if(c.Special < 0 || c.Special > 255)
+			{
+				dropped = "special " + c.Special + " doesn't fit Hexen's one-byte action";
+			}
+			else if(c.Special != 0 && (c.Activation != LineActivation.None || requiresactivation))
+			{
+				int? s = ToSpac(c.Activation);
+				if(s == null)
+				{
+					s = FirstSpac(c.Activation);
+					if(s == null) dropped = "special " + c.Special + (c.Activation == LineActivation.None ? " has no activation" : " has activation " + c.Activation) + ", which Hexen can't hold";
+					else issues.Add("activation " + c.Activation + " has no Hexen equivalent, kept " + FromSpac(s.Value));
+				}
+				if(s != null) spac = s.Value;
+			}
+
+			// Hexen gives every special an activation, so one that can't keep its own is dropped, not left to fire on a new one
+			if(dropped != null)
+			{
+				issues.Add(dropped + "; the special is dropped");
+				c = new CanonicalLine { LineId = c.LineId, FirstSideOnly = c.FirstSideOnly, IdFlags = c.IdFlags };
+			}
+
 			HexenLine h = new HexenLine();
 			h.Action = c.Special;
 			for(int i = 0; i < 5; i++) h.Args[i] = c.Args[i];
 			h.Repeat = c.Repeat;
 			h.Monsters = c.Monsters;
-
-			if(c.Special != 0)
-			{
-				int? spac = ToSpac(c.Activation);
-				if(spac == null)
-				{
-					spac = FirstSpac(c.Activation);
-					issues.Add("activation " + c.Activation + " has no Hexen equivalent, kept " + FromSpac(spac.Value));
-				}
-				h.Spac = spac.Value;
-			}
+			h.Spac = spac;
 
 			bool wantid = needid && c.LineId != 0;
 			Dictionary<string, bool> idflagset = ToDictionary(c.IdFlags);
@@ -222,19 +225,23 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			bool keeparg;
 			int idarg = IdArg(c.Special, c.Args, out keeparg);
 			if(idarg < 0) issues.Add("line ID " + c.LineId + " lost: the line has a special with no ID argument");
+			else if(keeparg)
+			{
+				// The arg means something else too (TranslucentLine 0 is "this line"), so only an equal one carries the ID
+				if(h.Args[idarg] != c.LineId) issues.Add("line ID " + c.LineId + " lost: arg" + idarg + " holds " + h.Args[idarg]);
+			}
 			else if(c.LineId > 255) issues.Add("line ID " + c.LineId + " is over 255");
 			else if(h.Args[idarg] != 0 && h.Args[idarg] != c.LineId) issues.Add("line ID " + c.LineId + " lost: arg" + idarg + " holds " + h.Args[idarg]);
 			else h.Args[idarg] = c.LineId;
 			return h;
 		}
 
-		// The first activation bit by SPAC order
-		private static int FirstSpac(LineActivation a)
+		private static int? FirstSpac(LineActivation a)
 		{
 			for(int spac = 0; spac < 7; spac++)
 				if((a & (LineActivation)(1 << spac)) != 0) return spac;
 			if((a & LineActivation.AnyCross) != 0) return 0;
-			return 1;
+			return null;
 		}
 
 		private static Dictionary<string, bool> ToDictionary(IEnumerable<string> flags)
@@ -260,9 +267,11 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			new KeyValuePair<string, LineActivation>("monsteruse", LineActivation.MUse),
 			new KeyValuePair<string, LineActivation>("monsterpush", LineActivation.MPush),
 			new KeyValuePair<string, LineActivation>("playeruseback", LineActivation.UseBack),
+			new KeyValuePair<string, LineActivation>("damagespecial", LineActivation.Damage),
+			new KeyValuePair<string, LineActivation>("deathspecial", LineActivation.Death),
+			new KeyValuePair<string, LineActivation>("walking", LineActivation.Walking),
 		};
 
-		// Every field this codec reads or writes
 		public static IEnumerable<string> FieldNames
 		{
 			get
@@ -291,10 +300,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return c;
 		}
 
-		// Sets the activation fields on flags (clearing the others); IdFlags are set too
 		public static void Write(CanonicalLine c, IDictionary<string, bool> flags)
 		{
-			foreach(string name in FieldNames) flags.Remove(name);
+			foreach(string name in FieldNames) flags.Remove(name); // IdFlags are only added, like other line flags
 			LineActivation a = c.Activation;
 			if((a & LineActivation.UseThrough) != 0)
 			{

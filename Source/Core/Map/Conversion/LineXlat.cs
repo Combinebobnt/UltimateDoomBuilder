@@ -24,6 +24,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		MUse = 1 << 8,
 		MPush = 1 << 9,
 		UseBack = 1 << 10,
+		Damage = 1 << 11,
+		Death = 1 << 12,
+		Walking = 1 << 13,
 	}
 
 	// A line's special as the engine holds it after loading, whatever format it came from
@@ -62,7 +65,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 	{
 		public int Type;
 		public int Tag;
-		public bool Passthrough; // Doom flag bit 9 (ML_PASSTHROUGH in the lineflag rules)
+		public int Flags; // Doom flag bits the match needs (the table's passthrough bit)
+		public bool LostPassthrough; // UseThrough matched as Use: the table has no passthrough bit
 	}
 
 	// Doom-format line types to and from the engine's specials, per p_xlat.cpp's TranslateLineDef
@@ -85,8 +89,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		#region ================== Variables
 
 		private readonly XlatTable table;
-		private readonly Dictionary<string, int> specialnames;
-		private readonly List<string> unknownspecials = new List<string>();
+		private readonly int passthroughflag;
+		private readonly int genericdoor;
 
 		// Reverse indexes, built on first use
 		private Dictionary<int, List<Pattern>> simplebyspecial;
@@ -98,32 +102,20 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		public XlatTable Table { get { return table; } }
 
-		// Special names in the table that the names list doesn't know; those types translate to 0
-		public IReadOnlyList<string> UnknownSpecials { get { return unknownspecials; } }
+		// The Doom flag bit the lineflag rules map to ML_PASSTHROUGH, or 0 (Strife's bit 9 is ML_RAILING)
+		public int PassthroughFlag { get { return passthroughflag; } }
 
 		#endregion
 
 		#region ================== Constructor
 
-		public LineXlat(XlatTable table, Dictionary<string, int> specialnames)
+		public LineXlat(XlatTable table)
 		{
 			this.table = table;
-			this.specialnames = specialnames;
-			foreach(XlatLineEntry e in table.SimpleLines.Values) Resolve(e.SpecialName);
-			foreach(XlatBoomRange r in table.BoomRanges) Resolve(r.SpecialName);
+			for(int i = 0; i < 16 && passthroughflag == 0; i++)
+				if(table.LineFlags[i].Defined && !table.LineFlags[i].IsMask && table.LineFlags[i].NewValue == -1) passthroughflag = 1 << i;
+			if(!table.SpecialNames.TryGetValue("Generic_Door", out genericdoor)) genericdoor = -1;
 		}
-
-		private int Resolve(string name)
-		{
-			if(name == null) return 0;
-			int number;
-			if(specialnames.TryGetValue(name, out number)) return number;
-			if(!unknownspecials.Contains(name)) unknownspecials.Add(name);
-			return 0;
-		}
-
-		private int SpecialOf(XlatLineEntry e) { return e.SpecialName != null ? Resolve(e.SpecialName) : e.SpecialNumber; }
-		private int SpecialOf(XlatBoomRange r) { return r.SpecialName != null ? Resolve(r.SpecialName) : r.SpecialNumber; }
 
 		#endregion
 
@@ -132,6 +124,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public CanonicalLine Translate(int type, int doomflags, int tag)
 		{
 			CanonicalLine ld = new CanonicalLine();
+			tag = (short)tag; // maplinedef_t's tag is int16_t
 			ld.LineId = tag;
 
 			// Line flags: masks first, then values
@@ -168,9 +161,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 
 			XlatLineEntry lt;
-			if(table.SimpleLines.TryGetValue(type, out lt) && SpecialOf(lt) != 0)
+			if(table.SimpleLines.TryGetValue(type, out lt) && lt.Special != 0)
 			{
-				ld.Special = SpecialOf(lt);
+				ld.Special = lt.Special;
 				flags |= (lt.Flags & 0x1f) << 9;
 				if((lt.Flags & XlatLineEntry.FIRSTSIDE) != 0) flags |= ML_FIRSTSIDEONLY;
 
@@ -192,7 +185,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			foreach(XlatBoomRange b in table.BoomRanges)
 			{
 				if(type < b.FirstType || type > b.LastType) continue;
-				ld.Special = SpecialOf(b);
+				ld.Special = b.Special;
 
 				LineActivation act;
 				switch(type & 7)
@@ -214,7 +207,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 					bool found;
 					if(arg.Filters == null)
 					{
-						val = arg.ConstantValue & 0xff;
+						val = arg.ConstantValue;
 						found = true;
 					}
 					else
@@ -225,7 +218,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 						{
 							if((type & arg.AndValue) == arg.Filters[k])
 							{
-								val = arg.Values[k] & 0xff;
+								val = arg.Values[k];
 								found = true;
 							}
 						}
@@ -240,7 +233,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				// Push triggers are switch triggers with zero tags
 				if((type & 7) == 6 || (type & 7) == 7)
 				{
-					if(specialnames.TryGetValue("Generic_Door", out int door) && ld.Special == door) ld.Args[2] |= 128;
+					if(ld.Special == genericdoor) ld.Args[2] |= 128;
 					else ld.Args[0] = 0;
 				}
 
@@ -261,16 +254,6 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			ld.Monsters = (flags & ML_MONSTERSCANACTIVATE) != 0;
 			ld.FirstSideOnly = (flags & ML_FIRSTSIDEONLY) != 0;
 			ld.EngineFlags = flags & ~(ML_REPEAT_SPECIAL | ML_MONSTERSCANACTIVATE | ML_FIRSTSIDEONLY | ML_SPAC_MASK);
-		}
-
-		// False for types the engine zeroes: in no table entry or Boom range
-		public bool IsKnownType(int type)
-		{
-			if(type == 0) return true;
-			XlatLineEntry lt;
-			if(table.SimpleLines.TryGetValue(type, out lt) && SpecialOf(lt) != 0) return true;
-			foreach(XlatBoomRange b in table.BoomRanges) if(type >= b.FirstType && type <= b.LastType) return true;
-			return false;
 		}
 
 		#endregion
@@ -306,7 +289,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				for(int type = b.FirstType; type <= b.LastType; type++)
 				{
-					if(table.SimpleLines.ContainsKey(type) && SpecialOf(table.SimpleLines[type]) != 0) continue;
+					if(table.SimpleLines.ContainsKey(type) && table.SimpleLines[type].Special != 0) continue;
 					CanonicalLine a = Translate(type, 0, TAG_SENTINEL_A);
 					if(a.Special == 0) continue;
 					string key = BoomKey(a, a.Args[0] == TAG_SENTINEL_A);
@@ -315,7 +298,6 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		// Null when an arg uses the tag inside an expression (forward-only)
 		private Pattern MakePattern(int type)
 		{
 			CanonicalLine a = Translate(type, 0, TAG_SENTINEL_A);
@@ -325,7 +307,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			for(int i = 0; i < 5; i++)
 			{
 				if(a.Args[i] == TAG_SENTINEL_A && b.Args[i] == TAG_SENTINEL_B) p.IsTag[i] = true;
-				else if(a.Args[i] != b.Args[i]) return null;
+				else if(a.Args[i] != b.Args[i]) return null; // the tag inside an expression is forward-only
 			}
 			return p;
 		}
@@ -335,8 +317,6 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return l.Special + ":" + (arg0istag ? "t" : l.Args[0].ToString()) + ":" + l.Args[1] + ":" + l.Args[2] + ":" + l.Args[3] + ":" + l.Args[4] + ":" + (int)l.Activation + ":" + l.Repeat + ":" + l.Monsters + ":" + l.FirstSideOnly;
 		}
 
-		// The lowest Doom type (and its tag) that translates to this special, or null; ties keep the line ID.
-		// secret: the line has the Doom secret flag, which drops monster activation from use lines.
 		public DoomLine? Find(CanonicalLine c, bool secret)
 		{
 			BuildIndex();
@@ -345,6 +325,13 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			// UseThrough comes from Use plus the passthrough flag
 			bool passthrough = c.Activation == LineActivation.UseThrough;
 			LineActivation act = passthrough ? LineActivation.Use : c.Activation;
+			int ptflags = passthrough ? passthroughflag : 0;
+			bool lostpt = passthrough && passthroughflag == 0;
+
+			// An ID-only arg is 0 in canonical lines; the Doom tag fills it, so it matches anything
+			bool keeparg;
+			int idarg = HexenLineCodec.IdArg(c.Special, c.Args, out keeparg);
+			if(keeparg) idarg = -1;
 
 			List<DoomLine> found = new List<DoomLine>();
 			List<Pattern> list;
@@ -354,18 +341,19 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				{
 					CanonicalLine l = p.Line;
 					if(l.Activation != act || l.Repeat != c.Repeat || l.FirstSideOnly != c.FirstSideOnly) continue;
-					bool monsters = l.Monsters && !(secret && (act & LineActivation.Use) != 0);
+					bool monsters = l.Monsters && !(secret && (act & LineActivation.Use) != 0); // the Doom secret flag drops it from use lines
 					if(monsters != c.Monsters) continue;
 
-					int tag = -1;
+					int tag = int.MinValue;
 					bool ok = true;
 					for(int i = 0; i < 5 && ok; i++)
 					{
+						if(i == idarg) continue;
 						if(!p.IsTag[i]) ok = l.Args[i] == c.Args[i];
-						else if(tag == -1) tag = c.Args[i];
+						else if(tag == int.MinValue) tag = c.Args[i];
 						else ok = tag == c.Args[i];
 					}
-					if(ok) found.Add(new DoomLine { Type = p.Type, Tag = tag == -1 ? c.LineId : tag, Passthrough = passthrough });
+					if(ok) found.Add(new DoomLine { Type = p.Type, Tag = tag == int.MinValue ? c.LineId : tag, Flags = ptflags, LostPassthrough = lostpt });
 				}
 			}
 
@@ -377,9 +365,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 			int boomtype;
 			if(boombykey.TryGetValue(BoomKey(n, true), out boomtype))
-				found.Add(new DoomLine { Type = boomtype, Tag = c.Args[0], Passthrough = passthrough });
+				found.Add(new DoomLine { Type = boomtype, Tag = c.Args[0], Flags = ptflags, LostPassthrough = lostpt });
 			if(c.Args[0] == 0 && boombykey.TryGetValue(BoomKey(n, false), out boomtype))
-				found.Add(new DoomLine { Type = boomtype, Tag = c.LineId, Passthrough = passthrough });
+				found.Add(new DoomLine { Type = boomtype, Tag = c.LineId, Flags = ptflags, LostPassthrough = lostpt });
 
 			// Lowest type, preferring one whose tag keeps the line ID
 			DoomLine? best = null;

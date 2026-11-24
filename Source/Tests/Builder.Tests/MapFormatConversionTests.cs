@@ -20,7 +20,12 @@ namespace Builder.Tests
 
 		private static LineXlat Lines(string game)
 		{
-			return new LineXlat(XlatTable.LoadFromFolder(XlatFolder, game), SpecialNames());
+			return new LineXlat(XlatTable.LoadFromFolder(XlatFolder, game));
+		}
+
+		private static XlatTable Parse(string text)
+		{
+			return XlatTable.Load("main.txt", n => n == "main.txt" ? text : null, SpecialNames());
 		}
 
 		// UDMF -> Hexen used to build this with &= from 0, so it always wrote 0
@@ -41,8 +46,42 @@ namespace Builder.Tests
 				LineXlat x = Lines(game);
 				Assert.True(x.Table.SimpleLines.Count > 100, game + " has " + x.Table.SimpleLines.Count + " line types");
 				if(game != "strife.txt") Assert.True(x.Table.BoomRanges.Count >= 7, game + " has " + x.Table.BoomRanges.Count + " Boom ranges"); // Strife has none
-				Assert.True(x.UnknownSpecials.Count == 0, game + ": unknown specials " + string.Join(", ", x.UnknownSpecials));
+				Assert.True(x.Table.Warnings.Count == 0, game + ": " + string.Join("; ", x.Table.Warnings));
 			}
+			Assert.Equal(0x200, Lines("doom.txt").PassthroughFlag);
+			Assert.Equal(0, Lines("strife.txt").PassthroughFlag); // bit 9 is ML_RAILING there
+		}
+
+		// Where the engine's parser only prints a message, it keeps going the way these cases expect
+		[Fact]
+		public void Parser_FollowsTheEnginesLexerAndWarnings()
+		{
+			var names = SpecialNames();
+
+			XlatTable t = Parse("1 = 0, Door_Raise + 1 (Door_Open)\n2 = 0, Door_Open (0)\n2 = 0, No_Such_Special (1)\n3 = 0, Door_Open (1, 2, 3, 4, 5, 6)\n");
+			Assert.Equal(names["Door_Raise"] + 1, t.SimpleLines[1].Special); // special names are numbers in any expression
+			Assert.Equal(names["Door_Open"], t.SimpleLines[1].Args[0].Value);
+			Assert.Equal(names["Door_Open"], t.SimpleLines[2].Special); // an unknown name leaves the earlier entry
+			Assert.Equal(new[] { 1, 2, 3, 4, 5 }, t.SimpleLines[3].Args.Select(a => a.Value).ToArray());
+			Assert.Equal(2, t.Warnings.Count);
+			Assert.Equal(3, t.Warnings[0].Line);
+			Assert.Contains("No_Such_Special", t.Warnings[0].Message);
+
+			string list = string.Join(", ", Enumerable.Range(1, 17).Select(i => i + ":" + i));
+			string ranges = "";
+			for(int i = 0; i < 17; i++) ranges += "[Generic_Floor] (" + (0x6000 + i * 8) + ", " + (0x6007 + i * 8) + ") { arg2 = 0x1ff [" + list + "] arg3 = 0x123 }\n";
+			t = Parse(ranges);
+			Assert.Equal(16, t.BoomRanges.Count);
+			Assert.Equal(15, t.BoomRanges[0].Args[0].Filters.Length);
+			Assert.Equal(0x1ff, t.BoomRanges[0].Args[0].AndValue);
+			Assert.Equal(0x23, t.BoomRanges[0].Args[1].ConstantValue); // FBoomArg's ConstantValue is a byte
+			Assert.Equal(17 + 1, t.Warnings.Count); // 17 lists over 15, one range over 16
+
+			t = Parse("define BIG (99999999999999999999999)\ndefine HEX (0x1ffffffffffffffffff)\n4 = 0, Door_Open (BIG, HEX, 0x1ffff)\n[Generic_Floor] (0x16000, 0x6007) { arg2 = 0x10003 [0x10001 : 2] }\n");
+			Assert.Equal(new[] { -1, -1, 0x1ffff }, t.SimpleLines[4].Args.Take(3).Select(a => a.Value).ToArray()); // strtoll clamps, the int cast keeps -1
+			Assert.Equal(0x6000, t.BoomRanges[0].FirstType);
+			Assert.Equal(3, t.BoomRanges[0].Args[0].AndValue);
+			Assert.Equal(1, t.BoomRanges[0].Args[0].Filters[0]);
 		}
 
 		[Fact]
@@ -53,7 +92,7 @@ namespace Builder.Tests
 				{ "main.txt", "// comment\ninclude \"inc.txt\"\n" },
 				{ "inc.txt", "define X (1)\n\n1 = 2, Door_Raise (tag, BOGUS)\n" },
 			};
-			var e = Assert.Throws<XlatParseException>(() => XlatTable.Load("main.txt", n => files.ContainsKey(n) ? files[n] : null));
+			var e = Assert.Throws<XlatParseException>(() => XlatTable.Load("main.txt", n => files.ContainsKey(n) ? files[n] : null, SpecialNames()));
 			Assert.Equal("inc.txt", e.File);
 			Assert.Equal(3, e.Line);
 			Assert.Contains("BOGUS", e.Message);
@@ -114,11 +153,15 @@ namespace Builder.Tests
 			CanonicalLine unknown = x.Translate(999, 0, 12);
 			Assert.Equal(0, unknown.Special);
 			Assert.Equal(new[] { 0, 0, 0, 0, 0 }, unknown.Args);
+
+			CanonicalLine negative = x.Translate(1, 0, 0xffff); // maplinedef_t's tag is signed
+			Assert.Equal(-1, negative.LineId);
+			Assert.Equal(-1, negative.Args[3]);
 		}
 
-		// Every simple entry and every generalized type, for each game's table
+		// Every simple entry and every generalized type, for each game's table, read the way the Doom reader and writer will
 		[Fact]
-		public void Reverse_RoundTripsEveryType()
+		public void Reverse_RoundTripsEveryTypeAndLineId()
 		{
 			List<string> failures = new List<string>();
 			foreach(string game in games)
@@ -129,23 +172,50 @@ namespace Builder.Tests
 					for(int t = b.FirstType; t <= b.LastType; t++) types.Add(t);
 
 				foreach(int type in types)
+				foreach(int tag in new[] { 0, 23 })
+				foreach(int flags in new[] { 0, x.PassthroughFlag, 0x20 })
 				{
-					foreach(int flags in new[] { 0, 0x200, 0x20 })
+					CanonicalLine f = x.Translate(type, flags, tag);
+					if(f.Special == 0) continue;
+					HexenLineCodec.ClearIdArg(f);
+					DoomLine? d = x.Find(f, (flags & 0x20) != 0);
+					string what = game + " " + type + " tag " + tag + " flags " + flags;
+					if(d == null)
 					{
-						CanonicalLine f = x.Translate(type, flags, 23);
-						if(f.Special == 0) continue;
-						DoomLine? d = x.Find(f, (flags & 0x20) != 0);
-						if(d == null)
-						{
-							if(!ExprOnly(x, type)) failures.Add(game + " " + type + "/" + flags + ": no match for " + f);
-							continue;
-						}
-						CanonicalLine back = x.Translate(d.Value.Type, (flags & 0x20) | (d.Value.Passthrough ? 0x200 : 0), d.Value.Tag);
-						if(!back.SameSpecial(f)) failures.Add(game + " " + type + "/" + flags + " -> " + d.Value.Type + ": " + f + " became " + back);
+						if(!ExprOnly(x, type)) failures.Add(what + ": no match for " + f);
+						continue;
 					}
+					if(d.Value.LostPassthrough) failures.Add(what + ": lost passthrough");
+					CanonicalLine back = x.Translate(d.Value.Type, (flags & 0x20) | d.Value.Flags, d.Value.Tag);
+					HexenLineCodec.ClearIdArg(back);
+					if(!back.SameSpecial(f) || back.LineId != f.LineId) failures.Add(what + " -> " + d.Value.Type + " tag " + d.Value.Tag + ": " + f + " became " + back);
 				}
 			}
 			Assert.True(failures.Count == 0, failures.Count + " failures:\n" + string.Join("\n", failures.Take(40)));
+		}
+
+		[Fact]
+		public void Reverse_IdArgsAndPassthroughEdges()
+		{
+			LineXlat doom = Lines("doom.txt");
+			var names = SpecialNames();
+
+			// A UDMF Teleport_Line keeps its ID in the id field; the Doom tag must carry the destination arg
+			CanonicalLine tele = new CanonicalLine { Special = names["Teleport_Line"], Args = new[] { 0, 7, 0, 0, 0 }, Activation = LineActivation.Cross, Monsters = true, LineId = 3 };
+			DoomLine? d = doom.Find(tele, false);
+			Assert.True(d != null && d.Value.Type == 243 && d.Value.Tag == 7, "Teleport_Line: " + d);
+
+			// A slope with any line ID keeps it as the tag
+			CanonicalLine slope = new CanonicalLine { Special = names["Plane_Align"], Args = new[] { 1, 0, 0, 0, 0 }, Activation = LineActivation.Cross, LineId = 5 };
+			d = doom.Find(slope, false);
+			Assert.True(d != null && d.Value.Type == 340 && d.Value.Tag == 5, "Plane_Align: " + d);
+
+			// Strife has no passthrough bit: a use-through line matches its use type and says so
+			LineXlat strife = Lines("strife.txt");
+			CanonicalLine door = strife.Translate(1, 0, 0);
+			door.Activation = LineActivation.UseThrough;
+			d = strife.Find(door, false);
+			Assert.True(d != null && d.Value.Type == 1 && d.Value.Flags == 0 && d.Value.LostPassthrough, "Strife passthrough: " + d);
 		}
 
 		private static bool ExprOnly(LineXlat x, int type)
@@ -214,6 +284,56 @@ namespace Builder.Tests
 			Assert.Empty(issues); // unreferenced IDs are not written
 		}
 
+		// Each case writes action 0, or Line_SetIdentification for a referenced ID, and one issue
+		[Fact]
+		public void HexenCodec_SpecialsHexenCantHoldAreDropped()
+		{
+			var cases = new[]
+			{
+				new CanonicalLine { Special = 273, Activation = LineActivation.Cross, LineId = 4 }, // Stairs_BuildUpDoomCrush: over one byte
+				new CanonicalLine { Special = 80, Activation = LineActivation.Death, LineId = 4 }, // a UDMF death special
+				new CanonicalLine { Special = 80, Activation = LineActivation.None, LineId = 4 }, // no activation at all
+			};
+			foreach(CanonicalLine c in cases)
+			{
+				List<string> issues = new List<string>();
+				HexenLine h = HexenLineCodec.Write(c, false, issues);
+				Assert.True(h.Action == 0 && issues.Count == 1, c + " wrote " + h.Action + ": " + string.Join("; ", issues));
+
+				issues.Clear();
+				h = HexenLineCodec.Write(c, true, issues);
+				Assert.True(h.Action == 121 && h.Args[0] == 4 && issues.Count == 1, c + " with its ID wrote " + h.Action);
+			}
+
+			List<string> none = new List<string>();
+			CanonicalLine slope = new CanonicalLine { Special = 181, Args = new[] { 1, 0, 0, 0, 0 } };
+			Assert.Equal(181, HexenLineCodec.Write(slope, false, none, false).Action); // a load-time special needs no activation
+			Assert.Empty(none);
+
+			CanonicalLine walk = new CanonicalLine { Special = 80, Activation = LineActivation.Cross | LineActivation.Walking };
+			Assert.Equal(0, HexenLineCodec.Write(walk, false, none).Spac);
+			Assert.Single(none); // walking is dropped, the cross kept
+
+			var fields = new Dictionary<string, bool> { { "deathspecial", true }, { "walking", true }, { "playercross", true } };
+			Assert.Equal(LineActivation.Death | LineActivation.Walking | LineActivation.Cross, UdmfLineCodec.Read(80, new int[5], fields, 0).Activation);
+		}
+
+		// TranslucentLine arg0 0 means "this line", so it can't take the ID
+		[Fact]
+		public void HexenCodec_IdArgsWithAMeaningKeepIt()
+		{
+			List<string> issues = new List<string>();
+			CanonicalLine self = new CanonicalLine { Special = 208, Args = new[] { 0, 128, 0, 0, 0 }, Activation = LineActivation.Cross, LineId = 5 };
+			HexenLine h = HexenLineCodec.Write(self, true, issues);
+			Assert.Equal(0, h.Args[0]);
+			Assert.Single(issues);
+
+			issues.Clear();
+			CanonicalLine same = new CanonicalLine { Special = 208, Args = new[] { 5, 128, 0, 0, 0 }, Activation = LineActivation.Cross, LineId = 5 };
+			Assert.Equal(5, HexenLineCodec.Write(same, true, issues).Args[0]);
+			Assert.Empty(issues);
+		}
+
 		// Every Doom type: a UDMF write reads back the same, and so does a Hexen write that reports nothing
 		[Fact]
 		public void Codecs_RoundTripEveryDoomType()
@@ -261,7 +381,8 @@ namespace Builder.Tests
 			Assert.Equal(0x100, doom.Translate(9 | 0x20)); // nobitmask with mask bits drops the type
 			Assert.Equal(0, doom.Translate(6)); // unset below the table size
 			Assert.Equal(26, doom.Translate(26)); // above it, kept
-			Assert.Equal(0, doom.Translate(0xc000)); // cleared bits
+			Assert.Equal(0, doom.Translate(0x4000)); // cleared bits
+			Assert.Equal(-65536, doom.Translate(0x8000)); // mapsector_t's special is signed: the clear leaves the sign bits
 			Assert.Equal(9, doom.Find(0x400, true)); // the plain type wins over generalized bits
 
 			List<string> failures = new List<string>();

@@ -23,6 +23,16 @@ namespace CodeImp.DoomBuilder.Config
 		}
 	}
 
+	// Something the engine's parser only prints and skips or truncates
+	public struct XlatWarning
+	{
+		public string File;
+		public int Line;
+		public string Message;
+
+		public override string ToString() { return File + ", line " + Line + ": " + Message; }
+	}
+
 	public enum XlatArgKind { Const, Tag, Expr }
 
 	// One special argument of a simple line type: a constant, the line's tag, or an expression using the tag
@@ -55,22 +65,14 @@ namespace CodeImp.DoomBuilder.Config
 	// Simple line type: "type = flags, Special(args)"
 	public sealed class XlatLineEntry
 	{
-		// Activation bits of the flags value (defines.i)
-		public const int REP = 1;
-		public const int SPAC_MASK = 14;
-		public const int SPAC_SHIFT = 1;
-		public const int MONST = 16;
-		public const int FIRSTSIDE = 32;
+		public const int FIRSTSIDE = 32; // defines.i; the low 5 flag bits are the Hexen REP, SPAC and MONST bits
 
 		public int Type { get; internal set; }
-		public string SpecialName { get; internal set; } // null when the special was given as a number
-		public int SpecialNumber { get; internal set; }
+		public int Special { get; internal set; }
 		public int Flags { get; internal set; }
 		public XlatArg[] Args { get; internal set; }
 		public string File { get; internal set; }
 		public int Line { get; internal set; }
-
-		public int Spac { get { return (Flags & SPAC_MASK) >> SPAC_SHIFT; } }
 	}
 
 	// One store of a Boom generalized range: arg2..arg5 (ArgNum 0-3) or the flags (ArgNum 4)
@@ -87,8 +89,7 @@ namespace CodeImp.DoomBuilder.Config
 	// Boom generalized range: "[Special] (first, last) { stores }"
 	public sealed class XlatBoomRange
 	{
-		public string SpecialName { get; internal set; }
-		public int SpecialNumber { get; internal set; }
+		public int Special { get; internal set; }
 		public int FirstType { get; internal set; }
 		public int LastType { get; internal set; }
 		public List<XlatBoomArg> Args { get; } = new List<XlatBoomArg>();
@@ -125,27 +126,34 @@ namespace CodeImp.DoomBuilder.Config
 		public Dictionary<int, XlatSectorEntry> Sectors { get; } = new Dictionary<int, XlatSectorEntry>();
 		public List<XlatSectorMask> SectorMasks { get; } = new List<XlatSectorMask>();
 		public XlatLineFlag[] LineFlags { get; } = new XlatLineFlag[16];
+		public List<XlatWarning> Warnings { get; } = new List<XlatWarning>();
+
+		// Special names the tables may use as numbers, as the engine's lexer resolves them
+		public IReadOnlyDictionary<string, int> SpecialNames { get; private set; }
 
 		#endregion
 
 		#region ================== Loading
 
 		// Opener returns a file's text by its include name ("xlat/base.txt"), or null when missing
-		public static XlatTable Load(string filename, Func<string, string> opener)
+		public static XlatTable Load(string filename, Func<string, string> opener, IDictionary<string, int> specialnames)
 		{
 			XlatTable table = new XlatTable();
+			table.SpecialNames = new Dictionary<string, int>(specialnames ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase);
 			new XlatParser(table, opener).ParseFile(filename, null, 0);
 			return table;
 		}
 
-		// Loads from a folder holding the table files; "xlat/" include prefixes resolve inside it
+		// Loads from a folder holding the table files and actionspecials.h; "xlat/" include prefixes resolve inside it
 		public static XlatTable LoadFromFolder(string folder, string filename)
 		{
-			return Load(filename, name =>
+			Func<string, string> opener = name =>
 			{
 				string path = Path.Combine(folder, Path.GetFileName(name.Replace('\\', '/')));
 				return File.Exists(path) ? File.ReadAllText(path) : null;
-			});
+			};
+			string specials = opener("actionspecials.h");
+			return Load(filename, opener, specials != null ? ParseSpecialNames(specials) : null);
 		}
 
 		// Special name to number, from actionspecials.h's DEFINE_SPECIAL lines
@@ -243,6 +251,8 @@ namespace CodeImp.DoomBuilder.Config
 		}
 
 		private const int MAX_ARGS = 5;
+		private const int MAX_LIST = 15;
+		private const int MAX_BOOMISH = 16;
 		private const int MAX_INCLUDE_DEPTH = 16;
 
 		private readonly XlatTable table;
@@ -336,16 +346,16 @@ namespace CodeImp.DoomBuilder.Config
 						i += 2;
 						int hexstart = i;
 						while(i < text.Length && Uri.IsHexDigit(text[i])) i++;
-						value = i > hexstart ? long.Parse(text.Substring(hexstart, i - hexstart), NumberStyles.HexNumber, CultureInfo.InvariantCulture) : 0;
+						value = ParseSaturated(text.Substring(hexstart, i - hexstart), 16);
 					}
 					else
 					{
 						while(i < text.Length && char.IsDigit(text[i])) i++;
 						if(i < text.Length && text[i] == '.') throw new XlatParseException(filename, line, "floating point numbers are not supported");
-						value = long.Parse(text.Substring(start, i - start), CultureInfo.InvariantCulture);
+						value = ParseSaturated(text.Substring(start, i - start), 10);
 					}
 					t.Kind = TokenKind.Num;
-					t.Value = unchecked((int)value);
+					t.Value = unchecked((int)value); // strtoll then an int cast, as the engine's lexer does
 					t.Text = text.Substring(start, i - start);
 				}
 				else if(char.IsLetter(c) || c == '_')
@@ -388,6 +398,19 @@ namespace CodeImp.DoomBuilder.Config
 			}
 		}
 
+		// strtoll clamps out-of-range numbers to LLONG_MAX
+		private static long ParseSaturated(string digits, int radix)
+		{
+			long v = 0;
+			foreach(char ch in digits)
+			{
+				int d = ch <= '9' ? ch - '0' : char.ToLowerInvariant(ch) - 'a' + 10;
+				if(v > (long.MaxValue - d) / radix) return long.MaxValue;
+				v = v * radix + d;
+			}
+			return v;
+		}
+
 		private Token Peek(int ahead = 0)
 		{
 			int i = Math.Min(pos + ahead, tokens.Count - 1);
@@ -404,6 +427,18 @@ namespace CodeImp.DoomBuilder.Config
 		private XlatParseException Error(string message)
 		{
 			return new XlatParseException(file, Peek().Line, message);
+		}
+
+		private void Warn(int line, string message)
+		{
+			table.Warnings.Add(new XlatWarning { File = file, Line = line, Message = message });
+		}
+
+		// An identifier the lexer would pass as SYM: not a keyword, symbol or special name
+		private bool IsUnknownName(int ahead = 0)
+		{
+			Token t = Peek(ahead);
+			return t.Kind == TokenKind.Ident && !IsReserved(t.Text) && !symbols.ContainsKey(t.Text) && !table.SpecialNames.ContainsKey(t.Text);
 		}
 
 		private static string Describe(Token t)
@@ -543,6 +578,12 @@ namespace CodeImp.DoomBuilder.Config
 
 			int from = ParseConstExpr();
 			Expect("=");
+			if(IsUnknownName() && IsPunct(";", 1))
+			{
+				Warn(Peek().Line, "unknown constant '" + Next().Text + "'");
+				Next();
+				return;
+			}
 			XlatSectorEntry entry = new XlatSectorEntry { NewType = ParseConstExpr(), BitmaskAllowed = true };
 			if(IsKeyword("nobitmask"))
 			{
@@ -567,23 +608,6 @@ namespace CodeImp.DoomBuilder.Config
 			if(from >= 0 && from < 16) table.LineFlags[from] = new XlatLineFlag { Defined = true, NewValue = value, IsMask = ismask };
 		}
 
-		// A special: a name the symbol table doesn't define, or a constant expression
-		private void ParseSpecial(out string name, out int number)
-		{
-			Token t = Peek();
-			if(t.Kind == TokenKind.Ident && !IsReserved(t.Text) && !symbols.ContainsKey(t.Text))
-			{
-				Next();
-				name = t.Text;
-				number = 0;
-			}
-			else
-			{
-				name = null;
-				number = ParseConstExpr() & 0xffff;
-			}
-		}
-
 		private void ParseLineType()
 		{
 			int line = Peek().Line;
@@ -591,48 +615,59 @@ namespace CodeImp.DoomBuilder.Config
 			Expect("=");
 			int flags = ParseConstExpr();
 			Expect(",");
-			XlatLineEntry entry = new XlatLineEntry { Type = type, Flags = flags, File = file, Line = line };
-			string name;
-			int number;
-			ParseSpecial(out name, out number);
-			entry.SpecialName = name;
-			entry.SpecialNumber = number;
+
+			// An unknown special name skips the entry, leaving any earlier one for the type
+			string unknown = null;
+			int special = 0;
+			if(IsUnknownName() && IsPunct("(", 1)) unknown = Next().Text;
+			else special = ParseConstExpr() & 0xffff;
 
 			Expect("(");
 			List<XlatArg> args = new List<XlatArg>();
 			if(!IsPunct(")"))
 			{
+				bool warned = false;
 				while(true)
 				{
 					XlatExpr e = ParseExpr(true);
-					if(args.Count == MAX_ARGS) throw Error("line special has too many arguments");
-					if(e is XlatTagExpr) args.Add(new XlatArg(XlatArgKind.Tag, 0, null));
-					else if(!e.UsesTag) args.Add(new XlatArg(XlatArgKind.Const, e.Evaluate(0), null));
-					else args.Add(new XlatArg(XlatArgKind.Expr, 0, e));
+					if(args.Count < MAX_ARGS)
+					{
+						if(e is XlatTagExpr) args.Add(new XlatArg(XlatArgKind.Tag, 0, null));
+						else if(!e.UsesTag) args.Add(new XlatArg(XlatArgKind.Const, e.Evaluate(0), null));
+						else args.Add(new XlatArg(XlatArgKind.Expr, 0, e));
+					}
+					else if(!warned)
+					{
+						Warn(Peek().Line, "line special has too many arguments");
+						warned = true;
+					}
 					if(!IsPunct(",")) break;
 					Next();
 				}
 			}
 			Expect(")");
+
+			if(unknown != null)
+			{
+				Warn(line, unknown + " is undefined");
+				return;
+			}
 			while(args.Count < MAX_ARGS) args.Add(XlatArg.Zero);
-			entry.Args = args.ToArray();
-			table.SimpleLines[type] = entry;
+			table.SimpleLines[type] = new XlatLineEntry { Type = type, Special = special, Flags = flags, Args = args.ToArray(), File = file, Line = line };
 		}
 
+		// FBoomTranslator and FBoomArg field widths
 		private void ParseBoom()
 		{
+			int line = Peek().Line;
 			Expect("[");
 			XlatBoomRange range = new XlatBoomRange();
-			string name;
-			int number;
-			ParseSpecial(out name, out number);
-			range.SpecialName = name;
-			range.SpecialNumber = number;
+			range.Special = ParseConstExpr() & 0xffff;
 			Expect("]");
 			Expect("(");
-			range.FirstType = ParseConstExpr();
+			range.FirstType = ParseConstExpr() & 0xffff;
 			Expect(",");
-			range.LastType = ParseConstExpr();
+			range.LastType = ParseConstExpr() & 0xffff;
 			Expect(")");
 			Expect("{");
 			while(!IsPunct("}"))
@@ -660,28 +695,34 @@ namespace CodeImp.DoomBuilder.Config
 					Next();
 					List<int> filters = new List<int>();
 					List<int> values = new List<int>();
-					while(true)
+					for(int count = 0; ; count++)
 					{
-						filters.Add(ParseConstExpr());
+						if(count == MAX_LIST) Warn(Peek().Line, "lists can only have " + MAX_LIST + " elements");
+						int filter = ParseConstExpr() & 0xffff;
 						Expect(":");
-						values.Add(ParseConstExpr());
+						int result = ParseConstExpr() & 0xff;
+						if(count < MAX_LIST)
+						{
+							filters.Add(filter);
+							values.Add(result);
+						}
 						if(!IsPunct(",")) break;
 						Next();
 					}
 					Expect("]");
-					if(filters.Count > 15) throw Error("lists can only have 15 elements");
-					arg.AndValue = value;
+					arg.AndValue = value & 0xffff;
 					arg.Filters = filters.ToArray();
 					arg.Values = values.ToArray();
 				}
 				else
 				{
-					arg.ConstantValue = value;
+					arg.ConstantValue = value & 0xff;
 				}
 				range.Args.Add(arg);
 			}
 			Expect("}");
-			table.BoomRanges.Add(range);
+			if(table.BoomRanges.Count == MAX_BOOMISH) Warn(line, "too many BOOM translators");
+			else table.BoomRanges.Add(range);
 		}
 
 		#endregion
@@ -746,7 +787,7 @@ namespace CodeImp.DoomBuilder.Config
 					return new XlatTagExpr();
 				}
 				int value;
-				if(!IsReserved(t.Text) && symbols.TryGetValue(t.Text, out value))
+				if(!IsReserved(t.Text) && (symbols.TryGetValue(t.Text, out value) || table.SpecialNames.TryGetValue(t.Text, out value)))
 				{
 					Next();
 					return new XlatConstExpr(value);

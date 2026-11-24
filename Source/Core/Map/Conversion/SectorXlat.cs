@@ -30,6 +30,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		public int Translate(int special)
 		{
+			special = (short)special; // mapsector_t's special is int16_t
 			int mask = 0;
 			for(int i = table.SectorMasks.Count - 1; i >= 0; i--)
 			{
@@ -53,9 +54,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return special | mask;
 		}
 
-		// The lowest Doom type translating to this special, preferring one without generalized bits
 		public int? Find(int special, bool allowgeneralized)
 		{
+			// The lowest Doom type, preferring one without generalized bits
 			if(plain == null)
 			{
 				plain = new Dictionary<int, int>();
