@@ -223,6 +223,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			// Forget old geometry
 			base.ClearGeometry();
+			foreach(VisualFloor f in extrafloors) f.ForgetLightmap();
+			foreach(VisualCeiling c in extraceilings) c.ForgetLightmap();
 			
 			// Get sector data
 			SectorData data = GetSectorData();

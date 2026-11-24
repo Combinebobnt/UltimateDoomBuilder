@@ -86,6 +86,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return lightmapqueried && builtlightmap != shown;
 		}
 
+		// For setups that end with no geometry, and extra floors a rebuild no longer sets up
+		internal void ForgetLightmap()
+		{
+			lightmapqueried = false;
+			builtlightmap = null;
+		}
+
 		// The shown lightmap preview's triangles for this flat, or null to use the sector's triangulation
 		protected LightmapFlat GetLightmapFlat(Effect3DFloor extrafloor, bool innerside, bool visualceiling)
 		{
@@ -449,6 +456,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public bool Setup() { return this.Setup(this.level, this.extrafloor); }
 		public virtual bool Setup(SectorLevel level, Effect3DFloor extrafloor)
 		{
+			ForgetLightmap();
 			this.level = level;
 			this.extrafloor = extrafloor;
 			return false;

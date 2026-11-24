@@ -233,12 +233,13 @@ namespace CodeImp.DoomBuilder.Map
 		// the baker calls its floor, and the other way round.
 		public LightmapFlat GetFlat(int sector, bool visualceiling, int controlsector)
 		{
-			if(!litsectors.Contains(sector)) return null;
+			List<int> subsectors;
+			if(!litsectors.Contains(sector) || !sectorsubsectors.TryGetValue(sector, out subsectors)) return null;
 			LightmapSurfaceType type = (controlsector < 0) == visualceiling ? LightmapSurfaceType.Ceiling : LightmapSurfaceType.Floor;
 
 			List<Vector2D> positions = new List<Vector2D>();
 			List<float> lightmap = new List<float>();
-			foreach(int sub in sectorsubsectors[sector])
+			foreach(int sub in subsectors)
 			{
 				Vector2D[] poly = polygons[sub];
 				int surface;

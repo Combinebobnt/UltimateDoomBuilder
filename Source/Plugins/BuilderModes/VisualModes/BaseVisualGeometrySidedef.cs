@@ -191,6 +191,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return lightmapqueried && builtlightmap != shown;
 		}
 
+		// Called first in Setup, so a setup that ends with no geometry leaves nothing to rebuild for
+		protected void ForgetLightmap()
+		{
+			lightmapqueried = false;
+			builtlightmap = null;
+		}
+
 		// A wall part's lightmap coordinates as a function of position along the drawn side and height
 		protected sealed class WallLightmapSpan
 		{

@@ -63,6 +63,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// This builds the geometry. Returns false when no geometry created.
 		public override bool Setup()
 		{
+			ForgetLightmap();
 			Vector2D vl, vr;
 
 			//mxd. lightfog flag support

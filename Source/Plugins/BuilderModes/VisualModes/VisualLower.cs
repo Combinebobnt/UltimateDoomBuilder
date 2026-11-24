@@ -63,6 +63,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// This builds the geometry. Returns false when no geometry created.
 		public override bool Setup()
 		{
+			ForgetLightmap();
 			Vector2D vl, vr;
 			
 			// Left and right vertices for this sidedef

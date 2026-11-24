@@ -67,6 +67,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public override bool Setup() { return this.Setup(this.extrafloor); }
 		public bool Setup(Effect3DFloor extrafloor)
 		{
+			ForgetLightmap();
 			Sidedef sourceside = extrafloor.Linedef.Front;
 			this.extrafloor = extrafloor;
 

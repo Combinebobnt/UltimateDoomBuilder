@@ -3437,13 +3437,11 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			General.Settings.LightmapPreview = !General.Settings.LightmapPreview;
 			UpdateViewMenu();
-			if(General.Map != null)
-			{
-				// Turning it on checks the bake now rather than after the next edit
-				General.Map.RefreshLightmapPreview();
-				DisplayStatus(StatusType.Action, General.Map.LightmapPreviewStatus ?? "No current lightmap to preview");
-			}
-			RedrawDisplay();
+			if(General.Map == null) return;
+			// In Visual mode the bake is checked now, and the next processed frame rebuilds geometry and redraws
+			if(General.Editing.Mode is VisualMode) General.Map.RefreshLightmapPreview();
+			else RedrawDisplay();
+			DisplayStatus(StatusType.Action, General.Map.LightmapPreviewStatus ?? "No current lightmap to preview");
 		}
 
 		[BeginAction("gztoggleanimatedtextures")]
