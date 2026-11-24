@@ -366,6 +366,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.uitheme.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 			this.uitheme.FormattingEnabled = true;
 			this.uitheme.Items.AddRange(new object[] {
+            "System",
             "Light",
             "Dark"});
 			this.uitheme.Location = new System.Drawing.Point(135, 414);
