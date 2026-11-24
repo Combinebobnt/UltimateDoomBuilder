@@ -607,6 +607,15 @@ namespace CodeImp.DoomBuilder
 			return null;
 		}
 
+		// Writes every live setting into the tree and saves it
+		internal static void FlushSettings()
+		{
+			if(colors != null) colors.SaveColors(settings.Config);
+			actions.SaveSettings();
+			SaveGameSettings();
+			SaveSettings();
+		}
+
 		/// <summary>
 		/// Saves the program's configuration
 		/// </summary>
@@ -723,7 +732,7 @@ namespace CodeImp.DoomBuilder
 			string usersettingsfile = nosettings ? defaultsettingsfile : Path.Combine(settingspath, SETTINGS_FILE);
 			string legacysettingsfile = nosettings ? String.Empty : Path.Combine(settingspath, LEGACY_SETTINGS_FILE);
 
-			if(settings.Load(usersettingsfile, defaultsettingsfile, legacysettingsfile))
+			if(settings.Load(usersettingsfile, defaultsettingsfile, legacysettingsfile, true))
 			{
 				clipboardhistory = new ClipboardHistory(settings.ClipboardHistorySize);
 				InteractionLog.Start(settings.ReadSetting(InteractionLog.SETTING, false));
@@ -819,6 +828,7 @@ namespace CodeImp.DoomBuilder
 				// All done
 				General.WriteLogLine("Startup done");
 				mainwindow.DisplayReady();
+				ShowSettingsImportResult(settings.ImportResult);
 				
 				// Show any errors if preferred
 				if(errorlogger.IsErrorAdded)
@@ -885,6 +895,22 @@ namespace CodeImp.DoomBuilder
 		{
 			toastmanager.RegisterToast("resourcewarningsanderrors", "Resource warnings and errors", "When there are errors or warning while (re)loading the resources");
 			toastmanager.RegisterToast("autosave", "Autosave", "Notifications related to autosaving");
+			toastmanager.RegisterToast("settingsimport", "Settings import", "When imported settings were applied at startup");
+		}
+
+		private static void ShowSettingsImportResult(SettingsImportResult result)
+		{
+			if(result.State == SettingsImportState.Applied)
+			{
+				toastmanager.ShowToast("settingsimport", ToastType.INFO, "Settings imported",
+					"Imported settings were applied (" + result.UnitCount + " entries). To undo, close Ultimate Doom Builder and copy \"" +
+					SettingsTransfer.BACKUP_FILE + "\" over \"" + SettingsTransfer.SETTINGS_FILE + "\" in \"" + settingspath + "\".",
+					"Imported settings were applied.");
+			}
+			else if(result.State == SettingsImportState.Failed)
+			{
+				ShowWarningMessage(result.Message, MessageBoxButtons.OK);
+			}
 		}
 
 		// This parses the command line arguments
@@ -1118,17 +1144,8 @@ namespace CodeImp.DoomBuilder
 				// Unbind static methods from actions
 				General.Actions.UnbindMethods(typeof(General));
 				
-				// Save colors
-				if(colors != null) colors.SaveColors(settings.Config);
-				
-				// Save action controls
-				actions.SaveSettings();
-
-				// Save game settings
-				SaveGameSettings();
-
-				// Save program configuration
-				SaveSettings();
+				// Save colors, action controls, game settings and program configuration
+				FlushSettings();
 				
 				// Clean up
 				if(map != null) { map.Dispose(); map = null; }

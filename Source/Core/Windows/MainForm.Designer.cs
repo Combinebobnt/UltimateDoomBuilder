@@ -142,6 +142,8 @@ namespace CodeImp.DoomBuilder.Windows
 			this.seperatortoolsresources = new System.Windows.Forms.ToolStripSeparator();
 			this.configurationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.preferencesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemexportsettings = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemimportsettings = new System.Windows.Forms.ToolStripMenuItem();
 			this.seperatortoolsconfig = new System.Windows.Forms.ToolStripSeparator();
 			this.itemsavescreenshot = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemsaveeditareascreenshot = new System.Windows.Forms.ToolStripMenuItem();
@@ -1250,6 +1252,8 @@ namespace CodeImp.DoomBuilder.Windows
 			this.seperatortoolsresources,
 			this.configurationToolStripMenuItem,
 			this.preferencesToolStripMenuItem,
+			this.itemexportsettings,
+			this.itemimportsettings,
 			this.seperatortoolsconfig,
 			this.itemsavescreenshot,
 			this.itemsaveeditareascreenshot,
@@ -1321,6 +1325,22 @@ namespace CodeImp.DoomBuilder.Windows
 			this.preferencesToolStripMenuItem.Tag = "builder_preferences";
 			this.preferencesToolStripMenuItem.Text = "Preferences...";
 			this.preferencesToolStripMenuItem.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemexportsettings
+			// 
+			this.itemexportsettings.Name = "itemexportsettings";
+			this.itemexportsettings.Size = new System.Drawing.Size(246, 22);
+			this.itemexportsettings.Tag = "builder_exportsettings";
+			this.itemexportsettings.Text = "E&xport Settings...";
+			this.itemexportsettings.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemimportsettings
+			// 
+			this.itemimportsettings.Name = "itemimportsettings";
+			this.itemimportsettings.Size = new System.Drawing.Size(246, 22);
+			this.itemimportsettings.Tag = "builder_importsettings";
+			this.itemimportsettings.Text = "&Import Settings...";
+			this.itemimportsettings.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// seperatortoolsconfig
 			// 
@@ -3148,6 +3168,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ToolStripMenuItem menutools;
 		private System.Windows.Forms.ToolStripMenuItem configurationToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem preferencesToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem itemexportsettings;
+		private System.Windows.Forms.ToolStripMenuItem itemimportsettings;
 		private System.Windows.Forms.ToolStripMenuItem menuedit;
 		private System.Windows.Forms.ToolStripMenuItem itemmapoptions;
 		private System.Windows.Forms.ToolStripMenuItem itemreloadresources;

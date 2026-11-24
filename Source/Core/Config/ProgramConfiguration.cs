@@ -52,6 +52,7 @@ namespace CodeImp.DoomBuilder.Config
 
 		// Original configuration
 		private Configuration cfg;
+		private SettingsImportResult importresult = SettingsImportResult.None;
 		
 		// Cached variables
 		private bool blackbrowsers;
@@ -195,6 +196,7 @@ namespace CodeImp.DoomBuilder.Config
 		#region ================== Properties
 
 		internal Configuration Config { get { return cfg; } }
+		internal SettingsImportResult ImportResult { get { return importresult; } }
 		public bool BlackBrowsers { get { return blackbrowsers; } internal set { blackbrowsers = value; } }
 		public UIThemeKind UITheme { get { return uitheme; } internal set { uitheme = value; } }
 		public int VisualFOV { get { return visualfov; } internal set { visualfov = value; } }
@@ -381,10 +383,10 @@ namespace CodeImp.DoomBuilder.Config
 		#region ================== Loading / Saving
 
 		// This loads the program configuration
-		internal bool Load(string cfgfilepathname, string defaultfilepathname, string legacyfilepathname)
+		internal bool Load(string cfgfilepathname, string defaultfilepathname, string legacyfilepathname, bool applyimport = false)
 		{
 			// First parse it
-			if(Read(cfgfilepathname, defaultfilepathname, legacyfilepathname))
+			if(Read(cfgfilepathname, defaultfilepathname, legacyfilepathname, applyimport))
 			{
 				// Read the cache variables
 				blackbrowsers = cfg.ReadSetting("blackbrowsers", true);
@@ -780,7 +782,7 @@ namespace CodeImp.DoomBuilder.Config
 		}
 		
 		// This reads the configuration
-		private bool Read(string cfgfilepathname, string defaultfilepathname, string legacyfilepathname)
+		private bool Read(string cfgfilepathname, string defaultfilepathname, string legacyfilepathname, bool applyimport)
 		{
 			// Check if no config for this user exists yet
 			if(!File.Exists(cfgfilepathname))
@@ -852,6 +854,13 @@ namespace CodeImp.DoomBuilder.Config
 					General.ShowErrorMessage("Default program configuration is corrupted. Please re-install Doom Builder.", MessageBoxButtons.OK);
 					return false;
 				}
+			}
+
+			// A settings import waits for a startup with a cleanly parsed settings file
+			if(applyimport && !General.NoSettings && !cfg.ErrorResult &&
+				string.Equals(Path.GetFileName(cfgfilepathname), SettingsTransfer.SETTINGS_FILE, StringComparison.Ordinal))
+			{
+				importresult = SettingsTransfer.ApplyPending(ref cfg, Path.GetDirectoryName(Path.GetFullPath(cfgfilepathname)));
 			}
 			
 			// Success

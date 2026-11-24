@@ -114,6 +114,12 @@
         <h3><a href="gzdb/features/all_modes/synch_selection.html">Synchronise selection between Visual and Classic modes</a> <span class="red">(GZDB only)</span></h3>
         <h3>Give each event line group its own color:</h3>
         When enabled, event lines drawn for different actions get different colors; when disabled, they all use the first color.
+
+        <h2>Exporting and importing settings</h2>
+        <b>Tools &gt; Export Settings...</b> saves chosen groups of your settings to a <b>.udbsettings</b> file: <b>Preferences</b> (this dialog's options), <b>Colors</b>, <b>Keyboard shortcuts</b>, <b>Game configurations</b> (engines, resources, nodebuilders, thing filters, texture sets and favourites per game), <b>Plugin settings</b> and <b>Window layout</b> (window positions and sizes, off by default).<br />
+        <b>Tools &gt; Import Settings...</b> reads such a file, or a <b>UDBuilder.cfg</b> from another install. Pick the groups to take; game configurations and plugins can be picked one by one. When resource, engine, nodebuilder or compiler paths don't exist on this computer, you can point each missing folder at its new location (engine parameters typed by hand are not changed).<br />
+        Imported settings replace the matching ones here and are applied the next time Ultimate Doom Builder starts. Settings you don't import are kept. Recent files, the last used map folder and other per-install state are never exported; settings specific to one platform are skipped when importing from another platform, and UDBScript script slots are only imported onto the same install.<br />
+        Before applying an import, your settings file is copied to <b>UDBuilder.before-import.cfg</b> beside it. To undo an import, close Ultimate Doom Builder and copy that file over <b>UDBuilder.cfg</b>. Importing the backup is not an undo, because settings the import added are kept.
 	</p>
 	</div>
 </body>

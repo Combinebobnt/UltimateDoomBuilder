@@ -3812,6 +3812,8 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			MirrorDropDownItems(buttontest, itemtestoptions);
 			if(General.Map == null) itemtestoptions.Visible = false;
+			itemexportsettings.Enabled = !General.NoSettings;
+			itemimportsettings.Enabled = !General.NoSettings;
 		}
 
 		// This sets up the tools menu
@@ -3879,6 +3881,120 @@ namespace CodeImp.DoomBuilder.Windows
 
 			// Done
 			cfgform.Dispose();
+		}
+
+		[BeginAction("exportsettings")]
+		internal void ExportSettings()
+		{
+			if(General.NoSettings) return;
+
+			// So the file holds what is live now
+			General.FlushSettings();
+
+			List<SettingsGroup> groups;
+			using(SettingsTransferForm form = new SettingsTransferForm(General.Settings.Config))
+			{
+				if(form.ShowDialog(this) != DialogResult.OK) return;
+				groups = form.SelectedGroups;
+			}
+
+			using(SaveFileDialog dialog = new SaveFileDialog())
+			{
+				dialog.Title = "Export Settings";
+				dialog.Filter = "Ultimate Doom Builder settings (*." + SettingsTransfer.FILE_EXTENSION + ")|*." + SettingsTransfer.FILE_EXTENSION + "|All files (*.*)|*.*";
+				dialog.DefaultExt = SettingsTransfer.FILE_EXTENSION;
+				dialog.AddExtension = true;
+				dialog.OverwritePrompt = true;
+				dialog.FileName = "UDBuilder-settings." + SettingsTransfer.FILE_EXTENSION;
+				if(NativeFileDialogs.Show(dialog, this) != DialogResult.OK) return;
+
+				try
+				{
+					Configuration export = SettingsTransfer.BuildExport(General.Settings.Config, groups, General.VersionLabel,
+						SettingsTransfer.LocalPlatform, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), General.AppPath);
+					SettingsTransfer.WriteFile(export, dialog.FileName);
+					General.WriteLogLine("Settings exported to \"" + dialog.FileName + "\"");
+					DisplayStatus(StatusType.Info, "Settings exported to \"" + dialog.FileName + "\".");
+				}
+				catch(Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidDataException)
+				{
+					General.ShowErrorMessage("Could not export the settings to \"" + dialog.FileName + "\":\n" + e.Message, MessageBoxButtons.OK);
+				}
+			}
+		}
+
+		[BeginAction("importsettings")]
+		internal void ImportSettings()
+		{
+			if(General.NoSettings) return;
+
+			string path;
+			using(OpenFileDialog dialog = new OpenFileDialog())
+			{
+				dialog.Title = "Import Settings";
+				dialog.Filter = "Settings files (*." + SettingsTransfer.FILE_EXTENSION + ";*.cfg)|*." + SettingsTransfer.FILE_EXTENSION + ";*.cfg|All files (*.*)|*.*";
+				if(NativeFileDialogs.Show(dialog, this) != DialogResult.OK) return;
+				path = dialog.FileName;
+			}
+
+			Configuration source = new Configuration(true);
+			try
+			{
+				if(!source.LoadConfiguration(path, true))
+				{
+					General.ShowErrorMessage("Error in \"" + path + "\" near line " + source.ErrorLine + ": " + source.ErrorDescription, MessageBoxButtons.OK);
+					return;
+				}
+			}
+			catch(Exception e) when (e is IOException || e is UnauthorizedAccessException)
+			{
+				General.ShowErrorMessage("Could not read \"" + path + "\":\n" + e.Message, MessageBoxButtons.OK);
+				return;
+			}
+
+			SettingsFileInfo info = SettingsTransfer.ReadHeader(source);
+			string error = SettingsTransfer.CheckImportable(info);
+			if(error == null && SettingsTransfer.EnumerateUnits(source).Count == 0) error = "\"" + path + "\" holds no settings to import.";
+			if(error != null)
+			{
+				General.ShowWarningMessage(error, MessageBoxButtons.OK);
+				return;
+			}
+
+			List<string> units;
+			using(SettingsTransferForm form = new SettingsTransferForm(source, info))
+			{
+				if(form.ShowDialog(this) != DialogResult.OK) return;
+				units = form.SelectedUnits;
+			}
+
+			Configuration pending = SettingsTransfer.BuildPending(source, new HashSet<string>(units), info, SettingsTransfer.LocalPlatform, General.AppPath);
+			List<SettingsPathEntry> missing = SettingsTransfer.FindMissingPaths(pending, SettingsTransfer.PathExists);
+			if(missing.Count > 0)
+			{
+				using(SettingsPathRemapForm form = new SettingsPathRemapForm(missing, info.HomePath))
+				{
+					if(form.ShowDialog(this) != DialogResult.OK) return;
+					form.Apply(pending);
+				}
+			}
+
+			string pendingfile = Path.Combine(General.SettingsPath, SettingsTransfer.PENDING_FILE);
+			try
+			{
+				SettingsTransfer.WriteFile(pending, pendingfile);
+			}
+			catch(Exception e) when (e is IOException || e is UnauthorizedAccessException)
+			{
+				General.ShowErrorMessage("Could not save the import to \"" + pendingfile + "\":\n" + e.Message, MessageBoxButtons.OK);
+				return;
+			}
+			General.WriteLogLine("Settings import from \"" + path + "\" queued for the next startup");
+
+			DialogResult answer = General.ShowWarningMessage("The settings will be applied the next time Ultimate Doom Builder starts. "
+				+ "Settings you change before then are overwritten by the import where they overlap.\n\nClose Ultimate Doom Builder now?",
+				MessageBoxButtons.YesNo, MessageBoxDefaultButton.Button1);
+			if(answer == DialogResult.Yes) General.Exit(true);
 		}
 
 		// Preferences action

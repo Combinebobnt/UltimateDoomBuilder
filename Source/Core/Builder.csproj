@@ -173,6 +173,7 @@
     <Compile Include="Config\LinedefActionInfo.cs" />
     <Compile Include="Config\LinedefActivateInfo.cs" />
     <Compile Include="Config\ProgramConfiguration.cs" />
+    <Compile Include="Config\SettingsTransfer.cs" />
     <Compile Include="Config\SkillInfo.cs" />
     <Compile Include="Config\TagType.cs" />
     <Compile Include="Config\TextureSet.cs" />
@@ -1305,6 +1306,12 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Windows\LightmapBakeForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\SettingsPathRemapForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\SettingsTransferForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Windows\ErrorsForm.Designer.cs">
