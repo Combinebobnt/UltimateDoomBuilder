@@ -20,6 +20,7 @@ using System;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Controls;
 using CodeImp.DoomBuilder.Editing;
+using CodeImp.DoomBuilder.VisualModes;
 using CodeImp.DoomBuilder.Windows;
 
 #endregion
@@ -32,6 +33,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		// Menus list
 		private readonly ToolStripItem[] menus;
+		private readonly ToolStripMenuItem visualmenu;
 
 		// mxd. More menus
 		private readonly ToolStripItem[] exportmenuitems;
@@ -121,6 +123,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			gradientInterpolationMenu.Items.AddRange(new[] { GradientInterpolationModes.Linear, GradientInterpolationModes.EaseInOutSine, GradientInterpolationModes.EaseInSine, GradientInterpolationModes.EaseOutSine });
 			gradientInterpolationMenu.SelectedIndex = 0;
 			
+			visualmenu = CreateVisualMenu();
+			menustrip.Items.Add(visualmenu);
+
 			// List all menus
 			menus = new ToolStripItem[menustrip.Items.Count];
 			for(int i = 0; i < menustrip.Items.Count; i++) menus[i] = menustrip.Items[i];
@@ -272,6 +277,153 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			PairWithMenu(buttonrotateselection90cw, transform, MenuSection.EditGeometry);
 		}
 
+		// Visual mode's actions; reachable once Free Mouse Cursor lets go of the mouse
+		private static ToolStripMenuItem CreateVisualMenu()
+		{
+			ToolStripMenuItem freecursor = ActionItem("&Free Mouse Cursor", "builder_togglevisualcursor");
+
+			ToolStripMenuItem offsets = Submenu("Texture &Offsets",
+				ActionItem("Move Left by 1", "movetextureleft"),
+				ActionItem("Move Right by 1", "movetextureright"),
+				ActionItem("Move Up by 1", "movetextureup"),
+				ActionItem("Move Down by 1", "movetexturedown"),
+				new ToolStripSeparator(),
+				ActionItem("Move Left by 8", "movetextureleft8"),
+				ActionItem("Move Right by 8", "movetextureright8"),
+				ActionItem("Move Up by 8", "movetextureup8"),
+				ActionItem("Move Down by 8", "movetexturedown8"),
+				new ToolStripSeparator(),
+				ActionItem("Move Left by Grid Size", "movetextureleftgs"),
+				ActionItem("Move Right by Grid Size", "movetexturerightgs"),
+				ActionItem("Move Up by Grid Size", "movetextureupgs"),
+				ActionItem("Move Down by Grid Size", "movetexturedowngs"),
+				new ToolStripSeparator(),
+				ActionItem("Reset Offsets", "resettexture"),
+				ActionItem("Reset Local Offsets (UDMF)", "resettextureudmf"),
+				new ToolStripSeparator(),
+				ActionItem("Copy Offsets", "texturecopyoffsets"),
+				ActionItem("Paste Offsets", "texturepasteoffsets"));
+
+			ToolStripMenuItem scale = Submenu("Texture &Scale",
+				ActionItem("Increase Scale", "scaleup"),
+				ActionItem("Decrease Scale", "scaledown"),
+				new ToolStripSeparator(),
+				ActionItem("Increase Horizontal Scale", "scaleupx"),
+				ActionItem("Decrease Horizontal Scale", "scaledownx"),
+				ActionItem("Increase Vertical Scale", "scaleupy"),
+				ActionItem("Decrease Vertical Scale", "scaledowny"));
+
+			ToolStripMenuItem align = Submenu("&Align",
+				ActionItem("Auto-align X and Y", "visualautoalign"),
+				ActionItem("Auto-align X", "visualautoalignx"),
+				ActionItem("Auto-align Y", "visualautoaligny"),
+				new ToolStripSeparator(),
+				ActionItem("Auto-align to Selection (X and Y)", "visualautoaligntoselection"),
+				ActionItem("Auto-align to Selection (X)", "visualautoaligntoselectionx"),
+				ActionItem("Auto-align to Selection (Y)", "visualautoaligntoselectiony"),
+				new ToolStripSeparator(),
+				ActionItem("Fit Textures...", "visualfittextures"));
+
+			ToolStripMenuItem textures = Submenu("&Textures",
+				ActionItem("Select Texture...", "textureselect"),
+				ActionItem("Texture Palette...", "texturepalette"),
+				new ToolStripSeparator(),
+				ActionItem("Copy Texture", "texturecopy"),
+				ActionItem("Paste Texture", "texturepaste"),
+				ActionItem("Paste Texture Flood-Fill", "floodfilltextures"),
+				new ToolStripSeparator(),
+				ActionItem("Toggle Upper Unpegged", "toggleupperunpegged"),
+				ActionItem("Toggle Lower Unpegged", "togglelowerunpegged"));
+
+			ToolStripMenuItem heights = Submenu("&Heights and Brightness",
+				ActionItem("Raise by 1", "raisesector1"),
+				ActionItem("Lower by 1", "lowersector1"),
+				ActionItem("Raise by 8", "raisesector8"),
+				ActionItem("Lower by 8", "lowersector8"),
+				ActionItem("Raise by 128", "raisesector128"),
+				ActionItem("Lower by 128", "lowersector128"),
+				ActionItem("Raise by Grid Size", "raisemapelementbygridsize"),
+				ActionItem("Lower by Grid Size", "lowermapelementbygridsize"),
+				ActionItem("Raise to Adjacent", "raisesectortonearest"),
+				ActionItem("Lower to Adjacent", "lowersectortonearest"),
+				new ToolStripSeparator(),
+				ActionItem("Increase Brightness by 8", "raisebrightness8"),
+				ActionItem("Decrease Brightness by 8", "lowerbrightness8"),
+				ActionItem("Match Brightness", "matchbrightness"));
+
+			ToolStripMenuItem properties = Submenu("&Properties",
+				ActionItem("Copy Properties", "copyproperties"),
+				ActionItem("Paste Properties", "pasteproperties"),
+				ActionItem("Paste Properties Special...", "pastepropertieswithoptions"));
+
+			ToolStripMenuItem sidedefpicking = ActionItem("Sidedef Slope Picking", "togglevisualslopepicking");
+			ToolStripMenuItem vertexpicking = ActionItem("Vertex Slope Picking", "togglevisualvertexslopepicking");
+			ToolStripMenuItem adjacentvertices = ActionItem("Select Adjacent Vertex Slope Handles", "togglevisualvertexslopeadjacentselection");
+			ToolStripMenuItem slopes = Submenu("S&lopes",
+				ActionItem("Toggle Slope", "toggleslope"),
+				ActionItem("Reset Slope", "resetslope"),
+				ActionItem("Slope Between Handles", "slopebetweenhandles"),
+				ActionItem("Arch Between Handles...", "archbetweenhandles"),
+				new ToolStripSeparator(),
+				sidedefpicking,
+				vertexpicking,
+				adjacentvertices);
+
+			ToolStripMenuItem things = Submenu("T&hings",
+				ActionItem("Move Left", "builder_movethingleft"),
+				ActionItem("Move Right", "builder_movethingright"),
+				ActionItem("Move Forward", "builder_movethingfwd"),
+				ActionItem("Move Backward", "builder_movethingback"),
+				ActionItem("Move to Cursor Location", "builder_placethingatcursor"),
+				new ToolStripSeparator(),
+				ActionItem("Rotate Clockwise", "rotateclockwise"),
+				ActionItem("Rotate Counterclockwise", "rotatecounterclockwise"),
+				ActionItem("Pitch Clockwise", "pitchclockwise"),
+				ActionItem("Pitch Counterclockwise", "pitchcounterclockwise"),
+				ActionItem("Roll Clockwise", "rollclockwise"),
+				ActionItem("Roll Counterclockwise", "rollcounterclockwise"),
+				new ToolStripSeparator(),
+				ActionItem("Look Through Selection", "lookthroughthing"),
+				ActionItem("Apply Camera Rotation to Things", "applycamerarotationtothings"));
+
+			ToolStripMenuItem groups = Submenu("&Groups",
+				ActionItem("Select Group", "selectgroup"),
+				ActionItem("Create Group", "creategroup"),
+				ActionItem("Update or Delete Last Selected Group", "updateordeletelastselectedgroup"));
+
+			ToolStripMenuItem gravity = ActionItem("&Gravity", "togglegravity");
+			ToolStripMenuItem alphahighlight = ActionItem("Alpha-based Texture Highlighting", "alphabasedtexturehighlighting");
+
+			ToolStripMenuItem menu = Submenu("&Visual", freecursor, new ToolStripSeparator(),
+				offsets, scale, align, textures, heights, properties, slopes, things, groups,
+				new ToolStripSeparator(),
+				ActionItem("Cycle Thing Display", "showvisualthings"),
+				gravity,
+				alphahighlight);
+
+			menu.DropDownOpening += delegate
+			{
+				freecursor.Checked = General.Interface.VisualCursorFree;
+				gravity.Checked = BuilderPlug.Me.UseGravity;
+				alphahighlight.Checked = BuilderPlug.Me.AlphaBasedTextureHighlighting;
+			};
+			slopes.DropDownOpening += delegate
+			{
+				BaseVisualMode mode = General.Editing.Mode as BaseVisualMode;
+				sidedefpicking.Checked = (mode != null) && (mode.CurrentPickingMode == PickingMode.SidedefSlopeHandles);
+				vertexpicking.Checked = (mode != null) && (mode.CurrentPickingMode == PickingMode.VertexSlopeHandles);
+				adjacentvertices.Checked = BuilderPlug.Me.SelectAdjacentVisualVertexSlopeHandles;
+			};
+			return menu;
+		}
+
+		private static ToolStripMenuItem Submenu(string text, params ToolStripItem[] items)
+		{
+			ToolStripMenuItem menu = new ToolStripMenuItem(text);
+			menu.DropDownItems.AddRange(items);
+			return menu;
+		}
+
 		// A menu item that runs an action by its tag; AddMenu prefixes the tag with the plugin name
 		internal static ToolStripMenuItem ActionItem(string text, string action)
 		{
@@ -379,6 +531,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			else if(sourcemode == typeof(SectorsMode)) HideAllMenusExcept(sectorsmenu);
 			else if(sourcemode == typeof(ThingsMode)) HideAllMenusExcept(thingsmenu); //mxd
 			else if(sourcemode == typeof(VerticesMode)) HideAllMenusExcept(vertsmenu); //mxd
+			else if(typeof(BaseVisualMode).IsAssignableFrom(sourcemode))
+			{
+				HideAllMenusExcept(visualmenu);
+				showcopyprops = false;
+			}
 			else
 			{
 				HideAllMenus();

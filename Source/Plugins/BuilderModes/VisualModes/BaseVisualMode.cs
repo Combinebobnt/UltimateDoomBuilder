@@ -141,6 +141,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		
 		#region ================== Properties
 
+		internal PickingMode CurrentPickingMode { get { return pickingmode; } }
+
 		public override object HighlightedObject
 		{
 			get
