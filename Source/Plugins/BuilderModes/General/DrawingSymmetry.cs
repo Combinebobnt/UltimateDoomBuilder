@@ -56,58 +56,64 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				return result;
 			}
 
-			bool closed = Same(p[0].pos, p[n - 1].pos);
-			if(!closed && (on[0] || on[n - 1]))
+			if(Same(p[0].pos, p[n - 1].pos))
 			{
-				// Leading on-axis run ends at a, trailing run starts at b
-				int a = -1;
-				while(a + 1 < n && on[a + 1]) a++;
-				int b = n;
-				while(b - 1 >= 0 && on[b - 1]) b--;
-
-				int first = Math.Max(a, 0);
-				int last = Math.Min(b, n - 1);
-				// A core running along the axis mid-path would retrace that segment when merged
-				bool alongaxis = false;
-				for(int i = first; i < last; i++) alongaxis |= on[i] && on[i + 1];
-
-				if(!alongaxis && !Crosses(p, first, last, pivot, vertical))
-				{
-					List<DrawnVertex> core = p.GetRange(first, last - first + 1);
-					int k = core.Count;
-					List<DrawnVertex> merged = new List<DrawnVertex>();
-
-					if(a >= 0 && b <= n - 1)
-					{
-						// Both ends on the axis: one closed loop
-						merged.AddRange(core);
-						for(int i = k - 2; i >= 1; i--) merged.Add(Mirrored(core[i], pivot, vertical));
-						merged.Add(core[0]);
-					}
-					else if(b <= n - 1)
-					{
-						// Only the last point on the axis
-						merged.AddRange(core);
-						for(int i = k - 2; i >= 0; i--) merged.Add(Mirrored(core[i], pivot, vertical));
-					}
-					else
-					{
-						// Only the first point on the axis
-						for(int i = k - 1; i >= 1; i--) merged.Add(Mirrored(core[i], pivot, vertical));
-						merged.AddRange(core);
-					}
-
-					result.Add(Deduped(merged));
-					if(a >= 1) result.Add(p.GetRange(0, a + 1));
-					if(b <= n - 2) result.Add(p.GetRange(b, n - b));
-					return result;
-				}
+				// Closed: the original and its reversed mirror image
+				result.Add(p);
+				result.Add(ReversedMirror(p, pivot, vertical));
+				return result;
 			}
 
-			// Two paths: the original and its reversed mirror image
-			result.Add(p);
-			result.Add(ReversedMirror(p, pivot, vertical));
+			// Split at on-axis runs of 2+ points: each piece merges with its mirror on its own and
+			// each run is drawn once, since a merged path would retrace it
+			List<List<DrawnVertex>> runs = new List<List<DrawnVertex>>();
+			int start = 0;
+			for(int i = 0; i + 1 < n; i++)
+			{
+				if(!on[i] || !on[i + 1]) continue;
+				int j = i + 1;
+				while(j + 1 < n && on[j + 1]) j++;
+				if(i > start) result.AddRange(MirrorPiece(p.GetRange(start, i - start + 1), pivot, vertical));
+				runs.Add(p.GetRange(i, j - i + 1));
+				start = j;
+				i = j;
+			}
+			if(start < n - 1) result.AddRange(MirrorPiece(p.GetRange(start, n - start), pivot, vertical));
+
+			result.AddRange(runs);
 			return result;
+		}
+
+		// Open piece with no on-axis segment, merged with its mirror when an end touches the axis
+		private static List<List<DrawnVertex>> MirrorPiece(List<DrawnVertex> core, Vector2D pivot, bool vertical)
+		{
+			int k = core.Count;
+			bool firston = Math.Abs(Offset(core[0].pos, pivot, vertical)) <= EPSILON;
+			bool laston = Math.Abs(Offset(core[k - 1].pos, pivot, vertical)) <= EPSILON;
+			if((!firston && !laston) || Crosses(core, 0, k - 1, pivot, vertical))
+				return new List<List<DrawnVertex>> { core, ReversedMirror(core, pivot, vertical) };
+
+			List<DrawnVertex> merged = new List<DrawnVertex>();
+			if(firston && laston)
+			{
+				// Both ends on the axis: one closed loop
+				merged.AddRange(core);
+				for(int i = k - 2; i >= 1; i--) merged.Add(Mirrored(core[i], pivot, vertical));
+				merged.Add(core[0]);
+			}
+			else if(laston)
+			{
+				// Only the last point on the axis
+				merged.AddRange(core);
+				for(int i = k - 2; i >= 0; i--) merged.Add(Mirrored(core[i], pivot, vertical));
+			}
+			else
+			{
+				// Only the first point on the axis
+				for(int i = k - 1; i >= 1; i--) merged.Add(Mirrored(core[i], pivot, vertical));
+				merged.AddRange(core);
+			}
+			return new List<List<DrawnVertex>> { Deduped(merged) };
 		}
 
 		// True when the off-axis points of p[first..last] lie on both sides of the axis

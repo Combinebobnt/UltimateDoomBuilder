@@ -97,12 +97,21 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void CoreRunningAlongAxisDoesNotMerge()
+		public void CoreRunningAlongAxisSplitsAtTheRun()
 		{
-			List<DrawnVertex> p = Path(64, 0, 0, 16, 64, 32, 64, 48, 0, 56, 64, 64);
-			List<List<DrawnVertex>> r = DrawingSymmetry.Mirror(p, P, true, false);
-			Assert.Equal(2, r.Count);
-			Equal(p, r[0]);
+			// Each piece between on-axis runs merges on its own; the run is drawn once, by itself
+			List<List<DrawnVertex>> r = DrawingSymmetry.Mirror(Path(64, 0, 0, 16, 64, 32, 64, 48, 0, 56, 64, 64), P, true, false);
+			Assert.Equal(3, r.Count);
+			Equal(Path(64, 0, 0, 16, 64, 32, 128, 16, 64, 0), r[0]);
+			Equal(Path(64, 48, 0, 56, 64, 64, 128, 56, 64, 48), r[1]);
+			Equal(Path(64, 32, 64, 48), r[2]);
+
+			// Ends off the axis: each piece merges from its on-axis end
+			r = DrawingSymmetry.Mirror(Path(0, 0, 64, 16, 64, 32, 0, 48), P, true, false);
+			Assert.Equal(3, r.Count);
+			Equal(Path(0, 0, 64, 16, 128, 0), r[0]);
+			Equal(Path(128, 48, 64, 32, 0, 48), r[1]);
+			Equal(Path(64, 16, 64, 32), r[2]);
 
 			// A single interior touch still merges
 			r = DrawingSymmetry.Mirror(Path(64, 0, 0, 16, 64, 32, 0, 48, 64, 64), P, true, false);
