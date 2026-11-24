@@ -567,6 +567,9 @@
     <Compile Include="Windows\PreferencesForm.Settings.cs">
       <DependentUpon>PreferencesForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Windows\PreferencesForm.View2D.cs">
+      <DependentUpon>PreferencesForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Windows\PreferencesForm.Designer.cs">
       <DependentUpon>PreferencesForm.cs</DependentUpon>
     </Compile>

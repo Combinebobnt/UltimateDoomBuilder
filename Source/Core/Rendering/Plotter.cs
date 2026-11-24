@@ -56,10 +56,13 @@ namespace CodeImp.DoomBuilder.Rendering
         #region ================== Constructor / Disposer
 
         // Constructor
-        public Plotter(int width, int height)
+        public Plotter(int width, int height) : this(width, height, true) { }
+
+        // Without a texture the plotter only fills its pixel buffer (tests)
+        internal Plotter(int width, int height, bool createtexture)
         {
             // Initialize
-            Texture = new Texture(width, height, TextureFormat.Bgra8);
+            if (createtexture) Texture = new Texture(width, height, TextureFormat.Bgra8);
             this.pixels = new PixelColor[width*height];
             this.width = width;
             this.height = height;
@@ -83,6 +86,12 @@ namespace CodeImp.DoomBuilder.Rendering
         private int TransformY(int y)
         {
             return height - y;
+        }
+
+        // Pixel at buffer coordinates (rows top-down, after TransformY)
+        internal PixelColor GetPixel(int x, int y)
+        {
+            return pixels[y * width + x];
         }
 
         // This clears all pixels black
@@ -149,33 +158,45 @@ namespace CodeImp.DoomBuilder.Rendering
                     pixels[y1 * width + x1] = l;
                 }
             }
-            /*
-			else
-			{
-				// Filled square
-				for(yp = y - size; yp <= y + size; yp++)
-					for(xp = x - size; xp <= x + size; xp++)
-						DrawPixelSolid(xp, yp, c);
+            else
+            {
+                // Clipped: only the parts inside the visible area
+                int cx1 = Math.Max(x1, 0);
+                int cx2 = Math.Min(x2, visiblewidth - 1);
+                int cy1 = Math.Max(y1, 0);
+                int cy2 = Math.Min(y2, visibleheight - 1);
+                if ((cx1 > cx2) || (cy1 > cy2)) return;
 
-				// Vertical edges
-				for(yp = y - size + 1; yp <= y + size - 1; yp++)
-				{
-					DrawPixelSolid(x - size, yp, l);
-					DrawPixelSolid(x + size, yp, d);
-				}
+                for (int yp = cy1; yp <= cy2; yp++)
+                    for (int xp = cx1; xp <= cx2; xp++)
+                        pixels[yp * width + xp] = c;
 
-				// Horizontal edges
-				for(xp = x - size + 1; xp <= x + size - 1; xp++)
-				{
-					DrawPixelSolid(xp, y - size, l);
-					DrawPixelSolid(xp, y + size, d);
-				}
+                if (!General.Settings.FlatShadeVertices)
+                {
+                    int ey1 = Math.Max(y1 + 1, cy1);
+                    int ey2 = Math.Min(y2 - 1, cy2);
+                    int ex1 = Math.Max(x1 + 1, cx1);
+                    int ex2 = Math.Min(x2 - 1, cx2);
 
-				// Corners
-				DrawPixelSolid(x + size, y + size, d);
-				DrawPixelSolid(x - size, y - size, l);
-			}
-			*/
+                    // Vertical edges
+                    for (int yp = ey1; yp <= ey2; yp++)
+                    {
+                        if (x1 == cx1) pixels[yp * width + x1] = l;
+                        if (x2 == cx2) pixels[yp * width + x2] = d;
+                    }
+
+                    // Horizontal edges
+                    for (int xp = ex1; xp <= ex2; xp++)
+                    {
+                        if (y1 == cy1) pixels[y1 * width + xp] = l;
+                        if (y2 == cy2) pixels[y2 * width + xp] = d;
+                    }
+
+                    // Corners
+                    if ((x2 == cx2) && (y2 == cy2)) pixels[y2 * width + x2] = d;
+                    if ((x1 == cx1) && (y1 == cy1)) pixels[y1 * width + x1] = l;
+                }
+            }
         }
 
         // This draws a dotted grid line horizontally
@@ -248,10 +269,16 @@ namespace CodeImp.DoomBuilder.Rendering
 
         // This draws a line normally
         // See: http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-        public void DrawLineSolid(int x1, int y1, int x2, int y2, ref PixelColor c, uint mask = 0xffffffff)
+        public void DrawLineSolid(int x1, int y1, int x2, int y2, ref PixelColor c, uint mask = 0xffffffff, int thickness = 1)
         {
             y1 = TransformY(y1);
             y2 = TransformY(y2);
+
+            if (thickness > 1)
+            {
+                DrawLineThick(x1, y1, x2, y2, ref c, mask, thickness);
+                return;
+            }
 
             // Check if the line is outside the screen for sure.
             // This is quickly done by checking in which area both points are. When this
@@ -382,15 +409,90 @@ namespace CodeImp.DoomBuilder.Rendering
             }
         }
 
+        // Bresenham along the major axis, filling a span across the minor axis at each step so the
+        // stroke is about thickness px wide perpendicular to the line. Coordinates are already transformed.
+        private void DrawLineThick(int x1, int y1, int x2, int y2, ref PixelColor c, uint mask, int thickness)
+        {
+            int dx = x2 - x1;
+            int dy = y2 - y1;
+            int dxabs = Math.Abs(dx);
+            int dyabs = Math.Abs(dy);
+            bool xmajor = (dxabs >= dyabs);
+            int major = xmajor ? dxabs : dyabs;
+            int minor = xmajor ? dyabs : dxabs;
+
+            // Span across the minor axis; even spans put the extra pixel on the positive side (down or right)
+            int span = (major == 0) ? thickness : Math.Max(1, (int)Math.Round(thickness * Math.Sqrt((double)dx * dx + (double)dy * dy) / major));
+            int lo = -(span - 1) / 2;
+            int hi = span / 2;
+
+            // Outside the screen for sure, allowing for the span
+            if (((x1 < -span) && (x2 < -span)) ||
+               ((x1 > visiblewidth + span) && (x2 > visiblewidth + span)) ||
+               ((y1 < -span) && (y2 < -span)) ||
+               ((y1 > visibleheight + span) && (y2 > visibleheight + span))) return;
+
+            int majstart = xmajor ? x1 : y1;
+            int minstart = xmajor ? y1 : x1;
+            int smaj = Math.Sign(xmajor ? dx : dy);
+            int smin = Math.Sign(xmajor ? dy : dx);
+            int majlimit = xmajor ? visiblewidth : visibleheight;
+            int minlimit = xmajor ? visibleheight : visiblewidth;
+
+            // Only walk the steps whose major coordinate is on screen (spans run across the minor axis)
+            long kfirst, klast;
+            if (smaj > 0) { kfirst = -(long)majstart; klast = (long)majlimit - 1 - majstart; }
+            else if (smaj < 0) { kfirst = (long)majstart - (majlimit - 1); klast = majstart; }
+            else { kfirst = 0; klast = 0; }
+            kfirst = Math.Max(kfirst, 0);
+            klast = Math.Min(klast, major);
+            if (kfirst > klast) return;
+
+            // Bresenham state after kfirst steps: the error term starts at major / 2 and gains minor per step
+            int pmin = minstart;
+            long err = 0;
+            if (major > 0)
+            {
+                long acc = (major >> 1) + kfirst * (long)minor;
+                pmin = minstart + smin * (int)(acc / major);
+                err = acc % major;
+            }
+
+            for (long k = kfirst; k <= klast; k++)
+            {
+                // The first pixel always draws; step k uses mask bit (k - 1), as the thin line does
+                if ((k == 0) || ((mask & (1u << (int)((k - 1) & 0x7))) != 0))
+                {
+                    int pmaj = majstart + smaj * (int)k;
+                    if ((pmaj >= 0) && (pmaj < majlimit))
+                    {
+                        int m1 = Math.Max(pmin + lo, 0);
+                        int m2 = Math.Min(pmin + hi, minlimit - 1);
+                        if (xmajor)
+                            for (int m = m1; m <= m2; m++) pixels[m * width + pmaj] = c;
+                        else
+                            for (int m = m1; m <= m2; m++) pixels[pmaj * width + m] = c;
+                    }
+                }
+
+                err += minor;
+                if (err >= major)
+                {
+                    err -= major;
+                    pmin += smin;
+                }
+            }
+        }
+
         //mxd
-        public void DrawLine3DFloor(int x1, int y1, int x2, int y2, ref PixelColor c, PixelColor c2)
+        public void DrawLine3DFloor(int x1, int y1, int x2, int y2, ref PixelColor c, PixelColor c2, int thickness = 1)
         {
 			Line2D line = new Line2D(x1, y1, x2, y2);
 			double length = line.GetLength();
 
             if (length < DASH_INTERVAL * 2)
             {
-                DrawLineSolid(x1, y1, x2, y2, ref c2);
+                DrawLineSolid(x1, y1, x2, y2, ref c2, 0xffffffff, thickness);
             }
             else
             {
@@ -401,9 +503,9 @@ namespace CodeImp.DoomBuilder.Rendering
 				Vector2D p1 = line.GetCoordinatesAt(d1);
 				Vector2D p2 = line.GetCoordinatesAt(d2);
 
-                DrawLineSolid(x1, y1, (int)p1.x, (int)p1.y, ref c2);
-                DrawLineSolid((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, ref c);
-                DrawLineSolid((int)p2.x, (int)p2.y, x2, y2, ref c2);
+                DrawLineSolid(x1, y1, (int)p1.x, (int)p1.y, ref c2, 0xffffffff, thickness);
+                DrawLineSolid((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, ref c, 0xffffffff, thickness);
+                DrawLineSolid((int)p2.x, (int)p2.y, x2, y2, ref c2, 0xffffffff, thickness);
             }
         }
 

@@ -26,7 +26,7 @@
 		<h3>Autoscroll speed:</h3>
 		During some actions, such as drawing and dragging, Doom Builder can automatically scroll the working area when you move your mouse towards the edges. Use this setting to set the scrolling speed to use. Drag the slider completely to the left to turn off automatic scrolling.
       <h3>Vertex scale factor <span class="red">(GZDB only)</span>:</h3>
-        Controls the size of vertex handles in Classic and Visual modes.
+        Controls the size of vertex handles in Visual modes. The Classic modes setting is on the 2D View tab.
         <h3>Max. recent files <span class="red">(GZDB only)</span>:</h3>
         Controls how many recent files are shown in the File menu.
 		<h3>Script Editor <b>always on top of main window</b>:</h3>
@@ -86,7 +86,18 @@
 		When enabled, selected surfaces will be highlighted in Visual mode even if "Show highlight" mode is disabled (Doom Builder 2 behaviour).
         <h3>Mark 3D floors in classic modes <span class="red">(GZDB only)</span>:</h3>
 		When enabled, linedefs of sectors with 3D floors will be marked using "3D Floors" color.
-        
+        <h3>Sector labels and Measurements colors:</h3>
+		The text color of sector labels (tags and effects shown in the classic modes) and of length and angle labels shown while drawing or dragging. They start as the Event lines and Highlight colors they used before they had their own.
+
+        <h2>2D View</h2>
+        Settings for how the classic Editing Modes (2D) draw the map. Changes apply when you press OK.
+        <h3>Linedef thickness:</h3>
+		The width of linedefs in pixels, from 1 (default) to 5. Their normal indicators and the 3D floor markings follow it, and vertices grow so they are never narrower than the lines under them. The grid and other overlays stay 1 pixel wide.
+        <h3>Vertex scale (2D):</h3>
+		Controls the size of vertex handles in the classic modes. Vertices grow as you zoom in, up to a size that grows with this setting.
+        <h3>Text Labels:</h3>
+		The font, size and bold style of the text labels drawn on the map. Sector labels, selection numbers, measurements (length and angle labels) and event line labels can each have their own size; <b>(same)</b> uses the size set above. <b>Background</b> sets how opaque the box behind sector labels, selection numbers and measurements is; 0% draws no box.
+
         <h2>Compilers</h2>
         Lists every script compiler and nodebuilder the editor found in its <a href="compilerconfigs.html">compiler configurations</a>, with the program each one runs, whether that program exists, and which script or nodebuilder configurations use it. Select a compiler and fill in <b>Override</b> (or use <b>Browse...</b>) to run another program instead, for example a different build of a script compiler; <b>Reset</b> goes back to the program the compiler configuration names. An override must be the absolute path of an existing file when you set it (one whose file later disappears shows as missing), and it is used from the next compile on.
         

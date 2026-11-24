@@ -295,6 +295,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Settings that used to be config-file-only
 			BuildCompilersTab();
 			BuildAdvancedTab();
+			BuildView2DTab();
 
 			// Recovery
 			autosave.Checked = General.Settings.Autosave;
@@ -479,6 +480,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Settings.QualityDisplay = qualitydisplay.Checked;
 			ApplyCompilerOverrides();
 			ApplyAdvancedSettings();
+			ApplyView2DSettings();
 
 			//mxd
 			General.Settings.GZSynchCameras = cbSynchCameras.Checked;

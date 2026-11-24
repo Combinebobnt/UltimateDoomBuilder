@@ -82,6 +82,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		
 		// Render settings
 		private int vertexsize;
+		private int linethickness = 1;
 		private RenderLayers renderlayer = RenderLayers.None;
 		
 		// Surfaces
@@ -484,6 +485,17 @@ namespace CodeImp.DoomBuilder.Rendering
 			General.MainWindow.UpdateZoom(scale);
 		}
 
+		// Vertex half-size in pixels: grows with zoom up to a cap that scales with the vertex scale
+		// setting, and never narrower than the linedefs under it
+		internal static int ComputeVertexSize(float vertexscale, float zoom, int linethickness)
+		{
+			int size = (int)(1.7f * vertexscale * zoom + 0.5f); //mxd. added GZVertexScale2D
+			int cap = Math.Max(4, (int)Math.Round(4 * vertexscale));
+			if(size < 0) size = 0;
+			if(size > cap) size = cap;
+			return Math.Max(size, linethickness / 2);
+		}
+
 		// This updates some maths
 		private void UpdateTransformations()
 		{
@@ -494,9 +506,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			minlinelength = linenormalsize * 0.0625f; //mxd
 			minlinenormallength = linenormalsize * 2f; //mxd
 
-			vertexsize = (int)(1.7f * General.Settings.GZVertexScale2D * scale + 0.5f); //mxd. added GZVertexScale2D
-			if(vertexsize < 0) vertexsize = 0;
-			if(vertexsize > 4) vertexsize = 4;
+			linethickness = General.Settings.LinedefThickness;
+			vertexsize = ComputeVertexSize(General.Settings.GZVertexScale2D, scale, linethickness);
 
             viewmatrix = Matrix.Scaling(2.0f / windowsize.Width, -2.0f / windowsize.Height, 1.0f) * Matrix.Translation(-1.0f, 1.0f, 0.0f);
 			Vector2D lt = DisplayToMap(new Vector2D(0.0f, 0.0f));
@@ -2157,9 +2168,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// Draw line. mxd: added 3d-floor indication
 			if(l.ExtraFloorFlag && General.Settings.GZMarkExtraFloors)
-				plotter.DrawLine3DFloor((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, General.Colors.ThreeDFloor);
+				plotter.DrawLine3DFloor((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, General.Colors.ThreeDFloor, linethickness);
 			else
-				plotter.DrawLineSolid((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c);
+				plotter.DrawLineSolid((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, 0xffffffff, linethickness);
 
 			//mxd. Should we bother?
 			if(lengthsq < minlinenormallength) return; //mxd
@@ -2171,7 +2182,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			// Draw normal indicator
 			plotter.DrawLineSolid((int)(v1.x + mx), TransformY((int)(v1.y + my)),
 								  (int)((v1.x + mx) - (my * l.LengthInv) * linenormalsize),
-								  TransformY((int)((v1.y + my) + (mx * l.LengthInv) * linenormalsize)), ref c);
+								  TransformY((int)((v1.y + my) + (mx * l.LengthInv) * linenormalsize)), ref c, 0xffffffff, linethickness);
 		}
 		
 		// This renders a set of linedefs
@@ -2197,9 +2208,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
 					// Draw line. mxd: added 3d-floor indication
 					if (l.ExtraFloorFlag && General.Settings.GZMarkExtraFloors)
-						plotter.DrawLine3DFloor((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, General.Colors.ThreeDFloor);
+						plotter.DrawLine3DFloor((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, General.Colors.ThreeDFloor, linethickness);
 					else
-						plotter.DrawLineSolid((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c);
+						plotter.DrawLineSolid((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, 0xffffffff, linethickness);
 
 					//mxd. Should we bother?
 					if (lengthsq < minlinenormallength) return; //mxd
@@ -2211,7 +2222,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					// Draw normal indicator
 					plotter.DrawLineSolid((int)(v1.x + mx), TransformY((int)(v1.y + my)),
 										 (int)((v1.x + mx) - (my * l.LengthInv) * linenormalsize),
-										 TransformY((int)((v1.y + my) + (mx * l.LengthInv) * linenormalsize)), ref c);
+										 TransformY((int)((v1.y + my) + (mx * l.LengthInv) * linenormalsize)), ref c, 0xffffffff, linethickness);
 				});
 			}
 			else
@@ -2232,9 +2243,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
 					// Draw line. mxd: added 3d-floor indication
 					if (l.ExtraFloorFlag && General.Settings.GZMarkExtraFloors)
-						plotter.DrawLine3DFloor((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, General.Colors.ThreeDFloor);
+						plotter.DrawLine3DFloor((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, General.Colors.ThreeDFloor, linethickness);
 					else
-						plotter.DrawLineSolid((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c);
+						plotter.DrawLineSolid((int)v1.x, TransformY((int)v1.y), (int)v2.x, TransformY((int)v2.y), ref c, 0xffffffff, linethickness);
 
 					//mxd. Should we bother?
 					if (lengthsq < minlinenormallength) continue; //mxd
@@ -2246,7 +2257,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					// Draw normal indicator
 					plotter.DrawLineSolid((int)(v1.x + mx), TransformY((int)(v1.y + my)),
 										  (int)((v1.x + mx) - (my * l.LengthInv) * linenormalsize),
-										  TransformY((int)((v1.y + my) + (mx * l.LengthInv) * linenormalsize)), ref c);
+										  TransformY((int)((v1.y + my) + (mx * l.LengthInv) * linenormalsize)), ref c, 0xffffffff, linethickness);
 				}
 			}
 		}

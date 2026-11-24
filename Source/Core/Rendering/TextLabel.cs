@@ -43,6 +43,16 @@ namespace CodeImp.DoomBuilder.Rendering
 		void Update(RenderDevice graphics, float translatex, float translatey, float scalex, float scaley);
 	}
 	
+	// Which size setting a label's font follows
+	public enum TextLabelKind
+	{
+		General,
+		SectorLabel,
+		SelectionNumber,
+		Measurement,
+		EventLabel,
+	}
+
 	public class TextLabel : IDisposable, IRenderResource, ITextLabel
 	{
 		#region ================== Constants
@@ -55,6 +65,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		private VertexBuffer textbuffer;
 		private Texture texture;
 		private Font font; //mxd
+		private TextLabelKind kind;
 		
 		// Text settings
 		private string text;
@@ -103,6 +114,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		public Vector2D Location { get { return location; } set { location = value; updateneeded = true; } } //mxd
 		public string Text { get { return text; } set { if(text != value) { text = value; textsize = Size.Empty; textureupdateneeded = true; } } }
 		public Font Font { get { return font; } set { font.Dispose(); font = value; textsize = Size.Empty; textureupdateneeded = true; } } //mxd
+		public TextLabelKind Kind { get { return kind; } set { if(kind != value) { kind = value; RefreshFont(); } } }
 		public bool TransformCoords { get { return transformcoords; } set { transformcoords = value; updateneeded = true; } }
 		public SizeF TextSize { get { if(textureupdateneeded) Update(General.Map.Graphics, General.Map.Renderer2D.TranslateX, General.Map.Renderer2D.TranslateY, General.Map.Renderer2D.Scale, -General.Map.Renderer2D.Scale); return textsize; } }
 		public TextAlignmentX AlignX { get { return alignx; } set { alignx = value; updateneeded = true; } }
@@ -142,7 +154,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
 		#region ================== Constructor / Disposer
 
-        private FontFamily GetFontFamily()
+        private static FontFamily GetFontFamily()
         {
             FontFamily ff;
             try
@@ -156,12 +168,21 @@ namespace CodeImp.DoomBuilder.Rendering
             return ff;
         }
 
+		// The font for labels of this kind, from the current settings
+		public static Font CreateFont(TextLabelKind kind)
+		{
+			return new Font(GetFontFamily(), General.Settings.GetTextLabelFontSize(kind), (General.Settings.TextLabelFontBold ? FontStyle.Bold : FontStyle.Regular));
+		}
+
 		// Constructor
-		public TextLabel()
+		public TextLabel() : this(TextLabelKind.General) { }
+
+		public TextLabel(TextLabelKind kind)
 		{
 			// Initialize
 			this.text = "";
-			this.font = new Font(GetFontFamily(), General.Settings.TextLabelFontSize, (General.Settings.TextLabelFontBold ? FontStyle.Bold : FontStyle.Regular)); //General.Settings.TextLabelFont; //mxd
+			this.kind = kind;
+			this.font = CreateFont(kind);
 			this.location = new Vector2D(); //mxd
 			this.color = new PixelColor(255, 255, 255, 255);
 			this.backcolor = new PixelColor(128, 0, 0, 0);
@@ -205,6 +226,12 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// We have no destructor
 			GC.SuppressFinalize(this);
+		}
+
+		// Rebuilds the font from the current settings for this label's kind
+		public void RefreshFont()
+		{
+			Font = CreateFont(kind);
 		}
 
 		// Diposer

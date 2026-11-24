@@ -611,6 +611,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			SaveUISettings();
 		}
 
+		// Label fonts, colours and backgrounds are fixed when labels are built, so rebuild them
+		public override void OnProgramReconfigure()
+		{
+			if(General.Map == null || General.Editing.Mode == null) return;
+			if(General.Editing.Mode is SectorsMode) ((SectorsMode)General.Editing.Mode).RefreshLabels();
+			else if(General.Editing.Mode is LinedefsMode) ((LinedefsMode)General.Editing.Mode).RefreshLabels();
+			else if(General.Editing.Mode is ThingsMode) ((ThingsMode)General.Editing.Mode).RefreshLabels();
+		}
+
 		//mxd. Error checks may need to be reinitialized
 		public override void OnMapReconfigure()
 		{

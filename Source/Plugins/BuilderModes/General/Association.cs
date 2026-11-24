@@ -72,14 +72,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			linedefs = new List<Linedef>();
 			eventlines = new Dictionary<string, List<Line3D>>();
 
-			try
-			{
-				font = new Font(new FontFamily(General.Settings.TextLabelFontName), General.Settings.TextLabelFontSize, (General.Settings.TextLabelFontBold ? FontStyle.Bold : FontStyle.Regular));
-			}
-			catch (Exception) // Fallback if the font couldn't be loaded
-			{
-				font = ((MainForm)General.Interface).Font;
-			}
+			font = TextLabel.CreateFont(TextLabelKind.EventLabel);
 
 			distinctcolors = new List<PixelColor>
 			{
@@ -219,7 +212,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				for (int i = 0; i < kvp.Value.Count; i++)
 				{
 					// We don't need to set the position here, since it'll be done on the fly later
-					TextLabel l = new TextLabel();
+					TextLabel l = new TextLabel(TextLabelKind.EventLabel);
 					l.AlignX = TextAlignmentX.Center;
 					l.AlignY = TextAlignmentY.Middle;
 					l.TransformCoords = true;
@@ -232,6 +225,20 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 
 			SetEventLineColors();
+		}
+
+		// Picks up changed label font settings for the measuring font and the existing labels
+		internal void RefreshFont()
+		{
+			font.Dispose();
+			font = TextLabel.CreateFont(TextLabelKind.EventLabel);
+			if(textlabels == null) return;
+			foreach(KeyValuePair<string, List<TextLabel>> kvp in textlabels)
+			{
+				if(kvp.Value.Count == 0) continue;
+				foreach(TextLabel l in kvp.Value) l.RefreshFont();
+				textwidths[kvp.Key] = new Vector2D(kvp.Value[0].TextSize.Width, kvp.Value[0].TextSize.Height);
+			}
 		}
 
 		/// <summary>

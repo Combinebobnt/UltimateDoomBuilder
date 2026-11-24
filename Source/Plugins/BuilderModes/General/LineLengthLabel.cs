@@ -61,7 +61,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.offsetposition = true;
 			
 			// Initialize
-			Initialize();
+			Initialize(TextLabelKind.Measurement);
 		}
 
 		//mxd. Constructor
@@ -71,7 +71,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.offsetposition = offsetposition;
 
 			// Initialize
-			Initialize();
+			Initialize(TextLabelKind.Measurement);
 		}
 
 		// Constructor
@@ -81,7 +81,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.offsetposition = true; //mxd
 			
 			// Initialize
-			Initialize();
+			Initialize(TextLabelKind.Measurement);
 			Move(start, end);
 		}
 
@@ -92,19 +92,27 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.offsetposition = offsetposition;
 			
 			// Initialize
-			Initialize();
+			Initialize(TextLabelKind.Measurement);
 			Move(start, end);
 		}
 
-		// Initialization
-		private void Initialize()
+		// Constructor for labels whose font follows another kind's size setting
+		protected LineLengthLabel(bool showangle, bool offsetposition, TextLabelKind kind)
 		{
-			label = new TextLabel
+			this.showangle = showangle;
+			this.offsetposition = offsetposition;
+			Initialize(kind);
+		}
+
+		// Initialization
+		private void Initialize(TextLabelKind kind)
+		{
+			label = new TextLabel(kind)
 					{
 						AlignX = TextAlignmentX.Center, 
 						AlignY = TextAlignmentY.Middle, 
-						Color = General.Colors.Highlight, 
-						BackColor = General.Colors.Background.WithAlpha(128), 
+						Color = General.Colors.MeasureLabels, 
+						BackColor = General.Colors.LabelBack(128), 
 						TransformCoords = true,
 					};
 		}

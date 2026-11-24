@@ -105,6 +105,10 @@ namespace CodeImp.DoomBuilder.Rendering
 		private readonly PixelColor[] brightcolors;
 		private readonly PixelColor[] darkcolors;
 		
+		// Label colours, stored under named keys outside the indexed colorN set
+		private PixelColor sectorlabels;
+		private PixelColor measurelabels;
+
 		// Color-correction table
 		private byte[] correctiontable;
 		
@@ -128,6 +132,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		//mxd
 		public PixelColor ModelWireframe { get { return colors[MODELWIRECOLOR]; } internal set { colors[MODELWIRECOLOR] = value; } }
 		public PixelColor InfoLine { get { return colors[INFOLINECOLOR]; } internal set { colors[INFOLINECOLOR] = value; } }
+		public PixelColor SectorLabels { get { return sectorlabels; } internal set { sectorlabels = value; } }
+		public PixelColor MeasureLabels { get { return measurelabels; } internal set { measurelabels = value; } }
 		public PixelColor Guideline { get { return colors[GUIDELINECOLOR]; } internal set { colors[GUIDELINECOLOR] = value; } }
 		public PixelColor ThreeDFloor { get { return colors[THREEDFLOORCOLOR]; } internal set { colors[THREEDFLOORCOLOR] = value;} }
 		
@@ -232,6 +238,10 @@ namespace CodeImp.DoomBuilder.Rendering
 			if(colors[SCRIPTFOLDBACK].ToInt() == 0) colors[SCRIPTFOLDBACK] = PixelColor.FromColor(Windows.UITheme.LightSystemColor(KnownColor.ControlLightLight));
 			if(colors[PROPERTIES].ToInt() == 0) colors[PROPERTIES] = PixelColor.FromInt(-16752191);
 
+			// Absent label colours start as the colours those labels used before they had their own
+			sectorlabels = SeedLabelColor(cfg.ReadSetting("colors.sectorlabels", 0), colors[INFOLINECOLOR]);
+			measurelabels = SeedLabelColor(cfg.ReadSetting("colors.measurelabels", 0), colors[HIGHLIGHT]);
+
 			// Create assist colors
 			CreateAssistColors();
 			
@@ -283,6 +293,18 @@ namespace CodeImp.DoomBuilder.Rendering
 			System.Threading.Tasks.Parallel.For(0, indices.Length, (i) => indices[i] = playpal.FindClosestColor(inPixels[i]));
 		}
 		
+		// A stored label colour, or the fallback when the key was absent (read as 0)
+		internal static PixelColor SeedLabelColor(int stored, PixelColor fallback)
+		{
+			return (stored == 0 ? fallback : PixelColor.FromInt(stored));
+		}
+
+		// Label background: the map background at the given alpha, scaled by the opacity setting
+		public PixelColor LabelBack(byte basealpha)
+		{
+			return colors[BACKGROUND].WithAlpha((byte)(basealpha * General.Settings.TextLabelBackAlpha / 100));
+		}
+
 		// This clamps a value between 0 and 1
 		private static float Saturate(float v)
 		{
@@ -336,6 +358,8 @@ namespace CodeImp.DoomBuilder.Rendering
 				// Write color
 				cfg.WriteSetting("colors.color" + i.ToString(CultureInfo.InvariantCulture), colors[i].ToInt());
 			}
+			cfg.WriteSetting("colors.sectorlabels", sectorlabels.ToInt());
+			cfg.WriteSetting("colors.measurelabels", measurelabels.ToInt());
 		}
 		
 		#endregion

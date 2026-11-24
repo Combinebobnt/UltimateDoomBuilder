@@ -1050,6 +1050,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return result;
 		}
 
+		// Rebuilds every label so changed label settings apply without a mode switch
+		internal void RefreshLabels()
+		{
+			textlabelsizecache.Clear();
+			SetupSectorLabels();
+			UpdateSelectionInfo();
+			highlightasso.RefreshFont();
+			selectionasso.RefreshFont();
+		}
+
 		//mxd. This sets up new labels
 		private void SetupSectorLabels()
 		{
@@ -1091,13 +1101,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				TextLabel[] larr = new TextLabel[s.Labels.Count];
 				for(int i = 0; i < s.Labels.Count; i++)
 				{
-					TextLabel l = new TextLabel();
+					TextLabel l = new TextLabel(TextLabelKind.SectorLabel);
 					l.TransformCoords = true;
 					l.Location = s.Labels[i].position;
 					l.AlignX = TextAlignmentX.Center;
 					l.AlignY = TextAlignmentY.Middle;
-					l.Color = General.Colors.InfoLine;
-					l.BackColor = General.Colors.Background.WithAlpha(128);
+					l.Color = General.Colors.SectorLabels;
+					l.BackColor = General.Colors.LabelBack(128);
 					larr[i] = l;
 				}
 
@@ -1132,7 +1142,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			int index = 0;
 			foreach(Thing thing in orderedselection)
 			{
-				TextLabel l = new TextLabel();
+				TextLabel l = new TextLabel(TextLabelKind.SelectionNumber);
 				l.TransformCoords = true;
 
 				if(thing.FixedSize)
@@ -1149,7 +1159,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 				
 				l.Color = (thing == highlighted ? General.Colors.Selection : General.Colors.Highlight);
-				l.BackColor = General.Colors.Background.WithAlpha(192);
+				l.BackColor = General.Colors.LabelBack(192);
 				l.Text = (++index).ToString();
 				labels.Add(thing, l);
 			}

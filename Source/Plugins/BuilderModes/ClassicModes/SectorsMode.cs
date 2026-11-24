@@ -204,13 +204,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				TextLabel[] labelarray = new TextLabel[s.Labels.Count];
 				for(int i = 0; i < s.Labels.Count; i++)
 				{
-					labelarray[i] = new TextLabel();
+					labelarray[i] = new TextLabel(TextLabelKind.SectorLabel);
 					labelarray[i].TransformCoords = true;
 					labelarray[i].Location = s.Labels[i].position;
 					labelarray[i].AlignX = TextAlignmentX.Center;
 					labelarray[i].AlignY = TextAlignmentY.Middle;
 					labelarray[i].Color = c;
-					labelarray[i].BackColor = General.Colors.Background.WithAlpha(128);
+					labelarray[i].BackColor = General.Colors.LabelBack(128);
 				}
 				labels.Add(s, labelarray);
 			}
@@ -357,6 +357,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			overlayGeometry = vertsList.ToArray();
 		}
 
+		// Rebuilds every label so changed label settings apply without a mode switch
+		internal void RefreshLabels()
+		{
+			textlabelsizecache.Clear();
+			SetupLabels();
+			UpdateSelectedLabels();
+			highlightasso.RefreshFont();
+			selectionasso.RefreshFont();
+		}
+
 		//mxd
 		private void UpdateEffectLabels() 
 		{
@@ -408,7 +418,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					for (int i = 0; i < group.Key.Labels.Count; i++)
 					{
 						TextLabel l = labelarray[i];
-						l.Color = General.Colors.InfoLine;
+						l.Kind = TextLabelKind.SectorLabel;
+						l.Color = General.Colors.SectorLabels;
 
 						// Render only when enough space for the label to see
 						if (!textlabelsizecache.ContainsKey(group.Value[0]))
@@ -606,6 +617,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						foreach(TextLabel l in labelarray) 
 						{
 							l.Text = selectedCount;
+							l.Kind = TextLabelKind.SelectionNumber;
 							l.Color = c;
 						}
 
@@ -626,7 +638,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						foreach (TextLabel l in labelarray)
 						{
 							l.Text = "";
-							l.Color = General.Colors.InfoLine;
+							l.Kind = TextLabelKind.SectorLabel;
+							l.Color = General.Colors.SectorLabels;
 						}
 
 						// Update all other labels
@@ -703,6 +716,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					// Make sure the text and color are right
 					int labelnum = index + 1;
 					l.Text = labelnum.ToString();
+					l.Kind = TextLabelKind.SelectionNumber;
 					l.Color = c;
 				}
 				index++;
@@ -1104,9 +1118,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					if(highlighted.Selected)
 						c = General.Settings.UseHighlight ? General.Colors.Selection : General.Colors.Highlight;
 					else
-						c = General.Colors.InfoLine;
+						c = General.Colors.SectorLabels;
 
-					foreach (TextLabel l in labelarray) l.Color = c;
+					foreach (TextLabel l in labelarray)
+					{
+						l.Color = c;
+						if(!highlighted.Selected) l.Kind = TextLabelKind.SectorLabel;
+					}
 					UpdateOverlaySurfaces(); //mxd
 					UpdateOverlay();
 					renderer.Present();

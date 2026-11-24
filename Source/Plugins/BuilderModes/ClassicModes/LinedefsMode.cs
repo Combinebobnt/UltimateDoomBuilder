@@ -399,14 +399,28 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return result;
 		}
 
+		// Rebuilds every label so changed label settings apply without a mode switch
+		internal void RefreshLabels()
+		{
+			textlabelsizecache.Clear();
+			SetupSectorLabels();
+			UpdateSelectionInfo();
+			highlightasso.RefreshFont();
+			selectionasso.RefreshFont();
+		}
+
 		//mxd. This sets up new labels
 		private void SetupSectorLabels()
 		{
-			// Dummy label we need for the font
-			TextLabel dummylabel = new TextLabel();
+			// The font sector labels draw with, for measuring
+			using(System.Drawing.Font font = TextLabel.CreateFont(TextLabelKind.SectorLabel))
+				SetupSectorLabels(font);
+		}
 
+		private void SetupSectorLabels(System.Drawing.Font font)
+		{
 			// The "+" is always shown if the space for the label isn't big enough to show the full text
-			textlabelsizecache["+"] = General.Interface.MeasureString("+", dummylabel.Font).Width;
+			textlabelsizecache["+"] = General.Interface.MeasureString("+", font).Width;
 
 			// Dispose old labels
 			if (sectorlabels != null)
@@ -440,9 +454,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				// Add string lengths to the label size cache
 				if (!textlabelsizecache.ContainsKey(tagdescarr[0]))
-					textlabelsizecache[tagdescarr[0]] = General.Interface.MeasureString(tagdescarr[0], dummylabel.Font).Width;
+					textlabelsizecache[tagdescarr[0]] = General.Interface.MeasureString(tagdescarr[0], font).Width;
 				if (!textlabelsizecache.ContainsKey(tagdescarr[1]))
-					textlabelsizecache[tagdescarr[1]] = General.Interface.MeasureString(tagdescarr[1], dummylabel.Font).Width;
+					textlabelsizecache[tagdescarr[1]] = General.Interface.MeasureString(tagdescarr[1], font).Width;
 
 				// Add to collection
 				sectortexts.Add(s, tagdescarr);
@@ -450,13 +464,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				TextLabel[] larr = new TextLabel[s.Labels.Count];
 				for(int i = 0; i < s.Labels.Count; i++)
 				{
-					TextLabel l = new TextLabel();
+					TextLabel l = new TextLabel(TextLabelKind.SectorLabel);
 					l.TransformCoords = true;
 					l.Location = s.Labels[i].position;
 					l.AlignX = TextAlignmentX.Center;
 					l.AlignY = TextAlignmentY.Middle;
-					l.Color = General.Colors.InfoLine;
-					l.BackColor = General.Colors.Background.WithAlpha(128);
+					l.Color = General.Colors.SectorLabels;
+					l.BackColor = General.Colors.LabelBack(128);
 					larr[i] = l;
 				}
 
@@ -495,7 +509,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				SelectionLabel l = new SelectionLabel();
 				l.OffsetPosition = true;
 				l.Color = (linedef == highlighted ? General.Colors.Selection : General.Colors.Highlight);
-				l.BackColor = General.Colors.Background.WithAlpha(192);
+				l.BackColor = General.Colors.LabelBack(192);
 				l.TextLabel.Text = (++index).ToString();
 				labels.Add(linedef, l);
 			}

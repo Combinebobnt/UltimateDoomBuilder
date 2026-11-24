@@ -41,6 +41,11 @@ namespace CodeImp.DoomBuilder.Config
 	{
 		#region ================== Constants
 
+		// Config key suffix per TextLabelKind, indexed by the enum value; General uses textlabelfontsize
+		private static readonly string[] TEXT_LABEL_KIND_KEYS = { null, "sectorlabels", "selectionnumbers", "measurements", "eventlabels" };
+		public const int MAX_LINEDEF_THICKNESS = 5;
+		public const int MAX_TEXT_LABEL_KIND_SIZE = 72;
+
 		#endregion
 
 		#region ================== Variables
@@ -127,6 +132,9 @@ namespace CodeImp.DoomBuilder.Config
 		private string textlabelfontname;
 		private int textlabelfontsize;
 		private bool textlabelfontbold;
+		private int[] textlabelkindsizes = new int[TEXT_LABEL_KIND_KEYS.Length];
+		private int textlabelbackalpha = 100;
+		private int linedefthickness = 1;
 
 		//mxd
 		private ModelRenderMode gzDrawModelsMode;
@@ -292,6 +300,8 @@ namespace CodeImp.DoomBuilder.Config
 		public string TextLabelFontName { get { return textlabelfontname; } internal set { textlabelfontname = value; } }
 		public int TextLabelFontSize { get { return textlabelfontsize; } internal set { textlabelfontsize = value; } }
 		public bool TextLabelFontBold { get { return textlabelfontbold; } internal set { textlabelfontbold = value; } }
+		public int TextLabelBackAlpha { get { return textlabelbackalpha; } internal set { textlabelbackalpha = General.Clamp(value, 0, 100); } }
+		public int LinedefThickness { get { return linedefthickness; } internal set { linedefthickness = General.Clamp(value, 1, MAX_LINEDEF_THICKNESS); } }
 
 		//mxd 
 		public ModelRenderMode GZDrawModelsMode { get { return gzDrawModelsMode; } internal set { gzDrawModelsMode = value; } }
@@ -454,6 +464,10 @@ namespace CodeImp.DoomBuilder.Config
 				textlabelfontname = cfg.ReadSetting("textlabelfontname", "Microsoft Sans Serif");
 				textlabelfontsize = cfg.ReadSetting("textlabelfontsize", 10);
 				textlabelfontbold = cfg.ReadSetting("textlabelfontbold", false);
+				for(int i = 1; i < TEXT_LABEL_KIND_KEYS.Length; i++)
+					SetTextLabelKindSize((TextLabelKind)i, cfg.ReadSetting("textlabelsize." + TEXT_LABEL_KIND_KEYS[i], 0));
+				TextLabelBackAlpha = cfg.ReadSetting("textlabelbackalpha", 100);
+				LinedefThickness = cfg.ReadSetting("linedefthickness", 1);
 
 				//mxd 
 				gzDrawModelsMode = (ModelRenderMode)cfg.ReadSetting("gzdrawmodels", (int)ModelRenderMode.ALL);
@@ -688,6 +702,10 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("textlabelfontname", textlabelfontname);
 			cfg.WriteSetting("textlabelfontsize", textlabelfontsize);
 			cfg.WriteSetting("textlabelfontbold", textlabelfontbold);
+			for(int i = 1; i < TEXT_LABEL_KIND_KEYS.Length; i++)
+				cfg.WriteSetting("textlabelsize." + TEXT_LABEL_KIND_KEYS[i], textlabelkindsizes[i]);
+			cfg.WriteSetting("textlabelbackalpha", textlabelbackalpha);
+			cfg.WriteSetting("linedefthickness", linedefthickness);
 
 			//mxd
 			cfg.WriteSetting("gzdrawmodels", (int)gzDrawModelsMode);
@@ -843,6 +861,27 @@ namespace CodeImp.DoomBuilder.Config
 		#endregion
 
 		#region ================== Methods
+
+		// The font size a label of this kind draws with
+		public int GetTextLabelFontSize(TextLabelKind kind)
+		{
+			int size = GetTextLabelKindSize(kind);
+			return (size > 0 ? size : textlabelfontsize);
+		}
+
+		// The kind's own size setting; 0 means the general text label size
+		public int GetTextLabelKindSize(TextLabelKind kind)
+		{
+			int index = (int)kind;
+			return (index > 0 && index < textlabelkindsizes.Length ? textlabelkindsizes[index] : 0);
+		}
+
+		internal void SetTextLabelKindSize(TextLabelKind kind, int size)
+		{
+			int index = (int)kind;
+			if(index > 0 && index < textlabelkindsizes.Length)
+				textlabelkindsizes[index] = General.Clamp(size, 0, MAX_TEXT_LABEL_KIND_SIZE);
+		}
 
 		// This makes the path prefix for the given assembly
 		private static string GetPluginPathPrefix(Assembly asm)
