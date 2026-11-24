@@ -445,7 +445,7 @@ namespace Builder.Tests
 			}
 		}
 
-		private static IEnumerable<MethodBase> Calls(MethodInfo method)
+		internal static IEnumerable<MethodBase> Calls(MethodInfo method)
 		{
 			var ops = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static).Where(field => field.FieldType == typeof(OpCode))
 				.Select(field => (OpCode)field.GetValue(null)).ToDictionary(op => op.Value);

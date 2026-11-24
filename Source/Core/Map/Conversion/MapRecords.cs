@@ -15,7 +15,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public int Bits; // Doom and Hexen flag bits, activation excluded
 		public Dictionary<string, bool> Flags = new Dictionary<string, bool>();
 		public List<int> Tags = new List<int> { 0 }; // Doom tag or UDMF id and moreids; Hexen keeps 0
-		public List<string> Fields = new List<string>(); // UDMF properties with no binary equivalent, sidedef ones as "sidedef.<name>"
+		public List<string> Fields = new List<string>(); // UDMF properties with no binary equivalent, sidedef ones as "front.<name>" / "back.<name>"
 
 		public LineRecord Clone()
 		{
@@ -77,6 +77,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public int SidedefCount;
 		public int FractionalVertices; // vertices whose coordinates aren't whole numbers
 		public int OutOfRangeVertices; // vertices outside -32768..32767
+		public SortedDictionary<string, int> VertexFields = new SortedDictionary<string, int>(); // UDMF vertex property (zfloor, zceiling, fields) -> vertices with it
+		public int FractionalThings; // things whose x or y isn't a whole number
+		public int OutOfRangeThings; // things outside -32768..32767
 		public List<string> LongTextureNames = new List<string>(); // over 8 characters, each once
 		public bool HasScripts; // a SCRIPTS or BEHAVIOR lump
 
@@ -86,6 +89,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			m.Lines = Lines.ConvertAll(r => r.Clone());
 			m.Sectors = Sectors.ConvertAll(r => r.Clone());
 			m.Things = Things.ConvertAll(r => r.Clone());
+			m.VertexFields = new SortedDictionary<string, int>(VertexFields);
 			m.LongTextureNames = new List<string>(LongTextureNames);
 			return m;
 		}

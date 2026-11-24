@@ -13,9 +13,16 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 	// A format conversion planned on a MapSet: the records are read and converted up front, and Apply writes them back after the config switch
 	public sealed class MapSetConversion
 	{
+		#region ================== Constants
+
+		private const int LOG_CAP = 50; // Errors and Warnings entries per issue kind and per dropped property
+
+		#endregion
+
 		#region ================== Variables
 
 		private readonly MapRecords result;
+		private readonly List<string> foldedparts; // per sidedef, the part whose UDMF offsets fold into its own, read while the source format is current
 
 		#endregion
 
@@ -29,27 +36,30 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		#region ================== Constructor
 
-		private MapSetConversion(FormatProfile source, FormatProfile target, MapRecords result, ConversionReport report)
+		private MapSetConversion(FormatProfile source, FormatProfile target, MapRecords result, List<string> foldedparts, ConversionReport report)
 		{
 			Source = source;
 			Target = target;
 			this.result = result;
+			this.foldedparts = foldedparts;
 			Report = report;
 		}
 
-		// Null when either config has no profile (a namespace or Doom-format config the converter doesn't cover)
-		internal static MapSetConversion Plan(MapSet map, GameConfiguration sourceconfig, ConfigurationInfo source, ConfigurationInfo target, bool hasscripts)
+		internal static MapSetConversion Plan(MapSet map, GameConfiguration sourceconfig, ConfigurationInfo source, ConfigurationInfo target, bool hasscripts, out string unavailable)
 		{
-			FormatProfile from = Profile(source), to = Profile(target);
+			// Null when either config has no profile (a namespace or Doom-format config the converter doesn't cover); unavailable then holds a load error, if any
+			unavailable = null;
+			FormatProfile from = Profile(source, ref unavailable), to = Profile(target, ref unavailable);
 			if(from == null || to == null) return null;
 
-			MapRecords records = Read(map, from.Format, sourceconfig.LinedefActivationsFilter);
+			List<string> folded;
+			MapRecords records = Read(map, from.Format, sourceconfig.LinedefActivationsFilter, out folded);
 			records.HasScripts = hasscripts;
 			ConversionReport report = new ConversionReport();
-			return new MapSetConversion(from, to, MapFormatConverter.Convert(records, from, to, report), report);
+			return new MapSetConversion(from, to, MapFormatConverter.Convert(records, from, to, report), folded, report);
 		}
 
-		private static FormatProfile Profile(ConfigurationInfo info)
+		private static FormatProfile Profile(ConfigurationInfo info, ref string unavailable)
 		{
 			try
 			{
@@ -57,7 +67,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 			catch(Exception e)
 			{
-				General.ErrorLogger.Add(ErrorType.Warning, "Map conversion is unavailable for \"" + info.Name + "\": " + e.Message);
+				// Map Options clears the Errors panel when it applies, so the caller shows this instead
+				if(unavailable == null) unavailable = "\"" + info.Name + "\": " + e.Message;
+				General.WriteLogLine("Map conversion is unavailable for \"" + info.Name + "\": " + e.Message);
 				return null;
 			}
 		}
@@ -66,16 +78,31 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		#region ================== Read
 
-		private static MapRecords Read(MapSet map, MapFormat format, int activationfilter)
+		private static MapRecords Read(MapSet map, MapFormat format, int activationfilter, out List<string> folded)
 		{
 			MapRecords m = new MapRecords { VertexCount = map.Vertices.Count, SidedefCount = map.Sidedefs.Count };
 			HashSet<string> longnames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			bool udmf = format == MapFormat.Udmf;
 
 			foreach(Vertex v in map.Vertices)
 			{
 				Vector2D p = v.Position;
 				if(p.x != Math.Floor(p.x) || p.y != Math.Floor(p.y)) m.FractionalVertices++;
-				if(p.x < short.MinValue || p.x > short.MaxValue || p.y < short.MinValue || p.y > short.MaxValue) m.OutOfRangeVertices++;
+				if(OutOfRange(p.x) || OutOfRange(p.y)) m.OutOfRangeVertices++;
+				if(!udmf) continue;
+				if(!double.IsNaN(v.ZFloor)) Count(m.VertexFields, "zfloor");
+				if(!double.IsNaN(v.ZCeiling)) Count(m.VertexFields, "zceiling");
+				foreach(string f in v.Fields.Keys) Count(m.VertexFields, f);
+			}
+
+			// TranslateFromUDMF's choice depends on the current format, so it is made now and replayed in Apply
+			folded = new List<string>(map.Sidedefs.Count);
+			Dictionary<Sidedef, string> parts = new Dictionary<Sidedef, string>();
+			foreach(Sidedef sd in map.Sidedefs)
+			{
+				string part = udmf ? sd.FoldedOffsetPart() : null;
+				folded.Add(part);
+				parts[sd] = part;
 			}
 
 			foreach(Linedef l in map.Linedefs)
@@ -88,7 +115,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 						r.Tags = new List<int> { l.Tags[0] };
 						break;
 					case MapFormat.Hexen:
-						r.Bits = RawBits(l.RawFlags, l.Flags) & ~activationfilter;
+						r.Bits = HexenBits(l.RawFlags, l.Flags, activationfilter);
 						r.Activate = l.Activate & activationfilter;
 						l.Args.CopyTo(r.Args, 0);
 						break;
@@ -97,8 +124,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 						r.Tags = new List<int>(l.Tags);
 						l.Args.CopyTo(r.Args, 0);
 						r.Fields.AddRange(l.Fields.Keys);
-						if(l.Front != null) AddSidedefFields(l.Front, r.Fields);
-						if(l.Back != null) AddSidedefFields(l.Back, r.Fields);
+						if(l.Front != null) AddSidedefFields(l.Front, "front.", parts[l.Front], r.Fields);
+						if(l.Back != null) AddSidedefFields(l.Back, "back.", parts[l.Back], r.Fields);
 						break;
 				}
 				m.Lines.Add(r);
@@ -114,7 +141,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			foreach(Sector s in map.Sectors)
 			{
 				SectorRecord r = new SectorRecord { Special = s.Effect, Tags = new List<int>(s.Tags) };
-				if(format == MapFormat.Udmf)
+				if(udmf)
 				{
 					r.Flags = new Dictionary<string, bool>(s.Flags);
 					foreach(string f in s.Fields.Keys)
@@ -131,7 +158,10 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				ThingRecord r = new ThingRecord { Type = t.Type, Tag = t.Tag, Z = t.Position.z, Action = t.Action };
 				t.Args.CopyTo(r.Args, 0);
-				if(format == MapFormat.Udmf)
+				Vector3D p = t.Position;
+				if(p.x != Math.Floor(p.x) || p.y != Math.Floor(p.y)) m.FractionalThings++;
+				if(OutOfRange(p.x) || OutOfRange(p.y)) m.OutOfRangeThings++;
+				if(udmf)
 				{
 					r.Flags = new Dictionary<string, bool>(t.Flags);
 					r.Fields.AddRange(t.Fields.Keys);
@@ -149,7 +179,19 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return m;
 		}
 
-		private static int RawBits(ushort raw, Dictionary<string, bool> flags)
+		private static bool OutOfRange(double v)
+		{
+			return v < short.MinValue || v > short.MaxValue;
+		}
+
+		private static void Count(SortedDictionary<string, int> counts, string name)
+		{
+			int n;
+			counts.TryGetValue(name, out n);
+			counts[name] = n + 1;
+		}
+
+		internal static int RawBits(ushort raw, Dictionary<string, bool> flags)
 		{
 			// As UpdateRawFlagsFromFlags: the dictionary wins for the bits the config names, the raw word keeps the rest
 			int bits = raw;
@@ -163,14 +205,19 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return bits;
 		}
 
-		private static void AddSidedefFields(Sidedef sd, List<string> fields)
+		internal static int HexenBits(ushort raw, Dictionary<string, bool> flags, int activationfilter)
+		{
+			// The SPAC bits travel in LineRecord.Activate, not with the flags
+			return RawBits(raw, flags) & ~activationfilter;
+		}
+
+		private static void AddSidedefFields(Sidedef sd, string side, string folded, List<string> fields)
 		{
 			// TranslateFromUDMF folds one part's offsets into the sidedef's own, so those two aren't lost
-			string folded = sd.FoldedOffsetPart();
 			foreach(string f in sd.Fields.Keys)
-				if(folded == null || (f != "offsetx_" + folded && f != "offsety_" + folded)) fields.Add("sidedef." + f);
+				if(folded == null || (f != "offsetx_" + folded && f != "offsety_" + folded)) fields.Add(side + f);
 			foreach(KeyValuePair<string, bool> f in sd.Flags)
-				if(f.Value) fields.Add("sidedef." + f.Key);
+				if(f.Value) fields.Add(side + f.Key);
 		}
 
 		private static void AddLongName(string name, HashSet<string> seen, MapRecords m)
@@ -182,9 +229,18 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		#region ================== Apply
 
-		// Runs after the target configuration and its map format interface are in place, so element flags use the new config's keys
+		internal void CheckCounts(MapSet map)
+		{
+			// The records are written back by index, so the map must not have changed since Plan
+			if(map.Linedefs.Count != result.Lines.Count || map.Sectors.Count != result.Sectors.Count || map.Things.Count != result.Things.Count
+			   || map.Sidedefs.Count != foldedparts.Count || map.Vertices.Count != result.VertexCount)
+				throw new InvalidOperationException("The map changed after its format conversion was planned");
+		}
+
 		internal void Apply(MapSet map, GameConfiguration config)
 		{
+			// Runs after the target configuration and its map format interface are in place, so element flags use the new config's keys
+			CheckCounts(map);
 			bool binary = Target.IsBinary;
 			bool fromudmf = Source.Format == MapFormat.Udmf;
 
@@ -209,7 +265,17 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 
 			if(binary && fromudmf)
-				foreach(Sidedef sd in map.Sidedefs) sd.TranslateFromUDMF();
+			{
+				index = 0;
+				foreach(Sidedef sd in map.Sidedefs) sd.TranslateFromUDMF(foldedparts[index++]);
+
+				foreach(Vertex v in map.Vertices)
+				{
+					v.ZFloor = double.NaN;
+					v.ZCeiling = double.NaN;
+					v.Fields.Clear();
+				}
+			}
 
 			index = 0;
 			foreach(Sector s in map.Sectors)
@@ -236,7 +302,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		private static Dictionary<string, bool> BitsToKeys(int bits, IDictionary<string, string> configflags)
+		internal static Dictionary<string, bool> BitsToKeys(int bits, IDictionary<string, string> configflags)
 		{
 			// As UpdateFlagsFromRawFlags, for the new config's numeric flag keys
 			Dictionary<string, bool> flags = new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -248,35 +314,51 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return flags;
 		}
 
-		// Each issue and each element's dropped properties as one Errors and Warnings entry; an element entry selects it on click
 		internal void LogReport(MapSet map)
 		{
+			// The full report goes to the log file once; the Errors and Warnings panel gets at most LOG_CAP entries per issue kind
+			// and per dropped property, each element entry selecting it on click
+			General.WriteLogLine("Map conversion report:" + Environment.NewLine + Report);
+
+			Dictionary<string, int> perkind = new Dictionary<string, int>();
 			foreach(ConversionIssue i in Report.Issues)
 			{
-				string message = "Map conversion (" + i.Severity.ToString().ToLowerInvariant() + "): " + i;
-				MapElement e = Element(map, i.Element, i.Index);
-				if(e != null) General.ErrorLogger.Add(new MapElementErrorItem(ErrorType.Warning, e, message));
-				else General.ErrorLogger.Add(ErrorType.Warning, message);
+				string kind = i.Severity.ToString().ToLowerInvariant() + " " + i.Element.ToString().ToLowerInvariant();
+				int n;
+				perkind.TryGetValue(kind, out n);
+				perkind[kind] = ++n;
+				if(n <= LOG_CAP) LogElement(map, i.Element, i.Index, "Map conversion (" + i.Severity.ToString().ToLowerInvariant() + "): " + i);
 			}
+			foreach(KeyValuePair<string, int> k in perkind)
+				if(k.Value > LOG_CAP) General.ErrorLogger.Add(ErrorType.Warning, "Map conversion: " + (k.Value - LOG_CAP) + " more " + k.Key + " issues are listed in the log file");
 
 			Dictionary<KeyValuePair<ConversionElement, int>, List<string>> perelement = new Dictionary<KeyValuePair<ConversionElement, int>, List<string>>();
+			List<KeyValuePair<ConversionElement, int>> order = new List<KeyValuePair<ConversionElement, int>>();
 			foreach(DroppedProperty p in Report.Dropped.Values)
 			{
-				foreach(int index in p.Indices)
+				for(int i = 0; i < p.Indices.Count && i < LOG_CAP; i++)
 				{
-					KeyValuePair<ConversionElement, int> key = new KeyValuePair<ConversionElement, int>(p.Element, index);
+					KeyValuePair<ConversionElement, int> key = new KeyValuePair<ConversionElement, int>(p.Element, p.Indices[i]);
 					List<string> names;
-					if(!perelement.TryGetValue(key, out names)) perelement[key] = names = new List<string>();
-					names.Add(p.Name);
+					if(!perelement.TryGetValue(key, out names))
+					{
+						perelement[key] = names = new List<string>();
+						order.Add(key);
+					}
+					if(!names.Contains(p.Name)) names.Add(p.Name);
 				}
 			}
-			foreach(KeyValuePair<KeyValuePair<ConversionElement, int>, List<string>> d in perelement)
-			{
-				string message = "Map conversion dropped from " + d.Key.Key + " " + d.Key.Value + ": " + string.Join(", ", d.Value);
-				MapElement e = Element(map, d.Key.Key, d.Key.Value);
-				if(e != null) General.ErrorLogger.Add(new MapElementErrorItem(ErrorType.Warning, e, message));
-				else General.ErrorLogger.Add(ErrorType.Warning, message);
-			}
+			foreach(KeyValuePair<ConversionElement, int> key in order)
+				LogElement(map, key.Key, key.Value, "Map conversion dropped from " + key.Key + " " + key.Value + ": " + string.Join(", ", perelement[key]));
+			foreach(DroppedProperty p in Report.Dropped.Values)
+				if(p.Indices.Count > LOG_CAP) General.ErrorLogger.Add(ErrorType.Warning, "Map conversion dropped " + p.Element.ToString().ToLowerInvariant() + " " + p.Name + " from " + (p.Indices.Count - LOG_CAP) + " more elements");
+		}
+
+		private static void LogElement(MapSet map, ConversionElement element, int index, string message)
+		{
+			MapElement e = Element(map, element, index);
+			if(e != null) General.ErrorLogger.Add(new MapElementErrorItem(ErrorType.Warning, e, message));
+			else General.ErrorLogger.Add(ErrorType.Warning, message);
 		}
 
 		private static MapElement Element(MapSet map, ConversionElement element, int index)
@@ -290,9 +372,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		// The summary, then the first issues and dropped groups, for a message box
 		public string Describe(int maxlines)
 		{
+			// The summary, then the first issues and dropped groups, for a message box
 			List<string> lines = new List<string>();
 			foreach(ConversionIssue i in Report.Issues)
 				if(i.Severity != ConversionSeverity.Note) lines.Add(i.ToString());

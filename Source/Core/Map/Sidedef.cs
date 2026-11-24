@@ -279,8 +279,12 @@ namespace CodeImp.DoomBuilder.Map
 		//mxd. This translates UDMF fields back into the normal flags and activations
 		internal void TranslateFromUDMF() 
 		{
-			// Try to translate UDMF texture offsets to regular ones
-			string part = FoldedOffsetPart();
+			TranslateFromUDMF(FoldedOffsetPart());
+		}
+
+		internal void TranslateFromUDMF(string part)
+		{
+			// Try to translate UDMF texture offsets to regular ones; part comes from FoldedOffsetPart while UDMF is the current format
 			if(part != null)
 			{
 				offsetx += (int)UniFields.GetFloat(this.Fields, "offsetx_" + part);
@@ -292,9 +296,9 @@ namespace CodeImp.DoomBuilder.Map
 			this.Flags.Clear();
 		}
 
-		// The part whose UDMF offsets TranslateFromUDMF adds to the sidedef offsets: "mid", "top", "bottom" or null
 		internal string FoldedOffsetPart()
 		{
+			// The part whose UDMF offsets TranslateFromUDMF adds to the sidedef offsets: "mid", "top", "bottom" or null
 			if(longtexnamemid != MapSet.EmptyLongName && MiddleRequired()) return "mid";
 			if(longtexnamehigh != MapSet.EmptyLongName && HighRequired()) return "top";
 			if(longtexnamelow != MapSet.EmptyLongName && LowRequired()) return "bottom";

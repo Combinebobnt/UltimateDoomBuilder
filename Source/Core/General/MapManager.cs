@@ -3993,17 +3993,19 @@ namespace CodeImp.DoomBuilder
 			optionsform.Dispose();
 		}
 
-		// Plans converting the map to the target configuration's format; null when the converter doesn't cover either config
-		internal MapSetConversion PlanFormatConversion(ConfigurationInfo target)
+		internal MapSetConversion PlanFormatConversion(ConfigurationInfo target, out string unavailable)
 		{
+			// Null when the converter doesn't cover either config; unavailable then names a config whose profile failed to load
 			WAD wad = tempwadreader.WadFile;
 			bool hasscripts = wad.FindLumpIndex("SCRIPTS") != -1 || wad.FindLumpIndex("BEHAVIOR") != -1;
-			return MapSetConversion.Plan(map, config, configinfo, target, hasscripts);
+			return MapSetConversion.Plan(map, config, configinfo, target, hasscripts, out unavailable);
 		}
 
-		// Switches to options.ConfigFile after the options changed: the conversion (if any) is applied after the new format interface is in place
 		internal void ApplyConfiguration(string oldconfigfile, string oldscriptcompiler, MapSetConversion conversion)
 		{
+			// Switches to options.ConfigFile after the options changed: the conversion (if any) is applied after the new format interface is in place
+			if(conversion != null) conversion.CheckCounts(map);
+
 			// Stop data manager
 			data.Dispose();
 
@@ -4062,7 +4064,7 @@ namespace CodeImp.DoomBuilder
 			ReloadResources(false, false);
 
 			// Undo levels hold the old format's data, so history ends here (after the reload: clearing refreshes the window, which reads the data manager)
-			if(conversion != null)
+			if(oldiotype != io.GetType())
 			{
 				undoredo.ClearAllUndos();
 				undoredo.ClearAllRedosAndBranch();
@@ -4079,9 +4081,9 @@ namespace CodeImp.DoomBuilder
 			General.MainWindow.RedrawDisplay(); //mxd
 		}
 
-		// The partial translation for config changes the converter doesn't cover (same format, or a config with no conversion profile)
 		private void LegacyTranslateBeforeSwitch(Type oldiotype)
 		{
+			// The partial translation for config changes the converter doesn't cover (same format, or a config with no conversion profile)
 			//mxd. Step 1 of hackish way to translate SP/MP thing flags to Hexen / UDMF formats...
 			//TODO: add proper Doom -> Hexen thing flags translation to the configs?
 			if(oldiotype == typeof(DoomMapSetIO) && configinfo.FormatInterface != "doommapsetio")

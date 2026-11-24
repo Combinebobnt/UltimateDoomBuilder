@@ -1,5 +1,6 @@
 #region ================== Namespaces
 
+using System;
 using System.Collections.Generic;
 using CodeImp.DoomBuilder.Config;
 
@@ -15,6 +16,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		private const int HEXEN_REPEAT = 0x200;
 		private const int HEXEN_MONSTERS = 0x2000;
 		private const int SPAC_SHIFT = 10;
+		internal const int MAX_LISTED_NAMES = 10;
 
 		// Engine line flags (defines.i ML_*) by UDMF name; ML2 values carry the high bit
 		private static readonly KeyValuePair<string, int>[] engineflags =
@@ -106,8 +108,24 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Blocking, map.OutOfRangeVertices + " vertices lie outside -32768..32767, which the format can't store");
 			if(map.FractionalVertices > 0)
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, map.FractionalVertices + " vertices with fractional coordinates are rounded");
+			if(map.VertexFields.Count > 0)
+			{
+				List<string> fields = new List<string>();
+				foreach(KeyValuePair<string, int> f in map.VertexFields) fields.Add(f.Key + " on " + f.Value);
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "vertex properties the format can't store are dropped: " + string.Join(", ", fields));
+			}
+			if(map.OutOfRangeThings > 0)
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Blocking, map.OutOfRangeThings + " things lie outside -32768..32767, which the format can't store");
+			if(map.FractionalThings > 0)
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, map.FractionalThings + " things with fractional coordinates are rounded");
 			if(map.LongTextureNames.Count > 0)
-				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "texture names over 8 characters can't be stored: " + string.Join(", ", map.LongTextureNames));
+			{
+				// The names list is capped so the message box and the panel stay readable
+				int shown = Math.Min(map.LongTextureNames.Count, MAX_LISTED_NAMES);
+				string names = string.Join(", ", map.LongTextureNames.GetRange(0, shown));
+				if(shown < map.LongTextureNames.Count) names += " (and " + (map.LongTextureNames.Count - shown) + " more)";
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "texture names over 8 characters can't be stored: " + names);
+			}
 			if(map.HasScripts && target.Format == MapFormat.Doom)
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "the Doom format has no SCRIPTS or BEHAVIOR lump; the map's scripts are dropped");
 		}

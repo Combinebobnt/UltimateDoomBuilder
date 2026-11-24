@@ -385,9 +385,9 @@ namespace CodeImp.DoomBuilder.Map
 			}
 		}
 
-		//mxd. Clear UDMF-related properties
 		internal void ClearUDMFProperties()
 		{
+			// Clear UDMF-related properties
 			this.Fields.Clear();
 			scaleX = 1.0f;
 			scaleY = 1.0f;
@@ -606,9 +606,9 @@ namespace CodeImp.DoomBuilder.Map
 			UpdateCache(); //mxd
 		}
 		
-		// Map format conversion runs while the data manager is down; its reload refreshes the cache afterwards
 		internal void SetConvertedProperties(Dictionary<string, bool> flags, ushort rawflags, int tag, double z, int action, int[] args)
 		{
+			// Map format conversion runs while the data manager is down; its reload refreshes the cache afterwards
 			BeforePropsChange();
 			this.flags = new Dictionary<string, bool>(flags);
 			this.rawflags = rawflags;

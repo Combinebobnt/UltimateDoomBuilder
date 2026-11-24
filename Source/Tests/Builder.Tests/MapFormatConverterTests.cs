@@ -1,4 +1,7 @@
+using System.Reflection;
+using CodeImp.DoomBuilder;
 using CodeImp.DoomBuilder.Config;
+using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Map.Conversion;
 
 namespace Builder.Tests
@@ -371,6 +374,70 @@ namespace Builder.Tests
 			MapRecords u = Convert(hx, "GZDoom_DoomHexen", "GZDoom_DoomUDMF", out report);
 			Assert.Equal(-25536, u.Things[0].Tag);
 			Assert.Equal(0x9C40, Convert(u, "GZDoom_DoomUDMF", "GZDoom_DoomHexen", out report).Things[0].Tag);
+		}
+
+		// UDMF vertex heights and fields, and thing positions a binary format can't store, are reported; long name lists are capped
+		[Fact]
+		public void DowngradeToBinary_ReportsVerticesThingPositionsAndCapsNameLists()
+		{
+			MapRecords map = new MapRecords();
+			map.VertexFields["zfloor"] = 3;
+			map.VertexFields["user_x"] = 1;
+			map.FractionalThings = 2;
+			for(int i = 0; i < MapFormatConverter.MAX_LISTED_NAMES + 5; i++) map.LongTextureNames.Add("TEXTURES/LONGNAME" + i);
+
+			ConversionReport report;
+			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomHexen", out report);
+			string text = report.ToString();
+			Assert.Contains("zfloor on 3", text);
+			Assert.Contains("user_x on 1", text);
+			Assert.Contains("2 things with fractional coordinates", text);
+			Assert.Contains("(and 5 more)", text);
+			Assert.DoesNotContain("LONGNAME" + MapFormatConverter.MAX_LISTED_NAMES, text);
+			Assert.False(report.Blocked);
+
+			map.OutOfRangeThings = 1;
+			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
+			Assert.True(report.Blocked, report.ToString());
+
+			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomUDMF", out report);
+			Assert.Empty(report.Issues);
+		}
+
+		// The flag dictionary wins for the bits it names; bits the config doesn't name (doom.txt's 10-13) survive, SPAC goes to Activate
+		[Fact]
+		public void RawBitsAndBitsToKeys_KeepUnnamedBitsAndMaskActivation()
+		{
+			Dictionary<string, bool> flags = new Dictionary<string, bool> { { "1", false }, { "4", true }, { "blocking", true } };
+			ushort raw = 0x3C00 | 0x1 | 0x200;
+			Assert.Equal(0x3C00 | 0x4 | 0x200, MapSetConversion.RawBits(raw, flags));
+			Assert.Equal(0x2000 | 0x4 | 0x200, MapSetConversion.HexenBits(raw, flags, 0x1C00)); // 0x2000 is Hexen's monster activation, not SPAC
+
+			Dictionary<string, string> config = new Dictionary<string, string> { { "1", "Impassable" }, { "4", "Double sided" }, { "48", "two bits" }, { "blocking", "UDMF name" } };
+			Dictionary<string, bool> keys = MapSetConversion.BitsToKeys(0x4 | 0x10, config);
+			Assert.Equal(3, keys.Count);
+			Assert.False(keys["1"]);
+			Assert.True(keys["4"]);
+			Assert.False(keys["48"]); // every bit of a multi-bit key must be set
+			Assert.True(MapSetConversion.BitsToKeys(0x30, config)["48"]);
+		}
+
+		// Apply runs while the data manager is down, and undo history is cleared only once resources are back
+		[Fact]
+		public void ApplyConfiguration_ClearsHistoryAfterReloadAndApplyAvoidsTheDataManager()
+		{
+			const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
+			List<MethodBase> calls = TextureFavoritesRuntimeTests.Calls(typeof(MapManager).GetMethod("ApplyConfiguration", instance)).ToList();
+			int reload = calls.FindIndex(m => m.Name == "ReloadResources");
+			Assert.True(reload >= 0);
+			Assert.True(calls.FindIndex(m => m.Name == "ClearAllUndos") > reload);
+			Assert.True(calls.FindIndex(m => m.Name == "ClearAllRedosAndBranch") > reload);
+			Assert.True(calls.FindIndex(m => m.Name == "CheckCounts") < calls.FindIndex(m => m.Name == "Dispose"));
+
+			List<MethodBase> apply = TextureFavoritesRuntimeTests.Calls(typeof(MapSetConversion).GetMethod("Apply", instance)).ToList();
+			Assert.Contains(apply, m => m.Name == "SetConvertedProperties");
+			Assert.DoesNotContain(apply, m => m.DeclaringType == typeof(Thing) && (m.Name == "Update" || m.Name == "UpdateCache"));
+			Assert.Contains(apply, m => m.Name == "TranslateFromUDMF" && m.DeclaringType == typeof(Sidedef) && m.GetParameters().Length == 1);
 		}
 	}
 }

@@ -241,8 +241,21 @@ namespace CodeImp.DoomBuilder.Windows
 					if(configinfo.Configuration.ReadSetting("formatinterface", "") != General.Map.Config.FormatInterface)
 					{
 						// Plan the conversion; configs it doesn't cover keep the old partial translation
-						MapSetConversion planned = General.Map.PlanFormatConversion(configinfo);
+						MapSetConversion planned;
+						string unavailable;
 						string nl = Environment.NewLine;
+						try
+						{
+							planned = General.Map.PlanFormatConversion(configinfo, out unavailable);
+						}
+						catch(Exception ex)
+						{
+							General.WriteLogLine("Map conversion failed: " + ex);
+							General.ShowErrorMessage("The map conversion to the format of the game configuration you selected failed:" + nl + nl + ex.Message, MessageBoxButtons.OK);
+							SelectOldConfiguration();
+							return;
+						}
+
 						if(planned != null && planned.Report.Blocked)
 						{
 							General.ShowErrorMessage("The map can't be converted to the format of the game configuration you selected:" + nl + nl + planned.Describe(12), MessageBoxButtons.OK);
@@ -252,7 +265,9 @@ namespace CodeImp.DoomBuilder.Windows
 
 						// Warn the user about IO interface change
 						string message = planned == null
-							? "The game configuration you selected uses a different file format than your current map. Because your map was not designed for this format it may cause the map to work incorrectly in the game. Do you want to continue?"
+							? "The game configuration you selected uses a different file format than your current map. Because your map was not designed for this format it may cause the map to work incorrectly in the game, and the undo history is cleared. "
+							  + (unavailable != null ? "Map conversion is unavailable for " + unavailable + nl + nl : "")
+							  + "Do you want to continue?"
 							: "The game configuration you selected uses a different map format. The map will be converted from " + planned.Source.Format + " to " + planned.Target.Format + ":" + nl + nl
 							  + planned.Describe(12) + nl + nl
 							  + "Everything lost or changed is listed in the Errors and Warnings panel, and the undo history is cleared. Do you want to continue?";
@@ -309,9 +324,9 @@ namespace CodeImp.DoomBuilder.Windows
 			this.Close();
 		}
 
-		// Reselects the map's current configuration after a declined format change
 		private void SelectOldConfiguration()
 		{
+			// Reselects the map's current configuration after a declined format change
 			for(int i = 0; i < config.Items.Count; i++)
 			{
 				if(string.Compare((config.Items[i] as ConfigurationInfo).Filename, options.ConfigFile, true) == 0)
