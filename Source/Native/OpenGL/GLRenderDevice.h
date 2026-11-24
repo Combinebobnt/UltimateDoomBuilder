@@ -100,7 +100,7 @@ public:
 	void RequireContext();
 
 	bool CheckGLError();
-	// Draw paths skip glGetError unless UDB_GL_CHECK_DRAWS=1; Present still reports what they left
+	// Draw paths skip glGetError unless UDB_GL_CHECK_DRAWS=1; the next checked call (an upload, StartRendering or Present) reports what they left
 	bool CheckDrawError() { return !mCheckDrawErrors || CheckGLError(); }
 
 	int GetCounters(int64_t* out, int n) override;

@@ -201,11 +201,13 @@ namespace Builder.Tests
 		public void DrawCountersArePerWindowMaximaWithRunFractionAndNativeTime()
 		{
 			Rig r = new Rig();
-			for(int i = 0; i < 140; i++)
+			for(int i = 0; i < 200; i++)
 			{
 				double start = r.Time;
 				r.Timer.TickBegin("VisualMode");
-				if(i < 30) // the second window starts near tick 63
+				// Windows start near ticks 63 and 126: smaller counts in the second, none in the third
+				if(i >= 70 && i < 100) r.Timer.NoteDraws(50, 40, new long[] { 100, 100, 1000, 200, 5, -1 });
+				if(i < 30)
 				{
 					// Draw time unmeasured for the first ten ticks, 2 ms after; tick 10 notes twice, which adds up
 					long ns = i < 10 ? -1 : 2000000;
@@ -229,8 +231,14 @@ namespace Builder.Tests
 			Assert.Equal("4.0", first["native_max"]);
 
 			// A window with no draw notes has none of the fields
-			Assert.False(r.Lines[1].ContainsKey("draws"));
+			// Each window reports only its own ticks
+			Assert.Equal("100", r.Lines[1]["draws"]);
+			Assert.Equal("5", r.Lines[1]["shader_binds"]);
+			Assert.Equal("50", r.Lines[1]["geo_surfaces"]);
+			Assert.Equal("40", r.Lines[1]["runs"]);
+			Assert.Equal("80.0", r.Lines[1]["runs_pct"]);
 			Assert.False(r.Lines[1].ContainsKey("native_p50"));
+			Assert.False(r.Lines[2].ContainsKey("draws"));
 		}
 
 		[Fact]
