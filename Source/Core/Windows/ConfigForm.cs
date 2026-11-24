@@ -349,19 +349,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Update engine name
 			else
 			{
-				// Use engine directory name?
-				string enginename = Path.GetDirectoryName(configinfo.TestProgram);
-				if(!string.IsNullOrEmpty(enginename))
-				{
-					int pos = enginename.LastIndexOf(Path.DirectorySeparatorChar);
-					if(pos != -1) enginename = enginename.Substring(pos + 1);
-				}
-				// Use engine filename
-				else
-				{
-					enginename = Path.GetFileNameWithoutExtension(configinfo.TestProgram);
-				}
-				
+				string enginename = EngineNameFromPath(configinfo.TestProgram, Environment.OSVersion.Platform == PlatformID.Unix);
 				configinfo.TestProgramName = enginename;
 				cbEngineSelector.Items[cbEngineSelector.SelectedIndex] = enginename;
 			}
@@ -393,6 +381,15 @@ namespace CodeImp.DoomBuilder.Windows
 				// Make converted parameters
 				testresult.Text = General.Map.Launcher.ConvertParameters(testparameters.Text, skill.Value, shortpaths.Checked, linuxpaths.Checked);
 			}
+		}
+
+		// Windows engines live in their own folder; Unix binaries share /usr/bin, /usr/games and the like
+		internal static string EngineNameFromPath(string program, bool unix)
+		{
+			string dir = unix ? null : Path.GetDirectoryName(program);
+			if(string.IsNullOrEmpty(dir)) return Path.GetFileNameWithoutExtension(program);
+			int pos = dir.LastIndexOf(Path.DirectorySeparatorChar);
+			return pos != -1 ? dir.Substring(pos + 1) : dir;
 		}
 
 		//mxd
@@ -840,7 +837,12 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			configinfo.TestProgramName = cbEngineSelector.Text;
+
+			// Showing the stored path must not rename the engine after its folder
+			bool prevpreventchanges = preventchanges;
+			preventchanges = true;
 			testapplication.Text = configinfo.TestProgram;
+			preventchanges = prevpreventchanges;
 			testparameters.Text = configinfo.TestParameters;
 			shortpaths.Checked = configinfo.TestShortPaths;
 			linuxpaths.Checked = configinfo.TestLinuxPaths;
