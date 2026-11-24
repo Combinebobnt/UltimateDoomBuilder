@@ -42,8 +42,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			HashSet<Sector> sectors = new HashSet<Sector>();
 			foreach(Sidedef side in targets)
 			{
-				bool high = (side.HighRequired() || HasTexture(side.HighTexture)) && side.HighTexture != name;
-				bool low = (side.LowRequired() || HasTexture(side.LowTexture)) && side.LowTexture != name;
+				bool high = (side.HighRequired() || TextureChange.HasTexture(side.HighTexture)) && side.HighTexture != name;
+				bool low = (side.LowRequired() || TextureChange.HasTexture(side.LowTexture)) && side.LowTexture != name;
 				bool middle = side.MiddleRequired() && side.MiddleTexture != name;
 				if(!high && !low && !middle) continue;
 				if(!undo)
@@ -61,8 +61,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(count > 0) Finish(name, TextureHistoryKind.Texture, count, sectorcount ? "sector walls" : "linedefs");
 			return count;
 		}
-
-		private static bool HasTexture(string name) { return !string.IsNullOrEmpty(name) && name != "-"; }
 
 		internal static int ApplyToSectors(string name, IEnumerable<Sector> sectors, bool floor, bool ceiling)
 		{

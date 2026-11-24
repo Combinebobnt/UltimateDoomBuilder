@@ -1414,7 +1414,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
-		// This pastes only the copied textures, into the parts each target uses
 		[BeginAction("classicpastetextures")]
 		public void PasteTextures()
 		{

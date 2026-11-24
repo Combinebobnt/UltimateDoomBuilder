@@ -1821,7 +1821,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
-		// This pastes only the copied floor and ceiling flats
 		[BeginAction("classicpastetextures")]
 		public void PasteTextures()
 		{

@@ -355,7 +355,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 	internal enum TexturePart { Upper, Middle, Lower, Floor, Ceiling }
 
-	// One planned texture write of Paste Textures
 	internal struct TextureChange
 	{
 		public readonly MapElement Target;
@@ -422,8 +421,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			tags = new List<int>(s.Tags); //mxd
 			flags = s.GetFlags(); //mxd
 		}
-
-		// Both flats, skipping "-" and unchanged ones
+		
 		internal List<TextureChange> PlanTextures(ICollection<Sector> sectors)
 		{
 			List<TextureChange> changes = new List<TextureChange>();

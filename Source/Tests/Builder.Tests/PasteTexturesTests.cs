@@ -16,13 +16,14 @@ namespace Builder.Tests
 			using(new SndInfoParserTests.FakeMap("doom"))
 			{
 				LinedefProperties source = Source(Side("UP", "-", "LO"), Side("UP2", "-", "LO2"));
-				// Front faces the higher ceiling, so only its upper is required; the lower is neither required nor textured
-				Linedef target = TwoSided(out Sidedef front, out Sidedef back, 128, 0, 64, 0);
+				// Front upper and lower are required; back upper is textured but not required; back lower is neither
+				Linedef target = TwoSided(out Sidedef front, out Sidedef back, 128, 0, 64, 16);
 				SetTextures(front, "OLDUP", "-", "-");
-				SetTextures(back, "-", "-", "-");
-				Assert.Equal(new[] { Change(front, "Upper", "UP") }, Plan(source, target));
+				SetTextures(back, "OLDBU", "-", "-");
+				Assert.Equal(new[] { Change(front, "Upper", "UP"), Change(front, "Lower", "LO"), Change(back, "Upper", "UP2") }, Plan(source, target));
 
-				SetTextures(front, "UP", "-", "-");
+				SetTextures(front, "UP", "-", "LO");
+				SetTextures(back, "UP2", "-", "-");
 				Assert.Empty(Plan(source, target));
 			}
 		}
@@ -36,6 +37,9 @@ namespace Builder.Tests
 				Linedef twosided = TwoSided(out Sidedef front, out Sidedef back, 128, 0, 64, 32);
 				SetTextures(front, "A", "-", "B");
 				SetTextures(back, "-", "-", "-");
+				Assert.Empty(Plan(source, twosided));
+				// A wall texture never lands in a two-sided grate
+				SetTextures(front, "A", "OLDGRATE", "B");
 				Assert.Empty(Plan(source, twosided));
 
 				Linedef onesided = OneSided(out Sidedef side);
