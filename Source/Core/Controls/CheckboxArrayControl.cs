@@ -62,6 +62,7 @@ namespace CodeImp.DoomBuilder.Controls
 			c.Text = text;
 			c.Tag = tag;
 			c.CheckStateChanged += checkbox_OnCheckStateChanged; //mxd
+			MixedCheckGlyph.Attach(c);
 
 			// Add to list
 			this.Controls.Add(c);

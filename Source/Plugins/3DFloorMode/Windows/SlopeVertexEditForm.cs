@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Windows.Forms;
+using CodeImp.DoomBuilder.Controls;
 using CodeImp.DoomBuilder.Geometry;
 using CodeImp.DoomBuilder.Map;
 
@@ -19,6 +20,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 		public SlopeVertexEditForm()
 		{
 			InitializeComponent();
+			MixedCheckGlyph.AttachTree(this);
 		}
 
 		public void Setup(List<SlopeVertex> vertices)
