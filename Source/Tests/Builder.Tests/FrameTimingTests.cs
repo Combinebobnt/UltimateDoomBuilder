@@ -95,6 +95,44 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void LongTickIsAStallNotAPause()
+		{
+			Rig r = new Rig();
+			r.Tick("VisualMode", 16);
+			r.Timer.TickBegin("VisualMode");
+			r.Time += 1500;
+			r.Timer.TickEnd();
+			r.Time += 15;
+			for(int i = 0; i < 80; i++) r.Tick("VisualMode", 16);
+
+			// The stall tick ends the first window; the next window keeps its 1515 ms gap
+			Assert.Equal("2", r.Lines[0]["n"]);
+			Assert.Equal("1500.0", r.Lines[0]["busy_max"]);
+			Assert.Equal("1515.0", r.Lines[1]["gap_max"]);
+			Assert.True(r.Lines[1]["fps"] != "-", r.Lines[1]["fps"]);
+		}
+
+		[Fact]
+		public void ModeChangeDropsCameraContinuity()
+		{
+			Rig r = new Rig();
+			r.Timer.TickBegin("VisualMode");
+			r.Timer.NoteCamera(new Vector3D(0, 0, 0), 0, 0);
+			r.Timer.TickEnd();
+			r.Time += 16;
+			r.Tick("VerticesMode", 16);
+			r.Timer.TickBegin("VisualMode");
+			r.Timer.NoteCamera(new Vector3D(5000, 0, 0), 0, 0);
+			r.Timer.TickEnd();
+			r.Time += 16;
+			r.Tick("VerticesMode", 16);
+
+			Assert.Equal("0.0", r.Lines[0]["cam_dist"]);
+			Assert.False(r.Lines[1].ContainsKey("cam_dist"));
+			Assert.Equal("0.0", r.Lines[2]["cam_dist"]);
+		}
+
+		[Fact]
 		public void CameraTravelAndVisibleCountsArePerWindow()
 		{
 			Rig r = new Rig();

@@ -92,6 +92,7 @@ namespace CodeImp.DoomBuilder
 
 		// Camera and culling, per window
 		private bool hascamera;
+		private bool windowcamera;
 		private Vector3D lastpos;
 		private double lastanglexy, lastanglez;
 		private double distance, turn;
@@ -116,8 +117,10 @@ namespace CodeImp.DoomBuilder
 		internal void TickBegin(string tickmode)
 		{
 			double now = clock();
-			bool broken = prevtickstart < 0 || now - prevtickstart > BREAK_MS;
-			if(count > 0 && (broken || tickmode != mode)) Flush(now);
+			// Measured from the previous tick's end, so one long tick is a stall in the data, not a pause
+			bool broken = prevtickend < 0 || now - prevtickend > BREAK_MS;
+			if(tickmode != mode) hascamera = false;
+			if(count > 0 && (broken || tickmode != mode)) Flush(prevtickend);
 			if(count == 0)
 			{
 				mode = tickmode;
@@ -168,6 +171,7 @@ namespace CodeImp.DoomBuilder
 				turn += Math.Abs(Angle2D.Difference(anglexy, lastanglexy)) + Math.Abs(anglez - lastanglez);
 			}
 			hascamera = true;
+			windowcamera = true;
 			lastpos = position;
 			lastanglexy = anglexy;
 			lastanglez = anglez;
@@ -199,7 +203,7 @@ namespace CodeImp.DoomBuilder
 				f.Add("vis_geo"); f.Add(Num(maxgeometry));
 				f.Add("vis_things"); f.Add(Num(maxthings));
 			}
-			if(hascamera || distance > 0 || turn > 0)
+			if(windowcamera)
 			{
 				f.Add("cam_dist"); f.Add(distance.ToString("0.0", CultureInfo.InvariantCulture));
 				f.Add("cam_turn_deg"); f.Add(Angle2D.RadToDeg(turn).ToString("0.0", CultureInfo.InvariantCulture));
@@ -211,6 +215,7 @@ namespace CodeImp.DoomBuilder
 			picks = 0;
 			distance = 0;
 			turn = 0;
+			windowcamera = false;
 			maxgeometry = -1;
 			maxthings = -1;
 		}

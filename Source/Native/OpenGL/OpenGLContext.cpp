@@ -181,8 +181,10 @@ int OpenGLContext::GetSwapInterval()
 {
 	typedef int(WINAPI* ptr_wglGetSwapIntervalEXT)();
 	MakeCurrent();
-	ptr_wglGetSwapIntervalEXT getinterval = (ptr_wglGetSwapIntervalEXT)wglGetProcAddress("wglGetSwapIntervalEXT");
-	return getinterval ? getinterval() : -1;
+	PROC proc = wglGetProcAddress("wglGetSwapIntervalEXT");
+	// Some drivers return 1, 2, 3 or -1 instead of null for an unsupported function
+	if ((intptr_t)proc >= -1 && (intptr_t)proc <= 3) return -1;
+	return ((ptr_wglGetSwapIntervalEXT)proc)();
 }
 
 int OpenGLContext::GetWidth() const
