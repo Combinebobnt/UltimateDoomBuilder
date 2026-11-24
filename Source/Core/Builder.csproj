@@ -311,6 +311,7 @@
     <Compile Include="Editing\GridSetup.cs" />
     <Compile Include="Editing\NullThingsFilter.cs" />
     <Compile Include="Editing\ThingsFilter.cs" />
+    <Compile Include="Editing\ThingsFilterRule.cs" />
     <Compile Include="Editing\UndoBranchStash.cs" />
     <Compile Include="Editing\UndoManager.cs" />
     <Compile Include="Editing\UndoSnapshot.cs" />

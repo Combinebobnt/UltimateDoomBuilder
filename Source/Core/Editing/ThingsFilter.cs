@@ -55,6 +55,11 @@ namespace CodeImp.DoomBuilder.Editing
 		
 		// Filter by category
 		protected string categoryname;
+		protected bool includesubcategories;
+
+		// Rule list, combined with the other criteria by AND
+		protected List<ThingsFilterRule> rules;
+		protected ThingsFilterMatchMode matchmode;
 
 		// Filter by properties
 		protected int thingtype;		// -1 indicates not used
@@ -87,6 +92,9 @@ namespace CodeImp.DoomBuilder.Editing
 
 		public string Name { get { return name; } internal set { name = value; } }
 		public string CategoryName { get { return categoryname; } internal set { categoryname = value; } }
+		public bool IncludeSubcategories { get { return includesubcategories; } internal set { includesubcategories = value; } }
+		public ThingsFilterMatchMode MatchMode { get { return matchmode; } internal set { matchmode = value; } }
+		internal List<ThingsFilterRule> Rules { get { return rules; } }
 		public bool Invert { get { return invert; } internal set { invert = value; } } //mxd
 		public ThingsFilterDisplayMode DisplayMode { get { return displaymode; } internal set { displaymode = value; } } //mxd
 		internal int ThingType { get { return thingtype; } set { thingtype = value; } }
@@ -125,6 +133,10 @@ namespace CodeImp.DoomBuilder.Editing
 			customfields = new UniFields(f.customfields);
 			requiredfields = new List<string>(f.requiredfields);
 			forbiddenfields = new List<string>(f.forbiddenfields);
+			includesubcategories = f.includesubcategories;
+			matchmode = f.matchmode;
+			rules = new List<ThingsFilterRule>(f.rules.Count);
+			foreach(ThingsFilterRule r in f.rules) rules.Add(new ThingsFilterRule(r));
 			
 			AdjustForMapFormat();
 			
@@ -174,7 +186,15 @@ namespace CodeImp.DoomBuilder.Editing
 				int ft = cfg.ReadSetting(path + ".customfieldtypes." + fv.Key, 0);
 				customfields.Add(fv.Key.ToString(), new UniValue(ft, fv.Value));
 			}
-			
+
+			// Rules, probed in written order (sections load sorted, so rule10 would come before rule2)
+			includesubcategories = cfg.ReadSetting(path + ".subcategories", false);
+			int mm = cfg.ReadSetting(path + ".matchmode", 0);
+			matchmode = (mm == (int)ThingsFilterMatchMode.Any ? ThingsFilterMatchMode.Any : ThingsFilterMatchMode.All);
+			rules = new List<ThingsFilterRule>();
+			for(int i = 0; cfg.SettingExists(path + ".rules.rule" + i.ToString(CultureInfo.InvariantCulture)); i++)
+				rules.Add(new ThingsFilterRule(cfg, path + ".rules.rule" + i.ToString(CultureInfo.InvariantCulture)));
+
 			AdjustForMapFormat();
 			
 			// We have no destructor
@@ -197,7 +217,10 @@ namespace CodeImp.DoomBuilder.Editing
 			for(int i = 0 ; i < Thing.NUM_ARGS; i++) thingargs[i] = -1;
 			thingtag = -1;
 			name = DEFAULT_NAME;
-			
+			rules = new List<ThingsFilterRule>();
+			matchmode = ThingsFilterMatchMode.All;
+			includesubcategories = true;
+
 			// We have no destructor
 			GC.SuppressFinalize(this);
 		}
@@ -273,6 +296,9 @@ namespace CodeImp.DoomBuilder.Editing
 			//Integrity check
 			if(!IsValid())
 				General.ErrorLogger.Add(ErrorType.Warning, "Things filter \"" + name + "\" has invalid properties. Configure the things filter to fix this!");
+
+			if(HasInvalidRules(ThingsFilterContext.FromMap(General.Map.ConfigSettings != null ? General.Map.ConfigSettings.ThingsFilters : null)))
+				General.ErrorLogger.Add(ErrorType.Warning, "Things filter \"" + name + "\" has invalid rules. Configure the things filter to fix this!");
 		}
 
 		//mxd
@@ -286,7 +312,47 @@ namespace CodeImp.DoomBuilder.Editing
 				|| thingtag != -1
 				|| requiredfields.Count > 0 
 				|| forbiddenfields.Count > 0 
-				|| customfields.Count > 0);
+				|| customfields.Count > 0
+				|| rules.Count > 0);
+		}
+
+		// Any rule that doesn't parse, names a missing filter or reaches a reference cycle
+		internal bool HasInvalidRules(ThingsFilterContext ctx)
+		{
+			foreach(ThingsFilterRule r in rules)
+				if(RuleError(r, ctx) != null) return true;
+			return false;
+		}
+
+		// Why a rule is broken in this context, or null
+		internal string RuleError(ThingsFilterRule r, ThingsFilterContext ctx)
+		{
+			if(!r.IsValidRule) return r.Error;
+			if(r.Subject != ThingsFilterRuleSubject.MatchesFilter) return null;
+			ThingsFilter target = ctx.Resolve(r.Key);
+			if(target == null) return "No filter named \"" + r.Key + "\"";
+			HashSet<ThingsFilter> visiting = new HashSet<ThingsFilter> { this };
+			if(ReachesCycle(target, ctx, visiting)) return "Filter references form a cycle";
+			return null;
+		}
+
+		private static bool ReachesCycle(ThingsFilter f, ThingsFilterContext ctx, HashSet<ThingsFilter> visiting)
+		{
+			if(!visiting.Add(f)) return true;
+			try
+			{
+				foreach(ThingsFilterRule r in f.rules)
+				{
+					if(r.Subject != ThingsFilterRuleSubject.MatchesFilter || !r.IsValidRule) continue;
+					ThingsFilter target = ctx.Resolve(r.Key);
+					if(target != null && ReachesCycle(target, ctx, visiting)) return true;
+				}
+				return false;
+			}
+			finally
+			{
+				visiting.Remove(f);
+			}
 		}
 		
 		/// <summary>
@@ -327,6 +393,11 @@ namespace CodeImp.DoomBuilder.Editing
 				cfg.WriteSetting(path + ".customfieldtypes." + u.Key, u.Value.Type);
 				cfg.WriteSetting(path + ".customfieldvalues." + u.Key, u.Value.Value);
 			}
+
+			cfg.WriteSetting(path + ".subcategories", includesubcategories);
+			cfg.WriteSetting(path + ".matchmode", (int)matchmode);
+			for(int i = 0; i < rules.Count; i++)
+				rules[i].WriteSettings(cfg, path + ".rules.rule" + i.ToString(CultureInfo.InvariantCulture));
 		}
 		
 		// This is called when the filter is activated
@@ -356,13 +427,24 @@ namespace CodeImp.DoomBuilder.Editing
 			visiblethings = new List<Thing>(General.Map.Map.Things.Count);
 			hiddenthings = new List<Thing>(General.Map.Map.Things.Count);
 			thingsvisiblestate = new Dictionary<Thing, bool>(General.Map.Map.Things.Count);
+			ThingsFilterContext ctx = ThingsFilterContext.FromMap(General.Map.ConfigSettings != null ? General.Map.ConfigSettings.ThingsFilters : null);
 			foreach(Thing t in General.Map.Map.Things)
 			{
-				bool qualifies = true;
-
 				// Get thing info
 				ThingTypeInfo ti = General.Map.Data.GetThingInfo(t.Type);
-				
+				bool qualifies = Qualifies(t, ti, ctx);
+
+				// Put the thing in the lists. mxd: visiblethings and hiddenthings are only used from classic modes, IsThingVisible() is only used from visual mode.
+				if(qualifies || displaymode == ThingsFilterDisplayMode.VISUAL_MODES_ONLY) visiblethings.Add(t); else hiddenthings.Add(t);
+				thingsvisiblestate.Add(t, qualifies || (displaymode == ThingsFilterDisplayMode.CLASSIC_MODES_ONLY));
+			}
+		}
+
+		// Whether a thing passes this filter: the property tabs, then the rule list, then invert
+		internal bool Qualifies(Thing t, ThingTypeInfo ti, ThingsFilterContext ctx)
+		{
+				bool qualifies = true;
+
 				// Check against simple properties
 				qualifies &= (thingtype == -1) || (t.Type == thingtype);
 				qualifies &= (thingangle == -1) || (Angle2D.RealToDoom(t.Angle) == thingangle);
@@ -378,6 +460,8 @@ namespace CodeImp.DoomBuilder.Editing
 					// Check thing category
 					if(ti.Category == null)
 						qualifies = (categoryname.Length == 0);
+					else if(includesubcategories)
+						qualifies = (categoryname.Length == 0) || ThingsFilterRule.CategoryMatches(ti.Category.Name, categoryname, true);
 					else
 						qualifies = ((ti.Category.Name == categoryname) || (categoryname.Length == 0));
 				}
@@ -443,12 +527,33 @@ namespace CodeImp.DoomBuilder.Editing
 					}
 				}
 
+				if(qualifies && rules.Count > 0) qualifies = RulesPass(t, ti, ctx);
+
 				//mxd. Apply inversion
 				qualifies ^= invert;
-				
-				// Put the thing in the lists. mxd: visiblethings and hiddenthings are only used from classic modes, IsThingVisible() is only used from visual mode.
-				if(qualifies || displaymode == ThingsFilterDisplayMode.VISUAL_MODES_ONLY) visiblethings.Add(t); else hiddenthings.Add(t);
-				thingsvisiblestate.Add(t, qualifies || (displaymode == ThingsFilterDisplayMode.CLASSIC_MODES_ONLY));
+				return qualifies;
+		}
+
+		// Skips don't count; All passes when nothing fails, Any when something passes
+		private bool RulesPass(Thing t, ThingTypeInfo ti, ThingsFilterContext ctx)
+		{
+			bool added = ctx.Visiting.Add(this);
+			try
+			{
+				bool counted = false;
+				foreach(ThingsFilterRule r in rules)
+				{
+					ThingsFilterRuleOutcome o = r.Evaluate(t, ti, ctx);
+					if(o == ThingsFilterRuleOutcome.Skip) continue;
+					counted = true;
+					if(matchmode == ThingsFilterMatchMode.Any && o == ThingsFilterRuleOutcome.Pass) return true;
+					if(matchmode == ThingsFilterMatchMode.All && o == ThingsFilterRuleOutcome.Fail) return false;
+				}
+				return (!counted || matchmode == ThingsFilterMatchMode.All);
+			}
+			finally
+			{
+				if(added) ctx.Visiting.Remove(this);
 			}
 		}
 
