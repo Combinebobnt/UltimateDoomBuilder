@@ -77,9 +77,28 @@
 		<li><b>Sectors:</b> <b>lm_lightcolorfloor</b>, <b>lm_lightintensityfloor</b>, <b>lm_lightdistancefloor</b>, and the same three for the ceiling.</li>
 	</ul>
 	<p>
-		The distance is how far the light reaches in map units; the surface stays unlit while it is 0, the default. The intensity is 0 to 16: 1 is faint, about 4 to 16 reads clearly. The light fades to nothing at the distance, and surfaces in the same plane as the glowing one (the floor around a lava pool, the wall beside a light panel) get none of it. On a 3D floor, the top glows with the control sector's ceiling fields and the bottom with its floor fields. Only ZDRay builds that support surface lights read these fields; upstream ZDRay ignores them.<br>
+		The distance is how far the light reaches in map units; the surface stays unlit while it is 0, the default. The intensity is 0 to 16: 1 is faint, about 4 to 16 reads clearly. The light fades to nothing at the distance, and surfaces in the same plane as the glowing one (the floor around a lava pool, the wall beside a light panel) get none of it. On a 3D floor, the top glows with the control sector's ceiling fields and the bottom with its floor fields. Only ZDRay builds that support surface lights read these fields; upstream ZDRay ignores them.
+	</p>
+	<h3>Emissive textures (EMITDEFS)</h3>
+	<p>
+		Instead of setting fields on every surface, a mod can list the textures and flats that glow wherever they are used, in a text file named <b>EMITDEFS</b>: <b>emitdefs.txt</b> in the root of a PK3 or directory resource, or an EMITDEFS lump in any loaded WAD, the map's own WAD included. Each line is a texture name followed by keyword and value pairs:
+	</p>
+	<pre>
+// comment
+LAVA1                 color ff6020  intensity 1.0  distance 192  on flats
+"textures/panel.png"  color auto    intensity 1.5  distance 128  on walls
+</pre>
+	<ul>
+		<li><b>color:</b> six hex digits, default ffffff. <b>auto</b> uses the image's average color, scaled so its brightest channel is full; the intensity sets the brightness.</li>
+		<li><b>intensity</b> (default 1, at most 16) and <b>distance</b> (required, in map units) mean the same as the surface light fields above, so a line and the fields with the same numbers give the same light.</li>
+		<li><b>on flats</b>, <b>on walls</b> or <b>on both</b> (the default). Walls are the solid wall parts using the texture: the middle of a one-sided line and the upper and lower parts of a two-sided one.</li>
+	</ul>
+	<p>
+		A name matches however the map refers to the image: a long name, its short name or a path. Every frame of the texture's ANIMATED or ANIMDEFS animation glows with the same values, and a line for a frame of its own wins. Resources merge in load order: a later line for the same image and kind replaces an earlier one, and a line with <b>intensity 0</b> removes it. Surface light fields on a side or sector win over the table for that surface. Two-sided middle textures, 3D floor sides and sky never glow. An unknown keyword is ignored and a line with a bad value is skipped, each with a warning in the <a href="../../../w_errorsandwarnings.html">Errors and Warnings</a> window.<br>
 		<br>
-		<br>
+		The bake's status line adds "Emissive textures: N entries, M used by this map." Only ZDRay builds that support emissive textures accept the table; with upstream ZDRay the bake fails and says so. Editing EMITDEFS and reloading resources makes an earlier bake out of date, like a map change does.
+	</p>
+	<p>
 		Things to know about the baker:
 	</p>
 	<ul>
