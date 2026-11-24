@@ -3338,8 +3338,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if (General.Map == null)
 				return;
 
-			TagStatisticsForm f = new TagStatisticsForm();
-			f.ShowDialog(this);
+			new MapStatisticsForm(MapStatisticsTab.Tags).ShowDialog(this);
 		}
 
 		//mxd
@@ -3349,8 +3348,16 @@ namespace CodeImp.DoomBuilder.Windows
 			if (General.Map == null)
 				return;
 
-			ThingStatisticsForm f = new ThingStatisticsForm();
-			f.ShowDialog(this);
+			new MapStatisticsForm(MapStatisticsTab.Things).ShowDialog(this);
+		}
+
+		[BeginAction("viewmapstatistics")]
+		internal void ViewMapStatistics()
+		{
+			if(General.Map == null)
+				return;
+
+			new MapStatisticsForm(null).ShowDialog(this);
 		}
 
 		//mxd

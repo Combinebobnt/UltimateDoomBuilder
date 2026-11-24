@@ -364,12 +364,6 @@
     <Compile Include="Windows\ThingMultipleBrowserForm.Designer.cs">
       <DependentUpon>ThingMultipleBrowserForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Windows\ThingStatisticsForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Windows\ThingStatisticsForm.Designer.cs">
-      <DependentUpon>ThingStatisticsForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="VisualModes\VisualBlockMap.cs" />
     <Compile Include="VisualModes\VisualMode.cs" />
     <Compile Include="General\Clock.cs" />
@@ -700,6 +694,25 @@
     <Compile Include="Map\Statistics\ThingTallyInfo.cs" />
     <Compile Include="Map\Statistics\ThingTallyResolver.cs" />
     <Compile Include="Map\Statistics\VanillaDoomAmounts.cs" />
+    <Compile Include="Map\Statistics\MapOverviewStats.cs" />
+    <Compile Include="Controls\ThingTypesStatsPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\ThingTypesStatsPanel.Designer.cs">
+      <DependentUpon>ThingTypesStatsPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\TagStatsPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\TagStatsPanel.Designer.cs">
+      <DependentUpon>TagStatsPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Windows\MapStatisticsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\MapStatisticsForm.Designer.cs">
+      <DependentUpon>MapStatisticsForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Map\LightmapAtlasExport.cs" />
     <Compile Include="Map\LightmapPreview.cs" />
     <Compile Include="Map\LightmapProbeGrid.cs" />
@@ -805,6 +818,15 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Controls\ThingTypesStatsPanel.resx">
+      <DependentUpon>ThingTypesStatsPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Controls\TagStatsPanel.resx">
+      <DependentUpon>TagStatsPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Windows\MapStatisticsForm.resx">
+      <DependentUpon>MapStatisticsForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Controls\CommandPaletteControl.resx">
       <DependentUpon>CommandPaletteControl.cs</DependentUpon>
     </EmbeddedResource>
@@ -829,9 +851,6 @@
     <EmbeddedResource Include="Windows\ThingMultipleBrowserForm.resx">
       <DependentUpon>ThingMultipleBrowserForm.cs</DependentUpon>
       <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Windows\ThingStatisticsForm.resx">
-      <DependentUpon>ThingStatisticsForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Windows\AboutForm.resx">
       <SubType>Designer</SubType>
@@ -1259,12 +1278,6 @@
     <Compile Include="Windows\ExceptionDialog.designer.cs">
       <DependentUpon>ExceptionDialog.cs</DependentUpon>
     </Compile>
-    <Compile Include="Windows\TagStatisticsForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Windows\TagStatisticsForm.Designer.cs">
-      <DependentUpon>TagStatisticsForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="IO\ClipboardStreamReader.cs" />
     <Compile Include="IO\DoomColormapReader.cs" />
     <Compile Include="IO\ClipboardStreamWriter.cs" />
@@ -1471,9 +1484,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Windows\ScriptGoToLineForm.resx">
       <DependentUpon>ScriptGoToLineForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Windows\TagStatisticsForm.resx">
-      <DependentUpon>TagStatisticsForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\Crosshair.png" />
     <EmbeddedResource Include="Resources\CrosshairBusy.png" />

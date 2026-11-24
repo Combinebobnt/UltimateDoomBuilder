@@ -22,6 +22,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Map;
+using CodeImp.DoomBuilder.Map.Statistics;
 using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.Editing;
 
@@ -246,7 +247,7 @@ namespace CodeImp.DoomBuilder.AutomapMode
 		{
 			secretsectors = new HashSet<Sector>();
 			foreach(Sector s in General.Map.Map.Sectors)
-				if(SectorIsSecret(s)) secretsectors.Add(s);
+				if(MapOverviewStats.SectorIsSecret(s)) secretsectors.Add(s);
 		}
 
 		private PixelColor DetermineLinedefColor(Linedef ld)
@@ -299,25 +300,6 @@ namespace CodeImp.DoomBuilder.AutomapMode
 		private bool EditSectors()
 		{
 			return editSectors && General.Map.UDMF;
-		}
-
-		//mxd
-		private static bool SectorIsSecret(Sector s)
-		{
-			SectorEffectData data = General.Map.Config.GetSectorEffectData(s.Effect);
-
-			if(General.Map.DOOM)
-			{
-				// Sector is secret when it's Special is 9 or it has generalized flag 128
-				if(data.Effect == 9 || data.GeneralizedBits.Contains(128)) return true;
-			}
-			else
-			{
-				//Hexen/UDMF: sector is secret when it has generalized flag 1024
-				if(data.GeneralizedBits.Contains(1024)) return true;
-			}
-
-			return false;
 		}
 
 		//mxd
