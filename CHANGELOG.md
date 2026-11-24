@@ -24,7 +24,7 @@ Changes this fork makes on top of upstream [UltimateDoomBuilder/UltimateDoomBuil
 - **Texture selection:** fuzzy and bounded regex search, size and color sorting, color/transparency filters, and per-configuration pinned favorites with Ctrl+D, context-menu pinning, and favorites-only browsing.
 - **Key bindings:** each action accepts a primary and an alternate shortcut in Preferences > Controls, with conflicts checked across both and both shown in the command palette and shortcut reference.
 - **Tag ranges:** row/column ordering, start corners, row strides, linedef orientation filtering, and linedef/thing argument targets, with a preview summary and one undo step.
-- **Edit Selection:** new toolbar and side panel buttons, and assignable actions with no default key, rotate the selection (including a paste) 90 degrees clockwise or counterclockwise about its centre.
+- **Edit Selection:** new toolbar and side panel buttons, and assignable actions with no default key, rotate the selection (including a paste) 90 degrees clockwise or counterclockwise about its center.
 - **Draw Grid:** the post-draw sector dialog edits every split cell, including triangulated grids, without editing an enclosing pre-existing room.
 - **Extrude Linedefs:** a new Linedefs-mode tool pulls selected linedef chains out along their normals into new sectors, following the mouse live or taking a typed distance; open chains can also move off-axis on the grid, and loops extruded inward get the height change on their new bands.
 - **Dialog loading:** cached font names and batched list fills make repeated Preferences and Game Configurations opens faster.

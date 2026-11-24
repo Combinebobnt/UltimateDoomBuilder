@@ -100,10 +100,10 @@
 	</p>
 	<ul>
 		<li><b>Match:</b> the baker's TEXTMAP (with your current things), ZNODES and LIGHTMAP are written, and the normal nodebuilder is skipped.</li>
-		<li><b>No match:</b> the lightmap is left out and the normal nodebuilder runs. The next save into a file adds "Lightmap dropped: the map changed since it was baked." to the <a href="../../../w_errorsandwarnings.html">Errors and Warnings</a> window, once. <b>Testing and autosaving drop the lightmap without a warning</b>, so a test after an edit shows flat lighting.</li>
+		<li><b>No match:</b> the lightmap is left out and the normal nodebuilder runs. The next save into a file adds "Lightmap dropped: the map changed since it was baked." to the <a href="../../../w_errorsandwarnings.html">Errors and Warnings</a> window, once. Autosaves drop the lightmap without a warning; Test Map warns (see below).</li>
 	</ul>
 	<p>
-		Moving or adding the player 1 start and moving the Visual mode camera thing keep the match, so testing from the current position still uses the bake. <b>Any other change breaks the match</b>, including a moved monster or a changed texture.<br>
+		The fingerprint covers the map's geometry, sectors, sides and lines, and only the things the baker reads: the lightmap light things and probes, the ZDRayInfo sun, polyobject anchors and spawn spots, and slope and vertex-height things. <b>Moving, adding or removing monsters, items, decorations or player starts keeps the match</b>, so testing from the current position still uses the bake. Any other change breaks it, including a moved light or a changed texture.<br>
 		<br>
 		A practical loop: build and light the map, bake, test, adjust the lights, bake again. Bake last before the final save.
 	</p>
@@ -120,7 +120,9 @@
 	<p>
 		Visual mode does not show baked light; the lightmap light things are drawn there like ordinary dynamic lights.<br>
 		<br>
-		Use <b>Test Map</b> to see the bake. When the saved test map contains a LIGHTMAP lump, the editor adds the configuration's <b>-enablelightmaps</b> parameter to the engine command line, so make sure the test engine is UZDoom. When you start the map yourself, add <b>-enablelightmaps</b>; without it UZDoom ignores the lump.
+		Use <b>Test Map</b> to see the bake. When the saved test map contains a LIGHTMAP lump, the editor adds the configuration's <b>-enablelightmaps</b> parameter to the engine command line, so make sure the test engine is UZDoom. When you start the map yourself, add <b>-enablelightmaps</b>; without it UZDoom ignores the lump.<br>
+		<br>
+		When Test Map would run without a bake the map no longer matches, the editor says so before the engine starts. The first time it asks: <b>Yes</b> bakes again and then tests, <b>No</b> tests without the lightmap, <b>Cancel</b> doesn't test. When the map can't be baked in the current configuration, the choice is only <b>OK</b> (test without) or <b>Cancel</b>. After that, each test without the bake shows a warning in the status bar, until the map matches a bake again.
 	</p>
 
 	<h2>Troubleshooting</h2>
@@ -147,11 +149,11 @@
 		</tr>
 		<tr>
 			<td>The saved file has no LIGHTMAP lump, with a warning in Errors and Warnings</td>
-			<td>Something other than the player 1 start or the camera thing changed after the bake.</td>
+			<td>The geometry, a texture, a light or another thing the baker reads changed after the bake.</td>
 		</tr>
 		<tr>
 			<td>Testing shows flat sector lighting, with no warning</td>
-			<td>The map was edited since the bake (testing drops the lightmap silently), or the test engine is not UZDoom.</td>
+			<td>The test engine is not UZDoom. (A test without a bake that no longer matches always warns.)</td>
 		</tr>
 		<tr>
 			<td>Your own UZDoom launch shows no baked light</td>

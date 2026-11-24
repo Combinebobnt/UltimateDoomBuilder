@@ -2105,6 +2105,7 @@ namespace CodeImp.DoomBuilder
 			catch(Exception e)
 			{
 				General.WriteLogLine(e.GetType().Name + " while reading the lightmap bake: " + e.Message);
+				lightmapstale = true;
 				return false;
 			}
 
@@ -2116,13 +2117,17 @@ namespace CodeImp.DoomBuilder
 				if(swapped == null)
 				{
 					General.WriteLogLine("The lightmap bake's TEXTMAP is missing or unreadable.");
+					lightmapstale = true;
 					return false;
 				}
 
 				// As BuildNodes' copy-back, with the bake as the build WAD; no earlier BLOCKMAP or REJECT survives
 				General.WriteLogLine("Applying the lightmap bake (" + lightmapbake.Summary + ")...");
 				if(!CopyBakeLumps(temp, TEMP_MAP_HEADER, baked, BUILD_MAP_HEADER, config.MapLumps, UniversalStreamReader.ENCODING.GetBytes(swapped)))
+				{
+					lightmapstale = true;
 					return false;
+				}
 			}
 
 			RestoreUnknownUDMFData(temp, TEMP_MAP_HEADER);
