@@ -67,7 +67,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				int first = Math.Max(a, 0);
 				int last = Math.Min(b, n - 1);
-				if(!Crosses(p, first, last, pivot, vertical))
+				// A core running along the axis mid-path would retrace that segment when merged
+				bool alongaxis = false;
+				for(int i = first; i < last; i++) alongaxis |= on[i] && on[i + 1];
+
+				if(!alongaxis && !Crosses(p, first, last, pivot, vertical))
 				{
 					List<DrawnVertex> core = p.GetRange(first, last - first + 1);
 					int k = core.Count;
@@ -198,6 +202,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			for(int i = 0; i < paths.Count; i++)
 			{
+				// Lines bounding the sectors earlier paths created, to recognize pieces split off them
+				HashSet<Linedef> earlierlines = new HashSet<Linedef>();
+				foreach(Sector s in newsectors)
+					if(!s.IsDisposed) foreach(Sidedef sd in s.Sidedefs) earlierlines.Add(sd.Line);
+
 				if(!Tools.DrawLines(paths[i], true, autoalign))
 				{
 					General.Map.UndoRedo.WithdrawUndo();
@@ -211,13 +220,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				if(General.Settings.SplitJoinedSectors) Tools.SplitOuterSectors(General.Map.Map.GetMarkedLinedefs(true));
 				newsectors.AddRange(General.Map.Map.GetMarkedSectors(true));
 
-				// A later copy can split an earlier copy's sector; those pieces are never marked
-				if(i > 0)
+				// A later path can split an earlier path's sector; those pieces are never marked.
+				// Pieces of rooms that existed before the draw stay out, as when drawing by hand.
+				if(earlierlines.Count > 0)
 				{
 					foreach(Linedef l in General.Map.Map.GetMarkedLinedefs(true))
 					{
-						if(l.Front != null) newsectors.Add(l.Front.Sector);
-						if(l.Back != null) newsectors.Add(l.Back.Sector);
+						if(l.Front != null && BordersAny(l.Front.Sector, earlierlines)) newsectors.Add(l.Front.Sector);
+						if(l.Back != null && BordersAny(l.Back.Sector, earlierlines)) newsectors.Add(l.Back.Sector);
 					}
 				}
 			}
@@ -225,6 +235,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			newsectors = new List<Sector>(new HashSet<Sector>(newsectors));
 			newsectors.RemoveAll(s => s.IsDisposed || oldsectors.Contains(s) || s.Sidedefs == null || s.Sidedefs.Count == 0);
 			return true;
+		}
+
+		private static bool BordersAny(Sector s, HashSet<Linedef> lines)
+		{
+			foreach(Sidedef sd in s.Sidedefs) if(lines.Contains(sd.Line)) return true;
+			return false;
 		}
 
 		#endregion

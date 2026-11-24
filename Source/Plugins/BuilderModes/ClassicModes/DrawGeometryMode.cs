@@ -254,7 +254,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(mirrory) axes.Add(new Line3D(new Vector2D(General.Map.Config.LeftBoundary, pivot.y), new Vector2D(General.Map.Config.RightBoundary, pivot.y), axiscolor, false));
 			renderer.RenderArrows(axes);
 
-			if(points.Count > 1) RenderReplicas(DrawingSymmetry.Mirror(points, pivot, mirrorx, mirrory));
+			// Accept draws the original alone when a copy leaves the map, so show none then
+			if(points.Count > 1)
+			{
+				List<List<DrawnVertex>> paths = DrawingSymmetry.Mirror(points, pivot, mirrorx, mirrory);
+				if(DrawingSymmetry.AnyOutside(paths, General.Map.Config.LeftBoundary, General.Map.Config.RightBoundary,
+					General.Map.Config.TopBoundary, General.Map.Config.BottomBoundary)) return;
+				RenderReplicas(paths);
+			}
 
 			// Each active reflection of the rubber band and the mouse vertex
 			PixelColor dim = General.Colors.Selection.WithAlpha(64);
@@ -932,9 +939,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					}
 				}
 
-				string suffix = "";
-				if(paths.Count > 1) suffix = " (mirrored, " + (paths.Count - 1) + (paths.Count == 2 ? " copy)" : " copies)");
-				else if(paths[0].Count != points.Count) suffix = " (mirrored)";
+				string suffix = (paths.Count > 1 || paths[0].Count != points.Count) ? " (mirrored)" : "";
 				General.Interface.DisplayStatus(StatusType.Action, "Created " + a + word + " drawing" + suffix + ".");
 
 				// Make the drawing

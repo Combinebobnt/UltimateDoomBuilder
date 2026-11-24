@@ -93,6 +93,31 @@ namespace Builder.Tests
 			List<List<DrawnVertex>> r = DrawingSymmetry.Mirror(p, P, true, false);
 			Assert.Equal(2, r.Count);
 			Equal(p, r[0]);
+			Equal(Path(64, 64, 32, 48, 128, 32, 64, 0), r[1]);
+		}
+
+		[Fact]
+		public void CoreRunningAlongAxisDoesNotMerge()
+		{
+			List<DrawnVertex> p = Path(64, 0, 0, 16, 64, 32, 64, 48, 0, 56, 64, 64);
+			List<List<DrawnVertex>> r = DrawingSymmetry.Mirror(p, P, true, false);
+			Assert.Equal(2, r.Count);
+			Equal(p, r[0]);
+
+			// A single interior touch still merges
+			r = DrawingSymmetry.Mirror(Path(64, 0, 0, 16, 64, 32, 0, 48, 64, 64), P, true, false);
+			Assert.Single(r);
+			Assert.Equal(9, r[0].Count);
+		}
+
+		[Fact]
+		public void BothAxesMirrorEndRunsToo()
+		{
+			// x-pass: loop plus the run (64,-32)-(64,0); y-pass (axis y=32) mirrors each
+			List<List<DrawnVertex>> r = DrawingSymmetry.Mirror(Path(64, -32, 64, 0, 0, 16, 64, 24), P, true, true);
+			Assert.Equal(4, r.Count);
+			Equal(Path(64, -32, 64, 0), r[2]);
+			Equal(Path(64, 64, 64, 96), r[3]);
 		}
 
 		[Fact]
@@ -111,20 +136,21 @@ namespace Builder.Tests
 		public void OnAxisEndRunsComeOutAsSeparatePaths()
 		{
 			// Leading run (64,-32)-(64,0), then out to the left and back to the axis
-			List<List<DrawnVertex>> r = DrawingSymmetry.Mirror(Path(64, -32, 64, 0, 0, 32, 64, 64), P, true, false);
-			Assert.Equal(2, r.Count);
-			Equal(Path(64, 0, 0, 32, 64, 64, 128, 32, 64, 0), r[0]);
-			Equal(Path(64, -32, 64, 0), r[1]);
+			List<List<DrawnVertex>> lead = DrawingSymmetry.Mirror(Path(64, -32, 64, 0, 0, 32, 64, 64), P, true, false);
+			Assert.Equal(2, lead.Count);
+			Equal(Path(64, 0, 0, 32, 64, 64, 128, 32, 64, 0), lead[0]);
+			Equal(Path(64, -32, 64, 0), lead[1]);
 
-			r = DrawingSymmetry.Mirror(Path(64, 0, 0, 32, 64, 64, 64, 96), P, true, false);
-			Assert.Equal(2, r.Count);
-			Equal(Path(64, 0, 0, 32, 64, 64, 128, 32, 64, 0), r[0]);
-			Equal(Path(64, 64, 64, 96), r[1]);
+			List<List<DrawnVertex>> trail = DrawingSymmetry.Mirror(Path(64, 0, 0, 32, 64, 64, 64, 96), P, true, false);
+			Assert.Equal(2, trail.Count);
+			Equal(Path(64, 0, 0, 32, 64, 64, 128, 32, 64, 0), trail[0]);
+			Equal(Path(64, 64, 64, 96), trail[1]);
 
 			// No output path doubles back on a segment
-			foreach(List<DrawnVertex> path in r)
-				for(int i = 0; i + 2 < path.Count; i++)
-					Assert.False(Same(path[i].pos, path[i + 2].pos), Show(path));
+			foreach(List<List<DrawnVertex>> r in new[] { lead, trail })
+				foreach(List<DrawnVertex> path in r)
+					for(int i = 0; i + 2 < path.Count; i++)
+						Assert.False(Same(path[i].pos, path[i + 2].pos), Show(path));
 		}
 
 		private static bool Same(Vector2D a, Vector2D b)
