@@ -687,6 +687,7 @@
     <Compile Include="Rendering\Renderer.cs" />
     <Compile Include="Rendering\Renderer2D.cs" />
     <Compile Include="Rendering\Renderer3D.cs" />
+    <Compile Include="Rendering\SurfaceLights.cs" />
     <Compile Include="VisualModes\VisualSector.cs" />
     <Compile Include="Rendering\WorldVertex.cs" />
     <Compile Include="ZDoom\DecalDefsParser.cs" />

@@ -255,34 +255,50 @@ namespace CodeImp.DoomBuilder.Rendering
             RenderDevice_SetShader(Handle, shader);
         }
 
-        public void SetUniform(UniformName uniform, bool value)
+        // Scalar and vector uniforms go through stack memory: the 3D renderer sets several per draw
+        public unsafe void SetUniform(UniformName uniform, bool value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new float[] { value ? 1.0f : 0.0f }, 1, sizeof(float));
+            float v = value ? 1.0f : 0.0f;
+            RenderDevice_SetUniform(Handle, uniform, &v, 1, sizeof(float));
         }
 
-        public void SetUniform(UniformName uniform, float value)
+        public unsafe void SetUniform(UniformName uniform, float value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new float[] { value }, 1, sizeof(float));
+            RenderDevice_SetUniform(Handle, uniform, &value, 1, sizeof(float));
         }
 
-        public void SetUniform(UniformName uniform, Vector2f value)
+        public unsafe void SetUniform(UniformName uniform, Vector2f value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new float[] { value.X, value.Y }, 1, sizeof(float) * 2);
+            float* v = stackalloc float[2];
+            v[0] = value.X; v[1] = value.Y;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(float) * 2);
         }
 
-        public void SetUniform(UniformName uniform, Vector3f value)
+        public unsafe void SetUniform(UniformName uniform, Vector3f value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new float[] { value.X, value.Y, value.Z }, 1, sizeof(float) * 3);
+            float* v = stackalloc float[3];
+            v[0] = value.X; v[1] = value.Y; v[2] = value.Z;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(float) * 3);
         }
 
-        public void SetUniform(UniformName uniform, Vector4f value)
+        public unsafe void SetUniform(UniformName uniform, Vector4f value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new float[] { value.X, value.Y, value.Z, value.W }, 1, sizeof(float) * 4);
+            float* v = stackalloc float[4];
+            v[0] = value.X; v[1] = value.Y; v[2] = value.Z; v[3] = value.W;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(float) * 4);
         }
 
-        public void SetUniform(UniformName uniform, Color4 value)
+        public unsafe void SetUniform(UniformName uniform, Color4 value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new float[] { value.Red, value.Green, value.Blue, value.Alpha }, 1, sizeof(float) * 4);
+            float* v = stackalloc float[4];
+            v[0] = value.Red; v[1] = value.Green; v[2] = value.Blue; v[3] = value.Alpha;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(float) * 4);
+        }
+
+        // The first elements of a packed float array uniform; elements past them keep their previous values
+        public void SetUniformArray(UniformName uniform, float[] data, int elements, int floatsperelement)
+        {
+            RenderDevice_SetUniform(Handle, uniform, data, elements, sizeof(float) * floatsperelement * elements);
         }
 
         public void SetUniform(UniformName uniform, Matrix matrix)
@@ -295,24 +311,30 @@ namespace CodeImp.DoomBuilder.Rendering
             RenderDevice_SetUniform(Handle, uniform, ref matrix, 1, sizeof(float) * 16);
         }
 
-        public void SetUniform(UniformName uniform, int value)
+        public unsafe void SetUniform(UniformName uniform, int value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new int[] { value }, 1, sizeof(int));
+            RenderDevice_SetUniform(Handle, uniform, &value, 1, sizeof(int));
         }
 
-        public void SetUniform(UniformName uniform, Vector2i value)
+        public unsafe void SetUniform(UniformName uniform, Vector2i value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new int[] { value.X, value.Y }, 1, sizeof(int) * 2);
+            int* v = stackalloc int[2];
+            v[0] = value.X; v[1] = value.Y;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(int) * 2);
         }
 
-        public void SetUniform(UniformName uniform, Vector3i value)
+        public unsafe void SetUniform(UniformName uniform, Vector3i value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new int[] { value.X, value.Y, value.Z }, 1, sizeof(int) * 3);
+            int* v = stackalloc int[3];
+            v[0] = value.X; v[1] = value.Y; v[2] = value.Z;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(int) * 3);
         }
 
-        public void SetUniform(UniformName uniform, Vector4i value)
+        public unsafe void SetUniform(UniformName uniform, Vector4i value)
         {
-            RenderDevice_SetUniform(Handle, uniform, new int[] { value.X, value.Y, value.Z, value.W }, 1, sizeof(int) * 4);
+            int* v = stackalloc int[4];
+            v[0] = value.X; v[1] = value.Y; v[2] = value.Z; v[3] = value.W;
+            RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(int) * 4);
         }
 
         public void SetUniform(UniformName uniform, Vector2f[] value)
@@ -640,6 +662,12 @@ namespace CodeImp.DoomBuilder.Rendering
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
         static extern void RenderDevice_SetUniform(IntPtr handle, UniformName name, ref Matrix data, int count, int bytesize);
+
+        [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
+        static extern unsafe void RenderDevice_SetUniform(IntPtr handle, UniformName name, float* data, int count, int bytesize);
+
+        [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
+        static extern unsafe void RenderDevice_SetUniform(IntPtr handle, UniformName name, int* data, int count, int bytesize);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
         static extern void RenderDevice_SetVertexBuffer(IntPtr handle, IntPtr buffer);

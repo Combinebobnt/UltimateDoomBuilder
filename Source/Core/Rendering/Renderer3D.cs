@@ -37,7 +37,6 @@ namespace CodeImp.DoomBuilder.Rendering
 
 		private const float PROJ_NEAR_PLANE = 1f;
 		private const float FOG_RANGE = 0.9f;
-        private const int MAX_DYNLIGHTS_PER_SURFACE = 64;
 
 		#endregion
 
@@ -109,6 +108,8 @@ namespace CodeImp.DoomBuilder.Rendering
 
 		//mxd. Things with attached dynamic lights
 		private List<VisualThing> lightthings;
+		private readonly SurfaceLights surfacelights = new SurfaceLights();
+		private int litsurfaces, lightuploads; // per frame, for frame timing
 		
 		//mxd. Things, which should be rendered as models
 		private Dictionary<ModelData, List<VisualThing>> maskedmodelthings;
@@ -455,6 +456,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			if(General.Settings.GZDrawLightsMode != LightRenderMode.NONE && !fullbrightness && lightthings.Count > 0)
 				UpdateLights();
 			FrameTiming.Lap(FrameBucket.Lights);
+			litsurfaces = lightuploads = 0;
 
 			// Initial renderstates
 			graphics.SetCullMode(Cull.Clockwise);
@@ -540,7 +542,8 @@ namespace CodeImp.DoomBuilder.Rendering
 
 			// Remove references
 			graphics.SetTexture(null);
-			
+			FrameTiming.NoteLights(lightthings.Count, litsurfaces, lightuploads);
+
 			//mxd. Trash collections
 			solidgeo = null;
 			maskedgeo = null;
@@ -904,19 +907,12 @@ namespace CodeImp.DoomBuilder.Rendering
             // Begin rendering with this shader
             graphics.SetShader(shaderpass);
 
-            // Light data arrays
-            Vector4f[] lightColor = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector4f[] lightPosAndRadius = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector4f[] lightOrientation = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector2f[] light2Radius = new Vector2f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector2f[] lightStrengthAndLinearity = new Vector2f[MAX_DYNLIGHTS_PER_SURFACE];
+            surfacelights.Begin(lights);
 
             graphics.SetUniform(UniformName.lightsEnabled, lights.Count > 0);
             graphics.SetUniform(UniformName.ignoreNormals, false);
-			
-            graphics.SetUniform(UniformName.useLightStrength, General.Map.Data.MapInfo.LightAttenuationMode == "InverseSquare");
 
-            bool hadlights = false;
+            graphics.SetUniform(UniformName.useLightStrength, General.Map.Data.MapInfo.LightAttenuationMode == "InverseSquare");
 
             // volte: Set textures for classic lighting
             if (classicLightingColorMap != null)
@@ -947,58 +943,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				
 				foreach(VisualGeometry g in group.Value)
 				{
-
-                    int lightIndex = 0;
-
-                    foreach (VisualThing light in lights)
-                    {
-                        if (BoundingBoxesIntersect(g.BoundingBox, light.BoundingBox))
-                        {
-
-                            //t.LightType.LightRenderStyle
-                            //Vector4f lightColor, lightPosAndRadius, lightOrientation, light2Radius;
-
-                            lightColor[lightIndex] = light.LightColor.ToVector();
-                            lightPosAndRadius[lightIndex] = new Vector4f(light.Center, light.LightRadius);
-
-                            // set type of light
-                            if (light.LightType.LightType == GZGeneral.LightType.SPOT)
-                            {
-                                lightOrientation[lightIndex] = new Vector4f(light.VectorLookAt, 1f);
-                                light2Radius[lightIndex] = new Vector2f(CosDeg(light.LightSpotRadius1), CosDeg(light.LightSpotRadius2));
-                            }
-                            else lightOrientation[lightIndex].W = 0f;
-
-							float diameter = light.LightRadius * 2;
-
-							lightStrengthAndLinearity[lightIndex] = new Vector2f(Math.Min(1500.0f, (diameter * diameter) / 10), light.LightLinearity);
-
-                            lightIndex++;
-
-                            if (lightIndex >= lightColor.Length)
-                                break;
-
-                        }
-                    }
-
-                    bool havelights = (lightIndex > 0);
-
-                    for (int i = lightIndex; i < lightColor.Length; i++)
-                        lightColor[i].W = 0;
-
-                    if (havelights != hadlights || havelights)
-                    {
-                        graphics.SetUniform(UniformName.lightColor, lightColor);
-                        if (havelights)
-                        {
-                            graphics.SetUniform(UniformName.lightPosAndRadius, lightPosAndRadius);
-                            graphics.SetUniform(UniformName.lightOrientation, lightOrientation);
-                            graphics.SetUniform(UniformName.light2Radius, light2Radius);
-                            graphics.SetUniform(UniformName.lightStrengthAndLinearity, lightStrengthAndLinearity);
-                        }
-                    }
-
-                    hadlights = havelights;
+					SelectSurfaceLights(g.BoundingBox);
 
 					// Changing sector?
 					if(!object.ReferenceEquals(g.Sector, sector))
@@ -1305,75 +1250,17 @@ namespace CodeImp.DoomBuilder.Rendering
 			graphics.SetShader(shaderpass);
 
 
-            // Light data arrays
-            Vector4f[] lightColor = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector4f[] lightPosAndRadius = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector4f[] lightOrientation = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector2f[] light2Radius = new Vector2f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector2f[] lightStrengthAndLinearity = new Vector2f[MAX_DYNLIGHTS_PER_SURFACE];
+            surfacelights.Begin(lights);
 
             graphics.SetUniform(UniformName.lightsEnabled, lights.Count > 0);
             graphics.SetUniform(UniformName.ignoreNormals, false);
-			
-            graphics.SetUniform(UniformName.useLightStrength, General.Map.Data.MapInfo.LightAttenuationMode == "InverseSquare");
 
-            bool hadlights = false;
+            graphics.SetUniform(UniformName.useLightStrength, General.Map.Data.MapInfo.LightAttenuationMode == "InverseSquare");
 
             // Go for all geometry
             foreach (VisualGeometry g in geopass)
 			{
-
-                int lightIndex = 0;
-
-                foreach (VisualThing light in lights)
-                {
-                    if (BoundingBoxesIntersect(g.BoundingBox, light.BoundingBox))
-                    {
-
-                        //t.LightType.LightRenderStyle
-                        //Vector4f lightColor, lightPosAndRadius, lightOrientation, light2Radius;
-
-                        lightColor[lightIndex] = light.LightColor.ToVector();
-                        lightPosAndRadius[lightIndex] = new Vector4f(light.Center, light.LightRadius);
-
-                        // set type of light
-                        if (light.LightType.LightType == GZGeneral.LightType.SPOT)
-                        {
-                            lightOrientation[lightIndex] = new Vector4f(light.VectorLookAt, 1f);
-                            light2Radius[lightIndex] = new Vector2f(CosDeg(light.LightSpotRadius1), CosDeg(light.LightSpotRadius2));
-                        }
-                        else lightOrientation[lightIndex].W = 0f;
-
-						float diameter = light.LightRadius * 2;
-
-						lightStrengthAndLinearity[lightIndex] = new Vector2f(Math.Min(1500.0f, (diameter * diameter) / 10), light.LightLinearity);
-
-                        lightIndex++;
-
-                        if (lightIndex >= lightColor.Length)
-                            break;
-
-                    }
-                }
-
-                bool havelights = (lightIndex > 0);
-
-                for (int i = lightIndex; i < lightColor.Length; i++)
-                    lightColor[i].W = 0;
-
-                if (havelights != hadlights || havelights)
-                {
-                    graphics.SetUniform(UniformName.lightColor, lightColor);
-                    if (havelights)
-                    {
-                        graphics.SetUniform(UniformName.lightPosAndRadius, lightPosAndRadius);
-                        graphics.SetUniform(UniformName.lightOrientation, lightOrientation);
-                        graphics.SetUniform(UniformName.light2Radius, light2Radius);
-                        graphics.SetUniform(UniformName.lightStrengthAndLinearity, lightStrengthAndLinearity);
-                    }
-                }
-
-                hadlights = havelights;
+                SelectSurfaceLights(g.BoundingBox);
 
                 // Change blend mode?
                 if (g.RenderPass != currentpass)
@@ -1692,19 +1579,12 @@ namespace CodeImp.DoomBuilder.Rendering
             // Begin rendering with this shader
             graphics.SetShader(currentshaderpass);
 
-            // Light data arrays
-            Vector4f[] lightColor = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector4f[] lightPosAndRadius = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector4f[] lightOrientation = new Vector4f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector2f[] light2Radius = new Vector2f[MAX_DYNLIGHTS_PER_SURFACE];
-            Vector2f[] lightStrengthAndLinearity = new Vector2f[MAX_DYNLIGHTS_PER_SURFACE];
+            surfacelights.Begin(lights);
 
             graphics.SetUniform(UniformName.lightsEnabled, lights.Count > 0);
             graphics.SetUniform(UniformName.ignoreNormals, true);
-			
-            graphics.SetUniform(UniformName.useLightStrength, General.Map.Data.MapInfo.LightAttenuationMode == "InverseSquare");
 
-            bool hadlights = false;
+            graphics.SetUniform(UniformName.useLightStrength, General.Map.Data.MapInfo.LightAttenuationMode == "InverseSquare");
 
             List<VisualThing> things;
             if (trans)
@@ -1804,57 +1684,7 @@ namespace CodeImp.DoomBuilder.Rendering
                     graphics.SetUniform(UniformName.desaturation, (float)t.Thing.Sector.Desaturation);
                 else graphics.SetUniform(UniformName.desaturation, 0.0f);
 
-                int lightIndex = 0;
-
-                foreach (VisualThing light in lights)
-                {
-                    if (BoundingBoxesIntersect(t.BoundingBox, light.BoundingBox))
-                    {
-
-                        //t.LightType.LightRenderStyle
-                        //Vector4f lightColor, lightPosAndRadius, lightOrientation, light2Radius;
-
-                        lightColor[lightIndex] = light.LightColor.ToVector();
-                        lightPosAndRadius[lightIndex] = new Vector4f(light.Center, light.LightRadius);
-
-                        // set type of light
-                        if (light.LightType.LightType == GZGeneral.LightType.SPOT)
-                        {
-                            lightOrientation[lightIndex] = new Vector4f(light.VectorLookAt, 1f);
-                            light2Radius[lightIndex] = new Vector2f(CosDeg(light.LightSpotRadius1), CosDeg(light.LightSpotRadius2));
-                        }
-                        else lightOrientation[lightIndex].W = 0f;
-
-						float diameter = light.LightRadius * 2;
-
-						lightStrengthAndLinearity[lightIndex] = new Vector2f(Math.Min(1500.0f, (diameter * diameter) / 10), light.LightLinearity);
-
-                        lightIndex++;
-
-                        if (lightIndex >= lightColor.Length)
-                            break;
-
-                    }
-                }
-
-                bool havelights = (lightIndex > 0);
-
-                for (int i = lightIndex; i < lightColor.Length; i++)
-                    lightColor[i].W = 0;
-
-                if (hadlights != havelights || havelights)
-                {
-                    graphics.SetUniform(UniformName.lightColor, lightColor);
-                    if (havelights)
-                    {
-                        graphics.SetUniform(UniformName.lightPosAndRadius, lightPosAndRadius);
-                        graphics.SetUniform(UniformName.lightOrientation, lightOrientation);
-                        graphics.SetUniform(UniformName.light2Radius, light2Radius);
-                        graphics.SetUniform(UniformName.lightStrengthAndLinearity, lightStrengthAndLinearity);
-                    }
-                }
-
-                hadlights = havelights;
+                SelectSurfaceLights(t.BoundingBox);
 
                 GZModel model = General.Map.Data.ModeldefEntries[t.Thing.Type].Model;
                 for (int j = 0; j < model.Meshes.Count; j++)
@@ -2143,15 +1973,14 @@ namespace CodeImp.DoomBuilder.Rendering
 		//mxd
 		public void SetEventLines(List<Line3D> lines) { eventlines = lines; }
 
-		//mxd
-		private static bool BoundingBoxesIntersect(Vector3D[] bbox1, Vector3D[] bbox2) 
+		// Picks one surface's dynamic lights and uploads them when the set changed
+		private void SelectSurfaceLights(Vector3D[] box)
 		{
-			Vector3D dist = bbox1[0] - bbox2[0];
-
-			Vector3D halfSize1 = bbox1[0] - bbox1[1];
-			Vector3D halfSize2 = bbox2[0] - bbox2[1];
-
-			return (halfSize1.x + halfSize2.x >= Math.Abs(dist.x) && halfSize1.y + halfSize2.y >= Math.Abs(dist.y) && halfSize1.z + halfSize2.z >= Math.Abs(dist.z));
+			bool upload = surfacelights.Select(box);
+			if(surfacelights.SelectedCount > 0) litsurfaces++;
+			if(!upload) return;
+			surfacelights.Upload(graphics);
+			lightuploads++;
 		}
 
 		// This renders the crosshair

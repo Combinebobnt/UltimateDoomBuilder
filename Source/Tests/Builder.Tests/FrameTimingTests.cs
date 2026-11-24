@@ -166,6 +166,7 @@ namespace Builder.Tests
 				r.Timer.TickBegin("VisualMode");
 				r.Timer.NoteCamera(new Vector3D(i * 2.0, 0, 0), i * Angle2D.DegToRad(1.0), 0);
 				r.Timer.NoteVisible(100 + i, 5);
+				r.Timer.NoteLights(12, 300 - i, 40 + i);
 				r.Timer.TickEnd();
 				r.Time = start + 16;
 			}
@@ -175,6 +176,25 @@ namespace Builder.Tests
 			Assert.Equal((n - 1.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), first["cam_turn_deg"]);
 			Assert.Equal((100 + n - 1).ToString(), first["vis_geo"]);
 			Assert.Equal("5", first["vis_things"]);
+			Assert.Equal("12", first["dyn_lights"]);
+			Assert.Equal("300", first["lit_surfaces"]);
+			Assert.Equal((40 + n - 1).ToString(), first["light_uploads"]);
+		}
+
+		[Fact]
+		public void LightCountsAppearOnlyInWindowsThatNotedThem()
+		{
+			Rig r = new Rig();
+			for(int i = 0; i < 140; i++)
+			{
+				double start = r.Time;
+				r.Timer.TickBegin("VisualMode");
+				if(i < 30) r.Timer.NoteLights(8, 100, 10); // the second window starts near tick 63
+				r.Timer.TickEnd();
+				r.Time = start + 16;
+			}
+			Assert.True(r.Lines[0].ContainsKey("dyn_lights"));
+			Assert.False(r.Lines[1].ContainsKey("dyn_lights"));
 		}
 
 		[Fact]

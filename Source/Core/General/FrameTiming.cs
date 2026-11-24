@@ -71,6 +71,11 @@ namespace CodeImp.DoomBuilder
 			if(intick) timer.NoteChained();
 		}
 
+		internal static void NoteLights(int lights, int litsurfaces, int uploads)
+		{
+			if(intick) timer.NoteLights(lights, litsurfaces, uploads);
+		}
+
 		// Counted between ticks too; passes during a pause are dropped when the next tick starts a new window
 		internal static void NoteChainIdle(ChainIdle result, bool windowactive)
 		{
@@ -117,6 +122,7 @@ namespace CodeImp.DoomBuilder
 		private double lastanglexy, lastanglez;
 		private double distance, turn;
 		private int maxgeometry = -1, maxthings = -1;
+		private int maxlights = -1, maxlit = -1, maxuploads = -1;
 
 		internal FrameTimer(Func<double> clock, Action<string, string[]> emit)
 		{
@@ -217,6 +223,13 @@ namespace CodeImp.DoomBuilder
 			maxthings = Math.Max(maxthings, things);
 		}
 
+		internal void NoteLights(int lights, int litsurfaces, int uploads)
+		{
+			maxlights = Math.Max(maxlights, lights);
+			maxlit = Math.Max(maxlit, litsurfaces);
+			maxuploads = Math.Max(maxuploads, uploads);
+		}
+
 		private void Flush(double now)
 		{
 			double gapsum = 0;
@@ -242,6 +255,12 @@ namespace CodeImp.DoomBuilder
 				f.Add("vis_geo"); f.Add(Num(maxgeometry));
 				f.Add("vis_things"); f.Add(Num(maxthings));
 			}
+			if(maxlights >= 0)
+			{
+				f.Add("dyn_lights"); f.Add(Num(maxlights));
+				f.Add("lit_surfaces"); f.Add(Num(maxlit));
+				f.Add("light_uploads"); f.Add(Num(maxuploads));
+			}
 			if(windowcamera)
 			{
 				f.Add("cam_dist"); f.Add(distance.ToString("0.0", CultureInfo.InvariantCulture));
@@ -259,6 +278,7 @@ namespace CodeImp.DoomBuilder
 			windowcamera = false;
 			maxgeometry = -1;
 			maxthings = -1;
+			maxlights = maxlit = maxuploads = -1;
 		}
 
 		private void AddStats(List<string> f, string name, double[] values)
