@@ -27,19 +27,22 @@ namespace Builder.Tests
 			Configuration cfg = Load(name);
 			string[] types = Keys(cfg, "thingtypes.lightmaplights").Where(k => k.All(char.IsDigit)).ToArray();
 			Assert.Equal(new[] { "9876", "9881", "9890" }, types);
-			Assert.Equal(new[] { "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "thingtypes.lightmaplights.9890.adduniversalfields"));
+			Assert.Equal(new[] { "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "thingtypes.lightmaplights.9890.adduniversalfields"));
 
 			// Merged into the standard UDMF fields, not replacing them
 			Assert.Equal(new[] { "lm_sampledist", "lm_sampledist_bot", "lm_sampledist_mid", "lm_sampledist_top" }, Keys(cfg, "universalfields.sidedef").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("scalex_top", Keys(cfg, "universalfields.sidedef"));
 			Assert.Equal(new[] { "lm_sampledist_ceiling", "lm_sampledist_floor" }, Keys(cfg, "universalfields.sector").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("lightfloor", Keys(cfg, "universalfields.sector"));
-			Assert.Equal(new[] { "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
+			Assert.Equal(new[] { "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("health", Keys(cfg, "universalfields.thing"));
 			Assert.Empty(Keys(cfg, "universalfields.linedef").Where(k => k.StartsWith("lm_")));
 
 			// The baker parses the sun colour as hex text
 			Assert.Equal(2, cfg.ReadSetting("universalfields.thing.lm_suncolor.type", -1));
+
+			// The baker reads a bounce count; UDB's old VkDoom-era field was a bool
+			Assert.Equal(0, cfg.ReadSetting("universalfields.thing.lm_bounce.type", -1));
 
 			// Soft shadow source radius on both baked lights; the default must match the baker's absent = 0,
 			// since the fields grid drops a value equal to its default
