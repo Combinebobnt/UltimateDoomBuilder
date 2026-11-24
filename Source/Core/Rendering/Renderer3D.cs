@@ -75,6 +75,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		private LightmapPreview lightmapatlassource;
 		private long lightmapatlasversion; // MapManager.LightmapSourceVersion it was made under; a new bake frees it
 		private bool lightmapdrawn; // this frame
+		private LightmapProbeGrid thingprobes; // the drawn preview's probes, null when none
 		
 		// Slope handle
 		private VisualSlopeHandle visualslopehandle;
@@ -937,6 +938,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			}
 
 			lightmapdrawn = preview != null && lightmapatlas != null && !fullbrightness && !General.Settings.ClassicRendering;
+			thingprobes = lightmapdrawn ? preview.Probes : null;
 			graphics.SetTexture(lightmapdrawn ? lightmapatlas : null, LightmapUnit);
 			if(lightmapdrawn)
 			{
@@ -974,6 +976,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			lightmapatlas = null;
 			lightmapatlassource = null;
 			lightmapdrawn = false;
+			thingprobes = null;
 		}
 
 		// This performs a single render pass
@@ -1223,6 +1226,7 @@ namespace CodeImp.DoomBuilder.Rendering
                             graphics.SetUniform(UniformName.vertexColor, vertexcolor);
                             graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(vertexlight));
                             graphics.SetUniform(UniformName.vertexColorAdd, vertexadd);
+                            SetThingProbe(t, false);
                             graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((t == highlighted) && showhighlight, (t.Selected && showselection)));
 
                             // [ZZ] check if we want stencil
@@ -1298,6 +1302,27 @@ namespace CodeImp.DoomBuilder.Rendering
 		{
 			graphics.SetUniform(UniformName.lightoverride, new Vector4f());
 			graphics.SetUniform(UniformName.vertexColorAdd, new Color4());
+			graphics.SetUniform(UniformName.thingprobe, new Vector4f());
+		}
+
+		// The baked probe light of a thing (the engine skips fullbright sprites, never models), or none
+		private void SetThingProbe(VisualThing t, bool model)
+		{
+			bool lit = thingprobes != null && (model || !(t.LightType != null && t.LightType.LightInternal) && t.Thing.Type != 9875 && !t.Info.Bright);
+			if(!lit)
+			{
+				graphics.SetUniform(UniformName.thingprobe, new Vector4f());
+				return;
+			}
+			Vector3f c = t.ActorCenter;
+			if(t.ProbeGrid != thingprobes || t.ProbeAt != c)
+			{
+				Vector3f color;
+				t.ProbeColor = thingprobes.TryFind(c.X, c.Y, c.Z, out color) ? new Vector4f(color.X, color.Y, color.Z, 1f) : new Vector4f();
+				t.ProbeGrid = thingprobes;
+				t.ProbeAt = c;
+			}
+			graphics.SetUniform(UniformName.thingprobe, t.ProbeColor);
 		}
 
 		// Wall glow of one geometry, or none
@@ -1599,6 +1624,7 @@ namespace CodeImp.DoomBuilder.Rendering
                         graphics.SetUniform(UniformName.vertexColor, vertexcolor);
                         graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(vertexlight));
                         graphics.SetUniform(UniformName.vertexColorAdd, vertexadd);
+                        SetThingProbe(t, false);
                         graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((t == highlighted) && showhighlight, (t.Selected && showselection)));
 
                         // [ZZ] check if we want stencil
@@ -1740,6 +1766,7 @@ namespace CodeImp.DoomBuilder.Rendering
                 // Check if model is affected by dynamic lights and set color accordingly
                 graphics.SetUniform(UniformName.vertexColor, vertexcolor);
                 graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(t.VertexLight));
+                SetThingProbe(t, true);
 
 				// Determine the shader pass we want to use for this object
 				ShaderName wantedshaderpass = ((((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass);
@@ -1795,7 +1822,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			}
 
             graphics.SetUniform(UniformName.lightsEnabled, false);
-
+            ResetThingLight();
         }
 
 		//mxd

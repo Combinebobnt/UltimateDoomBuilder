@@ -672,6 +672,7 @@
     <Compile Include="Map\LightmapStats.cs" />
     <Compile Include="Map\LightmapAtlasExport.cs" />
     <Compile Include="Map\LightmapPreview.cs" />
+    <Compile Include="Map\LightmapProbeGrid.cs" />
     <Compile Include="Map\LightmapPreviewState.cs" />
     <Compile Include="Map\GlSubsectors.cs" />
     <Compile Include="Map\BakerIndexMap.cs" />

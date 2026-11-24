@@ -44,6 +44,8 @@ namespace CodeImp.DoomBuilder.Map
 
 		public const int MAX_SURFACES = 1 << 21;
 		public const int MAX_TEXCOORDS = 1 << 23;
+		public const int MAX_PROBES = 1 << 22; // 96 MiB of probe data
+		public const float MAX_PROBE_COORD = 1 << 24;
 
 		private const uint NO_CONTROL_SECTOR = 0xFFFFFFFF;
 
@@ -57,6 +59,8 @@ namespace CodeImp.DoomBuilder.Map
 		public LightmapSurface[] Surfaces { get; private set; }
 		public float[] TexCoords { get; private set; } // u, v pairs
 		public ushort[] Texels { get; private set; } // RGB half floats, layer after layer, row after row
+		public float[] Probes { get; private set; } // x, y, z, r, g, b per probe; empty when dropped, null for a layout read
+		public string ProbeError { get; private set; } // why the probes were dropped, null when kept
 
 		#endregion
 
@@ -146,7 +150,9 @@ namespace CodeImp.DoomBuilder.Map
 
 				using(BinaryReader reader = Inflate(compressed))
 				{
-					Skip(reader, LightmapLump.HEADER_SIZE + header.LightProbeCount * 24L);
+					Skip(reader, LightmapLump.HEADER_SIZE);
+					if(texels) data.ReadProbes(reader, header.LightProbeCount);
+					else Skip(reader, header.LightProbeCount * 24L);
 
 					int count = (int)header.SurfaceCount;
 					data.Surfaces = new LightmapSurface[count];
@@ -221,6 +227,35 @@ namespace CodeImp.DoomBuilder.Map
 			}
 
 			return data;
+		}
+
+		// Keeps the probes when they are sane, else drops them with a reason; the surfaces load either way
+		private void ReadProbes(BinaryReader reader, long count)
+		{
+			Probes = new float[0];
+			if(count > MAX_PROBES)
+			{
+				Skip(reader, count * 24L);
+				ProbeError = count + " light probes are more than " + MAX_PROBES;
+				return;
+			}
+			float[] probes = new float[count * 6];
+			for(int i = 0; i < probes.Length; i++) probes[i] = reader.ReadSingle();
+			for(int i = 0; i < probes.Length; i++)
+			{
+				float f = probes[i];
+				if(float.IsNaN(f) || float.IsInfinity(f))
+				{
+					ProbeError = "light probe " + (i / 6) + " is not finite";
+					return;
+				}
+				if(i % 6 < 3 && Math.Abs(f) > MAX_PROBE_COORD)
+				{
+					ProbeError = "light probe " + (i / 6) + " lies outside the map's range";
+					return;
+				}
+			}
+			Probes = probes;
 		}
 
 		// Checks the surface indices against the map the lump belongs to

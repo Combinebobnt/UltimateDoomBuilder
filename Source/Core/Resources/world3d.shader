@@ -38,6 +38,8 @@ uniforms
 	// Baked lightmap atlas, its layers stacked vertically; lightmapinfo x 1 when drawn, y the layer count, z half a texel in v within a layer
 	sampler2D texture15;
 	vec4 lightmapinfo;
+	// The baked light probe lighting the thing drawn: rgb its colour, w 1 when the thing is probe-lit
+	vec4 thingprobe;
 
 	// classic lighting related
 	int drawPaletted;
@@ -363,12 +365,13 @@ functions
 			float v = clamp(lm.y, lightmapinfo.z, 1.0 - lightmapinfo.z);
 			baselight.rgb += textureLod(texture15, vec2(lm.x, (layer + v) / lightmapinfo.y), 0.0).rgb;
 		}
+		baselight.rgb += desaturatePart(vec4(thingprobe.rgb, 1.0)).rgb;
 		return baselight;
 	}
 
 	float lightmapMaxLight(vec3 lm)
 	{
-		return hasLightmap(lm) ? 1.4 : 0.0;
+		return hasLightmap(lm) || thingprobe.w > 0.5 ? 1.4 : 0.0;
 	}
 
 	// Glow from the ceiling and floor flats, fading over its height (the engine's main.fp arithmetic)

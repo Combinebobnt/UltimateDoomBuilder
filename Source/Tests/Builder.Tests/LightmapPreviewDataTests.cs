@@ -10,8 +10,10 @@ namespace Builder.Tests
 		#region ================== Lump builders
 
 		// type, typeIndex, controlSector (-1 none), layer, firstTexCoord
-		internal static byte[] Lump(int size, int layers, int[][] surfaces, float[] texcoords, int probes = 0, int subsectors = 0, int version = 0, Func<int, ushort> texel = null)
+		// probeValues (x, y, z, r, g, b each) replaces probes zeroed ones
+		internal static byte[] Lump(int size, int layers, int[][] surfaces, float[] texcoords, int probes = 0, int subsectors = 0, int version = 0, Func<int, ushort> texel = null, float[] probeValues = null)
 		{
+			if(probeValues != null) probes = probeValues.Length / 6;
 			var body = new MemoryStream();
 			var w = new BinaryWriter(body);
 			w.Write(version);
@@ -21,7 +23,8 @@ namespace Builder.Tests
 			w.Write((uint)(texcoords.Length / 2));
 			w.Write((uint)probes);
 			w.Write((uint)subsectors);
-			for(int i = 0; i < probes * 24; i++) w.Write((byte)0);
+			if(probeValues != null) foreach(float f in probeValues) w.Write(f);
+			else for(int i = 0; i < probes * 24; i++) w.Write((byte)0);
 			foreach(int[] s in surfaces)
 			{
 				w.Write((uint)s[0]);

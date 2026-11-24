@@ -139,6 +139,12 @@ namespace CodeImp.DoomBuilder.VisualModes
 			} 
 		}
 		public Vector3D CenterV3D { get { return RenderDevice.V3D(Center); } }
+		public Vector3f ActorCenter { get { return new Vector3f(position_v3.X, position_v3.Y, position_v3.Z + Thing.Height / 2f); } } // the game's Center()
+
+		// Renderer3D's last probe lookup: the grid, the point and the uniform it gave
+		internal LightmapProbeGrid ProbeGrid;
+		internal Vector3f ProbeAt;
+		internal Vector4f ProbeColor;
 		public float LocalCenterZ { get { return thingheight / 2f; } } //mxd
 		public Vector3f PositionV3 { get { return position_v3; } }
 		public Vector3D[] BoundingBox { get { return boundingBox; } }

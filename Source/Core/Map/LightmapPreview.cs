@@ -89,6 +89,7 @@ namespace CodeImp.DoomBuilder.Map
 		public int TextureSize { get { return data.TextureSize; } }
 		public int LayerCount { get { return data.TextureCount; } }
 		public string Source { get; internal set; }
+		public LightmapProbeGrid Probes { get; private set; } // null when the bake has none or they were dropped
 
 		#endregion
 
@@ -192,6 +193,7 @@ namespace CodeImp.DoomBuilder.Map
 				}
 			}
 
+			if(data.Probes != null && data.Probes.Length > 0) preview.Probes = new LightmapProbeGrid(data.Probes);
 			error = null;
 			return preview;
 		}

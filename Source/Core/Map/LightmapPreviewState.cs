@@ -197,6 +197,7 @@ namespace CodeImp.DoomBuilder.Map
 					if(gl == null) return "the bake's ZNODES: " + error;
 					data = LightmapData.Read(wad.Lumps[lightmap].Stream.ReadAllBytes(), out error);
 					if(data == null) return "the bake's LIGHTMAP: " + error;
+					if(data.ProbeError != null) General.WriteLogLine("Lightmap preview: things are not lit from the bake, " + data.ProbeError);
 				}
 			}
 			catch(Exception e)
