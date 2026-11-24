@@ -2911,9 +2911,12 @@ namespace CodeImp.DoomBuilder.Data
 			}
 		}
 
+		// Material programs take the shader slots after every built-in one
+		internal static readonly int FirstMaterialProgram = Enum.GetValues(typeof(ShaderName)).Cast<int>().Max() + 1;
+
 		private void DeclareMaterialProgram(string key, UserShaderProgram program)
 		{
-			program.Index = (ShaderName)((int)ShaderName.world3d_classic_highlight + 1 + materialprograms.Values.Count(value => value != null));
+			program.Index = (ShaderName)(FirstMaterialProgram + materialprograms.Values.Count(value => value != null));
 			materialprograms[key] = program;
 			General.Map.Graphics.DeclareShader(program.Index, program.Path, program.VertexSource, program.FragmentSource);
 		}

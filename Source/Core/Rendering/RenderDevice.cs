@@ -121,6 +121,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
             // fog 3d shaders
             CompileShader(ShaderName.world3d_main_fog, "world3d.shader", "world3d_main_fog");
+            CompileShader(ShaderName.world3d_fogboundary, "world3d.shader", "world3d_fogboundary");
             CompileShader(ShaderName.world3d_main_highlight_vertexcolor, "world3d.shader", "world3d_highlight_vertexcolor");
             CompileShader(ShaderName.world3d_main_highlight_fog, "world3d.shader", "world3d_main_highlight_fog");
             CompileShader(ShaderName.world3d_main_fog_vertexcolor, "world3d.shader", "world3d_main_fog_vertexcolor");
@@ -787,7 +788,9 @@ namespace CodeImp.DoomBuilder.Rendering
 		world3d_slope_handle,
         world3d_classic,
         world3d_p19,
-        world3d_classic_highlight
+        world3d_classic_highlight,
+        // Renderer3D steps between the entries above by fixed offsets: add new programs below
+        world3d_fogboundary
     }
 
     public enum UniformType : int

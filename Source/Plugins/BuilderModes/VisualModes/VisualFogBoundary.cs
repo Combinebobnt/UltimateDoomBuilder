@@ -32,8 +32,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd
 			geometrytype = VisualGeometryType.FOG_BOUNDARY;
 			
-			// Set render pass
-			this.RenderPass = RenderPass.Additive;
+			// Alpha-blended: the fog colour covers what lies behind by the fog amount
+			this.RenderPass = RenderPass.Alpha;
 			
 			// We have no destructor
 			GC.SuppressFinalize(this);
@@ -136,8 +136,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Check if the current linedef is a candidate for a fog boundary
 		//
 		// Requirements for a fog boundary:
-		// - front sector has no fog
-		// - back sector has fog
+		// - this sidedef's sector has fog
+		// - the other side's sector has no fog
 		// - at least one of both does not have a sky ceiling.
 		//
 		//==========================================================================

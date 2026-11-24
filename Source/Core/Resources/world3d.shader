@@ -628,6 +628,19 @@ shader world3d_main_highlight_fog_vertexcolor extends world3d_main_highlight_fog
 	}
 }
 
+// Fog boundary face: the fog colour over what lies behind it, alpha-blended by the fog amount (the engine's fogboundary.fp)
+shader world3d_fogboundary extends world3d_main
+{
+	fragment
+	{
+		float fogdist = max(16.0, distance(v2f.PosW, campos.xyz));
+		out.FragColor = vec4(sectorfogcolor.rgb, 1.0 - exp2(campos.w * fogdist));
+
+		// Editor distance fog on the colour only: blending then equals fogging the composite
+		if (fogsettings.x >= 0.0) out.FragColor.rgb = mix(out.FragColor.rgb, fogcolor.rgb, clamp((-v2f.viewpos.z - fogsettings.x) / (fogsettings.y - fogsettings.x), 0.0, 1.0));
+	}
+}
+
 // Slope handle shader
 shader world3d_slope_handle extends world3d_vertex_color
 {
