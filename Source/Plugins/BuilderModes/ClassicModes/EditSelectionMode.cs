@@ -371,16 +371,36 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void ApplyRotation(double newrotation)
 		{
 			Vector2D pivot;
-			if(TryGetPivot(out pivot)) PivotMath.RotateBoxAbout(ref offset, size, ref rotation, pivot, newrotation - rotation);
+			if(TryGetPivot(out pivot))
+			{
+				PivotMath.RotateBoxAbout(ref offset, size, ref rotation, pivot, newrotation - rotation);
+				rotation = newrotation;
+				RebaseDrag();
+				return;
+			}
 			rotation = newrotation;
 		}
 
 		private void StartRotateGrip(Vector2D corner, Vector2D center)
 		{
+			// Around the pivot the angle is measured from the mouse, since a corner can sit on the 2D cursor
 			gripaboutpivot = TryGetPivot(out grippivot);
-			rotategripangle = (corner - (gripaboutpivot ? grippivot : center)).GetAngle() - rotation;
+			if(gripaboutpivot) StartPivotGrip();
+			else rotategripangle = (corner - center).GetAngle() - rotation;
+		}
+
+		private void StartPivotGrip()
+		{
+			rotategripangle = (mousemappos - grippivot).GetAngle() - rotation;
 			gripstartoffset = offset;
 			gripstartrotation = rotation;
+		}
+
+		// After a pivot transform, a drag in progress continues from the new state instead of undoing it
+		private void RebaseDrag()
+		{
+			if(mode == ModifyMode.Dragging) dragoffset = mousemappos - offset;
+			else if(mode == ModifyMode.Rotating && gripaboutpivot) StartPivotGrip();
 		}
 		
 		// This updates all after changes were made
@@ -2409,6 +2429,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(TryGetPivot(out pivot))
 			{
 				PivotMath.MirrorBoxAcross(ref offset, ref size, ref rotation, pivot, false);
+				RebaseDrag();
 				UpdateAllChanges();
 				return;
 			}
@@ -2433,6 +2454,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(TryGetPivot(out pivot))
 			{
 				PivotMath.MirrorBoxAcross(ref offset, ref size, ref rotation, pivot, true);
+				RebaseDrag();
 				UpdateAllChanges();
 				return;
 			}

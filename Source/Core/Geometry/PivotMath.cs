@@ -28,9 +28,8 @@ namespace CodeImp.DoomBuilder.Geometry
 
 		#region ================== Edit Selection boxes
 
-		// Box state as Edit Selection mode keeps it: the box center is offset + size / 2 and the
-		// contents are rotated by rotation about that center. Rotating about another point keeps the
-		// size, adds delta to rotation and swings the center around the pivot.
+		// Edit Selection's box: center offset + size / 2, contents rotated about it. Turning about another
+		// point keeps the size, adds delta to rotation and swings the center around the pivot.
 		public static void RotateBoxAbout(ref Vector2D offset, Vector2D size, ref double rotation, Vector2D pivot, double delta)
 		{
 			Vector2D center = offset + size * 0.5;
