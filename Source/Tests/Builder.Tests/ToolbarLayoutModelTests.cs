@@ -44,11 +44,22 @@ namespace Builder.Tests
 			ToolbarLayoutModel m = ToolbarLayoutModel.Default();
 			Assert.Equal("file,script,undo,clipboard,prefabs,filters,view,geometry,rendering,testing", Join(m.Rows(TOP, 0)));
 			Assert.Equal(ToolbarLayoutModel.EDGE_AUTO, m.Get("modes").Edge);
-			Assert.Equal(RIGHT, m.EffectiveEdge("modes", 0)); // Dockers left
-			Assert.Equal(LEFT, m.EffectiveEdge("modes", 1)); // Dockers right
-			Assert.Equal(LEFT, m.EffectiveEdge("modes", 2)); // No dockers
+			Assert.Equal(RIGHT, ToolbarLayoutModel.ResolveEdge(m.Get("modes").Edge, 0)); // Dockers left
+			Assert.Equal(LEFT, ToolbarLayoutModel.ResolveEdge(m.Get("modes").Edge, 1)); // Dockers right
+			Assert.Equal(LEFT, ToolbarLayoutModel.ResolveEdge(m.Get("modes").Edge, 2)); // No dockers
 			Assert.Equal("modes", Join(m.Rows(LEFT, 1)));
 			Assert.Equal("", Join(m.Rows(BOTTOM, 0)));
+
+			// A strip moved onto the automatic modes edge gets a row of its own, joining or not
+			ToolbarLayoutModel j = ToolbarLayoutModel.Default();
+			Assert.True(j.Move("view", LEFT, 0, false, 0));
+			Assert.True(j.Move("undo", LEFT, 0, true, 0));
+			List<List<string>> left = j.Rows(LEFT, 1);
+			Assert.Equal(3, left.Count);
+			Assert.Equal("modes", string.Join(",", left[0]));
+			Assert.Equal("undo", string.Join(",", left[1]));
+			Assert.True(j.Move("testing", RIGHT, 0, false, 0));
+			Assert.Equal(2, j.Rows(RIGHT, 0).Count); // Dockers moved: modes still alone on its new edge
 			Assert.False(m.Locked);
 		}
 

@@ -94,7 +94,10 @@ namespace CodeImp.DoomBuilder.Windows
 #else
 			string[] horizontalonly = null;
 #endif
-			model = ToolbarLayoutModel.Load(General.Settings.ReadSetting(SETTINGS_KEY, (System.Collections.IDictionary)null), horizontalonly);
+			System.Collections.IDictionary block = null;
+			try { block = General.Settings.ReadSetting(SETTINGS_KEY, (System.Collections.IDictionary)null); }
+			catch(InvalidCastException) { } // A hand-edited plain value loads as the default layout
+			model = ToolbarLayoutModel.Load(block, horizontalonly);
 		}
 
 		#endregion
@@ -325,10 +328,15 @@ namespace CodeImp.DoomBuilder.Windows
 			finally
 			{
 				form.ResumeLayout(true);
+				try
+				{
+					for(int edge = 0; edge < 4; edge++) PlaceStrips(edge);
+				}
+				finally
+				{
+					inlayout = false; // Never left set by a throw, which would freeze the toolbars
+				}
 			}
-
-			for(int edge = 0; edge < 4; edge++) PlaceStrips(edge);
-			inlayout = false;
 
 			bool resized = false;
 			for(int i = 0; i < 4; i++) resized |= (oldthickness[i] != Thickness(i));
@@ -419,9 +427,10 @@ namespace CodeImp.DoomBuilder.Windows
 						? new Rectangle(laid.Bounds.X, positions[i], laid.Bounds.Width, sizes[i])
 						: new Rectangle(positions[i], laid.Bounds.Y, sizes[i], laid.Bounds.Height);
 					if(s.Strip.Bounds != s.Bounds) s.Strip.Bounds = s.Bounds;
-
+#if MONO_WINFORMS
 					// Mono can leave an item where an earlier, narrower layout put it, painting over its neighbours
 					s.Strip.PerformLayout();
+#endif
 				}
 			}
 		}
@@ -483,9 +492,22 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Moving
 
+		// The automatic modes row is outermost and alone: a drop on it, or before it, opens a row just
+		// inside it; modes itself dropped there becomes a fixed outermost row
+		public ToolbarDropTarget NormalizeTarget(string id, ToolbarDropTarget t)
+		{
+			if(!t.Valid || t.Row != 0 || !model.ModesAuto) return t;
+			List<LaidRow> rows = laidrows[t.Edge];
+			if(rows.Count == 0 || rows[0].Strips.Count == 0 || rows[0].Strips[0].Id != ToolbarLayoutModel.MODES) return t;
+			t.NewRow = true;
+			if(id != ToolbarLayoutModel.MODES) t.Row = 1;
+			return t;
+		}
+
 		// Applies a drop: hit-test rows count visible rows only, the model counts all of them
 		public void Commit(string id, ToolbarDropTarget t)
 		{
+			t = NormalizeTarget(id, t);
 			if(!t.Valid) return;
 			List<LaidRow> rows = laidrows[t.Edge];
 			int modelrow;

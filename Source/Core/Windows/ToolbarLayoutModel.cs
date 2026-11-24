@@ -127,17 +127,20 @@ namespace CodeImp.DoomBuilder.Windows
 			return (dockersposition == 0) ? EDGE_RIGHT : EDGE_LEFT;
 		}
 
-		public int EffectiveEdge(string id, int dockersposition) { return ResolveEdge(placements[id].Edge, dockersposition); }
+		// True when the modes strip still follows the dockers; it then holds the outermost row of its edge alone
+		public bool ModesAuto { get { return placements[MODES].Edge == EDGE_AUTO; } }
 
 		// The strips on one edge, grouped by row and ordered along each row
 		public List<List<string>> Rows(int edge, int dockersposition)
 		{
 			List<ToolbarPlacement> onedge = new List<ToolbarPlacement>();
 			foreach(string id in IDS)
-				if(ResolveEdge(placements[id].Edge, dockersposition) == edge) onedge.Add(placements[id]);
+				if(placements[id].Edge != EDGE_AUTO && placements[id].Edge == edge) onedge.Add(placements[id]);
 			onedge.Sort(ComparePlacements);
 
+			// Automatic modes rows are numbered apart from the edge's own rows, so never share one
 			List<List<string>> rows = new List<List<string>>();
+			if(ModesAuto && ResolveEdge(EDGE_AUTO, dockersposition) == edge) rows.Add(new List<string> { MODES });
 			int lastrow = int.MinValue;
 			foreach(ToolbarPlacement p in onedge)
 			{

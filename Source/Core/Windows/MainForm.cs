@@ -1213,7 +1213,7 @@ namespace CodeImp.DoomBuilder.Windows
 			displayresized = true;
 
 			//mxd. Separators may need updating
-			UpdateSeparators();
+			UpdateSeparators(false);
 			
 			// Request redraw
 			if(!redrawtimer.Enabled) redrawtimer.Enabled = true;
@@ -2200,7 +2200,10 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 
 		// This hides redundant separators
-		internal void UpdateSeparators()
+		internal void UpdateSeparators() { UpdateSeparators(true); }
+
+		// A display resize changes no item's visibility, so it skips the toolbar relayout
+		private void UpdateSeparators(bool relayout)
 		{
 			if(toolbardock == null) return;
 			foreach(ToolStrip strip in toolbardock.Strips)
@@ -2212,7 +2215,7 @@ namespace CodeImp.DoomBuilder.Windows
 			UpdateToolStripSeparators(modecontrolsloolbar.Items, true);
 
 			// Strips show and hide with their items
-			toolbardock.RequestLayout();
+			if(relayout) toolbardock.RequestLayout();
 		}
 		
 		// This hides redundant separators

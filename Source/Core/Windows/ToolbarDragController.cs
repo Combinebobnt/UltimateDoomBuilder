@@ -29,12 +29,6 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#endregion
 
-		#region ================== Properties
-
-		public bool Dragging { get { return dragging; } }
-
-		#endregion
-
 		#region ================== Constructor
 
 		public ToolbarDragController(Form form, ToolbarDock dock)
@@ -151,7 +145,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private void UpdateTarget(Point p)
 		{
-			target = dock.Model.HitTest(pressedid, p, dock.GetGeometry(), grab);
+			target = dock.NormalizeTarget(pressedid, dock.Model.HitTest(pressedid, p, dock.GetGeometry(), grab));
 			if(!target.Valid)
 			{
 				indicator.Visible = false;
