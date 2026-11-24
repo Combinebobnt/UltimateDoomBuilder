@@ -55,7 +55,7 @@ namespace CodeImp.DoomBuilder.Portals
 			{
 				int front = (l.Front != null && l.Front.Sector != null) ? l.Front.Sector.Index : -1;
 				int back = (l.Back != null && l.Back.Sector != null) ? l.Back.Sector.Index : -1;
-				data.AddLine(l.Action, l.Args, caps.Hexen ? null : NonZero(l.Tags), l.Start.Position, l.End.Position, front, back);
+				data.AddLine(l.Action, l.Args, caps.Hexen ? null : NonZero(l.Tags), l.Start.Position, l.End.Position, front, back, l.Start.Index, l.End.Index);
 			}
 			if(caps.Hexen) data.AssignHexenIds(caps);
 

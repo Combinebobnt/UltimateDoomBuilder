@@ -13,6 +13,8 @@ namespace CodeImp.DoomBuilder.Portals
 		public int[] Ids = new int[0];
 		public Vector2D V1;
 		public Vector2D V2;
+		public int V1Index = -1;   // map vertex indices, -1 when unknown
+		public int V2Index = -1;
 		public int Front = -1;
 		public int Back = -1;
 
@@ -52,9 +54,9 @@ namespace CodeImp.DoomBuilder.Portals
 		public readonly List<PortalSector> Sectors = new List<PortalSector>();
 		public readonly List<PortalThing> Things = new List<PortalThing>();
 
-		public PortalLine AddLine(int action, int[] args, int[] ids, Vector2D v1, Vector2D v2, int front, int back)
+		public PortalLine AddLine(int action, int[] args, int[] ids, Vector2D v1, Vector2D v2, int front, int back, int v1index = -1, int v2index = -1)
 		{
-			PortalLine l = new PortalLine { Index = Lines.Count, Action = action, Args = PadArgs(args), Ids = ids ?? new int[0], V1 = v1, V2 = v2, Front = front, Back = back };
+			PortalLine l = new PortalLine { Index = Lines.Count, Action = action, Args = PadArgs(args), Ids = ids ?? new int[0], V1 = v1, V2 = v2, V1Index = v1index, V2Index = v2index, Front = front, Back = back };
 			Lines.Add(l);
 			return l;
 		}
@@ -71,6 +73,22 @@ namespace CodeImp.DoomBuilder.Portals
 			PortalThing t = new PortalThing { Index = Things.Count, Type = type, Tid = tid, Args = PadArgs(args), Position = pos, Sector = sector };
 			Things.Add(t);
 			return t;
+		}
+
+		public PortalMapData Clone()
+		{
+			PortalMapData copy = new PortalMapData();
+			foreach(PortalSector s in Sectors)
+			{
+				PortalSector c = copy.AddSector((int[])s.Tags.Clone());
+				c.FloorSloped = s.FloorSloped;
+				c.CeilingSloped = s.CeilingSloped;
+			}
+			foreach(PortalLine l in Lines)
+				copy.AddLine(l.Action, (int[])l.Args.Clone(), (int[])l.Ids.Clone(), l.V1, l.V2, l.Front, l.Back, l.V1Index, l.V2Index);
+			foreach(PortalThing t in Things)
+				copy.AddThing(t.Type, t.Tid, (int[])t.Args.Clone(), t.Position, t.Sector);
+			return copy;
 		}
 
 		// Replaces every line's ids with the ones the engine derives from args in Hexen format

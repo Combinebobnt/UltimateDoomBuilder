@@ -126,18 +126,7 @@ namespace CodeImp.DoomBuilder.Portals
 		// A copy of the snapshot with the plan written into it
 		public static PortalMapData Apply(PortalMapData data, PortalCapabilities caps, PortalCreatePlan plan)
 		{
-			PortalMapData copy = new PortalMapData();
-			foreach(PortalSector s in data.Sectors)
-			{
-				PortalSector c = copy.AddSector((int[])s.Tags.Clone());
-				c.FloorSloped = s.FloorSloped;
-				c.CeilingSloped = s.CeilingSloped;
-			}
-			foreach(PortalLine l in data.Lines)
-				copy.AddLine(l.Action, (int[])l.Args.Clone(), (int[])l.Ids.Clone(), l.V1, l.V2, l.Front, l.Back);
-			foreach(PortalThing t in data.Things)
-				copy.AddThing(t.Type, t.Tid, (int[])t.Args.Clone(), t.Position, t.Sector);
-
+			PortalMapData copy = data.Clone();
 			foreach(PortalSectorEdit e in plan.SectorEdits) copy.Sectors[e.Index].Tags = (int[])e.Tags.Clone();
 			foreach(PortalLineEdit e in plan.LineEdits)
 			{
@@ -345,7 +334,7 @@ namespace CodeImp.DoomBuilder.Portals
 			}
 		}
 
-		private static string IssueKey(PortalIssue issue)
+		internal static string IssueKey(PortalIssue issue)
 		{
 			List<string> parts = new List<string>();
 			foreach(PortalElement e in issue.Elements) parts.Add(e.ToString());
