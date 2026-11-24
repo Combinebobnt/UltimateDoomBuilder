@@ -857,6 +857,8 @@ namespace CodeImp.DoomBuilder
 				//mxd. Check for updates?
 #if !NO_UPDATER
 				if(General.Settings.CheckForUpdates) UpdateChecker.PerformCheck(false);
+#else
+				if(General.Settings.CheckForUpdates && ForkUpdateChecker.IsForkBuild) ForkUpdateChecker.PerformCheck(false);
 #endif
 
 				if(InteractionLog.Enabled)

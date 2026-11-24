@@ -1108,6 +1108,7 @@
     <Compile Include="General\MD5Hash.cs" />
     <Compile Include="General\MurmurHash2.cs" />
     <Compile Include="General\SavePurpose.cs" />
+    <Compile Include="General\ForkUpdateChecker.cs" />
     <Compile Include="General\UpdateChecker.cs" />
     <Compile Include="Geometry\CurveTools.cs" />
     <Compile Include="Geometry\InterpolationTools.cs" />
@@ -1762,6 +1763,7 @@
       <VersionLines Include="[assembly: AssemblyVersion(&quot;$(FullVersion)&quot;)]" />
       <VersionLines Include="[assembly: AssemblyFileVersion(&quot;$(FullVersion)&quot;)]" />
       <VersionLines Include="[assembly: AssemblyInformationalVersion(&quot;$(UdbVersionLabel)&quot;)]" Condition="'$(UdbVersionLabel)' != ''" />
+      <VersionLines Include="[assembly: AssemblyMetadata(&quot;UpdateRepository&quot;, &quot;$(UdbUpdateRepository)&quot;)]" Condition="'$(UdbVersionLabel)' != '' And '$(UdbUpdateRepository)' != ''" />
       <VersionLines Include="[assembly: AssemblyHash(&quot;$(GitCommitHash)&quot;)]" />
     </ItemGroup>
 

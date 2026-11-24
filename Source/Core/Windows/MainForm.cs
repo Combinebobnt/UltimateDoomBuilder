@@ -5037,6 +5037,18 @@ namespace CodeImp.DoomBuilder.Windows
             });
 		}
 
+		internal void ForkUpdateAvailable(ForkRelease release, string notes)
+		{
+			RunOnUIThread(() => {
+				UpdateForm form = new UpdateForm(release.Tag, release.PageUrl, notes);
+				form.FormClosing += delegate
+				{
+					General.Settings.IgnoredForkRelease = (form.IgnoreThisUpdate ? release.Tag : "");
+				};
+				form.Show(this);
+			});
+		}
+
 		#endregion
 
 		#region ================== Graphics (mxd)

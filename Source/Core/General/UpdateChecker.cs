@@ -22,6 +22,11 @@ namespace CodeImp.DoomBuilder
 #if NO_UPDATER
 		internal static void PerformCheck(bool verbosemode)
 		{
+			if(ForkUpdateChecker.IsForkBuild)
+			{
+				ForkUpdateChecker.PerformCheck(verbosemode);
+				return;
+			}
 			MessageBox.Show("Checking for updates is disabled in this version.");
 		}
 #else

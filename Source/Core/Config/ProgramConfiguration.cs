@@ -153,6 +153,7 @@ namespace CodeImp.DoomBuilder.Config
 		private bool rendergrid;
 		private bool dynamicgridsize;
 		private int ignoredremoterevision;
+		private string ignoredforkrelease;
 		
 		//volte
 		private bool classicRendering;
@@ -311,6 +312,7 @@ namespace CodeImp.DoomBuilder.Config
 		public bool RenderGrid { get { return rendergrid; } internal set { rendergrid = value; } } //mxd
 		public bool DynamicGridSize { get { return dynamicgridsize; } internal set { dynamicgridsize = value; } } //mxd
 		internal int IgnoredRemoteRevision { get { return ignoredremoterevision; } set { ignoredremoterevision = value; } } //mxd
+		internal string IgnoredForkRelease { get { return ignoredforkrelease; } set { ignoredforkrelease = value; } }
 		
 		//volte
 		public bool ClassicRendering { get { return classicRendering; } internal set { classicRendering = value; } }
@@ -463,6 +465,7 @@ namespace CodeImp.DoomBuilder.Config
 				rendergrid = cfg.ReadSetting("rendergrid", true); //mxd
 				dynamicgridsize = cfg.ReadSetting("dynamicgridsize", true); //mxd
 				ignoredremoterevision = cfg.ReadSetting("ignoredremoterevision", 0); //mxd
+				ignoredforkrelease = cfg.ReadSetting("ignoredforkrelease", "");
 
 				// volte
 				classicRendering = cfg.ReadSetting("classicrendering", false);
@@ -618,6 +621,7 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("rendergrid", rendergrid); //mxd
 			cfg.WriteSetting("dynamicgridsize", dynamicgridsize); //mxd
 			cfg.WriteSetting("ignoredremoterevision", ignoredremoterevision); //mxd
+			cfg.WriteSetting("ignoredforkrelease", ignoredforkrelease ?? "");
 
 			//volte
 			cfg.WriteSetting("classicrendering", classicRendering);
