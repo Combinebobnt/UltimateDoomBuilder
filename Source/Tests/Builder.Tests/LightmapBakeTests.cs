@@ -1,5 +1,6 @@
 using CodeImp.DoomBuilder;
 using CodeImp.DoomBuilder.Compilers;
+using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
 using System.Text;
@@ -268,6 +269,64 @@ namespace Builder.Tests
 			Assert.StartsWith("the bake lit no surfaces", Validate("XGLN", unlit, full));
 			byte[] truncated = LightmapRetentionTests.Zlib(LightmapRetentionTests.Header(0, 16, 1, 1, 4, 0, 1), 10);
 			Assert.StartsWith("the output LIGHTMAP is unreadable: truncated", Validate("XGLN", truncated, full));
+		}
+
+		#endregion
+
+		#region Applying a bake
+
+		private static byte[] Bytes(Lump lump)
+		{
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			return lump.Stream.ReadAllBytes();
+		}
+
+		[Fact]
+		public void BakeReplacesEveryNodebuildLumpAndKeepsTheRest()
+		{
+			Dictionary<string, MapLumpInfo> lumps = LightmapRetentionTests.MapLumps("UZDoom_DoomUDMF.cfg");
+			byte[] lightmap = GoodLightmap();
+			using(WAD temp = CreateWad(new[] { "TEMPMAP", "TEXTMAP", "BEHAVIOR", "ZNODES", "BLOCKMAP", "REJECT", "LIGHTMAP", "ENDMAP" }, n => Encoding.ASCII.GetBytes("old " + n)))
+			using(WAD baked = CreateWad(new[] { "MAP01", "TEXTMAP", "ZNODES", "LIGHTMAP", "ENDMAP" }, n => n == "LIGHTMAP" ? lightmap : Encoding.ASCII.GetBytes("baked " + n)))
+			{
+				byte[] textmap = Encoding.ASCII.GetBytes("swapped");
+				Assert.True(MapManager.CopyBakeLumps(temp, "TEMPMAP", baked, "MAP01", lumps, textmap));
+
+				Assert.Equal(new[] { "TEMPMAP", "TEXTMAP", "ZNODES", "LIGHTMAP", "BEHAVIOR", "ENDMAP" }, temp.Lumps.Select(l => l.Name).ToArray());
+				Assert.Equal(textmap, Bytes(temp.Lumps[1]));
+				Assert.Equal(Encoding.ASCII.GetBytes("baked ZNODES"), Bytes(temp.Lumps[2]));
+				Assert.Equal(lightmap, Bytes(temp.Lumps[3]));
+				Assert.Equal(Encoding.ASCII.GetBytes("old BEHAVIOR"), Bytes(temp.Lumps[4]));
+				Assert.Equal(3, MapManager.FindLightmapIndex(temp, "TEMPMAP"));
+			}
+		}
+
+		[Fact]
+		public void BakeWithoutATextmapChangesNothing()
+		{
+			Dictionary<string, MapLumpInfo> lumps = LightmapRetentionTests.MapLumps("UZDoom_DoomUDMF.cfg");
+			string[] names = { "TEMPMAP", "TEXTMAP", "ZNODES", "ENDMAP" };
+			using(WAD temp = CreateWad(names, n => Encoding.ASCII.GetBytes("old " + n)))
+			using(WAD baked = CreateWad(new[] { "MAP01", "ZNODES", "LIGHTMAP", "ENDMAP" }, n => Encoding.ASCII.GetBytes("baked " + n)))
+			{
+				Assert.False(MapManager.CopyBakeLumps(temp, "TEMPMAP", baked, "MAP01", lumps, new byte[] { 1 }));
+				Assert.False(MapManager.CopyBakeLumps(temp, "TEMPMAP", baked, "MAP02", lumps, new byte[] { 1 }));
+				Assert.Equal(names, temp.Lumps.Select(l => l.Name).ToArray());
+				Assert.Equal(Encoding.ASCII.GetBytes("old TEXTMAP"), Bytes(temp.Lumps[1]));
+			}
+		}
+
+		[Fact]
+		public void UnchangedSaveIsReroutedOnlyToBringBackAMatchingBake()
+		{
+			foreach(SavePurpose purpose in Enum.GetValues(typeof(SavePurpose)))
+			{
+				bool expected = (purpose != SavePurpose.Autosave);
+				Assert.Equal(expected, MapManager.ShouldRerouteToBake(purpose, true, false, false));
+				Assert.False(MapManager.ShouldRerouteToBake(purpose, false, false, false));
+				Assert.False(MapManager.ShouldRerouteToBake(purpose, true, true, false));
+				Assert.False(MapManager.ShouldRerouteToBake(purpose, true, false, true));
+			}
 		}
 
 		#endregion

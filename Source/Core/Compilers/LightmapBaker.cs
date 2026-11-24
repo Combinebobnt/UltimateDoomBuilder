@@ -180,6 +180,9 @@ namespace CodeImp.DoomBuilder.Compilers
 		private volatile bool cancelled;
 		private int exitcode = -1;
 		private bool finished;
+		private bool readersabandoned;
+		private readonly Stopwatch exitwatch = new Stopwatch(); // Since the process was seen to exit
+		private const int READER_GRACE_MS = 2000;
 
 		public bool Cancelled { get { return cancelled; } }
 		public TimeSpan Elapsed { get { return timer.Elapsed; } }
@@ -245,7 +248,9 @@ namespace CodeImp.DoomBuilder.Compilers
 		{
 			lock(sync)
 			{
-				if(!finished && process != null && process.HasExited && Array.TrueForAll(readers, t => !t.IsAlive))
+				bool exited = (!finished && process != null && process.HasExited);
+				if(exited && !exitwatch.IsRunning) exitwatch.Start();
+				if(exited && (readersabandoned || Array.TrueForAll(readers, t => !t.IsAlive) || exitwatch.ElapsedMilliseconds > READER_GRACE_MS))
 				{
 					finished = true;
 					exitcode = process.ExitCode;
@@ -267,20 +272,27 @@ namespace CodeImp.DoomBuilder.Compilers
 			}
 		}
 
+		// A bake that already exited keeps its result
 		public void Cancel()
 		{
-			cancelled = true;
-			try { if(process != null && !process.HasExited) process.Kill(); }
+			try
+			{
+				if(process == null || process.HasExited) return;
+				cancelled = true;
+				process.Kill();
+			}
 			catch(InvalidOperationException) { }
 			catch(System.ComponentModel.Win32Exception) { }
 		}
 
-		// Blocks until the process and its readers are gone
+		// Blocks until the process is gone. A grandchild holding the pipes (a wrapper script that
+		// doesn't exec) only gets a short grace period, so the UI never waits on it.
 		public void WaitForExit()
 		{
 			if(process == null) return;
 			process.WaitForExit();
-			foreach(Thread t in readers) t.Join();
+			foreach(Thread t in readers) t.Join(READER_GRACE_MS);
+			lock(sync) readersabandoned = true;
 			int code;
 			Poll(out code);
 		}

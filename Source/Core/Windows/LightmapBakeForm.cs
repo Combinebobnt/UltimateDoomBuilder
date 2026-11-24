@@ -50,7 +50,6 @@ namespace CodeImp.DoomBuilder.Windows
 			layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
 			bakerpath.Dock = DockStyle.Fill;
-			bakerpath.TextChanged += delegate { UpdateState(); };
 			browse.Text = "Browse...";
 			browse.AutoSize = true;
 			browse.Click += BrowseClick;
@@ -120,6 +119,9 @@ namespace CodeImp.DoomBuilder.Windows
 			if(texturesize.SelectedIndex < 0) texturesize.SelectedItem = LightmapBakeSettings.DEFAULT_TEXTURE_SIZE;
 			threads.Value = Math.Min(threads.Maximum, settings.Threads);
 			cpuonly.Checked = settings.CpuOnly;
+
+			// Only now: UpdateState writes the controls back into the settings
+			bakerpath.TextChanged += delegate { UpdateState(); };
 			UpdateState();
 		}
 

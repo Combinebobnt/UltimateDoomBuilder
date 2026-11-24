@@ -3646,9 +3646,6 @@ namespace CodeImp.DoomBuilder.Windows
 			separatortoolsscreenshots.Visible = enabled;
 			itemtestmap.Visible = enabled;
 			itembakelightmaps.Visible = (enabled && General.Map.Config.LightmapBaking);
-			string bakeproblem = (itembakelightmaps.Visible ? General.Map.LightmapBakeUnavailable() : null);
-			itembakelightmaps.Enabled = (bakeproblem == null);
-			itembakelightmaps.ToolTipText = bakeproblem;
 
 			bool supported = (enabled && !string.IsNullOrEmpty(General.Map.Config.DecorateGames));
 			itemReloadGldefs.Visible = supported;

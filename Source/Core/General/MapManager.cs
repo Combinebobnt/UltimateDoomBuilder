@@ -68,6 +68,8 @@ namespace CodeImp.DoomBuilder
 		private volatile bool issaving;
 		private bool lightmapdropped; // A rewrite removed the baked LIGHTMAP; the next real save reports it
 		private LightmapBakeCache lightmapbake; // The last successful bake, re-applied while the map matches it
+		private bool lightmapbakemissed; // A save found the map no longer matches the bake
+		private bool changedbeforebake; // The changed flag when the running bake started
 		private bool savedwithlightmap; // The last save wrote a LIGHTMAP
 		private string restoredbackup; // Deleted only once the load that restored it is done
 
@@ -142,7 +144,6 @@ namespace CodeImp.DoomBuilder
 		public bool IsScriptsWindowOpen { get { return (scriptwindow != null) && !scriptwindow.IsDisposed; } }
 		internal WADReader TemporaryMapFile { get { return tempwadreader; } } //mxd
 		internal bool SavedWithLightmap { get { return savedwithlightmap; } }
-		internal bool HasLightmapBake { get { return lightmapbake != null; } }
 
 		//mxd. Map format
 		public bool UDMF { get { return config.UDMF; } }
@@ -2028,14 +2029,50 @@ namespace CodeImp.DoomBuilder
 		// matching bake can come back; a bake's nodes are never paired with a TEXTMAP left lying there
 		private bool RerouteToLightmapBake(SavePurpose purpose)
 		{
-			if(purpose == SavePurpose.Autosave || lightmapbake == null) return false;
-			if(FindLightmapIndex(tempwadreader.WadFile, TEMP_MAP_HEADER) > -1) return false;
+			if(!ShouldRerouteToBake(purpose, lightmapbake != null, lightmapbakemissed, FindLightmapIndex(tempwadreader.WadFile, TEMP_MAP_HEADER) > -1)) return false;
 			General.WriteLogLine("Rewriting the map data to check it against the lightmap bake...");
 			return true;
 		}
 
+		// Once a save found the map no longer matches, an unchanged map can't match again: stop rewriting
+		internal static bool ShouldRerouteToBake(SavePurpose purpose, bool hasbake, bool bakemissed, bool templightmap)
+		{
+			return purpose != SavePurpose.Autosave && hasbake && !bakemissed && !templightmap;
+		}
+
+		// Replaces the map's nodebuild lumps in the temp WAD with the bake's, in configuration order
+		// right after the header, the given TEXTMAP standing in for the bake's. Changes nothing and
+		// returns false when either map or the bake's TEXTMAP is missing.
+		internal static bool CopyBakeLumps(WAD temp, string tempheader, WAD baked, string bakedheader, Dictionary<string, MapLumpInfo> maplumps, byte[] textmap)
+		{
+			int tempindex = temp.FindLumpIndex(tempheader);
+			int bakedindex = baked.FindLumpIndex(bakedheader);
+			if(tempindex < 0 || bakedindex < 0 || FindSpecificLump(baked, "TEXTMAP", bakedindex, bakedheader, maplumps) < 0) return false;
+
+			List<KeyValuePair<string, MapLumpInfo>> nodebuild = maplumps.Where(g => g.Value.NodeBuild).ToList();
+			foreach(KeyValuePair<string, MapLumpInfo> group in nodebuild)
+				RemoveSpecificLump(temp, group.Key.Replace(CONFIG_MAP_HEADER, tempheader), tempindex, tempheader, maplumps);
+
+			int insertindex = tempindex + 1;
+			foreach(KeyValuePair<string, MapLumpInfo> group in nodebuild)
+			{
+				int source = FindSpecificLump(baked, group.Key.Replace(CONFIG_MAP_HEADER, bakedheader), bakedindex, bakedheader, maplumps);
+				if(source < 0) continue;
+				Lump sourcelump = baked.Lumps[source];
+				if(group.Key == "TEXTMAP")
+				{
+					Lump lump = temp.Insert("TEXTMAP", insertindex++, textmap.Length, false);
+					lump.Stream.Seek(0, SeekOrigin.Begin);
+					lump.Stream.Write(textmap, 0, textmap.Length);
+				}
+				else sourcelump.CopyTo(temp.Insert(group.Key.Replace(CONFIG_MAP_HEADER, tempheader), insertindex++, sourcelump.Length, false));
+			}
+			temp.WriteHeaders();
+			return true;
+		}
+
 		// Puts the bake's TEXTMAP (with the current things), ZNODES and LIGHTMAP into the temp WAD when
-		// the map just written there still matches it. Returns false, changing nothing, on a mismatch.
+		// the map just written there still matches it. Returns false, changing nothing, otherwise.
 		private bool ApplyLightmapBake()
 		{
 			if(lightmapbake == null) return false;
@@ -2050,6 +2087,9 @@ namespace CodeImp.DoomBuilder
 			if(fingerprint != lightmapbake.Fingerprint)
 			{
 				General.WriteLogLine("The lightmap bake does not match the map: it changed since the bake.");
+				// A bake that was never saved is dropped here, not by WriteMapToTempFile; report the first miss
+				if(!lightmapbakemissed) lightmapdropped = true;
+				lightmapbakemissed = true;
 				return false;
 			}
 
@@ -2075,29 +2115,12 @@ namespace CodeImp.DoomBuilder
 
 				// As BuildNodes' copy-back, with the bake as the build WAD; no earlier BLOCKMAP or REJECT survives
 				General.WriteLogLine("Applying the lightmap bake (" + lightmapbake.Summary + ")...");
-				foreach(KeyValuePair<string, MapLumpInfo> group in config.MapLumps)
-				{
-					if(!group.Value.NodeBuild) continue;
-					string lumpname = (group.Key.Contains(CONFIG_MAP_HEADER) ? group.Key.Replace(CONFIG_MAP_HEADER, TEMP_MAP_HEADER) : group.Key);
-					RemoveSpecificLump(temp, lumpname, headerindex, TEMP_MAP_HEADER, config.MapLumps);
-				}
-				CopyLumpsByType(baked, BUILD_MAP_HEADER, temp, TEMP_MAP_HEADER, false, false, true, false);
+				if(!CopyBakeLumps(temp, TEMP_MAP_HEADER, baked, BUILD_MAP_HEADER, config.MapLumps, UniversalStreamReader.ENCODING.GetBytes(swapped)))
+					return false;
 			}
 
-			// The baker's renumbered TEXTMAP, with the things as they are now
-			textmapindex = FindSpecificLump(temp, "TEXTMAP", headerindex, TEMP_MAP_HEADER, config.MapLumps);
-			if(textmapindex < 0)
-			{
-				General.WriteLogLine("The lightmap bake could not be copied into the map.");
-				return false;
-			}
-			byte[] data = UniversalStreamReader.ENCODING.GetBytes(swapped);
-			temp.RemoveAt(textmapindex);
-			Lump lump = temp.Insert("TEXTMAP", textmapindex, data.Length);
-			lump.Stream.Seek(0, SeekOrigin.Begin);
-			lump.Stream.Write(data, 0, data.Length);
 			RestoreUnknownUDMFData(temp, TEMP_MAP_HEADER);
-
+			lightmapbakemissed = false;
 			lightmapdropped = false;
 			General.Plugins.OnMapNodesRebuilt();
 			return true;
@@ -2111,6 +2134,7 @@ namespace CodeImp.DoomBuilder
 			catch(IOException) { }
 			catch(UnauthorizedAccessException) { }
 			lightmapbake = null;
+			lightmapbakemissed = false;
 		}
 
 		// Null when this map can be baked, else why not
@@ -2153,6 +2177,7 @@ namespace CodeImp.DoomBuilder
 				wad.WriteHeaders();
 			}
 
+			changedbeforebake = changed;
 			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint);
 			try { job.Baker.Start(settings, input, output); }
 			catch(Exception e)
@@ -2186,6 +2211,14 @@ namespace CodeImp.DoomBuilder
 				message = "Bake failed: " + error + ".";
 				General.WriteLogLine("Lightmap bake failed: " + error);
 				job.Dispose();
+
+				// A failed or cancelled bake leaves the map as it found it, so a loaded LIGHTMAP survives the next save
+				if(changed && !changedbeforebake)
+				{
+					General.WriteLogLine("Restoring the unchanged map state the bake started from.");
+					changed = false;
+					General.MainWindow.UpdateMapChangedStatus();
+				}
 				return false;
 			}
 

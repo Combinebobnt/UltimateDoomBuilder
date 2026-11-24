@@ -118,7 +118,7 @@ namespace Builder.Tests
 			Assert.True(lump.IsEmpty);
 		}
 
-		private static Dictionary<string, MapLumpInfo> MapLumps(string configname)
+		internal static Dictionary<string, MapLumpInfo> MapLumps(string configname)
 		{
 			string dir = Path.Combine(Path.GetDirectoryName(typeof(Configuration).Assembly.Location), "Configurations");
 			var cfg = new Configuration(Path.Combine(dir, configname), true);
