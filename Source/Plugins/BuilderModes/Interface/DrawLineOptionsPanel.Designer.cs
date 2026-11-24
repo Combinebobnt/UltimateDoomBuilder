@@ -34,7 +34,7 @@
 			this.showguidelines = new System.Windows.Forms.ToolStripButton();
 			this.mirrorx = new System.Windows.Forms.ToolStripButton();
 			this.mirrory = new System.Windows.Forms.ToolStripButton();
-			this.radialdrawing = new System.Windows.Forms.ToolStripButton();
+			this.radialsymmetry = new System.Windows.Forms.ToolStripButton();
 			this.radialcopieslabel = new System.Windows.Forms.ToolStripLabel();
 			this.radialcopies = new CodeImp.DoomBuilder.Controls.ToolStripNumericUpDown();
 			this.toolStrip1.SuspendLayout();
@@ -48,7 +48,7 @@
             this.showguidelines,
             this.mirrorx,
             this.mirrory,
-            this.radialdrawing,
+            this.radialsymmetry,
             this.radialcopieslabel,
             this.radialcopies});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
@@ -113,17 +113,17 @@
 			this.mirrory.ToolTipText = "Mirror the drawing across the horizontal line through the 2D cursor";
 			this.mirrory.CheckedChanged += new System.EventHandler(this.mirrory_CheckedChanged);
 			// 
-			// radialdrawing
+			// radialsymmetry
 			// 
-			this.radialdrawing.CheckOnClick = true;
-			this.radialdrawing.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.Radial;
-			this.radialdrawing.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.radialdrawing.Margin = new System.Windows.Forms.Padding(2, 1, 0, 2);
-			this.radialdrawing.Name = "radialdrawing";
-			this.radialdrawing.Size = new System.Drawing.Size(113, 22);
-			this.radialdrawing.Text = "Radial symmetry";
-			this.radialdrawing.ToolTipText = "Repeat the drawing in rotated copies around the 2D cursor";
-			this.radialdrawing.CheckedChanged += new System.EventHandler(this.radialdrawing_CheckedChanged);
+			this.radialsymmetry.CheckOnClick = true;
+			this.radialsymmetry.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCCW;
+			this.radialsymmetry.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.radialsymmetry.Margin = new System.Windows.Forms.Padding(2, 1, 0, 2);
+			this.radialsymmetry.Name = "radialsymmetry";
+			this.radialsymmetry.Size = new System.Drawing.Size(113, 22);
+			this.radialsymmetry.Text = "Radial symmetry";
+			this.radialsymmetry.ToolTipText = "Repeat the drawing in rotated copies around the 2D cursor";
+			this.radialsymmetry.CheckedChanged += new System.EventHandler(this.radialsymmetry_CheckedChanged);
 			// 
 			// radialcopieslabel
 			// 
@@ -167,7 +167,7 @@
 		private System.Windows.Forms.ToolStripButton showguidelines;
 		private System.Windows.Forms.ToolStripButton mirrorx;
 		private System.Windows.Forms.ToolStripButton mirrory;
-		private System.Windows.Forms.ToolStripButton radialdrawing;
+		private System.Windows.Forms.ToolStripButton radialsymmetry;
 		private System.Windows.Forms.ToolStripLabel radialcopieslabel;
 		private CodeImp.DoomBuilder.Controls.ToolStripNumericUpDown radialcopies;
 	}

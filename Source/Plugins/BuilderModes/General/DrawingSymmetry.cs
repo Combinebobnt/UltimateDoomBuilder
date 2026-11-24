@@ -181,12 +181,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		#region ================== Radial
 
-		// Path plus count-1 copies rotated CCW about pivot, rounded to the map format's decimals.
-		// Points within stitch distance share one value before rounding, so seams round alike.
-		// Paths that collapse or repeat an earlier path's lines are skipped and counted.
 		public static List<List<DrawnVertex>> Radial(IList<DrawnVertex> path, Vector2D pivot, int count, int decimals, out int skipped)
 		{
+			bool originalkept;
+			return Radial(path, pivot, count, decimals, out skipped, out originalkept);
+		}
+
+		// Path and count-1 CCW copies about pivot, clustered then rounded so seams match. Paths that
+		// collapse or repeat an earlier path's lines are skipped; originalkept says if path 0 survived.
+		public static List<List<DrawnVertex>> Radial(IList<DrawnVertex> path, Vector2D pivot, int count, int decimals, out int skipped, out bool originalkept)
+		{
 			skipped = 0;
+			originalkept = true;
 			if(path.Count < 2 || count < 2) return new List<List<DrawnVertex>> { new List<DrawnVertex>(path) };
 
 			List<List<DrawnVertex>> copies = new List<List<DrawnVertex>>(count);
@@ -224,6 +230,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					if(d.Count == 0 || d[d.Count - 1].pos != v.pos) d.Add(v);
 				if(d.Count < 2)
 				{
+					if(c == copies[0]) originalkept = false;
 					skipped++;
 					continue;
 				}

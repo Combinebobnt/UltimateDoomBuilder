@@ -301,12 +301,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			List<DrawnVertex> path = new List<DrawnVertex>(points) { curp };
 			int skipped;
-			List<List<DrawnVertex>> paths = DrawingSymmetry.Radial(path, pivot, radialcopies, General.Map.FormatInterface.VertexDecimals, out skipped);
+			bool originalkept;
+			List<List<DrawnVertex>> paths = DrawingSymmetry.Radial(path, pivot, radialcopies, General.Map.FormatInterface.VertexDecimals, out skipped, out originalkept);
 			if(DrawingSymmetry.AnyOutside(paths, General.Map.Config.LeftBoundary, General.Map.Config.RightBoundary,
 				General.Map.Config.TopBoundary, General.Map.Config.BottomBoundary)) return;
 
 			// The original draws itself on top
-			if(paths.Count > 0) paths.RemoveAt(0);
+			if(originalkept && paths.Count > 0) paths.RemoveAt(0);
 			RenderReplicas(paths);
 		}
 
@@ -670,9 +671,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// unless it sits on a drawn point or a vertex. Measured from the mouse, as grid snap can move it away.
 		private Vector2D SnappedToRadialCopy(Vector2D pos)
 		{
-			foreach(DrawnVertex v in points)
-				if(Vector2D.DistanceSq(v.pos, pos) < 0.000001) return pos;
-			if(General.Map.Map.NearestVertexSquareRange(pos, 0.001) != null) return pos;
+			if(OnDrawnPointOrVertex(pos)) return pos;
 
 			Vector2D pivot = General.Map.Cursor2D.Position;
 			double range = BuilderPlug.Me.StitchRange / renderer.Scale;
@@ -694,12 +693,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return result;
 		}
 
+		private bool OnDrawnPointOrVertex(Vector2D pos)
+		{
+			foreach(DrawnVertex v in points)
+				if(Vector2D.DistanceSq(v.pos, pos) < 0.000001) return true;
+			return General.Map.Map.NearestVertexSquareRange(pos, 0.001) != null;
+		}
+
 		// Moves a position within stitch range of an active mirror axis onto it, unless it sits on geometry
 		private Vector2D SnappedToMirrorAxis(Vector2D pos)
 		{
-			foreach(DrawnVertex v in points)
-				if(Vector2D.DistanceSq(v.pos, pos) < 0.000001) return pos;
-			if(General.Map.Map.NearestVertexSquareRange(pos, 0.001) != null) return pos;
+			if(OnDrawnPointOrVertex(pos)) return pos;
 			if(General.Map.Map.NearestLinedefRange(pos, 0.01) != null) return pos;
 
 			Vector2D pivot = General.Map.Cursor2D.Position;
@@ -871,7 +875,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			panel.OnShowGuidelinesChanged += OnShowGuidelinesChanged;
 			panel.OnMirrorXChanged += OnMirrorXChanged;
 			panel.OnMirrorYChanged += OnMirrorYChanged;
-			panel.OnRadialDrawingChanged += OnRadialSymmetryChanged;
+			panel.OnRadialSymmetryChanged += OnRadialSymmetryChanged;
 			panel.OnRadialCopiesChanged += OnRadialCopiesChanged;
 
 			// Needs to be set after adding the events...
@@ -882,7 +886,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			panel.MirrorX = General.Settings.ReadPluginSetting("drawlinesmode.mirrorx", false);
 			panel.MirrorY = General.Settings.ReadPluginSetting("drawlinesmode.mirrory", false);
 			panel.RadialCopies = Math.Max(RADIAL_MIN_COPIES, Math.Min(RADIAL_MAX_COPIES, General.Settings.ReadPluginSetting("drawlinesmode.radialcopies", 4)));
-			panel.RadialDrawing = General.Settings.ReadPluginSetting("drawlinesmode.radialdrawing", false);
+			panel.RadialSymmetry = General.Settings.ReadPluginSetting("drawlinesmode.radialsymmetry", false);
 			loadingsettings = false;
 
 			// Create guide labels
@@ -915,7 +919,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Settings.WritePluginSetting("drawlinesmode.showguidelines", panel.ShowGuidelines);
 			General.Settings.WritePluginSetting("drawlinesmode.mirrorx", panel.MirrorX);
 			General.Settings.WritePluginSetting("drawlinesmode.mirrory", panel.MirrorY);
-			General.Settings.WritePluginSetting("drawlinesmode.radialdrawing", panel.RadialDrawing);
+			General.Settings.WritePluginSetting("drawlinesmode.radialsymmetry", panel.RadialSymmetry);
 			General.Settings.WritePluginSetting("drawlinesmode.radialcopies", panel.RadialCopies);
 			panel.Unregister();
 		}
@@ -1030,7 +1034,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						else if(copies.Count > 0)
 						{
 							paths = copies;
-							suffix = " (radial, " + radialcopies + " copies" + (skipped > 0 ? ", " + skipped + " skipped" : "") + ")";
+							if(copies.Count > 1 || skipped > 0) suffix = " (radial, " + radialcopies + " copies" + (skipped > 0 ? ", " + skipped + " skipped" : "") + ")";
 						}
 					}
 				}
@@ -1235,10 +1239,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(panel != null) panel.MirrorY = !panel.MirrorY;
 		}
 
-		[BeginAction("toggleradialdrawing")]
-		public void ToggleRadialDrawing()
+		[BeginAction("toggleradialsymmetry")]
+		public void ToggleRadialSymmetry()
 		{
-			if(panel != null) panel.RadialDrawing = !panel.RadialDrawing;
+			if(panel != null) panel.RadialSymmetry = !panel.RadialSymmetry;
 		}
 
 		// Finish drawing

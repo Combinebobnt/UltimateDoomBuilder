@@ -297,17 +297,48 @@ namespace Builder.Tests
 		[Fact]
 		public void RadialOpenArcChainsIntoOneLoop()
 		{
-			Vector2D a = new Vector2D(P.x + 300, P.y + 17);
-			Vector2D m = Turned(new Vector2D(P.x + 340, P.y + 17), P, 1, 14);
-			Vector2D end = Turned(a, P, 1, 7);
-			List<DrawnVertex> p = Path(a.x, a.y, m.x, m.y, end.x, end.y);
+			// Starts on .5 boundaries, so the wrap-around copy of A (off by ~1e-13) can round either way
+			List<string> failures = new List<string>();
+			foreach(int n in new[] { 5, 7, 9, 11 })
+			{
+				for(int i = 0; i < 8; i++)
+				{
+					Vector2D a = new Vector2D(P.x + 300.5 + 17 * i, P.y + 16.5 + 5 * i);
+					Vector2D m = Turned(new Vector2D(a.x + 40, a.y), P, 1, 2 * n);
+					Vector2D end = Turned(a, P, 1, n);
+					int skipped;
+					List<List<DrawnVertex>> r = DrawingSymmetry.Radial(Path(a.x, a.y, m.x, m.y, end.x, end.y), P, n, 0, out skipped);
+					if(r.Count != n || skipped != 0) { failures.Add($"n={n} i={i}: {r.Count} paths, {skipped} skipped"); continue; }
+					for(int k = 0; k < n; k++)
+						if(r[k][2].pos != r[(k + 1) % n][0].pos)
+							failures.Add($"n={n} i={i} seam after path {k}: {r[k][2].pos} vs {r[(k + 1) % n][0].pos}");
+				}
+			}
+			Assert.True(failures.Count == 0, string.Join("; ", failures));
+		}
 
+		[Fact]
+		public void RadialSkipTreatsNegativeZeroAsZero()
+		{
+			// Copy rounds to -0 where the original rounds to +0, 0.6 apart so no clustering
 			int skipped;
-			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(p, P, 7, 0, out skipped);
-			Assert.Equal(0, skipped);
-			Assert.Equal(7, r.Count);
-			for(int k = 0; k < 7; k++)
-				Exactly(r[k][2].pos, r[(k + 1) % 7][0].pos, "seam after path " + k);
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(Path(0.3, 10, 0.3, -10), new Vector2D(0, 0), 2, 0, out skipped);
+			Assert.Single(r);
+			Assert.Equal(1, skipped);
+		}
+
+		[Fact]
+		public void RadialReportsWhetherTheOriginalSurvived()
+		{
+			int skipped;
+			bool originalkept;
+			DrawingSymmetry.Radial(Path(0, 0, 10, 0), new Vector2D(0, 0), 3, 0, out skipped, out originalkept);
+			Assert.True(originalkept);
+
+			// Both ends round to (0, 1); the 45-degree copy rounds to (-0, 1) and (-1, 1)
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(Path(0.2, 0.6, 0.2, 1.4), new Vector2D(0, 0), 8, 0, out skipped, out originalkept);
+			Assert.False(originalkept);
+			Assert.True(r.Count >= 1, "expected a surviving copy");
 		}
 
 		[Fact]
