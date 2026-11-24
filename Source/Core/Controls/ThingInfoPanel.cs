@@ -47,6 +47,9 @@ namespace CodeImp.DoomBuilder.Controls
 			// Hide stuff when in Doom format
 			hexenformatwidth = infopanel.Width;
 			doomformatwidth = infopanel.Width - 190;
+
+			if(Environment.OSVersion.Platform == PlatformID.Unix)
+				ParentDrawnBorder.Apply(panel1);
 		}
 
 		// This shows the info

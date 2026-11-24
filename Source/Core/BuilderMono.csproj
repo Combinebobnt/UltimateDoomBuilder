@@ -1083,6 +1083,7 @@
     <Compile Include="General\MurmurHash2.cs" />
     <Compile Include="General\SavePurpose.cs" />
     <Compile Include="General\ForkUpdateChecker.cs" />
+    <Compile Include="Controls\ParentDrawnBorder.cs" />
     <Compile Include="General\HelpPaths.cs" />
     <Compile Include="General\HelpServer.cs" />
     <Compile Include="General\UpdateChecker.cs" />

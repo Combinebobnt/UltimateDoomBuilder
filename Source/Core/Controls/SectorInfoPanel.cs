@@ -59,6 +59,9 @@ namespace CodeImp.DoomBuilder.Controls
 			ceilinfolabels = new List<Label> { ceilingAngle, ceilingLight, ceilingOffset, ceilingScale };
 			floorlabels = new List<Label> { floorAngleLabel, floorLightLabel, floorOffsetLabel, floorScaleLabel };
 			ceillabels = new List<Label> { ceilingAngleLabel, ceilingLightLabel, ceilingOffsetLabel, ceilingScaleLabel };
+
+			if(Environment.OSVersion.Platform == PlatformID.Unix)
+				ParentDrawnBorder.Apply(floortex, ceilingtex, panelFadeColor, panelLightColor);
 		}
 
 		// This shows the info
@@ -384,16 +387,17 @@ namespace CodeImp.DoomBuilder.Controls
         private static void UpdateTexturePanel(GroupBox panel, Label texturename, List<Label> proplabels, ConfigurablePictureBox image, int sizeref, bool extendedinfoshown)
 		{
 			//Reposition texture name label?
-			if(texturename.Width < image.Width + 2) 
-				texturename.Location = new Point(image.Location.X + (image.Width - texturename.Width) / 2, texturename.Location.Y);
-			else 
-				texturename.Location = new Point(image.Location.X - 1, texturename.Location.Y);
-			
+			Rectangle imagebounds = ParentDrawnBorder.OuterBounds(image);
+			if(texturename.Width < imagebounds.Width + 2)
+				texturename.Location = new Point(imagebounds.X + (imagebounds.Width - texturename.Width) / 2, texturename.Location.Y);
+			else
+				texturename.Location = new Point(imagebounds.X - 1, texturename.Location.Y);
+
 			// Resize panel
 			if(!extendedinfoshown)
-				panel.Width = Math.Max(texturename.Right + image.Location.X - 1, sizeref);
+				panel.Width = Math.Max(texturename.Right + imagebounds.X - 1, sizeref);
 			else
-				panel.Width = Math.Max(texturename.Right, GetMaxRight(proplabels)) + image.Location.X;
+				panel.Width = Math.Max(texturename.Right, GetMaxRight(proplabels)) + imagebounds.X;
 		}
 
 		//mxd

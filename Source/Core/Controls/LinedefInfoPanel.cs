@@ -72,6 +72,9 @@ namespace CodeImp.DoomBuilder.Controls
 			labelTextureBackTop.BackColor = Color.FromArgb(128, labelTextureBackTop.BackColor);
 			labelTextureBackMid.BackColor = Color.FromArgb(128, labelTextureBackMid.BackColor);
 			labelTextureBackBottom.BackColor = Color.FromArgb(128, labelTextureBackBottom.BackColor);
+
+			if(Environment.OSVersion.Platform == PlatformID.Unix)
+				ParentDrawnBorder.Apply(fronthightex, frontmidtex, frontlowtex, backhightex, backmidtex, backlowtex);
 		}
 		
 		// This shows the info
@@ -632,16 +635,17 @@ namespace CodeImp.DoomBuilder.Controls
 			DisplayTextureImage(image, sizelabel, texturename, required);
 			
 			//Reposition texture name label?
-			if(texturenamelabel.Width < image.Width + 2)
-				texturenamelabel.Location = new Point(image.Location.X + (image.Width - texturenamelabel.Width) / 2, texturenamelabel.Location.Y);
+			Rectangle imagebounds = ParentDrawnBorder.OuterBounds(image);
+			if(texturenamelabel.Width < imagebounds.Width + 2)
+				texturenamelabel.Location = new Point(imagebounds.X + (imagebounds.Width - texturenamelabel.Width) / 2, texturenamelabel.Location.Y);
 			else
-				texturenamelabel.Location = new Point(image.Location.X, texturenamelabel.Location.Y);
+				texturenamelabel.Location = new Point(imagebounds.X, texturenamelabel.Location.Y);
 
 			// Resize panel
 			if(!extendedinfoshown)
-				panel.Width = Math.Max(texturenamelabel.Right + image.Location.X + 1, sizeref);
+				panel.Width = Math.Max(texturenamelabel.Right + imagebounds.X + 1, sizeref);
 			else
-				panel.Width = Math.Max(texturenamelabel.Right, maxlabelright) + image.Location.X;
+				panel.Width = Math.Max(texturenamelabel.Right, maxlabelright) + imagebounds.X;
 		}
 
 		//mxd
