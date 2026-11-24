@@ -2434,7 +2434,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		[BeginAction("rotateclockwise")]
 		public void RotateCW()
 		{
-			rotation += Angle2D.DegToRad(5);
+			rotation -= Angle2D.DegToRad(5);
 
 			// Update
 			UpdateGeometry();
@@ -2446,7 +2446,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		[BeginAction("rotatecounterclockwise")]
 		public void RotateCCW()
 		{
-			rotation -= Angle2D.DegToRad(5);
+			rotation += Angle2D.DegToRad(5);
 
 			// Update
 			UpdateGeometry();
