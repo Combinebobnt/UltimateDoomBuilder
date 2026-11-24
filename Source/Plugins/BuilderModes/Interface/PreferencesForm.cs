@@ -72,6 +72,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			useoppositesmartpivothandle.Checked = General.Settings.ReadPluginSetting("useoppositesmartpivothandle", true);
 			selectafterundoredo.Checked = General.Settings.ReadPluginSetting("selectchangedafterundoredo", false);
 			usebuggyfloodselect.Checked = General.Settings.ReadPluginSetting("usebuggyfloodselect", false);
+			eventlinedistinctcolors.Checked = General.Settings.ReadPluginSetting("eventlinedistinctcolors", true);
 		}
 
 		#endregion
@@ -105,6 +106,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Settings.WritePluginSetting("useoppositesmartpivothandle", useoppositesmartpivothandle.Checked);
 			General.Settings.WritePluginSetting("selectchangedafterundoredo", selectafterundoredo.Checked);
 			General.Settings.WritePluginSetting("usebuggyfloodselect", usebuggyfloodselect.Checked);
+			General.Settings.WritePluginSetting("eventlinedistinctcolors", eventlinedistinctcolors.Checked);
 			General.Settings.SwitchViewModes = switchviewmodes.Checked; //mxd
 			General.Settings.SplitLineBehavior = (SplitLineBehavior)splitbehavior.SelectedIndex;//mxd
 			

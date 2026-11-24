@@ -48,7 +48,8 @@ namespace CodeImp.DoomBuilder.Config
 		public string FileName { get { return filename; } }
 		public string Name { get { return name; } }
 		public string Path { get { return path; } }
-		public string ProgramFile { get { return programfile; } }
+		public string ProgramFile { get { return ResolveProgram(name, programfile, General.Settings != null ? General.Settings.CompilerPrograms : null); } }
+		public string DefaultProgramFile { get { return programfile; } }
 		public string ProgramInterface { get { return programinterface; } }
 		public HashSet<string> Files { get { return files; } }
 		
@@ -95,6 +96,15 @@ namespace CodeImp.DoomBuilder.Config
 		internal Compiler Create()
 		{
 			return Compiler.Create(this);
+		}
+
+		// A usable override wins; an invalid path would make Path.Combine throw before the compiler's try
+		internal static string ResolveProgram(string name, string shipped, IDictionary<string, string> overrides)
+		{
+			string program;
+			if(overrides == null || name == null || !overrides.TryGetValue(name, out program) || string.IsNullOrEmpty(program)) return shipped;
+			if(program.IndexOfAny(System.IO.Path.GetInvalidPathChars()) >= 0) return shipped;
+			return program;
 		}
 		
 		#endregion

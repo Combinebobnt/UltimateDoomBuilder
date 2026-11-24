@@ -35,6 +35,19 @@
         When enabled, GZDoom Builder will center 2D-mode on Visual Camera position when you leave Visual mode, and will place Visual Camera at cursor position when you toggle from 2D mode to Visual Mode (unless you have Visual Mode camera thing in your map).
 	    <h3>Visual Modes:</h3>
 		This area contains several settings for the <a href="e_visualmode.html">Visual Mode</a>. To improve performance, you may want to decrease the <b>View distance</b> setting.
+
+	  <h2>Advanced</h2>
+		Settings that could only be changed by editing the program configuration file before.
+		<h3>Recent textures kept:</h3>
+		How many textures and flats the recent-texture palette remembers. 0 turns the history off.
+		<h3>Show modifier key hints while a modifier is held:</h3>
+		When a modifier key such as Ctrl, Shift or Alt is held for a moment, the Help side panel lists what the held keys do in the current mode.
+		<h3>Use the desktop's file chooser (zenity) <span class="red">(Linux only)</span>:</h3>
+		Open files and folders with the desktop's file chooser through zenity when it is installed. Turn it off to use Mono's own dialogs.
+		<h3>Horizontal and vertical look speed:</h3>
+		Multipliers of the <b>Mouse speed</b> setting for mouse look in <a href="e_visualmode.html">Visual Mode</a>, one per direction (default 40).
+		<h3>Frame pacing and minimum frame time <span class="red">(Linux only)</span>:</h3>
+		Frame pacing paces Visual Mode frames by the display's refresh and waits at least the minimum frame time between them; raise it to lower the frame rate and the load. Turning frame pacing on or off applies after a restart; the minimum frame time applies at once.
 		
 	  <h2>Controls</h2>
 		This is where you configure your keyboard and mouse shortcut keys. On the left is a list of all <a href="actions.html">Actions</a> in Doom Builder with the current mouse or key combination shown next to them. Select an action to view a summary of this action on the right. Press any key combination to set to this action, or select a special mouse combination from the drop down box. Below that, you can see which other actions share the same key combination so that you can verify any conflicts it may have. Note that actions used in different editing modes can safely share the same key combination.
@@ -74,6 +87,12 @@
         <h3>Mark 3D floors in classic modes <span class="red">(GZDB only)</span>:</h3>
 		When enabled, linedefs of sectors with 3D floors will be marked using "3D Floors" color.
         
+        <h2>Compilers</h2>
+        Lists every script compiler and nodebuilder the editor found in its <a href="compilerconfigs.html">compiler configurations</a>, with the program each one runs, whether that program exists, and which script or nodebuilder configurations use it. Select a compiler and fill in <b>Override</b> (or use <b>Browse...</b>) to run another program instead, for example a different build of a script compiler; <b>Reset</b> goes back to the program the compiler configuration names. An override must be the absolute path of an existing file when you set it (one whose file later disappears shows as missing), and it is used from the next compile on.
+        
+        <h2>Pasting</h2>
+        The default options for pasting geometry. <b>Clipboard history entries</b> sets how many copies the clipboard history panel keeps; 0 turns it off.
+        
         <h2>Appearance</h2>
         <h3>Default sector settings <span class="red">(GZDB only)</span>:</h3>
 		Allows you to modify setting used when drawing a new sector. These settings can be overriden using <a href="gzdb/features/classic_modes/drawsettingspanel.html">Draw Settings Panel</a>.
@@ -82,6 +101,8 @@
         <h3>Don't move selection if any part of it is outside of map boundary <span class="red">(GZDB only)</span>:</h3>
         When enabled, geometry outisde of map boundaries can not be dragged. When disabled, geometry will be moved inside of map boundary, most likely destroying sector shapes in the process (Doom Builder 2 behaviour).
         <h3><a href="gzdb/features/all_modes/synch_selection.html">Synchronise selection between Visual and Classic modes</a> <span class="red">(GZDB only)</span></h3>
+        <h3>Give each event line group its own color:</h3>
+        When enabled, event lines drawn for different actions get different colors; when disabled, they all use the first color.
 	</p>
 	</div>
 </body>

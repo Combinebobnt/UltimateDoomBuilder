@@ -50,6 +50,8 @@ namespace CodeImp.DoomBuilder.Windows
             this.tabnodebuilder = new System.Windows.Forms.TabPage();
             this.nodebuildertest = new System.Windows.Forms.ComboBox();
             this.nodebuildersave = new System.Windows.Forms.ComboBox();
+            this.defaultscriptcompilerlabel = new System.Windows.Forms.Label();
+            this.defaultscriptcompiler = new System.Windows.Forms.ComboBox();
             this.tabtesting = new System.Windows.Forms.TabPage();
             this.btnRemoveEngine = new System.Windows.Forms.Button();
             this.btnNewEngine = new System.Windows.Forms.Button();
@@ -319,6 +321,8 @@ namespace CodeImp.DoomBuilder.Windows
             // 
             // tabnodebuilder
             // 
+            this.tabnodebuilder.Controls.Add(this.defaultscriptcompilerlabel);
+            this.tabnodebuilder.Controls.Add(this.defaultscriptcompiler);
             this.tabnodebuilder.Controls.Add(label7);
             this.tabnodebuilder.Controls.Add(this.nodebuildertest);
             this.tabnodebuilder.Controls.Add(label2);
@@ -358,6 +362,27 @@ namespace CodeImp.DoomBuilder.Windows
             this.nodebuildersave.Sorted = true;
             this.nodebuildersave.TabIndex = 0;
             this.nodebuildersave.SelectedIndexChanged += new System.EventHandler(this.nodebuildersave_SelectedIndexChanged);
+            // 
+            // defaultscriptcompilerlabel
+            // 
+            this.defaultscriptcompilerlabel.AutoSize = true;
+            this.defaultscriptcompilerlabel.Location = new System.Drawing.Point(33, 164);
+            this.defaultscriptcompilerlabel.Name = "defaultscriptcompilerlabel";
+            this.defaultscriptcompilerlabel.Size = new System.Drawing.Size(123, 13);
+            this.defaultscriptcompilerlabel.TabIndex = 27;
+            this.defaultscriptcompilerlabel.Text = "Default script compiler:";
+            // 
+            // defaultscriptcompiler
+            // 
+            this.defaultscriptcompiler.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.defaultscriptcompiler.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.defaultscriptcompiler.FormattingEnabled = true;
+            this.defaultscriptcompiler.Location = new System.Drawing.Point(167, 161);
+            this.defaultscriptcompiler.Name = "defaultscriptcompiler";
+            this.defaultscriptcompiler.Size = new System.Drawing.Size(313, 21);
+            this.defaultscriptcompiler.TabIndex = 2;
+            this.defaultscriptcompiler.SelectedIndexChanged += new System.EventHandler(this.defaultscriptcompiler_SelectedIndexChanged);
             // 
             // tabtesting
             // 
@@ -921,6 +946,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.TabPage tabtesting;
 		private CodeImp.DoomBuilder.Controls.ResourceListEditor configdata;
 		private System.Windows.Forms.ComboBox nodebuildertest;
+		private System.Windows.Forms.Label defaultscriptcompilerlabel;
+		private System.Windows.Forms.ComboBox defaultscriptcompiler;
 		private System.Windows.Forms.ComboBox nodebuildersave;
 		private System.Windows.Forms.TextBox testparameters;
 		private System.Windows.Forms.TextBox testapplication;

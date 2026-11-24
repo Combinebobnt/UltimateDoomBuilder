@@ -84,6 +84,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.label1 = new System.Windows.Forms.Label();
 			this.heightbysidedef = new System.Windows.Forms.ComboBox();
 			this.usebuggyfloodselect = new System.Windows.Forms.CheckBox();
+			this.eventlinedistinctcolors = new System.Windows.Forms.CheckBox();
 			this.tabs.SuspendLayout();
 			this.taboptions.SuspendLayout();
 			this.groupBox5.SuspendLayout();
@@ -319,6 +320,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// groupBox3
 			// 
 			this.groupBox3.Controls.Add(this.usebuggyfloodselect);
+			this.groupBox3.Controls.Add(this.eventlinedistinctcolors);
 			this.groupBox3.Controls.Add(this.selectafterundoredo);
 			this.groupBox3.Controls.Add(this.useoppositesmartpivothandle);
 			this.groupBox3.Controls.Add(this.additivepaintselect);
@@ -335,7 +337,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.groupBox3.Controls.Add(this.additiveselect);
 			this.groupBox3.Location = new System.Drawing.Point(284, 139);
 			this.groupBox3.Name = "groupBox3";
-			this.groupBox3.Size = new System.Drawing.Size(379, 390);
+			this.groupBox3.Size = new System.Drawing.Size(379, 394);
 			this.groupBox3.TabIndex = 3;
 			this.groupBox3.TabStop = false;
 			this.groupBox3.Text = " Options ";
@@ -343,7 +345,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// selectafterundoredo
 			// 
 			this.selectafterundoredo.AutoSize = true;
-			this.selectafterundoredo.Location = new System.Drawing.Point(13, 336);
+			this.selectafterundoredo.Location = new System.Drawing.Point(13, 326);
 			this.selectafterundoredo.Name = "selectafterundoredo";
 			this.selectafterundoredo.Size = new System.Drawing.Size(246, 17);
 			this.selectafterundoredo.TabIndex = 12;
@@ -353,7 +355,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// useoppositesmartpivothandle
 			// 
 			this.useoppositesmartpivothandle.AutoSize = true;
-			this.useoppositesmartpivothandle.Location = new System.Drawing.Point(13, 313);
+			this.useoppositesmartpivothandle.Location = new System.Drawing.Point(13, 304);
 			this.useoppositesmartpivothandle.Name = "useoppositesmartpivothandle";
 			this.useoppositesmartpivothandle.Size = new System.Drawing.Size(321, 17);
 			this.useoppositesmartpivothandle.TabIndex = 12;
@@ -363,7 +365,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// additivepaintselect
 			// 
 			this.additivepaintselect.AutoSize = true;
-			this.additivepaintselect.Location = new System.Drawing.Point(13, 131);
+			this.additivepaintselect.Location = new System.Drawing.Point(13, 128);
 			this.additivepaintselect.Name = "additivepaintselect";
 			this.additivepaintselect.Size = new System.Drawing.Size(233, 17);
 			this.additivepaintselect.TabIndex = 11;
@@ -373,7 +375,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// switchviewmodes
 			// 
 			this.switchviewmodes.AutoSize = true;
-			this.switchviewmodes.Location = new System.Drawing.Point(13, 290);
+			this.switchviewmodes.Location = new System.Drawing.Point(13, 282);
 			this.switchviewmodes.Name = "switchviewmodes";
 			this.switchviewmodes.Size = new System.Drawing.Size(317, 17);
 			this.switchviewmodes.TabIndex = 10;
@@ -394,7 +396,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// syncSelection
 			// 
 			this.syncSelection.AutoSize = true;
-			this.syncSelection.Location = new System.Drawing.Point(13, 267);
+			this.syncSelection.Location = new System.Drawing.Point(13, 260);
 			this.syncSelection.Name = "syncSelection";
 			this.syncSelection.Size = new System.Drawing.Size(295, 17);
 			this.syncSelection.TabIndex = 9;
@@ -404,7 +406,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// dontMoveGeometryOutsideBounds
 			// 
 			this.dontMoveGeometryOutsideBounds.AutoSize = true;
-			this.dontMoveGeometryOutsideBounds.Location = new System.Drawing.Point(13, 244);
+			this.dontMoveGeometryOutsideBounds.Location = new System.Drawing.Point(13, 238);
 			this.dontMoveGeometryOutsideBounds.Name = "dontMoveGeometryOutsideBounds";
 			this.dontMoveGeometryOutsideBounds.Size = new System.Drawing.Size(323, 17);
 			this.dontMoveGeometryOutsideBounds.TabIndex = 8;
@@ -414,7 +416,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// autoaligntexturesoncreate
 			// 
 			this.autoaligntexturesoncreate.AutoSize = true;
-			this.autoaligntexturesoncreate.Location = new System.Drawing.Point(13, 221);
+			this.autoaligntexturesoncreate.Location = new System.Drawing.Point(13, 216);
 			this.autoaligntexturesoncreate.Name = "autoaligntexturesoncreate";
 			this.autoaligntexturesoncreate.Size = new System.Drawing.Size(233, 17);
 			this.autoaligntexturesoncreate.TabIndex = 7;
@@ -424,7 +426,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// autodragonpaste
 			// 
 			this.autodragonpaste.AutoSize = true;
-			this.autodragonpaste.Location = new System.Drawing.Point(13, 198);
+			this.autodragonpaste.Location = new System.Drawing.Point(13, 194);
 			this.autodragonpaste.Name = "autodragonpaste";
 			this.autodragonpaste.Size = new System.Drawing.Size(201, 17);
 			this.autodragonpaste.TabIndex = 6;
@@ -434,7 +436,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// visualmodeclearselection
 			// 
 			this.visualmodeclearselection.AutoSize = true;
-			this.visualmodeclearselection.Location = new System.Drawing.Point(13, 176);
+			this.visualmodeclearselection.Location = new System.Drawing.Point(13, 172);
 			this.visualmodeclearselection.Name = "visualmodeclearselection";
 			this.visualmodeclearselection.Size = new System.Drawing.Size(231, 17);
 			this.visualmodeclearselection.TabIndex = 5;
@@ -444,7 +446,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// autoclearselection
 			// 
 			this.autoclearselection.AutoSize = true;
-			this.autoclearselection.Location = new System.Drawing.Point(13, 153);
+			this.autoclearselection.Location = new System.Drawing.Point(13, 150);
 			this.autoclearselection.Name = "autoclearselection";
 			this.autoclearselection.Size = new System.Drawing.Size(241, 17);
 			this.autoclearselection.TabIndex = 4;
@@ -464,7 +466,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// editnewsector
 			// 
 			this.editnewsector.AutoSize = true;
-			this.editnewsector.Location = new System.Drawing.Point(13, 85);
+			this.editnewsector.Location = new System.Drawing.Point(13, 84);
 			this.editnewsector.Name = "editnewsector";
 			this.editnewsector.Size = new System.Drawing.Size(253, 17);
 			this.editnewsector.TabIndex = 2;
@@ -474,7 +476,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// additiveselect
 			// 
 			this.additiveselect.AutoSize = true;
-			this.additiveselect.Location = new System.Drawing.Point(13, 108);
+			this.additiveselect.Location = new System.Drawing.Point(13, 106);
 			this.additiveselect.Name = "additiveselect";
 			this.additiveselect.Size = new System.Drawing.Size(207, 17);
 			this.additiveselect.TabIndex = 3;
@@ -780,12 +782,22 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// usebuggyfloodselect
 			// 
 			this.usebuggyfloodselect.AutoSize = true;
-			this.usebuggyfloodselect.Location = new System.Drawing.Point(13, 359);
+			this.usebuggyfloodselect.Location = new System.Drawing.Point(13, 348);
 			this.usebuggyfloodselect.Name = "usebuggyfloodselect";
 			this.usebuggyfloodselect.Size = new System.Drawing.Size(206, 17);
 			this.usebuggyfloodselect.TabIndex = 13;
 			this.usebuggyfloodselect.Text = "Use buggy flood select in Visual Mode";
 			this.usebuggyfloodselect.UseVisualStyleBackColor = true;
+			// 
+			// eventlinedistinctcolors
+			// 
+			this.eventlinedistinctcolors.AutoSize = true;
+			this.eventlinedistinctcolors.Location = new System.Drawing.Point(13, 370);
+			this.eventlinedistinctcolors.Name = "eventlinedistinctcolors";
+			this.eventlinedistinctcolors.Size = new System.Drawing.Size(260, 17);
+			this.eventlinedistinctcolors.TabIndex = 14;
+			this.eventlinedistinctcolors.Text = "Give each event line group its own color";
+			this.eventlinedistinctcolors.UseVisualStyleBackColor = true;
 			// 
 			// PreferencesForm
 			// 
@@ -869,6 +881,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.CheckBox useoppositesmartpivothandle;
 		private System.Windows.Forms.CheckBox selectafterundoredo;
 		private System.Windows.Forms.CheckBox usebuggyfloodselect;
+		private System.Windows.Forms.CheckBox eventlinedistinctcolors;
 		private Controls.ButtonsNumericTextbox maxeventlines;
 		private System.Windows.Forms.Label label19;
 		private System.Windows.Forms.Label label20;

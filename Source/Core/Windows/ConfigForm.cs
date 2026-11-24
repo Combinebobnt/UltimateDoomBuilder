@@ -40,6 +40,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private ConfigurationInfo configinfo;
 		private List<DefinedTextureSet> copiedsets;
 		private bool preventchanges;
+		private ToolTip scriptcompilertooltip;
 		private bool reloadresources;
 		private readonly ResourceWarningResize warningresize;
 
@@ -56,6 +57,7 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Initialize
 			InitializeComponent();
+			scriptcompilertooltip = new ToolTip(components);
 			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 			warningresize = new ResourceWarningResize(this, tabs, configdata, apply);
 			General.ApplyMonoListViewFix(listtextures);
@@ -195,6 +197,8 @@ namespace CodeImp.DoomBuilder.Windows
 					}
 				}
 				
+				FillDefaultScriptCompiler();
+
 				// Fill skills list
 				skill.ClearInfo();
 				skill.AddInfo(gameconfig.Skills.ToArray());
@@ -274,6 +278,7 @@ namespace CodeImp.DoomBuilder.Windows
 				configdata.EditResourceLocationList(new DataLocationList());
 				nodebuildersave.SelectedIndex = -1;
 				nodebuildertest.SelectedIndex = -1;
+				defaultscriptcompiler.Items.Clear();
 				testapplication.Text = "";
 				testparameters.Text = "";
 				shortpaths.Checked = false;
@@ -332,6 +337,52 @@ namespace CodeImp.DoomBuilder.Windows
 			configinfo.Changed = true; //mxd
 		}
 		
+		private sealed class ScriptCompilerItem
+		{
+			public readonly string Key;
+			private readonly string text;
+			public ScriptCompilerItem(string key, string text) { Key = key; this.text = text; }
+			public override string ToString() { return text; }
+		}
+
+		private static string ScriptCompilerTitle(string key)
+		{
+			if(string.IsNullOrEmpty(key)) return "none";
+			ScriptConfiguration sc;
+			return General.CompiledScriptConfigs.TryGetValue(key, out sc) ? sc.ToString() : key;
+		}
+
+		// Called with preventchanges set
+		private void FillDefaultScriptCompiler()
+		{
+			defaultscriptcompiler.BeginUpdate();
+			defaultscriptcompiler.Items.Clear();
+			defaultscriptcompiler.Items.Add(new ScriptCompilerItem("", "(game configuration default: " + ScriptCompilerTitle(configinfo.GameDefaultScriptCompiler) + ")"));
+			int selected = 0;
+			foreach(KeyValuePair<string, ScriptConfiguration> group in General.CompiledScriptConfigs)
+			{
+				int index = defaultscriptcompiler.Items.Add(new ScriptCompilerItem(group.Key, group.Value.ToString()));
+				if(group.Key == configinfo.ScriptCompilerOverride) selected = index;
+			}
+			defaultscriptcompiler.SelectedIndex = selected;
+			defaultscriptcompiler.EndUpdate();
+
+			bool scriptbuild = false;
+			foreach(MapLumpInfo info in gameconfig.MapLumps.Values) if(info.ScriptBuild) { scriptbuild = true; break; }
+			defaultscriptcompiler.Enabled = scriptbuild;
+			defaultscriptcompilerlabel.Enabled = scriptbuild;
+			scriptcompilertooltip.SetToolTip(defaultscriptcompiler, scriptbuild
+				? "Script compiler preselected in Map Options for new maps of this game.\nMaps whose Map Options were already confirmed keep the compiler stored in them."
+				: "This game configuration has no compiled script lump.");
+		}
+
+		private void defaultscriptcompiler_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			if(preventchanges || configinfo == null || defaultscriptcompiler.SelectedItem == null) return;
+			configinfo.ScriptCompilerOverride = ((ScriptCompilerItem)defaultscriptcompiler.SelectedItem).Key;
+			configinfo.Changed = true;
+		}
+
 		// Test application changed
 		private void testapplication_TextChanged(object sender, EventArgs e)
 		{

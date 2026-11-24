@@ -5107,6 +5107,11 @@ namespace CodeImp.DoomBuilder.Windows
 			Application.Idle += FrameChainIdle;
 		}
 
+		internal void SetMinFrameTime(int ms)
+		{
+			if(framechain != null) framechain.MinFrameMs = ms;
+		}
+
 		private void FrameChainIdle(object sender, EventArgs e)
 		{
 			FrameTiming.NoteChainIdle(framechain.OnIdle(), windowactive);

@@ -51,6 +51,7 @@ namespace CodeImp.DoomBuilder.Config
 		// Cached variables
 		private bool blackbrowsers;
 		private UIThemeKind uitheme;
+		private Dictionary<string, string> compilerprograms = new Dictionary<string, string>(StringComparer.Ordinal);
 		private int visualfov;
 		private float visualmousesensx;
 		private float visualmousesensy;
@@ -321,6 +322,7 @@ namespace CodeImp.DoomBuilder.Config
 		internal bool VisualFrameChain { get { return visualframechain; } set { visualframechain = value; } }
 		internal int VisualMinFrameTime { get { return visualminframetime; } set { visualminframetime = value; } }
 		internal LightmapBakeSettings LightmapBake { get { return lightmapbake; } }
+		internal Dictionary<string, string> CompilerPrograms { get { return compilerprograms; } }
 		public bool RenderComments { get { return rendercomments; } internal set { rendercomments = value; } } //mxd
 		public bool FixedThingsScale { get { return fixedthingsscale; } internal set { fixedthingsscale = value; } } //mxd
 		public bool RenderGrid { get { return rendergrid; } internal set { rendergrid = value; } } //mxd
@@ -377,6 +379,7 @@ namespace CodeImp.DoomBuilder.Config
 				// Read the cache variables
 				blackbrowsers = cfg.ReadSetting("blackbrowsers", true);
 				uitheme = ReadUITheme(cfg);
+				compilerprograms = ReadCompilerOverrides(cfg);
 				visualfov = cfg.ReadSetting("visualfov", 80);
 				visualmousesensx = cfg.ReadSetting("visualmousesensx", 40f);
 				visualmousesensy = cfg.ReadSetting("visualmousesensy", 40f);
@@ -568,6 +571,43 @@ namespace CodeImp.DoomBuilder.Config
 			config.WriteSetting("uitheme", value);
 		}
 
+		// compileroverrides { <compiler name> { program = "<path>"; } }; anything else is skipped
+		internal static Dictionary<string, string> ReadCompilerOverrides(Configuration config)
+		{
+			Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
+			IDictionary entries = config.ReadSettingObject("compileroverrides", null) as IDictionary;
+			if(entries == null) return result;
+			foreach(DictionaryEntry de in entries)
+			{
+				IDictionary entry = de.Value as IDictionary;
+				string program = (entry != null && entry.Contains("program")) ? entry["program"] as string : null;
+				if(program == null)
+				{
+					General.WriteLogLine("Ignoring compiler override \"" + de.Key + "\": expected { program = \"...\"; }");
+					continue;
+				}
+				if(program.Length > 0) result[de.Key.ToString()] = program;
+			}
+			return result;
+		}
+
+		internal static void WriteCompilerOverrides(Configuration config, IDictionary<string, string> overrides)
+		{
+			// Sorted, like the rest of the settings file, so saves don't reorder it
+			List<string> names = new List<string>(overrides.Keys);
+			names.Sort(StringComparer.Ordinal);
+			System.Collections.Specialized.ListDictionary entries = new System.Collections.Specialized.ListDictionary();
+			foreach(string name in names)
+			{
+				if(string.IsNullOrEmpty(overrides[name])) continue;
+				System.Collections.Specialized.ListDictionary entry = new System.Collections.Specialized.ListDictionary();
+				entry.Add("program", overrides[name]);
+				entries.Add(name, entry);
+			}
+			config.DeleteSetting("compileroverrides");
+			if(entries.Count > 0) config.WriteSetting("compileroverrides", entries);
+		}
+
 		// This saves the program configuration
 		internal void Save(string filepathname)
 		{
@@ -576,6 +616,7 @@ namespace CodeImp.DoomBuilder.Config
 			// Write the cache variables
 			cfg.WriteSetting("blackbrowsers", blackbrowsers);
 			WriteUITheme(cfg, uitheme);
+			WriteCompilerOverrides(cfg, compilerprograms);
 			cfg.WriteSetting("visualfov", visualfov);
 			cfg.WriteSetting("visualmousesensx", visualmousesensx);
 			cfg.WriteSetting("visualmousesensy", visualmousesensy);

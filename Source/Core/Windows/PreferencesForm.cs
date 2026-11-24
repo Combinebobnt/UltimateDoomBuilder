@@ -292,6 +292,10 @@ namespace CodeImp.DoomBuilder.Windows
 			// Paste options
 			pasteoptions.Setup(General.Settings.PasteOptions.Copy());
 
+			// Settings that used to be config-file-only
+			BuildCompilersTab();
+			BuildAdvancedTab();
+
 			// Recovery
 			autosave.Checked = General.Settings.Autosave;
 			autosavecount.Value = General.Settings.AutosaveCount;
@@ -348,6 +352,8 @@ namespace CodeImp.DoomBuilder.Windows
 				General.ShowErrorMessage("Screenshots folder does not exist!\nPlease enter a correct path.", MessageBoxButtons.OK);
 				return;
 			}
+
+			if(!ValidateCompilerOverrides()) return;
 			
 			// Let the plugins know
 			controller.RaiseAccept();
@@ -471,6 +477,8 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Settings.ClassicBilinear = classicbilinear.Checked;
 			General.Settings.VisualBilinear = visualbilinear.Checked;
 			General.Settings.QualityDisplay = qualitydisplay.Checked;
+			ApplyCompilerOverrides();
+			ApplyAdvancedSettings();
 
 			//mxd
 			General.Settings.GZSynchCameras = cbSynchCameras.Checked;

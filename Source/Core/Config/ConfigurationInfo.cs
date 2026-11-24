@@ -54,7 +54,8 @@ namespace CodeImp.DoomBuilder.Config
 		private string nodebuildersave;
 		private string nodebuildertest;
 		private string formatinterface; //mxd
-		private readonly string defaultscriptcompiler; //mxd
+		private string gamedefaultscriptcompiler; //mxd
+		private string scriptcompileroverride; // "" = use the game configuration's
 		private DataLocationList resources;
 		private Configuration config; //mxd
 		private bool enabled; //mxd
@@ -80,7 +81,9 @@ namespace CodeImp.DoomBuilder.Config
 		public string NodebuilderSave { get { return nodebuildersave; } internal set { nodebuildersave = value; } }
 		public string NodebuilderTest { get { return nodebuildertest; } internal set { nodebuildertest = value; } }
 		public string FormatInterface { get { return formatinterface; } } //mxd
-		public string DefaultScriptCompiler { get { return defaultscriptcompiler; } } //mxd
+		public string DefaultScriptCompiler { get { return UsableOverride() ? scriptcompileroverride : gamedefaultscriptcompiler; } } //mxd
+		public string GameDefaultScriptCompiler { get { return gamedefaultscriptcompiler; } }
+		internal string ScriptCompilerOverride { get { return scriptcompileroverride; } set { scriptcompileroverride = (value == null || value == gamedefaultscriptcompiler) ? "" : value; } }
 		internal DataLocationList Resources { get { return resources; } }
 		internal Configuration Configuration { get { return config; } } //mxd
 		public bool Enabled { get { return enabled; } internal set { enabled = value; } } //mxd
@@ -124,7 +127,8 @@ namespace CodeImp.DoomBuilder.Config
 			this.nodebuildersave = General.Settings.ReadSetting("configurations." + settingskey + ".nodebuildersave", MISSING_NODEBUILDER);
 			this.nodebuildertest = General.Settings.ReadSetting("configurations." + settingskey + ".nodebuildertest", MISSING_NODEBUILDER);
 			this.formatinterface = config.ReadSetting("formatinterface", "").ToLowerInvariant(); //mxd
-			this.defaultscriptcompiler = cfg.ReadSetting("defaultscriptcompiler", ""); //mxd
+			this.gamedefaultscriptcompiler = cfg.ReadSetting("defaultscriptcompiler", ""); //mxd
+			this.ScriptCompilerOverride = General.Settings.ReadSetting("configurations." + settingskey + ".defaultscriptcompiler", "");
 			this.resources = new DataLocationList(General.Settings.Config, "configurations." + settingskey + ".resources");
 			this.startmode = General.Settings.ReadSetting("configurations." + settingskey + ".startmode", "VerticesMode");
 			this.enabled = General.Settings.ReadSetting("configurations." + settingskey + ".enabled", config.ReadSetting("enabledbydefault", false)); //mxd
@@ -264,6 +268,14 @@ namespace CodeImp.DoomBuilder.Config
 			return String.Compare(name, other.name, StringComparison.Ordinal);
 		}
 
+		// An override naming a script configuration that is no longer installed falls back to the game's
+		private bool UsableOverride()
+		{
+			if(string.IsNullOrEmpty(scriptcompileroverride)) return false;
+			Dictionary<string, ScriptConfiguration> configs = General.CompiledScriptConfigs;
+			return configs == null || configs.Count == 0 || configs.ContainsKey(scriptcompileroverride);
+		}
+
 		// This saves the settings to program configuration
 		internal void SaveSettings()
 		{
@@ -274,6 +286,10 @@ namespace CodeImp.DoomBuilder.Config
 			// Write to configuration
 			General.Settings.WriteSetting("configurations." + settingskey + ".nodebuildersave", nodebuildersave);
 			General.Settings.WriteSetting("configurations." + settingskey + ".nodebuildertest", nodebuildertest);
+			if(string.IsNullOrEmpty(scriptcompileroverride))
+				General.Settings.DeleteSetting("configurations." + settingskey + ".defaultscriptcompiler");
+			else
+				General.Settings.WriteSetting("configurations." + settingskey + ".defaultscriptcompiler", scriptcompileroverride);
 			
 			//mxd. Test Engines
 			General.Settings.WriteSetting("configurations." + settingskey + ".currentengineindex", currentEngineIndex);
@@ -384,6 +400,8 @@ namespace CodeImp.DoomBuilder.Config
 			ci.nodebuildersave = this.nodebuildersave;
 			ci.nodebuildertest = this.nodebuildertest;
 			ci.formatinterface = this.formatinterface; //mxd
+			ci.gamedefaultscriptcompiler = this.gamedefaultscriptcompiler;
+			ci.scriptcompileroverride = this.scriptcompileroverride;
 			ci.resources = new DataLocationList(this.resources);
 			
 			//mxd
@@ -415,6 +433,8 @@ namespace CodeImp.DoomBuilder.Config
 			this.nodebuildersave = ci.nodebuildersave;
 			this.nodebuildertest = ci.nodebuildertest;
 			this.formatinterface = ci.formatinterface; //mxd
+			this.gamedefaultscriptcompiler = ci.gamedefaultscriptcompiler;
+			this.scriptcompileroverride = ci.scriptcompileroverride;
 			this.currentEngineIndex = ci.currentEngineIndex; //mxd
 			this.resources = new DataLocationList(ci.resources);
 			
