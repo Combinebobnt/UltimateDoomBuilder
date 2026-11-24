@@ -39,8 +39,22 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			Point origin = visual ? new Point(display.Left + display.Width / 2, display.Top + display.Height / 2) : cursororigin;
 			Rectangle screen = Screen.FromPoint(origin).WorkingArea;
 			ClientSize = new Size(Math.Min(screen.Width, preferred.Width + Padding.Horizontal), Math.Min(screen.Height, preferred.Height + Padding.Vertical));
-			if(visual) origin.Offset(-Width / 2, -Height / 2);
-			Location = new Point(Math.Max(screen.Left, Math.Min(origin.X, screen.Right - Width)), Math.Max(screen.Top, Math.Min(origin.Y, screen.Bottom - Height)));
+			Location = visual ? VisualLocation(origin, Size, screen)
+				: new Point(Math.Max(screen.Left, Math.Min(origin.X, screen.Right - Width)), Math.Max(screen.Top, Math.Min(origin.Y, screen.Bottom - Height)));
+		}
+
+		// Half the 64px crosshair texture plus a small gap
+		internal const int CrosshairClearance = 40;
+
+		// Below the crosshair, else above it, else centered on it; always clamped to the screen
+		internal static Point VisualLocation(Point center, Size size, Rectangle screen)
+		{
+			int y;
+			if(center.Y + CrosshairClearance + size.Height <= screen.Bottom) y = center.Y + CrosshairClearance;
+			else if(center.Y - CrosshairClearance - size.Height >= screen.Top) y = center.Y - CrosshairClearance - size.Height;
+			else y = center.Y - size.Height / 2;
+			int x = center.X - size.Width / 2;
+			return new Point(Math.Max(screen.Left, Math.Min(x, screen.Right - size.Width)), Math.Max(screen.Top, Math.Min(y, screen.Bottom - size.Height)));
 		}
 
 		internal static TextureHistoryClickEventArgs Choose(bool showtextures, bool showflats, bool visual)

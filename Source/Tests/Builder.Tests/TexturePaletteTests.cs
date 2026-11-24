@@ -161,6 +161,28 @@ namespace Builder.Tests
 			Assert.Equal(cancel, result);
 		}
 
+		[Theory]
+		[InlineData(500, 300, "below")]
+		[InlineData(500, 800, "above")]
+		[InlineData(500, 500, "centered")]
+		[InlineData(10, 300, "below")]
+		[InlineData(990, 800, "above")]
+		public void VisualPopupClearsTheCrosshairBelowThenAboveElseCentersOnIt(int x, int y, string expected)
+		{
+			Type popup = typeof(BuilderPlug).Assembly.GetType("CodeImp.DoomBuilder.BuilderModes.TexturePaletteForm");
+			int clearance = (int)popup.GetField("CrosshairClearance", Methods).GetValue(null);
+			Rectangle screen = new Rectangle(0, 0, 1000, 1000);
+			Size size = new Size(300, 1000 / 2 - clearance + 1);
+			Point center = new Point(x, y);
+			Rectangle bounds = new Rectangle((Point)popup.GetMethod("VisualLocation", Methods).Invoke(null, new object[] { center, size, screen }), size);
+			Assert.True(screen.Contains(bounds));
+			string actual = bounds.Top >= center.Y + clearance ? "below" : bounds.Bottom <= center.Y - clearance ? "above" : "centered";
+			Assert.Equal(expected, actual);
+			if(actual == "below") Assert.Equal(center.Y + clearance, bounds.Top);
+			if(actual == "above") Assert.Equal(center.Y - clearance, bounds.Bottom);
+			if(bounds.Left > screen.Left && bounds.Right < screen.Right) Assert.Equal(center.X, bounds.Left + size.Width / 2);
+		}
+
 		private sealed class HeadlessMenu : ContextMenuStrip
 		{
 			internal int Disposals;
