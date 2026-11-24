@@ -154,6 +154,103 @@ namespace Builder.Tests
 			return x.Table.SimpleLines.TryGetValue(type, out e) && e.Args.Any(a => a.Kind == XlatArgKind.Expr);
 		}
 
+		private static HexenLine Hexen(int action, int spac, params int[] args)
+		{
+			HexenLine h = new HexenLine { Action = action, Spac = spac };
+			for(int i = 0; i < args.Length; i++) h.Args[i] = args[i];
+			return h;
+		}
+
+		// The ID-carrying specials the old Hexen <-> UDMF code handled, read the way SetLineID reads them
+		[Fact]
+		public void HexenCodec_LineIdSpecialsRoundTrip()
+		{
+			var cases = new[]
+			{
+				Tuple.Create(Hexen(121, 0, 5, 1 | 8, 0, 0, 1), 261, new[] { 0, 0, 0, 0, 0 }), // Line_SetIdentification
+				Tuple.Create(Hexen(208, 0, 3, 128, 0, 2), 3, new[] { 3, 128, 0, 0, 0 }), // TranslucentLine
+				Tuple.Create(Hexen(215, 0, 4, 9, 0), 4, new[] { 0, 9, 0, 0, 0 }), // Teleport_Line
+				Tuple.Create(Hexen(222, 0, 6, 2), 6, new[] { 6, 2, 0, 0, 0 }), // Scroll_Texture_Model
+				Tuple.Create(Hexen(1, 0, 1, 0, 0, 8), 8, new[] { 1, 0, 0, 0, 0 }), // Polyobj_StartLine
+				Tuple.Create(Hexen(5, 0, 1, 1, 0, 0, 9), 9, new[] { 1, 1, 0, 0, 0 }), // Polyobj_ExplicitLine
+				Tuple.Create(Hexen(181, 0, 1, 0, 10), 10, new[] { 1, 0, 0, 0, 0 }), // Plane_Align
+				Tuple.Create(Hexen(160, 0, 10, 1 | 8, 0, 255, 7), 7, new[] { 10, 1, 0, 255, 0 }), // Sector_Set3DFloor, arg4 is a line ID
+				Tuple.Create(Hexen(160, 0, 44, 1, 0, 255, 1), 0, new[] { 300, 1, 0, 255, 0 }), // arg4 is the tag's high byte
+			};
+
+			foreach(var c in cases)
+			{
+				CanonicalLine l = HexenLineCodec.Read(c.Item1);
+				Assert.True(c.Item2 == l.LineId && c.Item3.SequenceEqual(l.Args), c.Item1.Action + ": " + l);
+				List<string> issues = new List<string>();
+				HexenLine back = HexenLineCodec.Write(l, true, issues);
+				Assert.True(issues.Count == 0, c.Item1.Action + ": " + string.Join("; ", issues));
+				Assert.True(back.Action == c.Item1.Action && back.Args.SequenceEqual(c.Item1.Args), c.Item1.Action + " wrote " + back.Action + "(" + string.Join(", ", back.Args) + ")");
+			}
+
+			CanonicalLine id = HexenLineCodec.Read(Hexen(121, 0, 5, 1 | 8 | 128, 0, 0, 1));
+			Assert.Equal(new List<string> { "zoneboundary", "clipmidtex" }, id.IdFlags);
+			Assert.True(id.FirstSideOnly);
+		}
+
+		[Fact]
+		public void HexenCodec_ActivationsTheFormatCantHoldAreReported()
+		{
+			Assert.Equal(LineActivation.Impact | LineActivation.PCross, HexenLineCodec.FromSpac(7));
+			Assert.Equal(LineActivation.Impact | LineActivation.PCross, HexenLineCodec.FromSpac(3));
+			Assert.Null(HexenLineCodec.ToSpac(LineActivation.AnyCross));
+
+			List<string> issues = new List<string>();
+			CanonicalLine both = new CanonicalLine { Special = 12, Activation = LineActivation.Cross | LineActivation.Use };
+			Assert.Equal(0, HexenLineCodec.Write(both, false, issues).Spac);
+			Assert.Single(issues);
+
+			issues.Clear();
+			CanonicalLine taken = new CanonicalLine { Special = 12, Activation = LineActivation.Use, LineId = 5 };
+			HexenLineCodec.Write(taken, true, issues);
+			Assert.Single(issues); // Door_Raise has no ID arg
+			issues.Clear();
+			HexenLineCodec.Write(taken, false, issues);
+			Assert.Empty(issues); // unreferenced IDs are not written
+		}
+
+		// Every Doom type: a UDMF write reads back the same, and so does a Hexen write that reports nothing
+		[Fact]
+		public void Codecs_RoundTripEveryDoomType()
+		{
+			List<string> failures = new List<string>();
+			int hexenreported = 0;
+			foreach(string game in games)
+			{
+				LineXlat x = Lines(game);
+				List<int> types = new List<int>(x.Table.SimpleLines.Keys);
+				foreach(XlatBoomRange b in x.Table.BoomRanges)
+					for(int t = b.FirstType; t <= b.LastType; t += 7) types.Add(t);
+
+				foreach(int type in types)
+				{
+					foreach(int flags in new[] { 0, 0x200 })
+					{
+						CanonicalLine f = x.Translate(type, flags, 23);
+						if(f.Special == 0) continue;
+						HexenLineCodec.ClearIdArg(f);
+
+						Dictionary<string, bool> fields = new Dictionary<string, bool>();
+						UdmfLineCodec.Write(f, fields);
+						CanonicalLine u = UdmfLineCodec.Read(f.Special, f.Args, fields, f.LineId);
+						if(!u.SameSpecial(f)) failures.Add(game + " " + type + " UDMF: " + f + " became " + u);
+
+						List<string> issues = new List<string>();
+						CanonicalLine h = HexenLineCodec.Read(HexenLineCodec.Write(f, false, issues));
+						if(issues.Count > 0) hexenreported++;
+						else if(!h.SameSpecial(f)) failures.Add(game + " " + type + " Hexen: " + f + " became " + h + " unreported");
+					}
+				}
+			}
+			Assert.True(failures.Count == 0, failures.Count + " failures:\n" + string.Join("\n", failures.Take(40)));
+			Assert.True(hexenreported > 0, "no Boom monster-walk type was reported for Hexen");
+		}
+
 		[Fact]
 		public void Sector_ForwardAndRoundTrip()
 		{

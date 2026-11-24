@@ -36,6 +36,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public bool Monsters;
 		public bool FirstSideOnly;
 		public int LineId;
+		public List<string> IdFlags = new List<string>(); // Line_SetIdentification flags other than firstsideonly, by UDMF name
 
 		// Engine line flags from the xlat lineflag rules (Doom sources only), and their special cases
 		public int EngineFlags;
