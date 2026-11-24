@@ -45,12 +45,12 @@
 		<tr>
 			<td>Lightmap Point Light</td>
 			<td>9876</td>
-			<td>Arguments 1 to 3 are red, green and blue (0 to 255), argument 4 is the radius. The thing's alpha sets the intensity and its height places the light vertically.</td>
+			<td>Arguments 1 to 3 are red, green and blue (0 to 255), argument 4 is the radius. The thing's alpha sets the intensity and its height places the light vertically. The custom field <b>light_softshadowradius</b> gives the light a source size in map units for soft shadow edges (0, hard shadows, when absent). Keep it below the light's distance to the nearest wall, floor or ceiling, or that surface blocks part of the light. Upstream ZDRay ignores it.</td>
 		</tr>
 		<tr>
 			<td>Lightmap Spotlight</td>
 			<td>9881</td>
-			<td>Argument 1 is the color as hex text (for example ff8800), argument 2 the inner angle, argument 3 the outer angle, argument 4 the radius. Aim it with the thing's angle and pitch.</td>
+			<td>Argument 1 is the color as hex text (for example ff8800), argument 2 the inner angle, argument 3 the outer angle, argument 4 the radius. Aim it with the thing's angle and pitch. It takes <b>light_softshadowradius</b> as the point light does.</td>
 		</tr>
 		<tr>
 			<td>ZDRayInfo</td>

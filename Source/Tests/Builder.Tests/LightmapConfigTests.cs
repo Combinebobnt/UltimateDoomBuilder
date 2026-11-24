@@ -40,6 +40,26 @@ namespace Builder.Tests
 
 			// The baker parses the sun colour as hex text
 			Assert.Equal(2, cfg.ReadSetting("universalfields.thing.lm_suncolor.type", -1));
+
+			// Soft shadow source radius on both baked lights; the default must match the baker's absent = 0,
+			// since the fields grid drops a value equal to its default
+			Assert.Equal(new[] { "light_softshadowradius" }, Keys(cfg, "thingtypes.lightmaplights.9876.adduniversalfields"));
+			Assert.Equal(new[] { "light_softshadowradius" }, Keys(cfg, "thingtypes.lightmaplights.9881.adduniversalfields"));
+			Assert.Equal(0.0, cfg.ReadSetting("universalfields.thing.light_softshadowradius.default", -1.0));
+		}
+
+		// Thing types, across all categories, whose adduniversalfields lists the field
+		private static string[] ThingsWithField(Configuration cfg, string field)
+		{
+			var result = new List<string>();
+			foreach(DictionaryEntry cat in cfg.ReadSetting("thingtypes", new Hashtable()))
+			{
+				if(!(cat.Value is IDictionary types)) continue;
+				foreach(DictionaryEntry t in types)
+					if(t.Value is IDictionary thing && thing["adduniversalfields"] is IDictionary fields && fields.Contains(field))
+						result.Add(t.Key.ToString());
+			}
+			return result.ToArray();
 		}
 
 		[Theory]
@@ -54,6 +74,8 @@ namespace Builder.Tests
 			Assert.Contains("health", Keys(cfg, "universalfields.thing"));
 			foreach(string element in new[] { "linedef", "sidedef", "sector", "thing" })
 				Assert.Empty(Keys(cfg, "universalfields." + element).Where(k => k.StartsWith("lm_")));
+			Assert.Empty(ThingsWithField(cfg, "light_softshadowradius"));
+			Assert.DoesNotContain("light_softshadowradius", Keys(cfg, "universalfields.thing"));
 		}
 	}
 }
