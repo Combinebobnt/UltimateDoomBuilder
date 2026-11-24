@@ -25,7 +25,9 @@ namespace CodeImp.DoomBuilder.Windows
 		// Remaps every given system color. All-or-nothing: throws before any write when it can't apply them all.
 		// Returns the previous values of the remapped colors.
 		IDictionary<KnownColor, Color> ApplyPalette(IReadOnlyDictionary<KnownColor, Color> palette);
-		void InstallToolStripRenderer();
+		// Built before the palette is written, so nothing that can fail runs after it
+		ToolStripRenderer CreateToolStripRenderer();
+		void InstallToolStripRenderer(ToolStripRenderer renderer);
 	}
 
 	public static class UITheme
@@ -123,9 +125,10 @@ namespace CodeImp.DoomBuilder.Windows
 
 			try
 			{
+				ToolStripRenderer renderer = backend.CreateToolStripRenderer();
 				lightcolors = backend.ApplyPalette(darkpalette);
 				current = kind;
-				backend.InstallToolStripRenderer();
+				backend.InstallToolStripRenderer(renderer);
 			}
 			catch(Exception e)
 			{
@@ -217,9 +220,14 @@ namespace CodeImp.DoomBuilder.Windows
 			lock(cache) cache[key] = new HatchBrush(HatchStyle.Percent50, SystemColors.ScrollBar, SystemColors.ScrollBar);
 		}
 
-		public void InstallToolStripRenderer()
+		public ToolStripRenderer CreateToolStripRenderer()
 		{
-			ToolStripManager.Renderer = new DarkToolStripRenderer();
+			return new DarkToolStripRenderer();
+		}
+
+		public void InstallToolStripRenderer(ToolStripRenderer renderer)
+		{
+			ToolStripManager.Renderer = renderer;
 		}
 
 		private static Type Resolve(Assembly assembly, string name)

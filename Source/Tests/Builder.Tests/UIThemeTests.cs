@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Reflection;
+using System.Windows.Forms;
 using CodeImp.DoomBuilder;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.IO;
@@ -26,7 +27,8 @@ namespace Builder.Tests
 				return new Dictionary<KnownColor, Color> { { KnownColor.ControlDark, Color.FromArgb(1, 2, 3) } };
 			}
 
-			public void InstallToolStripRenderer() { RendererCalls++; }
+			public ToolStripRenderer CreateToolStripRenderer() { return null; }
+			public void InstallToolStripRenderer(ToolStripRenderer renderer) { RendererCalls++; }
 		}
 
 		private static double Luminance(Color c)
