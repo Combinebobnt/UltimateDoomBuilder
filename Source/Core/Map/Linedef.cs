@@ -770,14 +770,8 @@ namespace CodeImp.DoomBuilder.Map
 			if(args[argnum] == 0) return;
 
 			// Convert to flags
-			if((args[argnum] & 1) == 1) flags["zoneboundary"] = true;
-			if((args[argnum] & 2) == 2) flags["jumpover"] = true;
-			if((args[argnum] & 4) == 4) flags["blockfloaters"] = true;
-			if((args[argnum] & 8) == 8) flags["clipmidtex"] = true;
-			if((args[argnum] & 16) == 16) flags["wrapmidtex"] = true;
-			if((args[argnum] & 32) == 32) flags["midtex3d"] = true;
-			if((args[argnum] & 64) == 64) flags["checkswitchrange"] = true;
-			if((args[argnum] & 128) == 128) flags["firstsideonly"] = true;
+			for(int i = 0; i < IdentificationArgFlags.Length; i++)
+				if((args[argnum] & (1 << i)) != 0) flags[IdentificationArgFlags[i]] = true;
 
 			// Clear obsolete arg
 			args[argnum] = 0;
@@ -786,18 +780,21 @@ namespace CodeImp.DoomBuilder.Map
 		//mxd
 		private void ConvertFlagsToArg(Dictionary<string, bool> oldflags, int argnum)
 		{
+			args[argnum] = FlagsToArgBits(oldflags);
+		}
+
+		// Line_SetIdentification / TranslucentLine flag arg bits, in bit order
+		internal static readonly string[] IdentificationArgFlags = { "zoneboundary", "jumpover", "blockfloaters", "clipmidtex", "wrapmidtex", "midtex3d", "checkswitchrange", "firstsideonly" };
+
+		internal static int FlagsToArgBits(IDictionary<string, bool> fields)
+		{
 			int bits = 0;
-			if(oldflags.ContainsKey("zoneboundary") && oldflags["zoneboundary"]) bits &= 1;
-			if(oldflags.ContainsKey("jumpover") && oldflags["jumpover"]) bits &= 2;
-			if(oldflags.ContainsKey("blockfloaters") && oldflags["blockfloaters"]) bits &= 4;
-			if(oldflags.ContainsKey("clipmidtex") && oldflags["clipmidtex"]) bits &= 8;
-			if(oldflags.ContainsKey("wrapmidtex") && oldflags["wrapmidtex"]) bits &= 16;
-			if(oldflags.ContainsKey("midtex3d") && oldflags["midtex3d"]) bits &= 32;
-			if(oldflags.ContainsKey("checkswitchrange") && oldflags["checkswitchrange"]) bits &= 64;
-			if(oldflags.ContainsKey("firstsideonly") && oldflags["firstsideonly"]) bits &= 128;
-			
-			// Set arg
-			args[argnum] = bits;
+			for(int i = 0; i < IdentificationArgFlags.Length; i++)
+			{
+				bool set;
+				if(fields.TryGetValue(IdentificationArgFlags[i], out set) && set) bits |= 1 << i;
+			}
+			return bits;
 		}
 
 		// Selected
