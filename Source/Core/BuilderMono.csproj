@@ -159,6 +159,7 @@
     <Compile Include="Config\GeneralizedBit.cs" />
     <Compile Include="Config\GeneralizedOption.cs" />
     <Compile Include="Config\GameConfiguration.cs" />
+    <Compile Include="Config\XlatTable.cs" />
     <Compile Include="Config\GeneralizedCategory.cs" />
     <Compile Include="Config\INumberedTitle.cs" />
     <Compile Include="Config\LinedefActionCategory.cs" />
@@ -671,6 +672,8 @@
     <Compile Include="Windows\ToolbarDragController.cs" />
     <Compile Include="Windows\ToolbarLayoutModel.cs" />
     <Compile Include="Map\Linedef.cs" />
+    <Compile Include="Map\Conversion\LineXlat.cs" />
+    <Compile Include="Map\Conversion\SectorXlat.cs" />
     <Compile Include="Geometry\LinedefSide.cs" />
     <Compile Include="Map\MapOptions.cs" />
     <Compile Include="Map\BakeFingerprint.cs" />
