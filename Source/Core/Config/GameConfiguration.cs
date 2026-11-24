@@ -111,6 +111,7 @@ namespace CodeImp.DoomBuilder.Config
 		private readonly int bottomboundary;
 		private readonly int safeboundary; //mxd
 		private readonly bool doomlightlevels;
+		private readonly int defaultlightmode;
 		private readonly bool doomthingrotationangles; //mxd
 		private readonly string actionspecialhelp; //mxd
 		private readonly string thingclasshelp; //mxd
@@ -283,6 +284,7 @@ namespace CodeImp.DoomBuilder.Config
 		public int BottomBoundary { get { return bottomboundary; } }
 		public int SafeBoundary { get { return safeboundary; } } //mxd
 		public bool DoomLightLevels { get { return doomlightlevels; } }
+		public int DefaultLightMode { get { return defaultlightmode; } } // The engine's light mode for maps that set none, -1 when unknown
 		public bool DoomThingRotationAngles { get { return doomthingrotationangles; } } //mxd. When set to true, thing rotation angles will be clamped to the nearest 45 deg increment
 		public string ActionSpecialHelp { get { return actionspecialhelp; } } //mxd
 		public string ThingClassHelp { get { return thingclasshelp; } } //mxd
@@ -494,6 +496,7 @@ namespace CodeImp.DoomBuilder.Config
 			bottomboundary = cfg.ReadSetting("bottomboundary", -32768);
 			safeboundary = cfg.ReadSetting("safeboundary", 32767); //mxd
 			doomlightlevels = cfg.ReadSetting("doomlightlevels", true);
+			defaultlightmode = cfg.ReadSetting("defaultlightmode", -1);
 			doomthingrotationangles = cfg.ReadSetting("doomthingrotationangles", false); //mxd
 			actionspecialhelp = cfg.ReadSetting("actionspecialhelp", string.Empty); //mxd
 			thingclasshelp = cfg.ReadSetting("thingclasshelp", string.Empty); //mxd
