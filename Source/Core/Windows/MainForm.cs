@@ -4061,7 +4061,8 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 		
 		// Mono services one paint per message-loop pass, after expired timers, so with the processor
-		// rendering a frame per tick the panel would otherwise repaint one control per frame
+		// rendering a frame per tick the panel would otherwise repaint one control per frame.
+		// Each control is invalidated itself: a re-shown one is not, and Invalidate(true) skips it.
 		private void PaintInfoPanelNow()
 		{
 			if(Environment.OSVersion.Platform == PlatformID.Unix && processor.Enabled) UpdateControlTree(panelinfo);
@@ -4069,6 +4070,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private static void UpdateControlTree(Control c)
 		{
+			c.Invalidate();
 			c.Update();
 			foreach(Control child in c.Controls)
 				if(child.Visible) UpdateControlTree(child);
