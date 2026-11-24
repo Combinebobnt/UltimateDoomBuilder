@@ -38,6 +38,9 @@ namespace CodeImp.DoomBuilder.Editing
 
 		// Maximum undo/redo levels
 		private const int MAX_UNDO_LEVELS = 2000;
+
+		// Moves on every recorded map change (even one an undo group already holds), undo and redo; never on a copy of the map
+		internal long ChangeVersion { get { return changeversion; } }
 		
 		// Default stream capacity
 		private const int STREAM_CAPACITY = 1000;
@@ -102,6 +105,7 @@ namespace CodeImp.DoomBuilder.Editing
 		private bool ignorepropchanges;
 		private bool isrecordingcommand;
 		private MapElement propsrecorded;
+		private long changeversion;
 		private bool geometrychanged;
 		private bool populationchanged;
 		
@@ -493,6 +497,7 @@ namespace CodeImp.DoomBuilder.Editing
 		// This begins writing to the record stream
 		private bool BeginRecordData(StreamCodes code)
 		{
+			changeversion++;
 			if((ss == null) || isdisposed) return false;
 			isrecordingcommand = true;
 			prevstreamlength = stream.Length;
@@ -774,6 +779,7 @@ namespace CodeImp.DoomBuilder.Editing
 		public void PerformUndo(int levels) { PerformUndo(levels, true); }
 		private void PerformUndo(int levels, bool showmessage)
 		{
+			changeversion++;
 			UndoSnapshot u = null;
 			Cursor oldcursor = Cursor.Current;
 			Cursor.Current = Cursors.WaitCursor;
@@ -926,6 +932,7 @@ namespace CodeImp.DoomBuilder.Editing
 		public void PerformRedo(int levels) { PerformRedo(levels, true); }
 		private void PerformRedo(int levels, bool showmessage)
 		{
+			changeversion++;
 			UndoSnapshot r = null;
 			Cursor oldcursor = Cursor.Current;
 			Cursor.Current = Cursors.WaitCursor;
@@ -1197,6 +1204,7 @@ namespace CodeImp.DoomBuilder.Editing
 		
 		internal void RecPrpVertex(Vertex v)
 		{
+			changeversion++;
 			if(!ignorepropchanges && !isrecordingcommand && !object.ReferenceEquals(v, propsrecorded))
 			{
 				if(!BeginRecordData(StreamCodes.PrpVertex)) return;
@@ -1266,6 +1274,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 		internal void RecPrpLinedef(Linedef l)
 		{
+			changeversion++;
 			if(!ignorepropchanges && !isrecordingcommand && !object.ReferenceEquals(l, propsrecorded))
 			{
 				if(!BeginRecordData(StreamCodes.PrpLinedef)) return;
@@ -1439,6 +1448,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 		internal void RecPrpSidedef(Sidedef s)
 		{
+			changeversion++;
 			if(!ignorepropchanges && !isrecordingcommand && !object.ReferenceEquals(s, propsrecorded))
 			{
 				if(!BeginRecordData(StreamCodes.PrpSidedef)) return;
@@ -1523,6 +1533,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 		internal void RecPrpSector(Sector s)
 		{
+			changeversion++;
 			if(!ignorepropchanges && !isrecordingcommand && !object.ReferenceEquals(s, propsrecorded))
 			{
 				if(!BeginRecordData(StreamCodes.PrpSector)) return;
@@ -1583,6 +1594,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 		internal void RecPrpThing(Thing t)
 		{
+			changeversion++;
 			if(!ignorepropchanges && !isrecordingcommand && !object.ReferenceEquals(t, propsrecorded))
 			{
 				if(!BeginRecordData(StreamCodes.PrpThing)) return;
