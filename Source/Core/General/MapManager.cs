@@ -140,8 +140,8 @@ namespace CodeImp.DoomBuilder
 
 		// The bake Visual mode draws, or null: no bake, the preview is off, or the map changed since the last check
 		public LightmapPreview LightmapPreview { get { return undoredo == null ? null : lightmappreview.Shown(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }
-		// Why LightmapPreview was null at the last check, else null
-		public string LightmapPreviewReason { get { return lightmappreview.Reason; } }
+		// Why LightmapPreview is null: the last check's reason, or that the map changed since; null while it is shown
+		public string LightmapPreviewReason { get { return undoredo == null ? null : lightmappreview.Explain(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }
 		// Raised after every check that shows a preview (geometry built while the check was pending has
 		// none) and whenever the reason nothing is shown changes
 		public event EventHandler LightmapPreviewChanged;
@@ -2446,9 +2446,7 @@ namespace CodeImp.DoomBuilder
 			try
 			{
 				outputset = CloneForOutput();
-				MemoryStream textmap = new MemoryStream();
-				new UniversalStreamWriter().Write(outputset, textmap, config.EngineName);
-				data = textmap.ToArray();
+				data = WriteTextmap(new UniversalStreamWriter(), outputset, config.EngineName);
 			}
 			finally
 			{
@@ -2456,8 +2454,22 @@ namespace CodeImp.DoomBuilder
 				if(!waschanged) ForceMapIsChangedFalse();
 			}
 
-			fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)));
+			fingerprint = TextmapFingerprint(data);
 			return data;
+		}
+
+		// The output TEXTMAP of a copy made by CloneForOutput; touches nothing but the copy and the writer
+		private static byte[] WriteTextmap(UniversalStreamWriter writer, MapSet outputset, string engine)
+		{
+			MemoryStream textmap = new MemoryStream();
+			writer.Write(outputset, textmap, engine);
+			return textmap.ToArray();
+		}
+
+		// The bake fingerprint of an output TEXTMAP, null when it doesn't parse back
+		private static string TextmapFingerprint(byte[] textmap)
+		{
+			return BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(textmap)));
 		}
 
 		// A backup's model is not the file's, so the file's lightmap can't stand for it
@@ -2678,8 +2690,7 @@ namespace CodeImp.DoomBuilder
 			public MapSet Copy;
 			public Task<string> Fingerprint;
 			public long ChangeVersion, SourceVersion;
-			public Stopwatch Timer;
-			public long CopyTime;
+			public long UITime, WorkerTime;
 		}
 
 		// Checks the bake against the map now if either changed since the last check. One already
@@ -2689,7 +2700,8 @@ namespace CodeImp.DoomBuilder
 			for(int i = 0; i < 2 && BeginLightmapPreviewCheck(); i++) FinishLightmapPreviewCheck();
 		}
 
-		// Re-checks once the map has held still for the debounce, only in Visual mode with the preview on
+		// Re-checks once the map has held still for the debounce, only in Visual mode with the preview on.
+		// The timer runs in every mode; outside Visual mode a tick only collects a finished check.
 		private void OnLightmapPreviewTick(object sender, EventArgs e)
 		{
 			if(lightmapcheck != null)
@@ -2701,46 +2713,55 @@ namespace CodeImp.DoomBuilder
 			if(lightmappreview.Settled(undoredo.ChangeVersion, lightmapsourceversion)) BeginLightmapPreviewCheck();
 		}
 
-		// Returns true while a fingerprint is being computed; otherwise the check is done
+		// Returns true while a fingerprint is being computed; otherwise the check is done or can't run yet
 		private bool BeginLightmapPreviewCheck()
 		{
 			if(lightmapcheck != null) return true;
-			if(isdisposed || maploading || map == null || undoredo == null || !General.Settings.LightmapPreview) return false;
+			// A script editing the map on its own thread, or a save, leaves the check for later (as the autosaver does)
+			if(isdisposed || maploading || issaving || map == null || !map.IsSafeToAccess || undoredo == null || !General.Settings.LightmapPreview) return false;
 			if(!lightmappreview.Stale(undoredo.ChangeVersion, lightmapsourceversion)) return false;
 			lightmappreview.MarkChecked(undoredo.ChangeVersion, lightmapsourceversion);
 			if(lightmapbake == null)
 			{
-				ApplyLightmapPreviewCheck(null, null, null);
+				ApplyLightmapPreviewCheck(null, null, null, null);
 				return false;
 			}
 
-			LightmapPreviewCheck check = new LightmapPreviewCheck { Bake = lightmapbake, ChangeVersion = undoredo.ChangeVersion,
-				SourceVersion = lightmapsourceversion, Timer = Stopwatch.StartNew() };
+			Stopwatch timer = Stopwatch.StartNew();
+			LightmapPreviewCheck check = new LightmapPreviewCheck { Bake = lightmapbake, ChangeVersion = undoredo.ChangeVersion, SourceVersion = lightmapsourceversion };
 			bool waschanged = changed;
 			try { check.Copy = CloneForOutput(); }
+			catch(Exception e)
+			{
+				ApplyLightmapPreviewCheck(lightmapbake, null, "copying the map failed: " + e.GetType().Name + ": " + e.Message, null);
+				return false;
+			}
 			finally { if(!waschanged) ForceMapIsChangedFalse(); }
-			check.CopyTime = check.Timer.ElapsedMilliseconds;
 
 			MapSet copy = check.Copy;
 			UniversalStreamWriter writer = new UniversalStreamWriter();
 			string engine = config.EngineName;
 			check.Fingerprint = Task.Run(() =>
 			{
-				MemoryStream textmap = new MemoryStream();
-				writer.Write(copy, textmap, engine);
-				return BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(textmap.ToArray())));
+				Stopwatch worker = Stopwatch.StartNew();
+				string fingerprint = TextmapFingerprint(WriteTextmap(writer, copy, engine));
+				check.WorkerTime = worker.ElapsedMilliseconds;
+				return fingerprint;
 			});
+			check.UITime = timer.ElapsedMilliseconds;
 			lightmapcheck = check;
 			return true;
 		}
 
 		private void FinishLightmapPreviewCheck()
 		{
+			Stopwatch timer = Stopwatch.StartNew();
 			LightmapPreviewCheck check = lightmapcheck;
 			lightmapcheck = null;
 			string fingerprint = null;
+			string failure = null;
 			try { fingerprint = check.Fingerprint.Result; }
-			catch(AggregateException e) { General.WriteLogLine("Lightmap preview fingerprint failed: " + e.InnerException.GetType().Name + ": " + e.InnerException.Message); }
+			catch(AggregateException e) { failure = "the fingerprint failed: " + e.InnerException.GetType().Name + ": " + e.InnerException.Message; }
 
 			// Disposing the copy's sidedefs sets the changed flag (Sidedef.SetSectorP); the copy is no edit
 			bool waschanged = changed;
@@ -2749,20 +2770,24 @@ namespace CodeImp.DoomBuilder
 
 			// The map or the bake moved on while the worker ran: its answer is for neither, check again
 			if(isdisposed || undoredo == null || check.ChangeVersion != undoredo.ChangeVersion || check.SourceVersion != lightmapsourceversion) return;
-			ApplyLightmapPreviewCheck(check.Bake, fingerprint, check);
+			check.UITime += timer.ElapsedMilliseconds;
+			ApplyLightmapPreviewCheck(check.Bake, fingerprint, failure, check);
 		}
 
-		private void ApplyLightmapPreviewCheck(LightmapBakeCache bake, string fingerprint, LightmapPreviewCheck check)
+		// failure, when set, is the reason; else the fingerprints decide. Logs every check that had a bake.
+		private void ApplyLightmapPreviewCheck(LightmapBakeCache bake, string fingerprint, string failure, LightmapPreviewCheck check)
 		{
-			string reason = LightmapPreviewUnavailable(bake != null, bake != null ? bake.Fingerprint : null, fingerprint);
+			Stopwatch timer = Stopwatch.StartNew();
+			string reason = failure ?? LightmapPreviewUnavailable(bake != null, bake != null ? bake.Fingerprint : null, fingerprint);
 			if(reason == null) reason = lightmappreview.Build(bake, map);
-
-			string previousreason = lightmappreview.Reason;
-			lightmappreview.SetResult(reason);
-			if(check != null)
+			bool changedreason = lightmappreview.SetResult(reason);
+			if(bake != null)
+			{
+				long uitime = timer.ElapsedMilliseconds + (check != null ? check.UITime : 0);
 				General.WriteLogLine("Lightmap preview check: " + (reason == null ? "on (" + bake.Summary + ")" : "off, " + reason) +
-					" in " + check.Timer.ElapsedMilliseconds + " ms (" + check.CopyTime + " ms of it copying the map on the UI thread).");
-			if((reason == null || reason != previousreason) && LightmapPreviewChanged != null) LightmapPreviewChanged(this, EventArgs.Empty);
+					" (" + uitime + " ms on the UI thread" + (check != null ? ", " + check.WorkerTime + " ms on the worker" : "") + ").");
+			}
+			if((reason == null || changedreason) && LightmapPreviewChanged != null) LightmapPreviewChanged(this, EventArgs.Empty);
 		}
 
 		// A check still running when the map closes: its copy is disposed here, not left to the worker

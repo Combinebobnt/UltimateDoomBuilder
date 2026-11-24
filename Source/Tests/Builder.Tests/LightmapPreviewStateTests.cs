@@ -53,8 +53,46 @@ namespace Builder.Tests
 			}
 		}
 
+		private static LightmapPreview AnyPreview()
+		{
+			return (LightmapPreview)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(LightmapPreview));
+		}
+
 		[Fact]
-		public void NothingShownWithoutAValidPreview()
+		public void ShownOnlyAtTheCheckedVersionsAfterAPassingCheck()
+		{
+			using(LightmapPreviewState s = new LightmapPreviewState())
+			{
+				LightmapPreview p = AnyPreview();
+				s.InjectForTest(p);
+				s.MarkChecked(4, 2);
+				Assert.Null(s.Shown(4, 2, true)); // pending
+				Assert.Equal("the map was not checked yet", s.Explain(4, 2, true));
+
+				Assert.True(s.SetResult(null));
+				Assert.Same(p, s.Shown(4, 2, true));
+				Assert.Null(s.Explain(4, 2, true));
+				Assert.Null(s.Shown(5, 2, true)); // an edit
+				Assert.NotNull(s.Explain(5, 2, true));
+				Assert.Null(s.Shown(4, 3, true)); // a new or discarded bake
+				Assert.Null(s.Shown(4, 2, false)); // the setting off
+				Assert.NotNull(s.Explain(4, 2, false));
+
+				// A new check hides it until its own result is in
+				s.MarkChecked(5, 2);
+				Assert.Null(s.Shown(5, 2, true));
+				Assert.False(s.SetResult(null));
+				Assert.Same(p, s.Shown(5, 2, true));
+
+				Assert.True(s.SetResult("the map changed since the bake"));
+				Assert.Null(s.Shown(5, 2, true));
+				Assert.Equal("the map changed since the bake", s.Explain(5, 2, true));
+				Assert.False(s.SetResult("the map changed since the bake"));
+			}
+		}
+
+		[Fact]
+		public void NothingShownWithoutABuiltPreview()
 		{
 			using(LightmapPreviewState s = new LightmapPreviewState())
 			{
@@ -92,9 +130,16 @@ namespace Builder.Tests
 			Assert.False(Square().SameAs(flipped));
 
 			MapTopology resectored = Square();
-			resectored.SectorCount = 2;
 			resectored.SideSector[3] = 1;
 			Assert.False(Square().SameAs(resectored));
+
+			MapTopology extrasector = Square();
+			extrasector.SectorCount = 2;
+			Assert.False(Square().SameAs(extrasector));
+
+			MapTopology extravertex = Square();
+			extravertex.Vertices = new[] { extravertex.Vertices[0], extravertex.Vertices[1], extravertex.Vertices[2], extravertex.Vertices[3], new Vector2D(32, 32) };
+			Assert.False(Square().SameAs(extravertex));
 
 			MapTopology twosided = Square();
 			twosided.LineBack[0] = 3;

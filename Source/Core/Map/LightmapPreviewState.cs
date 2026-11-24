@@ -54,7 +54,7 @@ namespace CodeImp.DoomBuilder.Map
 
 		public LightmapPreviewState()
 		{
-			Reason = "there is no lightmap bake";
+			Reason = "the map was not checked yet";
 			Timer = new Timer { Interval = TICK_INTERVAL };
 			Timer.Start();
 		}
@@ -115,10 +115,28 @@ namespace CodeImp.DoomBuilder.Map
 			return Stale(changeversion, sourceversion) && now - seenat >= DEBOUNCE;
 		}
 
-		public void SetResult(string reason)
+		// Returns true when the reason differs from the last check's
+		public bool SetResult(string reason)
 		{
+			bool changed = reason != Reason;
 			valid = reason == null;
 			Reason = reason;
+			return changed;
+		}
+
+		// Why Shown returns null, or null when it doesn't
+		public string Explain(long changeversion, long sourceversion, bool enabled)
+		{
+			if(!enabled) return "the lightmap preview is off";
+			if(Shown(changeversion, sourceversion, enabled) != null) return null;
+			if(Reason != null) return Reason;
+			return "the map changed since the last check";
+		}
+
+		// Stands in for Build in tests
+		internal void InjectForTest(LightmapPreview built)
+		{
+			preview = built;
 		}
 
 		#endregion
@@ -136,7 +154,12 @@ namespace CodeImp.DoomBuilder.Map
 				matched = null;
 				inputserror = ReadInputs(bake.WadPath, out data, out gl, out baker);
 			}
-			if(inputserror != null) return inputserror;
+			if(inputserror != null)
+			{
+				// Not kept: a passing read failure (a locked file) is retried at the next check
+				inputskey = null;
+				return inputserror;
+			}
 
 			MapTopology current = MapTopology.FromMapSet(map);
 			if(matched == null || !matched.SameAs(current))
