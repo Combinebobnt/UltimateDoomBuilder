@@ -1019,7 +1019,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return (sectordata.ContainsKey(s) ? sectordata[s] : null);
 		}
 
-		// Slope effects and 3D floors can put a surface below every sector's own floor and ceiling (computed once per map change)
+		// Slope effects and 3D floors can put a surface below every sector's own floor and ceiling (cached until the next invalidation)
 		protected override double GetLowestSurfaceHeight()
 		{
 			double lowest = base.GetLowestSurfaceHeight();
@@ -1027,9 +1027,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			foreach(SectorData sd in new List<SectorData>(sectordata.Values)) // Update can add sector data
 			{
 				if(!sd.Updated) sd.Update(); // effects only shape the levels once updated
-				foreach(SectorLevel l in sd.LightLevels) lowest = Math.Min(lowest, LowestLevelHeight(l, sd.Sector));
+				foreach(SectorLevel l in sd.LightLevels) lowest = MinOf(lowest, LowestLevelHeight(l, sd.Sector));
 				foreach(Effect3DFloor f in sd.ExtraFloors)
-					lowest = Math.Min(lowest, Math.Min(LowestLevelHeight(f.Floor, sd.Sector), LowestLevelHeight(f.Ceiling, sd.Sector)));
+				{
+					lowest = MinOf(lowest, LowestLevelHeight(f.Floor, sd.Sector));
+					lowest = MinOf(lowest, LowestLevelHeight(f.Ceiling, sd.Sector));
+				}
 			}
 			return lowest;
 		}

@@ -654,21 +654,23 @@ namespace CodeImp.DoomBuilder.VisualModes
 
         int lastProcessed = 0;
 
-		private double lowestsurface = double.NaN; // NaN until computed
+		private double lowestsurface;
+		private bool lowestsurfacevalid;
 
 		// Makes the next frame recompute the lowest surface, after anything may have moved surfaces
 		protected void InvalidateLowestSurface()
 		{
-			lowestsurface = double.NaN;
+			lowestsurfacevalid = false;
 		}
 
 		// A height no sector geometry is drawn below, so geometry culling can leave out the view under it.
 		// Things are culled to the whole view, since they can draw well below their origin.
 		private double GetLowestGeometryHeight()
 		{
-			if(double.IsNaN(lowestsurface))
+			if(!lowestsurfacevalid)
 			{
 				lowestsurface = GetLowestSurfaceHeight();
+				lowestsurfacevalid = true;
 				VisualGeometry.LowestBuiltZ = double.PositiveInfinity;
 			}
 
@@ -686,8 +688,8 @@ namespace CodeImp.DoomBuilder.VisualModes
 				lowest = Math.Min(lowest, Math.Min(s.FloorHeight, s.CeilHeight));
 				if(General.Map.UDMF)
 				{
-					if(s.FloorSlope.GetLengthSq() > 0) lowest = Math.Min(lowest, LowestOnSector(new Plane(s.FloorSlope, s.FloorSlopeOffset), s));
-					if(s.CeilSlope.GetLengthSq() > 0) lowest = Math.Min(lowest, LowestOnSector(new Plane(s.CeilSlope, s.CeilSlopeOffset), s));
+					if(s.FloorSlope.GetLengthSq() > 0) lowest = MinOf(lowest, LowestOnSector(new Plane(s.FloorSlope, s.FloorSlopeOffset), s));
+					if(s.CeilSlope.GetLengthSq() > 0) lowest = MinOf(lowest, LowestOnSector(new Plane(s.CeilSlope, s.CeilSlopeOffset), s));
 				}
 			}
 
@@ -695,12 +697,18 @@ namespace CodeImp.DoomBuilder.VisualModes
 			{
 				foreach(Vertex v in General.Map.Map.Vertices)
 				{
-					if(!double.IsNaN(v.ZFloor)) lowest = Math.Min(lowest, v.ZFloor);
-					if(!double.IsNaN(v.ZCeiling)) lowest = Math.Min(lowest, v.ZCeiling);
+					lowest = MinOf(lowest, v.ZFloor);
+					lowest = MinOf(lowest, v.ZCeiling);
 				}
 			}
 
 			return lowest;
+		}
+
+		// Math.Min that skips NaN, from a plane missing its offset or a degenerate slope, which isn't drawn as that plane
+		protected static double MinOf(double lowest, double value)
+		{
+			return value < lowest ? value : lowest;
 		}
 
 		// The lowest a plane gets over a sector, taken at its bounding box corners; a vertical plane isn't drawn as a surface
@@ -726,7 +734,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 
 			// Get the blocks within view range: for geometry the view above the lowest surface, for things all of it
 			visibleblocks = blockmap.GetFrustumRange(renderer.GeometryFrustum2D);
-			List<VisualBlockEntry> thingblocks = (renderer.GeometryFrustum2D == renderer.Frustum2D) ? visibleblocks : blockmap.GetFrustumRange(renderer.Frustum2D);
+			List<VisualBlockEntry> thingblocks = (!processthings || renderer.GeometryFrustum2D == renderer.Frustum2D) ? visibleblocks : blockmap.GetFrustumRange(renderer.Frustum2D);
 
 			// Fill collections with geometry
 			foreach(VisualBlockEntry block in visibleblocks)
