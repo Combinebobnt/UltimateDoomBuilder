@@ -142,7 +142,7 @@ void main()
 			fragment.AppendLine(@"
 frag = mix(frag, vec4(stencilColor.rgb, frag.a), stencilColor.a);
 if(fogEnabled > 0.0) frag = getFogColor(PosW, frag);
-frag = desaturate(frag);
+frag = desaturateFinal(frag);
 if(highlightcolor.a > 0.0 && frag.a != 0.0) frag = vec4(highlightcolor.rgb * highlightcolor.a + frag.rgb - 0.4 * highlightcolor.a, max(frag.a + 0.25, 0.5));
 #if defined(ALPHA_TEST)
 if(disableAlphaTest < 0.5 && frag.a < 0.5) discard;

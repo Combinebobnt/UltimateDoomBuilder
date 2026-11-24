@@ -242,10 +242,22 @@ namespace CodeImp.DoomBuilder.VisualModes
 		//GZDoom: gl_renderstate.h, SetFog();
 		//GZDoom: gl_lightlevel.cpp gl_SetFog();
 		protected float CalculateFogFactor(int brightness) { return CalculateFogFactor(Sector.Sector, brightness); }
+
+		// The sector's own UDMF fog density, halved as the engine stores it; 0 when unset
+		public static int SectorFogDensity(Sector sector)
+		{
+			return General.Map.UDMF ? General.Clamp(sector.Fields.GetValue("fogdensity", 0), 0, 512) / 2 : 0;
+		}
+
 		public static float CalculateFogFactor(Sector sector, int brightness)
 		{
 			float density;
-			int fogdensity = (General.Map.UDMF ? General.Clamp(sector.Fields.GetValue("fogdensity", 0), 0, 512) / 2 : 0);
+
+			// GetFogDensity: light mode 4 (Legacy) uses the level's density, else 18, for every fog colour
+			LightModelSettings model = LightModel.ResolveForMap(false);
+			if(model.HardwareMode == (int)MapInfo.GZDoomLightMode.LEGACY) return model.LegacyDensity * FADE_MULTIPLIER * FOG_DENSITY_SCALER;
+
+			int fogdensity = SectorFogDensity(sector);
 			if(fogdensity != 0) return fogdensity * FADE_MULTIPLIER * FOG_DENSITY_SCALER;
 
 			switch(sector.FogMode)

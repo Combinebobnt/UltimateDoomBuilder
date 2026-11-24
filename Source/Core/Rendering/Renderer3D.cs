@@ -67,6 +67,9 @@ namespace CodeImp.DoomBuilder.Rendering
 		
 		private Data.ColorMap classicLightingColorMap = null;
 		private Texture classicLightingColorMapTex = null;
+
+		// The map's light model, resolved once per frame
+		private LightModelSettings lightsettings;
 		
 		// Slope handle
 		private VisualSlopeHandle visualslopehandle;
@@ -988,7 +991,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						ShaderName wantedshaderpass = (((g == highlighted) && showhighlight) || (g.Selected && showselection)) ? highshaderpass : shaderpass;
 
 						//mxd. Render fog?
-						bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && sector.Sector.FogMode != SectorFogMode.NONE;
+						bool fogpass = FogPass(sector.Sector);
 						if(fogpass)
 							wantedshaderpass += 8;
 						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
@@ -1009,12 +1012,11 @@ namespace CodeImp.DoomBuilder.Rendering
 						// volte: set sector light level for classic rendering mode
 						graphics.SetUniform(UniformName.sectorLightLevel, sector.Sector.Brightness);
 
-						//mxd. Set variables for fog rendering?
+						// The sector light needs the camera in every pass
+						graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
+						SetSectorLightParams(sector.Sector);
 						if(fogpass || General.Settings.ClassicRendering || material != null)
-						{
-							graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
 							graphics.SetUniform(UniformName.sectorfogcolor, sector.Sector.FogColor);
-						}
                         
 						// Set the colors to use
 						graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((g == highlighted) && showhighlight, (g.Selected && showselection)));
@@ -1082,7 +1084,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							ShaderName wantedshaderpass = (((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass;
 
 							//mxd. If fog is enagled, switch to shader, which calculates it
-							bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE;
+							bool fogpass = FogPass(t.Thing.Sector);
 							if(fogpass)
 								wantedshaderpass += 8;
 
@@ -1125,12 +1127,10 @@ namespace CodeImp.DoomBuilder.Rendering
 								currentshaderpass = wantedshaderpass;
 							}
 
-							//mxd. Set variables for fog rendering?
 							if(fogpass || General.Settings.ClassicRendering || material != null)
-							{
-                                graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
-                                graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
-							}
+								graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
+							graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
+							SetSectorLightParams(t.Thing.Sector);
 
 							// Set the colors to use
 							if (t.Thing.Sector != null)
@@ -1177,9 +1177,24 @@ namespace CodeImp.DoomBuilder.Rendering
 		// The map's light model for the sector light in the shaders
 		private void SetLightModelUniform()
 		{
-			MapInfo mapinfo = General.Map.Data.MapInfo;
-			LightModelSettings s = LightModel.Resolve(mapinfo.LightMode, General.Map.Config.DefaultLightMode, General.Map.Config.DoomLightLevels, mapinfo.FogDensity, General.Settings.GZDrawFog);
+			LightModelSettings s = LightModel.ResolveForMap(General.Settings.GZDrawFog);
+			lightsettings = s;
 			graphics.SetUniform(UniformName.lightmodel, new Vector4f((float)s.Kind, s.DoomCurve ? 1f : 0f, s.HardwareMode, s.Distance ? 1f : 0f));
+			SetSectorLightParams(null);
+		}
+
+		// Whether a sector's fog is drawn by the fog programs (the +8 shader passes)
+		private bool FogPass(Sector s)
+		{
+			return General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && s != null && s.FogMode != SectorFogMode.NONE
+				&& LightModel.UsesFogPrograms(lightsettings, s.HasBlackFade);
+		}
+
+		// The sector light's per-sector parameters (black fog density) for the geometry or thing drawn next
+		private void SetSectorLightParams(Sector s)
+		{
+			float density = s != null ? LightModel.BlackFogDensity(lightsettings, s.HasBlackFade, VisualGeometry.SectorFogDensity(s)) : -1f;
+			graphics.SetUniform(UniformName.lightparams, new Vector4f(lightsettings.GlobVis, density, 0f, 0f));
 		}
 
 		// Clears the thing light uniforms so the geometry drawn next reads its own vertex light
@@ -1372,7 +1387,7 @@ namespace CodeImp.DoomBuilder.Rendering
                     ShaderName wantedshaderpass = (((g == highlighted) && showhighlight) || (g.Selected && showselection)) ? highshaderpass : shaderpass;
 
                     //mxd. Render fog?
-                    bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && sector.Sector.FogMode != SectorFogMode.NONE;
+                    bool fogpass = FogPass(sector.Sector);
                     if (fogpass)
                         wantedshaderpass += 8;
 					wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
@@ -1390,12 +1405,10 @@ namespace CodeImp.DoomBuilder.Rendering
                         }
                     }
 
-                    // Set variables for fog rendering?
-                    if (fogpass || General.Settings.ClassicRendering || material != null)
-                    {
-                        graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
-                        fogfactor = g.FogFactor;
-                    }
+                    // The sector light needs the camera in every pass
+                    graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
+                    fogfactor = g.FogFactor;
+                    SetSectorLightParams(sector.Sector);
 
                     //
                     graphics.SetUniform(UniformName.desaturation, (float)sector.Sector.Desaturation);
@@ -1497,7 +1510,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						ShaderName wantedshaderpass = (((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass;
 
 						//mxd. if fog is enagled, switch to shader, which calculates it
-						bool fogpass = General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE;
+						bool fogpass = FogPass(t.Thing.Sector);
 						if(fogpass)
 							wantedshaderpass += 8;
 
@@ -1540,16 +1553,11 @@ namespace CodeImp.DoomBuilder.Rendering
 							currentshaderpass = wantedshaderpass;
 						}
 
-						//mxd. Set variables for fog rendering?
 						if(fogpass || General.Settings.ClassicRendering || material != null)
-						{
-                            graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
-                            if (fogpass || General.Settings.ClassicRendering || material != null)
-							{
-                                graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
-								fogfactor = t.FogFactor;
-							}
-						}
+							graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
+						graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
+						fogfactor = t.FogFactor;
+						SetSectorLightParams(t.Thing.Sector);
 
                         // Set the colors to use
                         graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
@@ -1714,7 +1722,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				ShaderName wantedshaderpass = ((((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass);
 
 				// If fog is enagled, switch to shader, which calculates it
-				if (General.Settings.GZDrawFog && !fullbrightness && !General.Settings.ClassicRendering && t.Thing.Sector != null && t.Thing.Sector.FogMode != SectorFogMode.NONE)
+				if (FogPass(t.Thing.Sector))
 					wantedshaderpass += 8;
 
 				// Switch shader pass?
@@ -1746,8 +1754,9 @@ namespace CodeImp.DoomBuilder.Rendering
                     // this is not right...
                     graphics.SetUniform(UniformName.modelnormal, General.Map.Data.ModeldefEntries[t.Thing.Type].TransformRotation * modelrotation);
                     if (t.Thing.Sector != null) graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
-                    graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
 				}
+                graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
+                SetSectorLightParams(t.Thing.Sector);
 
                 if (t.Thing.Sector != null)
                     graphics.SetUniform(UniformName.desaturation, (float)t.Thing.Sector.Desaturation);

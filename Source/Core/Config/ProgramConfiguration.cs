@@ -439,7 +439,7 @@ namespace CodeImp.DoomBuilder.Config
 				//mxd 
 				gzDrawModelsMode = (ModelRenderMode)cfg.ReadSetting("gzdrawmodels", (int)ModelRenderMode.ALL);
 				gzDrawLightsMode = (LightRenderMode)cfg.ReadSetting("gzdrawlights", (int)LightRenderMode.ALL);
-				gzDrawFog = cfg.ReadSetting("gzdrawfog", false);
+				gzDrawFog = cfg.ReadSetting("gzdrawfog", true);
 				gzAnimateTextures = cfg.ReadSetting("gzanimatetextures", true);
 				gzDrawMaterials = cfg.ReadSetting("gzdrawmaterials", true);
 				gzDrawSky = cfg.ReadSetting("gzdrawsky", true);

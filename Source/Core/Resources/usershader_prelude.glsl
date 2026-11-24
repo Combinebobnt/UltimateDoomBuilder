@@ -27,7 +27,7 @@ struct Material
     vec3 Normal, Specular;
     float Glossiness, SpecularLevel, Metallic, Roughness, AO;
 };
-vec4 getTexel(vec2 uv) { return texture(texture1, uv); }
+vec4 getTexel(vec2 uv) { return desaturatePart(texture(texture1, uv)); }
 vec4 editorBright(vec2 uv) { return brightmapEnabled > 0.0 ? desaturate(texture(texture3, uv)) : vec4(0.0); }
 vec3 ApplyNormalMap(vec2 uv) { return normalize(Normal.xzy); }
 void SetMaterialProps(inout Material material, vec2 uv)

@@ -1,5 +1,6 @@
 #region ================== Namespaces
 
+using System;
 using CodeImp.DoomBuilder.GZBuilder.Data;
 
 #endregion
@@ -113,6 +114,28 @@ namespace CodeImp.DoomBuilder.Rendering
 		{
 			if(level < 192 && doomcurve) level = (int)(192.0f - (192 - level) * 1.5f);
 			return General.Clamp(level, 0, 255);
+		}
+
+		// The current map's model; distance is the fog toggle
+		public static LightModelSettings ResolveForMap(bool distance)
+		{
+			MapInfo mapinfo = General.Map.Data.MapInfo;
+			return Resolve(mapinfo.LightMode, General.Map.Config.DefaultLightMode, General.Map.Config.DoomLightLevels, mapinfo.FogDensity, distance);
+		}
+
+		// Black distance fog in the light for one sector: -1 none, 0 density from the light level (distfogtable), else that density.
+		// GetFogDensity: Legacy's density wins, then the sector's own; a coloured fade is coloured fog, drawn by the fog programs.
+		public static float BlackFogDensity(LightModelSettings s, bool blackfade, int sectordensity)
+		{
+			if(s.Kind != LightModelKind.Hardware || !s.Distance || !blackfade) return -1f;
+			if(s.HardwareMode == (int)MapInfo.GZDoomLightMode.LEGACY) return s.LegacyDensity;
+			return Math.Max(sectordensity, 0);
+		}
+
+		// Whether a sector's fog goes through the fog programs: under a game model only a coloured fade does
+		public static bool UsesFogPrograms(LightModelSettings s, bool blackfade)
+		{
+			return s.Kind == LightModelKind.Editor || !blackfade;
 		}
 
 		private static bool IsHardwareMode(int mode)

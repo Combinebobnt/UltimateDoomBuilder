@@ -125,6 +125,7 @@ namespace CodeImp.DoomBuilder.Map
 		//mxd. Rednering
 		public Color4 FogColor { get { return fogcolor; } }
 		public SectorFogMode FogMode { get { return fogmode; } }
+		public bool HasBlackFade { get { return (fogcolor.ToArgb() & 0xffffff) == 0; } }
         public double Desaturation
         {
             get

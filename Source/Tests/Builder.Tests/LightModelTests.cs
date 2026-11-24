@@ -87,6 +87,31 @@ namespace Builder.Tests
 			Assert.Empty(failures);
 		}
 
+		// GetFogDensity's order for black fog in the light, and which sectors still go through the fog programs
+		[Fact]
+		public void BlackFogFollowsTheFadeColourAndGetFogDensitysOrder()
+		{
+			LightModelSettings software = LightModel.Resolve(Unset, LightModel.ZDOOM_SOFTWARE, true, 0, true);
+			LightModelSettings doom = LightModel.Resolve(MapInfo.GZDoomLightMode.DOOM, LightModel.ZDOOM_SOFTWARE, true, 0, true);
+			LightModelSettings legacy = LightModel.Resolve(MapInfo.GZDoomLightMode.LEGACY, LightModel.ZDOOM_SOFTWARE, true, 64, true);
+			LightModelSettings editor = LightModel.Resolve(MapInfo.GZDoomLightMode.DOOM, -1, true, 0, true);
+			LightModelSettings doomflat = LightModel.Resolve(MapInfo.GZDoomLightMode.DOOM, LightModel.ZDOOM_SOFTWARE, true, 0, false);
+
+			Assert.Equal(0f, LightModel.BlackFogDensity(doom, true, 0));
+			Assert.Equal(40f, LightModel.BlackFogDensity(doom, true, 40));
+			Assert.Equal(32f, LightModel.BlackFogDensity(legacy, true, 40));
+			foreach(LightModelSettings s in new[] { doom, legacy, software, editor })
+				Assert.Equal(-1f, LightModel.BlackFogDensity(s, false, 40));
+			Assert.Equal(-1f, LightModel.BlackFogDensity(software, true, 40));
+			Assert.Equal(-1f, LightModel.BlackFogDensity(editor, true, 0));
+			Assert.Equal(-1f, LightModel.BlackFogDensity(doomflat, true, 0));
+
+			Assert.True(LightModel.UsesFogPrograms(editor, true));
+			Assert.False(LightModel.UsesFogPrograms(doom, true));
+			Assert.False(LightModel.UsesFogPrograms(software, true));
+			Assert.True(LightModel.UsesFogPrograms(software, false));
+		}
+
 		[Theory]
 		[InlineData("UZDoom_DoomUDMF.cfg", 8)]
 		[InlineData("Zandronum_DoomUDMF.cfg", -1)]
