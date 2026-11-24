@@ -2276,15 +2276,27 @@ namespace CodeImp.DoomBuilder
 			return wad.FindLumpIndex(LightmapLump.LUMP_NAME, headerindex + 1, endindex);
 		}
 
-		// SHA-256 (hex) of the map's stored LIGHTMAP lump, null when it has none
+		// SHA-256 (hex) of the map's stored LIGHTMAP lump, null when it has none or can't be read.
+		// Reads exactly the lump's length: a lump stream's Read can return one byte past its end.
 		internal static string LightmapLumpSha(WAD wad, string mapheader)
 		{
-			int index = FindLightmapIndex(wad, mapheader);
-			if(index < 0) return null;
-			Lump lump = wad.Lumps[index];
-			lump.Stream.Seek(0, SeekOrigin.Begin);
-			using(System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
-				return BitConverter.ToString(sha.ComputeHash(lump.Stream)).Replace("-", "").ToLowerInvariant();
+			try
+			{
+				int index = FindLightmapIndex(wad, mapheader);
+				if(index < 0) return null;
+				Lump lump = wad.Lumps[index];
+				byte[] data = new byte[lump.Length];
+				lump.Stream.Seek(0, SeekOrigin.Begin);
+				for(int read = 0, n; read < data.Length; read += n)
+					if((n = lump.Stream.Read(data, read, data.Length - read)) <= 0) return null;
+				using(System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+					return BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "").ToLowerInvariant();
+			}
+			catch(Exception e)
+			{
+				General.WriteLogLine(e.GetType().Name + " while hashing the LIGHTMAP lump: " + e.Message);
+				return null;
+			}
 		}
 
 		// UZDoom reads UDMF ZNODES as GL nodes only

@@ -288,6 +288,25 @@ namespace Builder.Tests
 			return wad;
 		}
 
+		[Fact]
+		public void LightmapShaIsTheLumpBytesAlone()
+		{
+			// 4095 bytes: a 4096-byte read of the lump stream returns one byte of whatever follows
+			byte[] lightmap = new byte[4095];
+			new Random(168).NextBytes(lightmap);
+			string expected;
+			using(var sha = System.Security.Cryptography.SHA256.Create())
+				expected = BitConverter.ToString(sha.ComputeHash(lightmap)).Replace("-", "").ToLowerInvariant();
+
+			string[] names = { "MAP01", "TEXTMAP", "LIGHTMAP", "ENDMAP", "XTRA" };
+			foreach(byte next in new byte[] { 0x00, 0xff })
+				using(WAD wad = CreateWad(names, n => n == "LIGHTMAP" ? lightmap : n == "XTRA" ? new[] { next, next } : n == "ENDMAP" ? new byte[0] : Ascii("x")))
+					Assert.Equal(expected, MapManager.LightmapLumpSha(wad, "MAP01"));
+
+			using(WAD wad = CreateWad(new[] { "MAP01", "TEXTMAP", "ENDMAP" }, n => Ascii("x")))
+				Assert.Null(MapManager.LightmapLumpSha(wad, "MAP01"));
+		}
+
 		private static byte[] GoodLightmap()
 		{
 			return LightmapRetentionTests.Zlib(LightmapRetentionTests.Header(0, 16, 1, 1, 4, 0, 1), 20 + 4 * 8 + 16 * 16 * 6);

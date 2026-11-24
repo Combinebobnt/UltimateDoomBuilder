@@ -400,18 +400,22 @@ namespace CodeImp.DoomBuilder.Compilers
 				using(Process p = Process.Start(start))
 				{
 					StringBuilder output = new StringBuilder();
-					p.OutputDataReceived += (s, e) => { if(e.Data != null) lock(output) output.Append(e.Data).Append('\n'); };
-					p.ErrorDataReceived += (s, e) => { };
-					p.BeginOutputReadLine();
-					p.BeginErrorReadLine();
-					if(!p.WaitForExit(PROBE_TIMEOUT_MS))
+					using(System.Threading.ManualResetEvent eof = new System.Threading.ManualResetEvent(false))
 					{
-						try { p.Kill(); } catch(InvalidOperationException) { }
-						General.WriteLogLine("Lightmap baker features: probe timed out, treating as none (stock ZDRay)");
-						return None;
+						p.OutputDataReceived += (s, e) => { if(e.Data != null) { lock(output) output.Append(e.Data).Append('\n'); } else try { eof.Set(); } catch(ObjectDisposedException) { } };
+						p.ErrorDataReceived += (s, e) => { };
+						p.BeginOutputReadLine();
+						p.BeginErrorReadLine();
+						if(!p.WaitForExit(PROBE_TIMEOUT_MS))
+						{
+							try { p.Kill(); } catch(InvalidOperationException) { }
+							General.WriteLogLine("Lightmap baker features: probe timed out, treating as none (stock ZDRay)");
+							return None;
+						}
+						// A grandchild holding stdout open (a wrapper script) only gets this long to let go
+						eof.WaitOne(PROBE_TIMEOUT_MS);
+						lock(output) result = Parse(output.ToString());
 					}
-					p.WaitForExit(); // drains the async readers
-					lock(output) result = Parse(output.ToString());
 				}
 			}
 			catch(Exception e)
