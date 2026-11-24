@@ -666,8 +666,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return p;
 		}
 
-		// Moves a position within stitch range of a copy of a drawn point onto that copy's unrounded
-		// position, unless it sits on a drawn point or a vertex. Accept rounds both to one value.
+		// Moves the position onto the unrounded copy of a drawn point within stitch range of the mouse,
+		// unless it sits on a drawn point or a vertex. Measured from the mouse, as grid snap can move it away.
 		private Vector2D SnappedToRadialCopy(Vector2D pos)
 		{
 			foreach(DrawnVertex v in points)
@@ -683,7 +683,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				for(int k = 1; k < radialcopies; k++)
 				{
 					Vector2D c = DrawingSymmetry.RadialCopy(v.pos, pivot, k, radialcopies);
-					double d = Vector2D.DistanceSq(c, pos);
+					double d = Vector2D.DistanceSq(c, mousemappos);
 					if(d < best)
 					{
 						best = d;
