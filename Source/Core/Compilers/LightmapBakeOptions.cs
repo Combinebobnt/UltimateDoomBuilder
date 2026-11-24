@@ -203,6 +203,18 @@ namespace CodeImp.DoomBuilder.Compilers
 			}
 		}
 
+		public void SetValue(string id, double value)
+		{
+			switch(id)
+			{
+				case "samplescale": SampleScale = (float)value; break;
+				case "samples": Samples = (int)value; break;
+				case "bouncesamples": BounceSamples = (int)value; break;
+				case "texturesize": TextureSize = (int)value; break;
+				default: throw new ArgumentException("Not a quality option: " + id);
+			}
+		}
+
 		// What the baker will actually do: a value it has no flag for runs at Final, a size past 1024 at 1024
 		public LightmapBakeQuality Effective(LightmapBakerFeatures features)
 		{

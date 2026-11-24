@@ -110,19 +110,26 @@ LAVA1                 color ff6020  intensity 1.0  distance 192  on flats
 	<h2>Baking</h2>
 	<ol>
 		<li>Choose <b>Tools -&gt; Bake Lightmaps...</b></li>
-		<li>The first time, set the <b>ZDRay executable</b> (use <b>Browse...</b>). The <b>Bake</b> button stays disabled until the file exists and the game configuration and map qualify; the status line says why.</li>
-		<li>Set the options. They are remembered between sessions.
-			<ul>
-				<li><b>Lightmap texture size:</b> 128 to 4096, default 1024. The size of each lightmap texture page.</li>
-				<li><b>Threads (0 = automatic):</b> automatic uses the number of processor cores, at most 4.</li>
-				<li><b>CPU ray tracing only:</b> tells the baker to skip its Vulkan GPU tracer.</li>
-			</ul>
-		</li>
-		<li>Click <b>Bake</b>. The window shows the current stage, a progress bar, the elapsed seconds and the baker's last output lines. <b>Cancel</b> (or Escape) stops the baker and leaves the map exactly as it was, including its unsaved changes state.</li>
+		<li>The first time, set the <b>ZDRay executable</b> on the <b>Run</b> tab (use <b>Browse...</b>). <b>Bake</b> and <b>Quick bake</b> stay disabled until the file exists and the game configuration and map qualify; the status line says why.</li>
+		<li>Set the options on the tabs below.</li>
+		<li>Click <b>Bake</b>, or <b>Quick bake</b> for a fast low-resolution look. The window switches to the <b>Output</b> tab and shows the current stage, a progress bar, the elapsed seconds and the baker's last output lines. <b>Cancel</b> (or Escape) stops the baker and leaves the map exactly as it was, including its unsaved changes state.</li>
 		<li>On success the status line reads "Baked in N s: ... Save or Test to use it." and the map is marked as changed. A bake that lights nothing fails with "the bake lit no surfaces (does the map have static light things or surface lights?)".</li>
 	</ol>
 	<p>
 		Baking never writes to the map file. The result is kept until the map is saved or tested.
+	</p>
+	<h3>The dialog's tabs</h3>
+	<p>
+		The editor asks the ZDRay executable which of the forked build's features it has when the window opens and whenever the path changes. An option the configured baker can't use stays visible but disabled, marked "needs ZDRay fork", and its tooltip names the feature; with upstream ZDRay every bake runs at the Final quality.
+	</p>
+	<ul>
+		<li><b>Lighting</b> edits the map's ZDRayInfo thing (see above): sun on or off, sun colour and intensity, sun angle and elevation (degrees above the horizon, stored as the thing's angle and pitch), default sample distance, light probe grid size, light bounces, ambient occlusion and sky light colour and intensity, plus a read-only list of the EMITDEFS entries and whether the map uses each. Changes go to the map when you click <b>Apply</b>, <b>Bake</b> or <b>Quick bake</b>, as one undo step named "Edit lightmap lighting"; closing the window with changes not yet applied asks first. A value equal to the field's default removes the field, as the thing's own properties do. When the map has no ZDRayInfo thing the tab shows the baker's defaults, and applying a change adds one at the map's centre facing the default sun (angle 214, elevation 59); its first bake differs slightly from a bake without the thing. With several ZDRayInfo things the last one is used and edited. Turning the sun off needs a ZDRay build with the <b>sunintensity</b> feature; upstream ZDRay always bakes a sun.</li>
+		<li><b>Quality</b> is kept per map, in its .dbs file; a map without its own setting uses the last values set in this dialog. <b>Quality preset</b>: Draft, Normal or Final (the baker's own defaults) set the <b>Sample distance scale</b> (a multiplier on every sample distance, so 4 is four times coarser), <b>Shadow samples</b> and <b>Bounce samples</b>; changing one of these makes it Custom. Bounce samples only change anything once the baker bounces light. The presets need a ZDRay build with the <b>samples</b> feature. <b>Sky samples</b> is the map's <b>lm_skysamples</b> field. <b>Lightmap texture size</b>: 128 to 4096, default 1024, the size of each lightmap texture page. Sizes above 1024 need a ZDRay build with <b>size4096</b>: other builds bake at 1024, and the status line says so. (Before the forked build gained that feature, 2048 and 4096 silently baked at 1024.)</li>
+		<li><b>Run</b> holds the settings of this computer, kept for every map: the ZDRay executable, <b>Threads (0 = automatic)</b> (automatic uses the number of processor cores, at most 4) and <b>CPU ray tracing only</b>, which tells the baker to skip its Vulkan GPU tracer. The GPU tracer ignores the shadow and bounce sample counts and bakes at its own.</li>
+		<li><b>Output</b> shows the baker's output lines of the running or last bake.</li>
+	</ul>
+	<p>
+		<b>Quick bake</b> bakes at the Draft quality with texture pages of at most 512, without changing the map's quality setting. Its result is a normal bake that Save and Test use.
 	</p>
 
 	<h2>What keeps a bake valid</h2>

@@ -2755,6 +2755,66 @@ namespace CodeImp.DoomBuilder
 			return true;
 		}
 
+		// The EMITDEFS entries some texture of the map uses
+		internal HashSet<ZDoom.EmitdefsEntry> EmissiveEntriesUsed()
+		{
+			HashSet<ZDoom.EmitdefsEntry> used;
+			data.EmissiveTable.BuildBakeFile(EmissiveMapNames(), null, out used);
+			return used;
+		}
+
+		// The bake lighting the map has now; count is the number of ZDRayInfo things
+		internal LightmapLighting ReadLightmapLighting(out int count)
+		{
+			Thing info = LightmapLighting.FindInfoThing(map.Things, t => t.Type, out count);
+			return (info == null ? LightmapLighting.Read(null, 0, 0) : LightmapLighting.Read(info.Fields, info.AngleDoom, info.Pitch));
+		}
+
+		// Writes the dialog's lighting edits as one undo step, creating the ZDRayInfo thing at the map's centre when there is none
+		internal bool ApplyLightmapLighting(LightmapLighting original, LightmapLighting edited)
+		{
+			if(!edited.DiffersFrom(original)) return false;
+			HashSet<string> changed = new HashSet<string>(edited.ChangedFrom(original), StringComparer.Ordinal);
+
+			// The same bracket a script run uses, so classic and Visual mode both rebuild
+			EditMode mode = General.Editing.Mode;
+			if(mode != null) mode.OnScriptRunBegin();
+			undoredo.CreateUndo("Edit lightmap lighting");
+
+			int count;
+			Thing info = LightmapLighting.FindInfoThing(map.Things, t => t.Type, out count);
+			bool created = (info == null);
+			if(created)
+			{
+				info = map.CreateThing();
+				if(info == null)
+				{
+					undoredo.WithdrawUndo();
+					if(mode != null) mode.OnScriptRunEnd();
+					return false;
+				}
+				General.Settings.ApplyDefaultThingSettings(info);
+				info.Type = LightmapLighting.INFO_THING_TYPE;
+				for(int i = 0; i < info.Args.Length; i++) info.Args[i] = 0;
+				RectangleF area = MapSet.CreateArea(map.Vertices);
+				Vector2D centre = (map.Vertices.Count > 0 ? new Vector2D(area.X + area.Width / 2, area.Y + area.Height / 2) : new Vector2D());
+				info.Move(grid.SnappedToGrid(centre));
+				info.UpdateConfiguration();
+			}
+
+			info.Fields.BeforeFieldsChange();
+			edited.WriteFields(info.Fields, original);
+			if(created || changed.Contains("sunangle")) info.Rotate(edited.Angle);
+			if(created || changed.Contains("sunelevation")) info.SetPitch(edited.Elevation);
+
+			map.Update();
+			thingsfilter.Update();
+			IsChanged = true;
+			if(mode != null) mode.OnScriptRunEnd();
+			General.MainWindow.RedrawDisplay();
+			return true;
+		}
+
 		[BeginAction("bakelightmaps")]
 		internal void ShowLightmapBakeForm()
 		{

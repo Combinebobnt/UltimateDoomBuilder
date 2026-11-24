@@ -1,32 +1,59 @@
 #region ================== Namespaces
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Compilers;
+using CodeImp.DoomBuilder.Data;
+using CodeImp.DoomBuilder.ZDoom;
 
 #endregion
 
 namespace CodeImp.DoomBuilder.Windows
 {
-	// Runs a ZDRay bake of the open map with progress and cancel, and holds the baker settings
+	// Runs a ZDRay bake of the open map with progress and cancel, and edits the map's bake lighting,
+	// its bake quality and the baker settings. The rows come from LightmapBakeOptions.
 	internal sealed class LightmapBakeForm : DelayedForm
 	{
+		#region ================== Row
+
+		private sealed class Row
+		{
+			public LightmapBakeOption Option;
+			public Control Control;
+			public Label Label;
+			public Label Note;
+			public Button Extra;
+		}
+
+		#endregion
+
 		#region ================== Variables
 
-		private readonly TextBox bakerpath = new TextBox();
-		private readonly Button browse = new Button();
-		private readonly ComboBox texturesize = new ComboBox();
-		private readonly NumericUpDown threads = new NumericUpDown();
-		private readonly CheckBox cpuonly = new CheckBox();
+		private readonly TabControl tabs = new TabControl();
+		private readonly Dictionary<LightmapOptionTab, TabPage> pages = new Dictionary<LightmapOptionTab, TabPage>();
+		private readonly List<Row> rows = new List<Row>();
+		private readonly Label lightingnotice = new Label();
+		private readonly Button apply = new Button();
+		private readonly TextBox output = new TextBox();
 		private readonly Label status = new Label();
 		private readonly ProgressBar progress = new ProgressBar();
-		private readonly TextBox output = new TextBox();
+		private readonly Button quickbake = new Button();
 		private readonly Button bake = new Button();
 		private readonly Button close = new Button();
+		private readonly ToolTip tips = new ToolTip();
 		private readonly Timer timer = new Timer();
+
+		private LightmapLighting original; // the map's lighting when last read
+		private LightmapLighting edited;
+		private int infocount;
+		private readonly LightmapBakeQuality quality;
+		private bool loading;
+
 		private LightmapBakeJob job;
 		private bool showingresult;
 		private readonly bool autostart;
@@ -41,6 +68,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// The last bake run in this form succeeded
 		public bool BakeSucceeded { get { return bakesucceeded; } }
 
+		private LightmapBakeSettings Settings { get { return General.Settings.LightmapBake; } }
+
 		#endregion
 
 		#region ================== Constructor
@@ -52,64 +81,46 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			this.autostart = autostart;
 			Text = "Bake Lightmaps";
-			FormBorderStyle = FormBorderStyle.FixedDialog;
+			FormBorderStyle = FormBorderStyle.Sizable;
 			MaximizeBox = false;
 			MinimizeBox = false;
 			ShowInTaskbar = false;
 			StartPosition = FormStartPosition.CenterParent;
 			AutoScaleMode = AutoScaleMode.Font;
-			ClientSize = new Size(560, 400);
+			ClientSize = new Size(640, 560);
+			MinimumSize = new Size(600, 520);
 
-			TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(8), ColumnCount = 3, RowCount = 8 };
-			layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-			layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-			layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+			LightmapBakeQuality mapquality = General.Map.Options.LightmapBake.Quality;
+			quality = (mapquality ?? Settings.Quality).Clone();
+			original = General.Map.ReadLightmapLighting(out infocount);
+			edited = original.Clone();
 
-			bakerpath.Dock = DockStyle.Fill;
-			browse.Text = "Browse...";
-			browse.AutoSize = true;
-			browse.Click += BrowseClick;
-			AddRow(layout, 0, "ZDRay executable:", bakerpath, browse);
+			TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(8), ColumnCount = 1, RowCount = 4 };
+			layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+			layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-			texturesize.DropDownStyle = ComboBoxStyle.DropDownList;
-			foreach(int size in LightmapBakeSettings.TEXTURE_SIZES) texturesize.Items.Add(size);
-			AddRow(layout, 1, "Lightmap texture size:", texturesize, null);
-
-			threads.Minimum = 0;
-			threads.Maximum = 256;
-			AddRow(layout, 2, "Threads (0 = automatic):", threads, null);
-
-			cpuonly.Text = "CPU ray tracing only (skip the Vulkan GPU tracer)";
-			cpuonly.AutoSize = true;
-			layout.Controls.Add(cpuonly, 1, 3);
-			layout.SetColumnSpan(cpuonly, 2);
+			tabs.Dock = DockStyle.Fill;
+			foreach(LightmapOptionTab tab in Enum.GetValues(typeof(LightmapOptionTab)))
+			{
+				TabPage page = new TabPage(tab.ToString()) { Padding = new Padding(6) };
+				pages[tab] = page;
+				tabs.TabPages.Add(page);
+			}
+			BuildLightingTab();
+			BuildOptionsTab(LightmapOptionTab.Quality, null);
+			BuildOptionsTab(LightmapOptionTab.Run, null);
+			BuildOutputTab();
+			layout.Controls.Add(tabs, 0, 0);
 
 			status.AutoSize = false;
 			status.Dock = DockStyle.Fill;
-			status.Height = 48;
-			layout.Controls.Add(status, 0, 4);
-			layout.SetColumnSpan(status, 3);
+			layout.Controls.Add(status, 0, 1);
 
 			progress.Dock = DockStyle.Fill;
 			progress.Maximum = 1000;
-			layout.Controls.Add(progress, 0, 5);
-			layout.SetColumnSpan(progress, 3);
-
-			output.Multiline = true;
-			output.ReadOnly = true;
-			output.ScrollBars = ScrollBars.Vertical;
-			output.Dock = DockStyle.Fill;
-			output.Font = new Font(FontFamily.GenericMonospace, Font.Size);
-			layout.Controls.Add(output, 0, 6);
-			layout.SetColumnSpan(output, 3);
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
-			layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-			layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			layout.Controls.Add(progress, 0, 2);
 
 			FlowLayoutPanel buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill, AutoSize = true };
 			close.Text = "Close";
@@ -117,11 +128,16 @@ namespace CodeImp.DoomBuilder.Windows
 			close.Click += CloseClick;
 			bake.Text = "Bake";
 			bake.Width = 90;
-			bake.Click += BakeClick;
+			bake.Click += delegate { StartBake(false); };
+			quickbake.Text = "Quick bake";
+			quickbake.Width = 100;
+			quickbake.Click += delegate { StartBake(true); };
+			tips.SetToolTip(quickbake, "Bakes at the Draft quality and at most " + LightmapBakeQuality.QUICK_BAKE_MAX_SIZE +
+				" texels per page, without changing the map's quality setting");
 			buttons.Controls.Add(close);
 			buttons.Controls.Add(bake);
-			layout.Controls.Add(buttons, 0, 7);
-			layout.SetColumnSpan(buttons, 3);
+			buttons.Controls.Add(quickbake);
+			layout.Controls.Add(buttons, 0, 3);
 
 			Controls.Add(layout);
 			AcceptButton = bake;
@@ -131,66 +147,397 @@ namespace CodeImp.DoomBuilder.Windows
 			timer.Interval = 200;
 			timer.Tick += TimerTick;
 
-			LightmapBakeSettings settings = General.Settings.LightmapBake;
-			bakerpath.Text = settings.BakerPath;
-			texturesize.SelectedItem = settings.TextureSize;
-			if(texturesize.SelectedIndex < 0) texturesize.SelectedItem = LightmapBakeSettings.DEFAULT_TEXTURE_SIZE;
-			threads.Value = Math.Min(threads.Maximum, settings.Threads);
-			cpuonly.Checked = settings.CpuOnly;
-
-			// Only now: UpdateState writes the controls back into the settings
-			bakerpath.TextChanged += delegate { UpdateState(); };
+			LoadRows();
+			UpdateAvailability();
 			UpdateState();
 		}
 
-		private static void AddRow(TableLayoutPanel layout, int row, string label, Control control, Control extra)
+		private void BuildLightingTab()
 		{
-			layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 3, 3) }, 0, row);
-			layout.Controls.Add(control, 1, row);
-			if(extra != null) layout.Controls.Add(extra, 2, row);
-			else layout.SetColumnSpan(control, 2);
+			TableLayoutPanel table = BuildOptionsTab(LightmapOptionTab.Lighting, lightingnotice);
+			lightingnotice.AutoSize = true;
+			lightingnotice.MaximumSize = new Size(560, 0);
+			lightingnotice.Margin = new Padding(3, 3, 3, 9);
+
+			apply.Text = "Apply";
+			apply.Width = 90;
+			apply.Click += delegate { ApplyLighting(); };
+			tips.SetToolTip(apply, "Writes these values to the map's ZDRayInfo thing as one undo step. Bake and Quick bake apply them too.");
+			int row = table.RowCount++;
+			table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			table.Controls.Add(apply, 1, row);
+		}
+
+		// One row per registry entry on the tab, under an optional heading
+		private TableLayoutPanel BuildOptionsTab(LightmapOptionTab tab, Control heading)
+		{
+			TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 4, RowCount = 0 };
+			table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+			table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+			table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+			pages[tab].Controls.Add(table);
+
+			if(heading != null)
+			{
+				table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+				table.Controls.Add(heading, 0, table.RowCount++);
+				table.SetColumnSpan(heading, 4);
+			}
+
+			foreach(LightmapBakeOption o in LightmapBakeOptions.OnTab(tab))
+			{
+				if(o.Id == "autobake" || o.Id == "estimate") continue; // rows the form doesn't offer yet
+				Row r = new Row { Option = o };
+				r.Note = new Label { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = SystemColors.GrayText, Visible = false };
+				int row = table.RowCount++;
+				table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+				if(o.Id == "emissive")
+				{
+					r.Label = RowLabel(o.Label);
+					table.Controls.Add(r.Label, 0, row);
+					table.Controls.Add(r.Note, 3, row);
+					r.Control = BuildEmissiveList();
+					row = table.RowCount++;
+					table.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
+					table.Controls.Add(r.Control, 0, row);
+					table.SetColumnSpan(r.Control, 4);
+					rows.Add(r);
+					continue;
+				}
+
+				r.Control = CreateControl(r);
+				if(o.Type != LightmapOptionType.Bool)
+				{
+					r.Label = RowLabel(o.Label);
+					table.Controls.Add(r.Label, 0, row);
+				}
+				table.Controls.Add(r.Control, 1, row);
+				if(r.Extra != null) table.Controls.Add(r.Extra, 2, row);
+				table.Controls.Add(r.Note, 3, row);
+				rows.Add(r);
+			}
+			return table;
+		}
+
+		private static Label RowLabel(string text)
+		{
+			return new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 3, 3) };
+		}
+
+		private Control CreateControl(Row r)
+		{
+			LightmapBakeOption o = r.Option;
+			switch(o.Type)
+			{
+				case LightmapOptionType.Bool:
+				{
+					CheckBox box = new CheckBox { Text = o.Label, AutoSize = true, Anchor = AnchorStyles.Left };
+					box.CheckedChanged += delegate { Changed(o, box.Checked); };
+					return box;
+				}
+
+				case LightmapOptionType.Int:
+				case LightmapOptionType.Float:
+				{
+					NumericUpDown number = new NumericUpDown { Minimum = (decimal)o.Min, Maximum = (decimal)o.Max, Width = 100, Anchor = AnchorStyles.Left };
+					if(o.Type == LightmapOptionType.Float)
+					{
+						number.DecimalPlaces = 2;
+						number.Increment = (o.Max - o.Min > 100 ? 1m : 0.25m);
+					}
+					number.ValueChanged += delegate
+					{
+						if(o.Type == LightmapOptionType.Int) Changed(o, (int)number.Value);
+						else Changed(o, (double)number.Value);
+					};
+					return number;
+				}
+
+				case LightmapOptionType.Colour:
+				{
+					TextBox text = new TextBox { Width = 100, Anchor = AnchorStyles.Left, MaxLength = 7 };
+					text.TextChanged += delegate
+					{
+						string colour = LightmapLighting.NormalizeColour(text.Text);
+						if(colour != null) Changed(o, colour);
+					};
+					r.Extra = new Button { Text = "...", Width = 32, Anchor = AnchorStyles.Left };
+					r.Extra.Click += delegate { PickColour(text); };
+					return text;
+				}
+
+				case LightmapOptionType.Choice:
+				{
+					ComboBox combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160, Anchor = AnchorStyles.Left };
+					if(o.Id == "preset") foreach(LightmapQualityPreset p in Enum.GetValues(typeof(LightmapQualityPreset))) combo.Items.Add(p);
+					else if(o.Id == "texturesize") foreach(int size in LightmapBakeSettings.TEXTURE_SIZES) combo.Items.Add(size);
+					combo.SelectedIndexChanged += delegate { if(combo.SelectedItem != null) Changed(o, combo.SelectedItem); };
+					return combo;
+				}
+
+				default:
+				{
+					// The baker path
+					TextBox text = new TextBox { Dock = DockStyle.Fill };
+					text.TextChanged += delegate { Changed(o, text.Text.Trim()); };
+					r.Extra = new Button { Text = "Browse...", AutoSize = true };
+					r.Extra.Click += delegate { BrowseBaker(text); };
+					return text;
+				}
+			}
+		}
+
+		private ListView BuildEmissiveList()
+		{
+			ListView list = new ListView { View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill, HeaderStyle = ColumnHeaderStyle.Nonclickable };
+			foreach(string column in new[] { "Texture", "Surfaces", "Colour", "Intensity", "Distance", "Defined in", "Used by map" }) list.Columns.Add(column);
+
+			EmissiveTable table = General.Map.Data.EmissiveTable;
+			HashSet<EmitdefsEntry> used = General.Map.EmissiveEntriesUsed();
+			foreach(EmissiveItem item in table.Items)
+			{
+				if(item.FromAnimation) continue;
+				string colour = item.Color.ToString("x6", CultureInfo.InvariantCulture);
+				if(item.Entry.Color == EmitdefsEntry.AUTO_COLOR) colour = "auto (" + colour + ")";
+				list.Items.Add(new ListViewItem(new[]
+				{
+					table.ImageName(item),
+					(item.Kind == EmissiveSurface.Walls ? "walls" : "flats"),
+					colour,
+					item.Intensity.ToString("0.##", CultureInfo.InvariantCulture),
+					item.Distance.ToString("0.##", CultureInfo.InvariantCulture),
+					Path.GetFileName(item.Entry.Source) + ":" + item.Entry.Line,
+					(used.Contains(item.Entry) ? "yes" : ""),
+				}));
+			}
+			if(list.Items.Count == 0) list.Items.Add(new ListViewItem(new[] { "(no EMITDEFS entries are loaded)" }));
+			list.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+			return list;
+		}
+
+		private void BuildOutputTab()
+		{
+			output.Multiline = true;
+			output.ReadOnly = true;
+			output.ScrollBars = ScrollBars.Vertical;
+			output.Dock = DockStyle.Fill;
+			output.Font = new Font(FontFamily.GenericMonospace, Font.Size);
+			pages[LightmapOptionTab.Output].Controls.Add(output);
 		}
 
 		#endregion
 
-		#region ================== Methods
+		#region ================== Values
 
-		// Waiting for the baker's feature probe is only needed to start a bake
-		private LightmapBakeSettings ReadControls(bool waitforfeatures)
+		// Puts the current values into the controls without treating them as edits
+		private void LoadRows()
 		{
-			LightmapBakeSettings settings = General.Settings.LightmapBake;
-			settings.BakerPath = bakerpath.Text.Trim();
-			settings.TextureSize = (texturesize.SelectedItem is int ? (int)texturesize.SelectedItem : LightmapBakeSettings.DEFAULT_TEXTURE_SIZE);
-			settings.Threads = (int)threads.Value;
-			settings.CpuOnly = cpuonly.Checked;
-			settings.Features = Features(settings.BakerPath, waitforfeatures);
-			return settings;
+			loading = true;
+			try
+			{
+				foreach(Row r in rows) SetControl(r, ValueOf(r.Option));
+			}
+			finally { loading = false; }
+
+			if(!original.HasThing)
+				lightingnotice.Text = "Baker default (no ZDRayInfo thing). Apply, Bake or Quick bake with a changed value adds one at the map's centre. " +
+					"Its first bake differs slightly from a bake without it, since the baker normalises the thing's sun direction but not its default.";
+			else if(infocount > 1)
+				lightingnotice.Text = infocount + " ZDRayInfo things: the last one is used.";
+			else
+				lightingnotice.Text = "The map's ZDRayInfo thing. Its thing properties edit the same values.";
+		}
+
+		private object ValueOf(LightmapBakeOption o)
+		{
+			switch(o.Kind)
+			{
+				case LightmapOptionKind.MapKey:
+				case LightmapOptionKind.ThingAngle:
+				case LightmapOptionKind.ThingPitch:
+					return edited[o.Id];
+				case LightmapOptionKind.CliFlag:
+					return quality.Value(o.Id);
+				case LightmapOptionKind.MapSetting:
+					if(o.Id == "preset") return quality.Preset;
+					return quality.TextureSize;
+				case LightmapOptionKind.ProgramSetting:
+					if(o.Id == "bakerpath") return Settings.BakerPath;
+					if(o.Id == "threads") return Settings.Threads;
+					return Settings.CpuOnly;
+				default:
+					return null;
+			}
+		}
+
+		private static void SetControl(Row r, object value)
+		{
+			if(r.Control is CheckBox) ((CheckBox)r.Control).Checked = (bool)value;
+			else if(r.Control is NumericUpDown)
+			{
+				NumericUpDown number = (NumericUpDown)r.Control;
+				decimal v = (decimal)Convert.ToDouble(value, CultureInfo.InvariantCulture);
+				number.Value = Math.Max(number.Minimum, Math.Min(number.Maximum, v));
+			}
+			else if(r.Control is ComboBox) ((ComboBox)r.Control).SelectedItem = value;
+			else if(r.Control is TextBox) ((TextBox)r.Control).Text = (value as string) ?? string.Empty;
+		}
+
+		// A value the user changed
+		private void Changed(LightmapBakeOption o, object value)
+		{
+			if(loading) return;
+			switch(o.Kind)
+			{
+				case LightmapOptionKind.MapKey:
+				case LightmapOptionKind.ThingAngle:
+				case LightmapOptionKind.ThingPitch:
+					edited[o.Id] = value;
+					break;
+
+				case LightmapOptionKind.CliFlag:
+					quality.SetValue(o.Id, Convert.ToDouble(value, CultureInfo.InvariantCulture));
+					QualityChanged();
+					break;
+
+				case LightmapOptionKind.MapSetting:
+					if(o.Id == "preset")
+					{
+						LightmapQualityPreset preset = (LightmapQualityPreset)value;
+						if(preset == LightmapQualityPreset.Custom) return;
+						LightmapBakeQuality q = LightmapBakeQuality.FromPreset(preset, quality.TextureSize);
+						quality.SampleScale = q.SampleScale;
+						quality.Samples = q.Samples;
+						quality.BounceSamples = q.BounceSamples;
+					}
+					else quality.TextureSize = (int)value;
+					QualityChanged();
+					break;
+
+				case LightmapOptionKind.ProgramSetting:
+					if(o.Id == "bakerpath") Settings.BakerPath = (string)value;
+					else if(o.Id == "threads") Settings.Threads = (int)value;
+					else Settings.CpuOnly = (bool)value;
+					if(o.Id == "bakerpath") UpdateAvailability();
+					break;
+			}
+			UpdateState();
+		}
+
+		// The map keeps its own quality from the first change on; the program keeps it as the last used
+		private void QualityChanged()
+		{
+			General.Map.Options.LightmapBake.Quality = quality.Clone();
+			Settings.Quality = quality.Clone();
+			LoadRows();
+		}
+
+		private void ApplyLighting()
+		{
+			if(!edited.DiffersFrom(original)) return;
+			General.Map.ApplyLightmapLighting(original, edited);
+			original = General.Map.ReadLightmapLighting(out infocount);
+			edited = original.Clone();
+			LoadRows();
+			UpdateState();
+		}
+
+		#endregion
+
+		#region ================== Availability and state
+
+		// Greys out what the configured baker can't do; the map's own values stay visible
+		private void UpdateAvailability()
+		{
+			LightmapBakerFeatures features = Features(Settings.BakerPath, false);
+			bool probing = !probe.IsCompleted;
+			foreach(Row r in rows)
+			{
+				LightmapBakeOption o = r.Option;
+				string feature = o.Feature;
+				string tip = null, note = null;
+				bool available = o.Available(features);
+
+				if(o.Id == "sun")
+				{
+					feature = LightmapBakeOptions.FEATURE_SUNINTENSITY;
+					available = features.Has(feature);
+					if(!available && (bool)edited[o.Id]) tip = "Stock ZDRay always bakes a sun. Turning it off needs a ZDRay build with " + feature + " (the fork's README).";
+				}
+				else if(o.Id == "bouncesamples" && available && !features.Has("bounce") && !features.Has("surfacelights"))
+				{
+					note = "no effect yet";
+					tip = "Bounce samples only matter once the baker bounces light (a ZDRay build with bounce or surfacelights).";
+				}
+
+				if(!available)
+				{
+					note = (probing ? "checking baker..." : "needs ZDRay fork");
+					if(tip == null) tip = "Needs a ZDRay build with " + feature + " (the fork's README).";
+				}
+
+				r.Control.Enabled = available;
+				if(r.Extra != null) r.Extra.Enabled = available;
+				r.Note.Text = note ?? string.Empty;
+				r.Note.Visible = (note != null);
+				tips.SetToolTip(r.Note, tip);
+				tips.SetToolTip(r.Control, tip);
+				if(r.Label != null) tips.SetToolTip(r.Label, tip);
+			}
 		}
 
 		private void UpdateState()
 		{
 			bool running = (job != null);
-			bakerpath.Enabled = browse.Enabled = texturesize.Enabled = threads.Enabled = cpuonly.Enabled = !running;
+			foreach(KeyValuePair<LightmapOptionTab, TabPage> p in pages)
+				if(p.Key != LightmapOptionTab.Output) p.Value.Enabled = !running;
 			close.Text = (running ? "Cancel" : "Close");
+			apply.Enabled = !running && edited.DiffersFrom(original);
 			if(running) return;
 
-			string problem = General.Map.LightmapBakeUnavailable() ?? ReadControls(false).BakerProblem();
-			bake.Enabled = (problem == null);
+			string problem = General.Map.LightmapBakeUnavailable() ?? Settings.BakerProblem();
+			bake.Enabled = quickbake.Enabled = (problem == null);
 			if(problem != null) status.Text = problem;
 			else if(!showingresult)
-				status.Text = "Bakes the open map with ZDRay. Save and Test then write the bake for as long as the map's geometry and lights stay as baked.";
+			{
+				string text = "Bakes the open map with ZDRay. Save and Test then write the bake for as long as the map's geometry and lights stay as baked.";
+				LightmapBakerFeatures features = Features(Settings.BakerPath, false);
+				if(probe.IsCompleted && quality.TextureSize > 1024 && !features.Has(LightmapBakeOptions.FEATURE_SIZE4096))
+					text = "Baking at 1024: this ZDRay has no " + LightmapBakeOptions.FEATURE_SIZE4096 + ". " + text;
+				status.Text = text;
+			}
 		}
 
-		// The baker's features, probed off the UI thread once per path; waits for the probe only when asked
+		// The baker's features, probed off the UI thread once per path. A bake waits for the probe, and
+		// probes again when the last answer was none, since a probe that timed out isn't cached.
 		private LightmapBakerFeatures Features(string path, bool wait)
 		{
-			if(probe == null || probepath != path)
+			if(probe == null || probepath != path || (wait && probe.IsCompleted && probe.Result.IsEmpty))
 			{
 				probepath = path;
 				probe = Task.Run(() => LightmapBakerFeatures.Probe(path));
+				Task<LightmapBakerFeatures> started = probe;
+				started.ContinueWith(t => ProbeDone(started));
 			}
 			if(!wait && !probe.IsCompleted) return LightmapBakerFeatures.None;
 			return probe.Result;
+		}
+
+		private void ProbeDone(Task<LightmapBakerFeatures> finished)
+		{
+			try
+			{
+				if(IsDisposed || !IsHandleCreated) return;
+				BeginInvoke((Action)delegate
+				{
+					if(IsDisposed || finished != probe) return;
+					UpdateAvailability();
+					UpdateState();
+				});
+			}
+			catch(InvalidOperationException) { } // the form closed meanwhile
 		}
 
 		private void SetResult(string text)
@@ -203,30 +550,54 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Events
 
-		private void BrowseClick(object sender, EventArgs e)
+		private void BrowseBaker(TextBox path)
 		{
 			using(OpenFileDialog dialog = new OpenFileDialog())
 			{
 				dialog.Title = "Select the ZDRay executable";
 				dialog.Filter = (Environment.OSVersion.Platform == PlatformID.Win32NT ? "Programs (*.exe)|*.exe|All files|*.*" : "All files|*");
-				if(File.Exists(bakerpath.Text)) dialog.InitialDirectory = Path.GetDirectoryName(bakerpath.Text);
-				if(NativeFileDialogs.Show(dialog) == DialogResult.OK) bakerpath.Text = dialog.FileName;
+				if(File.Exists(path.Text)) dialog.InitialDirectory = Path.GetDirectoryName(path.Text);
+				if(NativeFileDialogs.Show(dialog) == DialogResult.OK) path.Text = dialog.FileName;
+			}
+		}
+
+		private void PickColour(TextBox text)
+		{
+			using(ColorDialog dialog = new ColorDialog { FullOpen = true })
+			{
+				string colour = LightmapLighting.NormalizeColour(text.Text);
+				if(colour != null) dialog.Color = Color.FromArgb(int.Parse(colour, NumberStyles.HexNumber, CultureInfo.InvariantCulture) | unchecked((int)0xFF000000));
+				if(dialog.ShowDialog(this) == DialogResult.OK)
+					text.Text = (dialog.Color.ToArgb() & 0xFFFFFF).ToString("x6", CultureInfo.InvariantCulture);
 			}
 		}
 
 		protected override void OnShown(EventArgs e)
 		{
 			base.OnShown(e);
-			if(autostart && bake.Enabled) BakeClick(this, EventArgs.Empty);
+			if(probe != null && probe.IsCompleted) ProbeDone(probe);
+			if(autostart && bake.Enabled) StartBake(false);
 		}
 
-		private void BakeClick(object sender, EventArgs e)
+		private void StartBake(bool quick)
 		{
 			if(job != null) return;
+			ApplyLighting();
 			showingresult = false;
 			bakesucceeded = false;
+
+			LightmapBakeSettings settings = Settings;
+			settings.Features = Features(settings.BakerPath, true);
+			UpdateAvailability();
+			if(!quick)
+			{
+				General.Map.Options.LightmapBake.Quality = quality.Clone();
+				settings.Quality = quality.Clone();
+			}
+			LightmapBakeSettings run = settings.With(quick ? LightmapBakeQuality.Quick(quality.TextureSize) : quality);
+
 			string error;
-			job = General.Map.StartLightmapBake(ReadControls(true), out error);
+			job = General.Map.StartLightmapBake(run, out error);
 			if(job == null)
 			{
 				SetResult("Bake failed: " + error);
@@ -235,9 +606,10 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			output.Text = string.Empty;
+			tabs.SelectedTab = pages[LightmapOptionTab.Output];
 			status.Text = "Starting the baker...";
 			progress.Style = ProgressBarStyle.Marquee;
-			bake.Enabled = false;
+			bake.Enabled = quickbake.Enabled = false;
 			UpdateState();
 			timer.Start();
 		}
@@ -293,12 +665,27 @@ namespace CodeImp.DoomBuilder.Windows
 				job.Baker.Poll(out exitcode);
 				Finish(exitcode);
 			}
+			else if(edited.DiffersFrom(original))
+			{
+				DialogResult answer = MessageBox.Show(this, "The Lighting tab has changes that aren't on the map yet. Apply them?",
+					"Bake Lightmaps", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+				if(answer == DialogResult.Cancel)
+				{
+					e.Cancel = true;
+					return;
+				}
+				if(answer == DialogResult.Yes) ApplyLighting();
+			}
 			base.OnFormClosing(e);
 		}
 
 		protected override void Dispose(bool disposing)
 		{
-			if(disposing) timer.Dispose();
+			if(disposing)
+			{
+				timer.Dispose();
+				tips.Dispose();
+			}
 			base.Dispose(disposing);
 		}
 

@@ -142,11 +142,18 @@ namespace CodeImp.DoomBuilder.Data
 		// emits. usedentries counts the EMITDEFS entries the map uses.
 		public string BuildBakeFile(IEnumerable<KeyValuePair<string, EmissiveSurface>> mapnames, Action<string> warning, out int usedentries)
 		{
-			usedentries = 0;
+			HashSet<EmitdefsEntry> used;
+			string text = BuildBakeFile(mapnames, warning, out used);
+			usedentries = used.Count;
+			return text;
+		}
+
+		public string BuildBakeFile(IEnumerable<KeyValuePair<string, EmissiveSurface>> mapnames, Action<string> warning, out HashSet<EmitdefsEntry> used)
+		{
+			used = new HashSet<EmitdefsEntry>();
 			if(items.Count == 0) return null;
 
 			var lines = new SortedDictionary<string, string>(StringComparer.Ordinal); // key: kind + lowercased name
-			var used = new HashSet<EmitdefsEntry>();
 			var seen = new HashSet<string>(StringComparer.Ordinal);
 			foreach(KeyValuePair<string, EmissiveSurface> pair in mapnames)
 			{
@@ -171,10 +178,11 @@ namespace CodeImp.DoomBuilder.Data
 				used.Add(item.Entry);
 			}
 
-			usedentries = used.Count;
 			if(lines.Count == 0) return null;
 			return "// Emissive textures for this bake, from EMITDEFS\n" + string.Join("\n", lines.Values) + "\n";
 		}
+
+		public string ImageName(EmissiveItem item) { return resolver.Describe(item.Image); }
 
 		private static string FileLine(string name, EmissiveItem item)
 		{
