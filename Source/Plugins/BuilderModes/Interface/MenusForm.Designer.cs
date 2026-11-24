@@ -98,6 +98,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.buttonceilinggradient = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
             this.buttonflipselectionh = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
             this.buttonflipselectionv = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
+            this.buttonrotateselection90ccw = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
+            this.buttonrotateselection90cw = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
             this.buttoncurvelinedefs = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
             this.gradientModeMenu = new System.Windows.Forms.ToolStripComboBox();
             this.gradientInterpolationMenu = new System.Windows.Forms.ToolStripComboBox();
@@ -621,6 +623,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.buttonceilinggradient,
             this.buttonflipselectionh,
             this.buttonflipselectionv,
+            this.buttonrotateselection90ccw,
+            this.buttonrotateselection90cw,
             this.buttoncurvelinedefs,
             this.gradientModeMenu,
             this.gradientInterpolationMenu,
@@ -777,6 +781,28 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.buttonflipselectionv.Tag = "flipselectionv";
             this.buttonflipselectionv.Text = "Flip Selection Vertically";
             this.buttonflipselectionv.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // buttonrotateselection90ccw
+            // 
+            this.buttonrotateselection90ccw.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.buttonrotateselection90ccw.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCCW;
+            this.buttonrotateselection90ccw.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.buttonrotateselection90ccw.Name = "buttonrotateselection90ccw";
+            this.buttonrotateselection90ccw.Size = new System.Drawing.Size(23, 22);
+            this.buttonrotateselection90ccw.Tag = "rotateselection90ccw";
+            this.buttonrotateselection90ccw.Text = "Rotate Selection 90 Degrees Counterclockwise";
+            this.buttonrotateselection90ccw.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // buttonrotateselection90cw
+            // 
+            this.buttonrotateselection90cw.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.buttonrotateselection90cw.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCW;
+            this.buttonrotateselection90cw.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.buttonrotateselection90cw.Name = "buttonrotateselection90cw";
+            this.buttonrotateselection90cw.Size = new System.Drawing.Size(23, 22);
+            this.buttonrotateselection90cw.Tag = "rotateselection90cw";
+            this.buttonrotateselection90cw.Text = "Rotate Selection 90 Degrees Clockwise";
+            this.buttonrotateselection90cw.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 
             // buttoncurvelinedefs
             // 
@@ -1060,6 +1086,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem4;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonflipselectionh;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonflipselectionv;
+		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonrotateselection90ccw;
+		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonrotateselection90cw;
 		private System.Windows.Forms.ToolStripButton buttonselectionnumbers;
 		private System.Windows.Forms.ToolStripSeparator separatorsectors1;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonfloorgradient;

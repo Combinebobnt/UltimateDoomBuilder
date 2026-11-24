@@ -76,6 +76,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public ToolStripActionButton MakeGradientCeilings { get { return buttonceilinggradient; } }
 		public ToolStripActionButton FlipSelectionV { get { return buttonflipselectionv; } }
 		public ToolStripActionButton FlipSelectionH { get { return buttonflipselectionh; } }
+		public ToolStripActionButton RotateSelectionCCW { get { return buttonrotateselection90ccw; } }
+		public ToolStripActionButton RotateSelectionCW { get { return buttonrotateselection90cw; } }
 		public ToolStripActionButton CurveLinedefs { get { return buttoncurvelinedefs; } }
 		public ToolStripActionButton CopyProperties { get { return buttoncopyproperties; } }
 		public ToolStripActionButton PasteProperties { get { return buttonpasteproperties; } }

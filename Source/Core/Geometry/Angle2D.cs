@@ -82,6 +82,25 @@ namespace CodeImp.DoomBuilder.Geometry
 			return d;
 		}
 
+		// Adds whole quarter turns; a result on a quarter turn snaps to the exact constant, others wrap into (-PI, PI]
+		public static double AddQuarterTurns(double angle, int turns)
+		{
+			double sum = angle + turns * PIHALF;
+			double k = Math.Round(sum / PIHALF);
+			if(Math.Abs(sum - k * PIHALF) < 1e-9)
+			{
+				switch(((long)k % 4 + 4) % 4)
+				{
+					case 0: return 0.0;
+					case 1: return PIHALF;
+					case 2: return PI;
+					default: return -PIHALF;
+				}
+			}
+
+			return sum - PI2 * Math.Ceiling((sum - PI) / PI2);
+		}
+
 		//mxd. Slade 3 MathStuff::angle2DRad ripoff...
 		//Returns the angle between the 2d points [p1], [p2] and [p3]
 		public static double GetAngle(Vector2D p1, Vector2D p2, Vector2D p3)
