@@ -2276,6 +2276,17 @@ namespace CodeImp.DoomBuilder
 			return wad.FindLumpIndex(LightmapLump.LUMP_NAME, headerindex + 1, endindex);
 		}
 
+		// SHA-256 (hex) of the map's stored LIGHTMAP lump, null when it has none
+		internal static string LightmapLumpSha(WAD wad, string mapheader)
+		{
+			int index = FindLightmapIndex(wad, mapheader);
+			if(index < 0) return null;
+			Lump lump = wad.Lumps[index];
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			using(System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+				return BitConverter.ToString(sha.ComputeHash(lump.Stream)).Replace("-", "").ToLowerInvariant();
+		}
+
 		// UZDoom reads UDMF ZNODES as GL nodes only
 		private static readonly string[] GL_NODE_MAGICS = { "XGLN", "ZGLN", "XGL2", "ZGL2", "XGL3", "ZGL3" };
 
@@ -2411,6 +2422,9 @@ namespace CodeImp.DoomBuilder
 			}
 
 			RestoreUnknownUDMFData(temp, TEMP_MAP_HEADER);
+			// The .dbs written by this save records how the lump was made
+			options.LightmapBake.LastQuality = (lightmapbake.Quality != null ? lightmapbake.Quality.Serialize() : null);
+			options.LightmapBake.LastSha = lightmapbake.LumpSha;
 			lightmapbakemissed = false;
 			lightmapdropped = false;
 			ClearLightmapStale();
@@ -2595,10 +2609,13 @@ namespace CodeImp.DoomBuilder
 				return;
 			}
 
-			lightmapbake = new LightmapBakeCache(path, fingerprint, lightmap.ToString() + ", as opened");
+			string lumpsha = LightmapLumpSha(tempwadreader.WadFile, TEMP_MAP_HEADER);
+			LightmapBakeQuality quality = options.LightmapBake.QualityOfLoadedLump(lumpsha);
+			lightmapbake = new LightmapBakeCache(path, fingerprint, lightmap.ToString() + ", as opened", quality, lumpsha);
 			lightmapsourceversion++;
 			lightmapbakemissed = false;
-			General.WriteLogLine("Lightmap bake seeded from the opened map (" + lightmapbake.Summary + ") in " + timer.ElapsedMilliseconds + " ms.");
+			General.WriteLogLine("Lightmap bake seeded from the opened map (" + lightmapbake.Summary + ", quality " +
+				(quality != null ? quality.Describe() : "unknown") + ") in " + timer.ElapsedMilliseconds + " ms.");
 		}
 
 		// Null when this map can be baked, else why not
@@ -2659,7 +2676,7 @@ namespace CodeImp.DoomBuilder
 				}
 			}
 
-			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint, emissivepath, emissivesummary);
+			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint, emissivepath, emissivesummary, settings.EffectiveQuality());
 			try { job.Baker.Start(settings, input, output, emissivepath); }
 			catch(Exception e)
 			{
@@ -2674,7 +2691,7 @@ namespace CodeImp.DoomBuilder
 		internal bool FinishLightmapBake(LightmapBakeJob job, int exitcode, out string message)
 		{
 			LightmapLump lightmap = null;
-			string error = null;
+			string error = null, lumpsha = null;
 			if(job.Baker.Cancelled) error = "cancelled";
 			else if(exitcode != 0)
 			{
@@ -2687,7 +2704,11 @@ namespace CodeImp.DoomBuilder
 			{
 				try
 				{
-					using(WAD wad = new WAD(job.OutputPath, true)) error = ValidateBakeOutput(wad, BUILD_MAP_HEADER, out lightmap);
+					using(WAD wad = new WAD(job.OutputPath, true))
+					{
+						error = ValidateBakeOutput(wad, BUILD_MAP_HEADER, out lightmap);
+						if(error == null) lumpsha = LightmapLumpSha(wad, BUILD_MAP_HEADER);
+					}
 				}
 				catch(Exception e) { error = "the output could not be read: " + e.Message; }
 			}
@@ -2701,7 +2722,7 @@ namespace CodeImp.DoomBuilder
 			}
 
 			ResetLightmapCache("a new bake replaces it");
-			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString());
+			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString(), job.Quality, lumpsha);
 			lightmapsourceversion++;
 			ClearLightmapStale();
 			double seconds = job.Baker.Elapsed.TotalSeconds;
@@ -2711,7 +2732,7 @@ namespace CodeImp.DoomBuilder
 			IsChanged = true;
 			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + "." +
 				(job.EmissiveSummary != null ? " " + job.EmissiveSummary + "." : "") + " Save or Test to use it.";
-			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary);
+			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary + (job.Quality != null ? ", quality " + job.Quality.Describe() : ""));
 			return true;
 		}
 

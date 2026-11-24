@@ -23,6 +23,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using CodeImp.DoomBuilder.Compilers;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Geometry;
@@ -43,6 +44,7 @@ namespace CodeImp.DoomBuilder.Map
 
 		// Map configuration
 		private readonly Configuration mapconfig;
+		private LightmapBakeMapSettings lightmapbake = new LightmapBakeMapSettings();
 		
 		// Game configuration
 		private string configfile;
@@ -104,6 +106,7 @@ namespace CodeImp.DoomBuilder.Map
 		internal bool StrictPatches { get { return strictpatches; } set { strictpatches = value; } }
 		internal Dictionary<string, ScriptDocumentSettings> ScriptDocumentSettings { get { return scriptsettings; } } //mxd
 		internal string ScriptCompiler { get { return scriptcompiler; } set { scriptcompiler = value; } } //mxd
+		internal LightmapBakeMapSettings LightmapBake { get { return lightmapbake; } }
 		internal string PreviousName { get { return previousname; } set { previousname = value; } }
 		internal string CurrentName
 		{
@@ -226,6 +229,7 @@ namespace CodeImp.DoomBuilder.Map
 
 			//mxd. Script compiler
 			scriptcompiler = this.mapconfig.ReadSetting("scriptcompiler", string.Empty);
+			lightmapbake = LightmapBakeMapSettings.Read(this.mapconfig);
 
 			//mxd. Read Sector drawing options
 			defaultfloortexture = this.mapconfig.ReadSetting("defaultfloortexture", string.Empty);
@@ -345,6 +349,7 @@ namespace CodeImp.DoomBuilder.Map
 			
 			// Write resources to config
 			resources.WriteToConfig(mapconfig, "resources");
+			lightmapbake.Write(mapconfig);
 
 			//mxd. Save selection groups
 			General.Map.Map.WriteSelectionGroups(mapconfig);

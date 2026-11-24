@@ -484,6 +484,9 @@ namespace CodeImp.DoomBuilder.Config
 				if(Array.IndexOf(LightmapBakeSettings.TEXTURE_SIZES, lightmapbake.TextureSize) < 0) lightmapbake.TextureSize = LightmapBakeSettings.DEFAULT_TEXTURE_SIZE;
 				lightmapbake.Threads = Math.Max(0, cfg.ReadSetting("lightmapbaker.threads", 0));
 				lightmapbake.CpuOnly = cfg.ReadSetting("lightmapbaker.cpuonly", false);
+				lightmapbake.Quality.SampleScale = General.Clamp(cfg.ReadSetting("lightmapbaker.samplescale", 1.0f), 0.25f, 16f);
+				lightmapbake.Quality.Samples = General.Clamp(cfg.ReadSetting("lightmapbaker.samples", 256), 1, 4096);
+				lightmapbake.Quality.BounceSamples = General.Clamp(cfg.ReadSetting("lightmapbaker.bouncesamples", 2048), 1, 65536);
 				rendercomments = cfg.ReadSetting("rendercomments", true); //mxd
 				fixedthingsscale = cfg.ReadSetting("fixedthingsscale", false); //mxd
 				rendergrid = cfg.ReadSetting("rendergrid", true); //mxd
@@ -670,6 +673,9 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("lightmapbaker.texturesize", lightmapbake.TextureSize);
 			cfg.WriteSetting("lightmapbaker.threads", lightmapbake.Threads);
 			cfg.WriteSetting("lightmapbaker.cpuonly", lightmapbake.CpuOnly);
+			cfg.WriteSetting("lightmapbaker.samplescale", lightmapbake.Quality.SampleScale);
+			cfg.WriteSetting("lightmapbaker.samples", lightmapbake.Quality.Samples);
+			cfg.WriteSetting("lightmapbaker.bouncesamples", lightmapbake.Quality.BounceSamples);
 			cfg.WriteSetting("rendercomments", rendercomments); //mxd
 			cfg.WriteSetting("fixedthingsscale", fixedthingsscale); //mxd
 			cfg.WriteSetting("rendergrid", rendergrid); //mxd

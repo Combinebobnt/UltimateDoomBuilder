@@ -3,6 +3,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Compilers;
 
@@ -30,6 +31,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private bool showingresult;
 		private readonly bool autostart;
 		private bool bakesucceeded;
+		private Task<LightmapBakerFeatures> probe; // --features of the baker at probepath
+		private string probepath;
 
 		#endregion
 
@@ -152,13 +155,15 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Methods
 
-		private LightmapBakeSettings ReadControls()
+		// Waiting for the baker's feature probe is only needed to start a bake
+		private LightmapBakeSettings ReadControls(bool waitforfeatures)
 		{
 			LightmapBakeSettings settings = General.Settings.LightmapBake;
 			settings.BakerPath = bakerpath.Text.Trim();
 			settings.TextureSize = (texturesize.SelectedItem is int ? (int)texturesize.SelectedItem : LightmapBakeSettings.DEFAULT_TEXTURE_SIZE);
 			settings.Threads = (int)threads.Value;
 			settings.CpuOnly = cpuonly.Checked;
+			settings.Features = Features(settings.BakerPath, waitforfeatures);
 			return settings;
 		}
 
@@ -169,11 +174,23 @@ namespace CodeImp.DoomBuilder.Windows
 			close.Text = (running ? "Cancel" : "Close");
 			if(running) return;
 
-			string problem = General.Map.LightmapBakeUnavailable() ?? ReadControls().BakerProblem();
+			string problem = General.Map.LightmapBakeUnavailable() ?? ReadControls(false).BakerProblem();
 			bake.Enabled = (problem == null);
 			if(problem != null) status.Text = problem;
 			else if(!showingresult)
 				status.Text = "Bakes the open map with ZDRay. Save and Test then write the bake for as long as the map's geometry and lights stay as baked.";
+		}
+
+		// The baker's features, probed off the UI thread once per path; waits for the probe only when asked
+		private LightmapBakerFeatures Features(string path, bool wait)
+		{
+			if(probe == null || probepath != path)
+			{
+				probepath = path;
+				probe = Task.Run(() => LightmapBakerFeatures.Probe(path));
+			}
+			if(!wait && !probe.IsCompleted) return LightmapBakerFeatures.None;
+			return probe.Result;
 		}
 
 		private void SetResult(string text)
@@ -209,7 +226,7 @@ namespace CodeImp.DoomBuilder.Windows
 			showingresult = false;
 			bakesucceeded = false;
 			string error;
-			job = General.Map.StartLightmapBake(ReadControls(), out error);
+			job = General.Map.StartLightmapBake(ReadControls(true), out error);
 			if(job == null)
 			{
 				SetResult("Bake failed: " + error);

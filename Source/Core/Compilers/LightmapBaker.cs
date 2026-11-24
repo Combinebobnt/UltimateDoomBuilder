@@ -18,9 +18,23 @@ namespace CodeImp.DoomBuilder.Compilers
 		public static readonly int[] TEXTURE_SIZES = { 128, 256, 512, 1024, 2048, 4096 };
 
 		public string BakerPath = string.Empty;
-		public int TextureSize = DEFAULT_TEXTURE_SIZE;
+		public LightmapBakeQuality Quality = new LightmapBakeQuality(); // requested; Effective() is what runs
 		public int Threads; // 0 = automatic
 		public bool CpuOnly;
+		public LightmapBakerFeatures Features = LightmapBakerFeatures.None;
+
+		public int TextureSize { get { return Quality.TextureSize; } set { Quality.TextureSize = value; } }
+
+		// The quality this baker will actually bake at
+		public LightmapBakeQuality EffectiveQuality() { return Quality.Effective(Features); }
+
+		// A copy whose quality can be changed without touching these settings (Quick bake)
+		public LightmapBakeSettings With(LightmapBakeQuality quality)
+		{
+			LightmapBakeSettings s = (LightmapBakeSettings)MemberwiseClone();
+			s.Quality = quality.Clone();
+			return s;
+		}
 
 		// The baker's own default is 64 threads, too many for most machines
 		public int EffectiveThreads(int processorcount)
@@ -43,12 +57,16 @@ namespace CodeImp.DoomBuilder.Compilers
 		public readonly string WadPath;
 		public readonly string Fingerprint;
 		public readonly string Summary;
+		public readonly LightmapBakeQuality Quality; // null when unknown (a lump not saved by this editor)
+		public readonly string LumpSha;              // SHA-256 of the stored LIGHTMAP lump, null when unread
 
-		public LightmapBakeCache(string wadpath, string fingerprint, string summary)
+		public LightmapBakeCache(string wadpath, string fingerprint, string summary, LightmapBakeQuality quality = null, string lumpsha = null)
 		{
 			WadPath = wadpath;
 			Fingerprint = fingerprint;
 			Summary = summary;
+			Quality = quality;
+			LumpSha = lumpsha;
 		}
 	}
 
@@ -60,16 +78,18 @@ namespace CodeImp.DoomBuilder.Compilers
 		public readonly string Fingerprint;
 		public readonly string EmissivePath;    // the baker's --emissive file, null when none is passed
 		public readonly string EmissiveSummary; // null when no EMITDEFS is loaded
+		public readonly LightmapBakeQuality Quality; // what the baker was asked to run at, after its features
 		public readonly LightmapBaker Baker = new LightmapBaker();
 		private bool outputtaken;
 
-		public LightmapBakeJob(string inputpath, string outputpath, string fingerprint, string emissivepath = null, string emissivesummary = null)
+		public LightmapBakeJob(string inputpath, string outputpath, string fingerprint, string emissivepath = null, string emissivesummary = null, LightmapBakeQuality quality = null)
 		{
 			InputPath = inputpath;
 			OutputPath = outputpath;
 			Fingerprint = fingerprint;
 			EmissivePath = emissivepath;
 			EmissiveSummary = emissivesummary;
+			Quality = quality;
 		}
 
 		public string TakeOutput()
@@ -199,8 +219,10 @@ namespace CodeImp.DoomBuilder.Compilers
 			if(settings.CpuOnly) args.Add("-C");
 			args.Add("-j");
 			args.Add(settings.EffectiveThreads(processorcount).ToString(CultureInfo.InvariantCulture));
+			LightmapBakeQuality quality = settings.EffectiveQuality();
 			args.Add("-S");
-			args.Add(settings.TextureSize.ToString(CultureInfo.InvariantCulture));
+			args.Add(quality.TextureSize.ToString(CultureInfo.InvariantCulture));
+			args.AddRange(LightmapBakeOptions.Flags(quality, settings.Features));
 			if(emissivefile != null)
 			{
 				args.Add("--emissive");
