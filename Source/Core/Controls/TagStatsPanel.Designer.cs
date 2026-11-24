@@ -83,7 +83,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// TagColumn
 			//
-			this.TagColumn.Width = 51;
+			this.TagColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
 			dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.TagColumn.DefaultCellStyle = dataGridViewCellStyle2;
 			this.TagColumn.HeaderText = "Tag";
@@ -100,7 +100,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// Sectors
 			//
-			this.Sectors.Width = 68;
+			this.Sectors.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
 			dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.Sectors.DefaultCellStyle = dataGridViewCellStyle4;
 			this.Sectors.HeaderText = "Sectors";
@@ -109,7 +109,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// Linedefs
 			//
-			this.Linedefs.Width = 72;
+			this.Linedefs.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
 			dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.Linedefs.DefaultCellStyle = dataGridViewCellStyle5;
 			this.Linedefs.HeaderText = "Linedefs";
@@ -118,7 +118,7 @@ namespace CodeImp.DoomBuilder.Controls
 			//
 			// Things
 			//
-			this.Things.Width = 64;
+			this.Things.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
 			dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			this.Things.DefaultCellStyle = dataGridViewCellStyle6;
 			this.Things.HeaderText = "Things";

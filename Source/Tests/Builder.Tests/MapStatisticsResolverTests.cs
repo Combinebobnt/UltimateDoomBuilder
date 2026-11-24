@@ -94,6 +94,11 @@ namespace Builder.Tests
 				true, s => s == "Shell" ? "ShellGroup" : s);
 			Assert.Equal(8, aliased.Ammo!["ShellGroup"]);
 
+			// An expression give stays unresolved, for the vanilla table
+			var expr = ThingTallyResolver.WalkChain(new[] { Link("Shotgun", "", ("weapon.ammotype", "\"Shell\""), ("weapon.ammogive", "2*4")), Link("Weapon"), inventory, Root },
+				true, s => s);
+			Assert.Null(expr.Ammo);
+
 			// CustomInventory is left for the vanilla table; non-inventory gets nothing
 			Assert.Null(ThingTallyResolver.WalkChain(new[] { Link("Megasphere"), Link("CustomInventory"), inventory, Root }, true, null).HealthAmount);
 			Assert.Equal(0, ThingTallyResolver.WalkChain(new[] { Link("Imp"), Root }, true, null).HealthAmount);

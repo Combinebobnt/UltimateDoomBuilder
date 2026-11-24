@@ -98,6 +98,8 @@ namespace CodeImp.DoomBuilder.Map.Statistics
 					routebase = patchbase;
 					if(patchbase != null)
 						vanillanum = (patchbase.Props.TryGetValue("id #", out string id) && int.TryParse(id, out int ednum)) ? ednum : -1;
+					else if(dehackeddata != null)
+						vanillanum = -1; // a new thing beyond the config's: whatever vanilla had at this number is unrelated
 				}
 				else
 				{

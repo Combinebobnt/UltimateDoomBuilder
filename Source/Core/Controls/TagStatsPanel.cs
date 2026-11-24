@@ -32,7 +32,9 @@ namespace CodeImp.DoomBuilder.Controls
 		// Mono's Fill mode pushes the columns after Label past the grid's edge, so Label is sized here
 		private void FitLabelColumn()
 		{
-			int others = TagColumn.Width + Sectors.Width + Linedefs.Width + Things.Width;
+			int others = 0;
+			foreach(DataGridViewColumn c in new[] { TagColumn, Sectors, Linedefs, Things })
+				if(c.Visible) others += c.Width;
 			LabelColumn.Width = Math.Max(80, dataGridView.ClientSize.Width - others - SystemInformation.VerticalScrollBarWidth - 2);
 		}
 
