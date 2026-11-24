@@ -48,6 +48,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.changeLindefIndexToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.updatelightfogitem = new System.Windows.Forms.ToolStripMenuItem();
             this.aligntexturesitem = new System.Windows.Forms.ToolStripMenuItem();
+            this.createportallinesitem = new System.Windows.Forms.ToolStripMenuItem();
             this.alignFloorToFrontItem = new System.Windows.Forms.ToolStripMenuItem();
             this.alignFloorToBackItem = new System.Windows.Forms.ToolStripMenuItem();
             this.alignCeilingToFrontItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -65,6 +66,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.alignsectorlinedefsitem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator8 = new System.Windows.Forms.ToolStripSeparator();
             this.makedooritem = new System.Windows.Forms.ToolStripMenuItem();
+            this.createportalsectorsitem = new System.Windows.Forms.ToolStripMenuItem();
             this.changeSectorIndexToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.selectSimilarSectors = new System.Windows.Forms.ToolStripMenuItem();
@@ -177,6 +179,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.changeLindefIndexToolStripMenuItem,
             this.updatelightfogitem,
             this.aligntexturesitem,
+            this.createportallinesitem,
             this.toolStripSeparator5,
             this.selectSimilarLinesItem,
             this.separatorgradientl,
@@ -323,6 +326,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.aligntexturesitem.Size = new System.Drawing.Size(223, 22);
             this.aligntexturesitem.Text = "&Align Textures";
             // 
+            // createportallinesitem
+            // 
+            this.createportallinesitem.Name = "createportallinesitem";
+            this.createportallinesitem.Size = new System.Drawing.Size(223, 22);
+            this.createportallinesitem.Tag = "createportal";
+            this.createportallinesitem.Text = "Create &Portal...";
+            this.createportallinesitem.ToolTipText = "Create a line or anchored sector portal from the two selected linedefs";
+            this.createportallinesitem.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
             // alignFloorToFrontItem
             // 
             this.alignFloorToFrontItem.Name = "alignFloorToFrontItem";
@@ -382,6 +394,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.alignsectorlinedefsitem,
             this.toolStripSeparator8,
             this.makedooritem,
+            this.createportalsectorsitem,
             this.changeSectorIndexToolStripMenuItem,
             this.toolStripSeparator4,
             this.selectSimilarSectors,
@@ -473,6 +486,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.makedooritem.Tag = "makedoor";
             this.makedooritem.Text = "Make &Door";
             this.makedooritem.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // createportalsectorsitem
+            // 
+            this.createportalsectorsitem.Name = "createportalsectorsitem";
+            this.createportalsectorsitem.Size = new System.Drawing.Size(223, 22);
+            this.createportalsectorsitem.Tag = "createportal";
+            this.createportalsectorsitem.Text = "Create &Portal...";
+            this.createportalsectorsitem.ToolTipText = "Create stacked sectors from the two selected sectors";
+            this.createportalsectorsitem.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 
             // changeSectorIndexToolStripMenuItem
             // 
@@ -1257,6 +1279,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripButton buttonTextureOffsetLock;
 		private System.Windows.Forms.ToolStripMenuItem selectInSectorsItem;
 		private System.Windows.Forms.ToolStripMenuItem aligntexturesitem;
+		private System.Windows.Forms.ToolStripMenuItem createportallinesitem;
 		private System.Windows.Forms.ToolStripMenuItem alignFloorToFrontItem;
 		private System.Windows.Forms.ToolStripMenuItem alignFloorToBackItem;
 		private System.Windows.Forms.ToolStripMenuItem alignCeilingToFrontItem;
@@ -1273,6 +1296,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonMakeDoor;
 		private System.Windows.Forms.ToolStripMenuItem makedooritem;
+		private System.Windows.Forms.ToolStripMenuItem createportalsectorsitem;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
 		private System.Windows.Forms.MenuStrip fileMenuStrip;
 		private System.Windows.Forms.ToolStripMenuItem exportStripMenuItem;

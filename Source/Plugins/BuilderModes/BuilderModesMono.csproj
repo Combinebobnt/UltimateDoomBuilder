@@ -528,6 +528,12 @@
     <Compile Include="Interface\PortalsPanel.Designer.cs">
       <DependentUpon>PortalsPanel.cs</DependentUpon>
     </Compile>
+    <Compile Include="Interface\PortalCreateForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Interface\PortalCreateForm.Designer.cs">
+      <DependentUpon>PortalCreateForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="General\TexturePalette.cs" />
     <Compile Include="Interface\TexturePaletteForm.cs">
       <SubType>Form</SubType>

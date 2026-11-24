@@ -4,6 +4,7 @@ using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Geometry;
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
+using CodeImp.DoomBuilder.Types;
 
 namespace CodeImp.DoomBuilder.Portals
 {
@@ -70,6 +71,29 @@ namespace CodeImp.DoomBuilder.Portals
 				data.AddThing(t.Type, t.Tag, t.Args, new Vector2D(t.Position.x, t.Position.y), sector);
 			}
 			return data;
+		}
+
+		// Format limits, plus every tag number in use, args included, so a new tag never meets a dangling reference
+		public static PortalCreateContext CreateContext(MapSet map, GameConfiguration config, IMapSetIO io, bool udmf)
+		{
+			PortalCreateContext ctx = new PortalCreateContext
+			{
+				MultipleTags = udmf,
+				ActionArgs = io.HasActionArgs,
+				MaxArgument = io.MaxArgument,
+				MaxTag = io.MaxTag,
+				ActionName = delegate(int action) { return config.LinedefActions.ContainsKey(action) ? config.LinedefActions[action].Title : null; },
+			};
+			MapSet.TagHandler<PortalCreateContext> handler = delegate(MapElement element, bool actionargument, UniversalType type, ref int value, PortalCreateContext c)
+			{
+				if(value == 0) return;
+				if(type == UniversalType.LinedefTag) c.UsedLineIds.Add(value);
+				else if(type == UniversalType.SectorTag) c.UsedSectorTags.Add(value);
+				else if(type == UniversalType.ThingTag) c.UsedThingIds.Add(value);
+			};
+			map.ForAllTags(handler, false, ctx);
+			map.ForAllTags(handler, true, ctx);
+			return ctx;
 		}
 
 		private static bool IsPortalThing(PortalCapabilities caps, int type)

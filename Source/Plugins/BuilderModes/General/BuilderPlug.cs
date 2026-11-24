@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Drawing;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -25,6 +26,7 @@ using System.Windows.Forms;
 using CodeImp.DoomBuilder.Actions;
 using CodeImp.DoomBuilder.BuilderModes.Interface;
 using CodeImp.DoomBuilder.BuilderModes.IO;
+using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Controls;
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Editing;
@@ -705,6 +707,107 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void RefreshPortalsSoon()
 		{
 			if(portalspanel != null) portalspanel.UpdateSoon();
+		}
+
+		// Builds a two-ended portal from two selected lines or sectors; the form plans and checks it, this applies it
+		[BeginAction("createportal")]
+		private void CreatePortal()
+		{
+			if(General.Map == null) return;
+			PortalCapabilities caps = PortalMapSource.Capabilities(General.Map.Config, General.Map.FormatInterface);
+			if(!caps.Any)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Creating portals needs a ZDoom-family game configuration.");
+				return;
+			}
+
+			// Sectors mode also selects the sectors' lines, so it always means sectors
+			List<Linedef> lines = new List<Linedef>(General.Map.Map.GetSelectedLinedefs(true));
+			List<Sector> sectors = new List<Sector>(General.Map.Map.GetSelectedSectors(true));
+			bool uselines = !(General.Editing.Mode is SectorsMode) && (lines.Count == 2 || sectors.Count != 2);
+			if((uselines ? lines.Count : sectors.Count) != 2)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Select two linedefs for a line or anchored sector portal, or two sectors for stacked sectors.");
+				return;
+			}
+
+			PortalMapData data = PortalMapSource.FromMap(General.Map.Map, caps);
+			PortalCreateContext ctx = PortalMapSource.CreateContext(General.Map.Map, General.Map.Config, General.Map.FormatInterface, General.Map.UDMF);
+			int a = uselines ? lines[0].Index : sectors[0].Index;
+			int b = uselines ? lines[1].Index : sectors[1].Index;
+			Vector2D posa = new Vector2D(), posb = new Vector2D();
+			string problema = null, problemb = null;
+			if(!uselines)
+			{
+				problema = StackThingPosition(sectors[0], out posa);
+				problemb = StackThingPosition(sectors[1], out posb);
+			}
+
+			PortalCreatePlan plan;
+			using(PortalCreateForm form = new PortalCreateForm(data, caps, ctx, uselines, a, b, posa, posb, problema, problemb, StackOpacity(caps)))
+			{
+				if(form.ShowDialog(General.Interface) != DialogResult.OK || form.Plan == null || !form.Plan.CanApply) return;
+				plan = form.Plan;
+			}
+			if(General.Map.Map.Things.Count + plan.ThingAdds.Count > General.Map.FormatInterface.MaxThings)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Could not create the portal: the map has no room for more things.");
+				return;
+			}
+
+			General.Map.UndoRedo.CreateUndo("Create portal");
+			ApplyPortalPlan(plan);
+			General.Map.Map.Update();
+			General.Map.ThingsFilter.Update();
+			General.Map.IsChanged = true;
+			General.Interface.DisplayStatus(StatusType.Action, "Created a portal.");
+			General.Interface.RedrawDisplay();
+			if(portalspanel != null) portalspanel.ShowLink(plan.Link != null ? plan.Link.Key : null);
+		}
+
+		// The engine uses the sector a stack thing stands in, so the label position must lie inside that very sector
+		private static string StackThingPosition(Sector s, out Vector2D pos)
+		{
+			pos = new Vector2D();
+			List<LabelPositionInfo> labels = Tools.FindLabelPositions(s);
+			if(labels.Count == 0) return "Sector " + s.Index + " has no room for a thing.";
+			pos = new Vector2D(Math.Round(labels[0].position.x), Math.Round(labels[0].position.y));
+			if(General.Map.Map.GetSectorByCoordinates(pos) != s)
+				return "Sector " + s.Index + "'s label position lies outside it, so its stack thing would stand in another sector. Place the things by hand.";
+			return null;
+		}
+
+		private static int StackOpacity(PortalCapabilities caps)
+		{
+			ThingTypeInfo info = General.Map.Data.GetThingInfoEx(caps.UpperStack);
+			int value;
+			if(info != null && info.Args[0].DefaultValue != null
+				&& int.TryParse(Convert.ToString(info.Args[0].DefaultValue, CultureInfo.InvariantCulture), out value)) return value;
+			return 128;
+		}
+
+		private static void ApplyPortalPlan(PortalCreatePlan plan)
+		{
+			MapSet map = General.Map.Map;
+			foreach(PortalSectorEdit e in plan.SectorEdits)
+				map.GetSectorByIndex(e.Index).Tags = new List<int>(e.Tags);
+			foreach(PortalLineEdit e in plan.LineEdits)
+			{
+				Linedef l = map.GetLinedefByIndex(e.Index);
+				l.Action = e.Action;
+				for(int i = 0; i < Linedef.NUM_ARGS; i++) l.Args[i] = e.Args[i];
+				if(e.Ids != null) l.Tags = e.Ids.Length > 0 ? new List<int>(e.Ids) : new List<int> { 0 };
+			}
+			foreach(PortalThingAdd add in plan.ThingAdds)
+			{
+				Thing t = map.CreateThing();
+				General.Settings.ApplyDefaultThingSettings(t);
+				t.Type = add.Type;
+				t.Move(add.Position);
+				t.Tag = add.Tid;
+				for(int i = 0; i < Thing.NUM_ARGS; i++) t.Args[i] = add.Args[i];
+				t.UpdateConfiguration();
+			}
 		}
 		
 		#endregion

@@ -78,6 +78,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			updatetimer.Start();
 		}
 
+		// Refreshes now and selects the row with this key, such as a portal just created
+		public void ShowLink(string key)
+		{
+			if(key != null) selectedkey = key;
+			if(Visible && docker != null) UpdateTree();
+		}
+
 		private bool IsActiveTab
 		{
 			get { return docker != null && General.Interface.ActiveDockerTabName == docker.Title; }
@@ -510,6 +517,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(loading) return;
 			General.Settings.WritePluginSetting("portalsselectonclick", selectonclick.Checked);
 			General.Settings.WritePluginSetting("portalscenteronclick", centeronclick.Checked);
+		}
+
+		private void create_Click(object sender, EventArgs e)
+		{
+			General.Actions.InvokeAction("buildermodes_createportal");
 		}
 
 		private void problemsonly_CheckedChanged(object sender, EventArgs e)
