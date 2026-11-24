@@ -26,7 +26,6 @@ namespace CodeImp.DoomBuilder.Actions
 		#region ================== Properties
 
 		public int HeldMask { get { return mask; } }
-		public int ShownMask { get { return shownmask; } }
 
 		#endregion
 
@@ -79,7 +78,6 @@ namespace CodeImp.DoomBuilder.Actions
 			SetMask(newmask);
 		}
 
-		// All keys were released, or input went elsewhere (focus loss, a dialog)
 		public void Release()
 		{
 			mask = 0;
@@ -94,11 +92,11 @@ namespace CodeImp.DoomBuilder.Actions
 			if(mask != 0 && !chorded && canshow()) Show(mask);
 		}
 
-		// Safety net for key-ups that never reach the main window (modal dialogs, open menus)
+		// Key-ups released inside modal dialogs or open menus never reach the main window
 		public void Poll(Keys modifierkeys)
 		{
 			int current = (int)modifierkeys & HintsManager.MODIFIER_MASK;
-			if(shownmask != 0 && current != shownmask) SetMask(current);
+			if(mask != 0 && current != mask) SetMask(current);
 		}
 
 		#endregion

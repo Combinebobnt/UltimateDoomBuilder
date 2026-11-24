@@ -48,12 +48,6 @@ namespace CodeImp.DoomBuilder.Actions
 
 		#endregion
 
-		#region ================== Properties
-
-		internal int OverlayMask { get { return overlaymask; } }
-
-		#endregion
-
 		#region ================== Constructor
 
 		public HintsManager() : this(
@@ -109,7 +103,7 @@ namespace CodeImp.DoomBuilder.Actions
 			}
 		}
 
-		// Returns <asmprefix + classname, <group, raw lines>>. Quotes are stripped; tags stay unresolved.
+		// Quotes are stripped; tags stay unresolved until shown
 		internal static Dictionary<string, Dictionary<string, List<string>>> ParseHints(TextReader reader, string asmprefix)
 		{
 			var result = new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.Ordinal);
@@ -166,13 +160,11 @@ namespace CodeImp.DoomBuilder.Actions
 			Render();
 		}
 
-		// Re-renders the current hints, e.g. after shortcut keys changed
 		public void Refresh()
 		{
 			if(currenttype != null) Render();
 		}
 
-		// Shows what the held modifiers do (Keys.Control/Shift/Alt bits). 0 restores the normal hints.
 		internal void SetModifierOverlay(int mask)
 		{
 			mask &= MODIFIER_MASK;
@@ -207,7 +199,7 @@ namespace CodeImp.DoomBuilder.Actions
 			output(RenderGroup(lines, DescribeAction));
 		}
 
-		// Looks the group up on the type, then on its base types (each in its own assembly)
+		// Base types are keyed by their own assembly
 		private List<string> FindGroup(Type type, string groupname)
 		{
 			for(Type t = type; t != null; t = t.BaseType)
@@ -248,7 +240,6 @@ namespace CodeImp.DoomBuilder.Actions
 			return string.Join("+", parts.ToArray());
 		}
 
-		// Both keys when an alternate is set; unbound when neither key is > 0
 		internal static string DescribeKeys(Action a)
 		{
 			List<string> keys = new List<string>(2);
@@ -265,7 +256,6 @@ namespace CodeImp.DoomBuilder.Actions
 			return "{\\rtf1 " + string.Join("\\par\\par ", rendered.ToArray()) + "}";
 		}
 
-		// Turns <b>, </b>, <br> and <k>action</k> into RTF and escapes everything else
 		internal static string RenderLine(string line, Func<string, string> describeaction)
 		{
 			StringBuilder sb = new StringBuilder(line.Length + 16);
@@ -306,8 +296,7 @@ namespace CodeImp.DoomBuilder.Actions
 			else sb.Append(c);
 		}
 
-		// Bound actions whose primary or alternate key carries exactly these modifiers, as <key text, title>.
-		// Actions bound to the current mode come first; each part is sorted by key text.
+		// Exact modifier match only, so Disregard* actions bound to a bare key don't flood every chord
 		internal static List<KeyValuePair<string, string>> BuildShortcutList(IEnumerable<Action> actions, int mask, object mode)
 		{
 			var modeitems = new List<KeyValuePair<string, string>>();
@@ -353,7 +342,6 @@ namespace CodeImp.DoomBuilder.Actions
 			}
 		}
 
-		// Returns null when there is nothing to show for this chord
 		internal static string RenderOverlay(int mask, IList<string> modelines, IList<KeyValuePair<string, string>> shortcuts, Func<string, string> describeaction)
 		{
 			bool hasmodelines = modelines != null && modelines.Count > 0;

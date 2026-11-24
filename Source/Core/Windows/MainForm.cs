@@ -309,7 +309,7 @@ namespace CodeImp.DoomBuilder.Windows
 			modifierhintstimer = new GuardedTimer { Interval = 500 };
 			modifierhintstimer.Tick += (s, e) => modifierhints.TimerFired();
 			modifierhintspoll = new GuardedTimer { Interval = 250 };
-			modifierhintspoll.Tick += (s, e) => modifierhints.Poll(ModifierKeys);
+			modifierhintspoll.Tick += (s, e) => { modifierhints.Poll(ModifierKeys); UpdateModifierHintsPoll(); };
 			modifierhints = new ModifierHintTracker(
 				() => { modifierhintstimer.Stop(); modifierhintstimer.Start(); },
 				() => modifierhintstimer.Stop(),
@@ -1463,7 +1463,7 @@ namespace CodeImp.DoomBuilder.Windows
 		internal void ReleaseAllKeys()
 		{
 			General.Actions.ReleaseAllKeys();
-			if(modifierhints != null) modifierhints.Release();
+			if(modifierhints != null) { modifierhints.Release(); UpdateModifierHintsPoll(); }
 			mousebuttons = MouseButtons.None;
 			shift = false;
 			ctrl = false;
@@ -1537,6 +1537,7 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			if(toolbardrag != null && toolbardrag.HandleKeyDown(e)) return;
 			modifierhints.KeyDown(e.KeyData);
+			UpdateModifierHintsPoll();
 			int mod = 0;
 			
 			// Keep key modifiers
@@ -1603,6 +1604,7 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			if(toolbardrag != null && toolbardrag.HandleKeyUp(e)) return;
 			modifierhints.KeyUp(e.KeyData);
+			UpdateModifierHintsPoll();
 			int mod = 0;
 
 			// Keep key modifiers
@@ -4279,8 +4281,12 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private void SetModifierHintsOverlay(int mask)
 		{
-			modifierhintspoll.Enabled = (mask != 0);
 			if(General.Hints != null) General.Hints.SetModifierOverlay(mask);
+		}
+
+		private void UpdateModifierHintsPoll()
+		{
+			modifierhintspoll.Enabled = (modifierhints.HeldMask != 0);
 		}
 
 		// Checked when the delay runs out, never when clearing

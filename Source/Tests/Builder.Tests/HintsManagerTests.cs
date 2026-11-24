@@ -176,6 +176,9 @@ namespace Builder.Tests
 			var both = HintsManager.BuildShortcutList(actions, Ctrl | Shift, null).Select(p => p.Value).ToList();
 			Assert.Equal(new List<string> { "Ctrl Shift X" }, both);
 			Assert.Empty(HintsManager.BuildShortcutList(actions, Alt, null));
+
+			// An unset key (-1) carries every modifier bit
+			Assert.Empty(HintsManager.BuildShortcutList(actions, Ctrl | Alt | Shift, null));
 		}
 
 		[Fact]

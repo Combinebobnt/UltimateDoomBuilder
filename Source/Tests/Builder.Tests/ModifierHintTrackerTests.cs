@@ -110,7 +110,7 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void ShowConditionsAreCheckedOnlyWhenTheTimerFires()
+		public void ShowConditionsGateShowingButNeverClearing()
 		{
 			Host h = new Host();
 			h.CanShow = false;
@@ -142,6 +142,26 @@ namespace Builder.Tests
 			Assert.False(h.TimerRunning);
 			h.Tracker.KeyUp(Keys.ShiftKey | Keys.Control);
 			Assert.Equal((int)Keys.Control, h.Shown);
+
+			// Without the show conditions a chord change clears and waits again
+			h.CanShow = false;
+			h.Tracker.KeyDown(Keys.Menu | Keys.Alt | Keys.Control);
+			Assert.Equal(0, h.Shown);
+			Assert.True(h.TimerRunning);
+		}
+
+		[Fact]
+		public void PollCatchesAReleaseMissedWhileTheTimerWaits()
+		{
+			Host h = new Host();
+			h.Tracker.KeyDown(CtrlDown);
+			h.Tracker.Poll(Keys.None);
+			Assert.Equal(0, h.Tracker.HeldMask);
+			Assert.False(h.TimerRunning);
+
+			// The next Ctrl press is a fresh hold, not auto-repeat
+			h.Tracker.KeyDown(CtrlDown);
+			Assert.True(h.TimerRunning);
 		}
 
 		[Fact]
