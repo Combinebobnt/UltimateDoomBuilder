@@ -67,7 +67,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public int Tag;
 		public int Flags; // Doom flag bits the match needs (the table's passthrough bit)
 		public bool LostPassthrough; // UseThrough matched as Use: the table has no passthrough bit
-		public bool UsesTag; // the type targets sectors by its tag (not a manual or push type)
+		public bool UsesTag; // an activated special takes sectors by this tag (not a line ID, light tag or load-time special)
 	}
 
 	// Doom-format line types to and from the engine's specials, per p_xlat.cpp's TranslateLineDef
@@ -332,7 +332,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			// An ID-only arg is 0 in canonical lines; the Doom tag fills it, so it matches anything
 			bool keeparg;
 			int idarg = HexenLineCodec.IdArg(c.Special, c.Args, out keeparg);
+			int keptid = keeparg ? idarg : -1; // a tag there is a line ID, where 0 means this line
 			if(keeparg) idarg = -1;
+			bool activated = !Specials.LoadTime.Contains(c.Special); // load-time specials read tag 0 as untagged sectors everywhere
 
 			List<DoomLine> found = new List<DoomLine>();
 			List<Pattern> list;
@@ -346,15 +348,16 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 					if(monsters != c.Monsters) continue;
 
 					int tag = int.MinValue;
-					bool ok = true;
+					bool ok = true, sectortag = false;
 					for(int i = 0; i < 5 && ok; i++)
 					{
 						if(i == idarg) continue;
 						if(!p.IsTag[i]) ok = l.Args[i] == c.Args[i];
 						else if(tag == int.MinValue) tag = c.Args[i];
 						else ok = tag == c.Args[i];
+						if(p.IsTag[i] && i != keptid) sectortag = true;
 					}
-					if(ok) found.Add(new DoomLine { Type = p.Type, Tag = tag == int.MinValue ? c.LineId : tag, Flags = ptflags, LostPassthrough = lostpt, UsesTag = tag != int.MinValue });
+					if(ok) found.Add(new DoomLine { Type = p.Type, Tag = tag == int.MinValue ? c.LineId : tag, Flags = ptflags, LostPassthrough = lostpt, UsesTag = sectortag && activated });
 				}
 			}
 
@@ -366,12 +369,12 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 			int boomtype;
 			if(boombykey.TryGetValue(BoomKey(n, true), out boomtype))
-				found.Add(new DoomLine { Type = boomtype, Tag = c.Args[0], Flags = ptflags, LostPassthrough = lostpt, UsesTag = true });
+				found.Add(new DoomLine { Type = boomtype, Tag = c.Args[0], Flags = ptflags, LostPassthrough = lostpt, UsesTag = (boomtype & 6) != 6 }); // a push door keeps its light tag here
 			if(c.Args[0] == 0 && boombykey.TryGetValue(BoomKey(n, false), out boomtype))
 				found.Add(new DoomLine { Type = boomtype, Tag = c.LineId, Flags = ptflags, LostPassthrough = lostpt });
 
-			// Lowest type, preferring one whose tag keeps the line ID, then one that doesn't target tag 0, which only xlat reads as
-			// arg 0: Boom ignores a non-push generalized type with no tag, and vanilla types hit every untagged sector
+			// Lowest type, preferring one whose tag keeps the line ID, then one that doesn't give an activated special sector tag 0,
+			// which only xlat reads as arg 0: vanilla acts on every untagged sector, Boom and MBF21 ignore most such lines
 			DoomLine? best = null;
 			foreach(DoomLine d in found)
 			{

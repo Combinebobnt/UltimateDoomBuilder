@@ -141,7 +141,11 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				foreach(string n in map.LongTextureNames.GetRange(0, shown)) names.Add(n + " -> " + ShortTextureName(n));
 				string list = string.Join(", ", names);
 				if(shown < map.LongTextureNames.Count) list += " (and " + (map.LongTextureNames.Count - shown) + " more)";
-				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "texture names over 8 characters are cut to the engine's short name: " + list);
+				HashSet<string> shorts = new HashSet<string>();
+				int shared = 0;
+				foreach(string n in map.LongTextureNames) if(!shorts.Add(ShortTextureName(n))) shared++;
+				if(shared > 0) list += "; " + shared + " of them get a short name another long name also gets";
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "texture names over 8 characters are cut to 8 (a pk3 texture file's short name where it has one): " + list);
 			}
 			if(map.HasScripts && target.Format == MapFormat.Doom)
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "the Doom format has no SCRIPTS or BEHAVIOR lump; the map's scripts are dropped");
@@ -277,7 +281,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				r.Action = d.Value.Type;
 				tag = d.Value.Tag;
 				if(d.Value.UsesTag && tag == 0 && !p.ReadsWholeTable)
-					report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "type " + r.Action + " gets tag 0: ZDoom-family engines pass 0 to the special, but the target's engine ignores the line (Boom generalized types) or acts on every untagged sector");
+					report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "type " + r.Action + " gets sector tag 0: ZDoom-family engines pass 0 to the special, but vanilla acts on every untagged sector and Boom and MBF21 ignore most such lines");
 				r.Bits |= d.Value.Flags & p.DoomLineFlagBits;
 				if(d.Value.LostPassthrough || (d.Value.Flags & ~p.DoomLineFlagBits) != 0) report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "use-through activation written as plain use: the target has no passthrough flag");
 				if(c.LineId != 0 && tag != c.LineId)

@@ -482,6 +482,10 @@ namespace Builder.Tests
 			ConversionReport report;
 			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
 			Assert.Contains("textures/walls/brick01.png -> BRICK01", report.ToString());
+			Assert.DoesNotContain("short name another", report.ToString());
+			map.LongTextureNames.Add("textures/other/brick01.png");
+			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
+			Assert.Contains("1 of them get a short name another long name also gets", report.ToString());
 		}
 
 		// The engine ignores Doom thing bits 5-7 when bit 8 is set (maploader.cpp LoadThings), except in Strife, where bit 8 is a flag
@@ -509,6 +513,8 @@ namespace Builder.Tests
 			MapRecords map = new MapRecords();
 			map.Lines.Add(DoomRecord(0x7fff, 0)); // generalized floor, DR (push)
 			map.Lines.Add(DoomRecord(62, 0)); // SR lift with no tag
+			map.Lines.Add(DoomRecord(0x3c07, 0)); // generalized DR door: its tag is a light tag, 0 is fine in Boom
+			map.Lines.Add(DoomRecord(260, 0)); // TranslucentLine: tag 0 means this line
 			ConversionReport report;
 			MapRecords udmf = Convert(map, "GZDoom_DoomDoom", "GZDoom_DoomUDMF", out report);
 			foreach(string target in new[] { "Boom_DoomDoom", "GZDoom_DoomDoom" })
@@ -518,7 +524,8 @@ namespace Builder.Tests
 				Assert.Equal(62, back.Lines[1].Action);
 				bool reported = report.Issues.Any(i => i.Index == 1 && i.Message.Contains("tag 0"));
 				Assert.True(reported == target.StartsWith("Boom"), target + ":\n" + report);
-				Assert.DoesNotContain(report.Issues, i => i.Index == 0);
+				Assert.True(back.Lines[2].Action == 0x3c07 && back.Lines[3].Action == 260, target);
+				Assert.DoesNotContain(report.Issues, i => i.Index != 1);
 			}
 		}
 
