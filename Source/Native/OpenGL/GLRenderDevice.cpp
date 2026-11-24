@@ -702,7 +702,18 @@ bool GLRenderDevice::SetPixelsRect(Texture* itexture, int x, int y, int width, i
 {
 	CheckContext();
 	GLTexture* texture = static_cast<GLTexture*>(itexture);
-	if (!texture->SetPixelsRect(this, x, y, width, height, data)) return false;
+	GLint maxSize = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
+	if (texture->GetWidth() > maxSize || texture->GetHeight() > maxSize)
+	{
+		SetError("A %dx%d texture is larger than this GPU's %d pixel limit", texture->GetWidth(), texture->GetHeight(), maxSize);
+		return false;
+	}
+	if (!texture->SetPixelsRect(this, x, y, width, height, data))
+	{
+		SetError("Pixel rectangle %d,%d %dx%d is outside a %dx%d texture or the texture can't take it", x, y, width, height, texture->GetWidth(), texture->GetHeight());
+		return false;
+	}
 	return CheckGLError();
 }
 

@@ -105,7 +105,7 @@ layout(location=5) in vec3 AttrLightmap;
 uniform mat4 world, view, projection, modelnormal;
 uniform vec2 skew;
 out vec4 pixelpos, vTexCoord, viewpos, Color, vSectorLight;
-out vec3 PosW, Normal, vLightmap;
+out vec3 PosW, Normal, udbLightmap;
 void main()
 {
     vec4 pos = world * vec4(AttrPosition, 1.0);
@@ -115,7 +115,7 @@ void main()
     Normal = normalize((modelnormal * vec4(AttrNormal, 1.0)).xyz);
     Color = AttrColor;
     vSectorLight = AttrLight;
-    vLightmap = AttrLightmap;
+    udbLightmap = AttrLightmap;
     pixelpos = vec4(pos.xzy, -viewpos.z / viewpos.w);
     vTexCoord = vec4(AttrUV + vec2(0.0, (AttrUV.x - skew.x) * skew.y), 0.0, 1.0);
 }
@@ -146,13 +146,13 @@ void main()
 			fragment.AppendLine("vec4 baseLight = useVertexColorUniform > 0.0 ? sectorLight(vertexColor, lightoverride, PosW) : sectorLight(Color, vSectorLight, PosW);");
 			fragment.AppendLine("udbVColor = baseLight;");
 			fragment.AppendLine("baseLight = addWallGlow(baseLight, PosW);");
-			fragment.AppendLine("vec3 lightmap = useVertexColorUniform > 0.0 ? vec3(0.0) : vLightmap;");
+			fragment.AppendLine("vec3 udbLightmapCoord = useVertexColorUniform > 0.0 ? vec3(0.0) : udbLightmap;");
 			if(dialect == UserShaderDialect.Zandronum)
 			{
 				fragment.AppendLine("vec3 additive = getDynLightContribution(vec4(0.0), vec4(0.0), PosW, Normal, 0.0).rgb;");
 				fragment.AppendLine("baseLight.rgb = min(baseLight.rgb + editorBright(vTexCoord.st).rgb, vec3(1.0));");
-				fragment.AppendLine("baseLight = addLightmap(baseLight, lightmap);");
-				fragment.AppendLine("vec4 light = getDynLightContribution(vec4(1.0), baseLight, PosW, Normal, lightmapMaxLight(lightmap)); light.rgb -= additive;");
+				fragment.AppendLine("baseLight = addLightmap(baseLight, udbLightmapCoord);");
+				fragment.AppendLine("vec4 light = getDynLightContribution(vec4(1.0), baseLight, PosW, Normal, lightmapMaxLight(udbLightmapCoord)); light.rgb -= additive;");
 				fragment.AppendLine("vec4 frag = Process(light); frag.rgb += additive;");
 			}
 			else
@@ -161,8 +161,8 @@ void main()
 				fragment.AppendLine("#ifdef LEGACY_USER_SHADER\nmaterial = ProcessMaterial();\n#else\nSetupMaterial(material);\n#endif");
 				fragment.AppendLine("baseLight.rgb = min(baseLight.rgb + desaturate(material.Bright).rgb, vec3(1.0));");
 				// The engine adds the lightmap after ProcessLight; its layered light models clamp to 1.4 themselves
-				if(layered) fragment.AppendLine("vec4 frag = vec4(ProcessMaterialLight(material, addLightmap(ProcessLight(material, baseLight), lightmap).rgb), material.Base.a * baseLight.a); frag.rgb += material.Glow.rgb;");
-				else fragment.AppendLine("vec4 frag = getDynLightContribution(material.Base, addLightmap(ProcessLight(material, baseLight), lightmap), PosW, Normal, lightmapMaxLight(lightmap)); frag.rgb += material.Glow.rgb;");
+				if(layered) fragment.AppendLine("vec4 frag = vec4(ProcessMaterialLight(material, addLightmap(ProcessLight(material, baseLight), udbLightmapCoord).rgb), material.Base.a * baseLight.a); frag.rgb += material.Glow.rgb;");
+				else fragment.AppendLine("vec4 frag = getDynLightContribution(material.Base, addLightmap(ProcessLight(material, baseLight), udbLightmapCoord), PosW, Normal, lightmapMaxLight(udbLightmapCoord)); frag.rgb += material.Glow.rgb;");
 			}
 			fragment.AppendLine(@"
 frag = mix(frag, vec4(stencilColor.rgb, frag.a), stencilColor.a);

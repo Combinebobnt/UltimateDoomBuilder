@@ -1,5 +1,6 @@
 using CodeImp.DoomBuilder.GZBuilder.Data;
 using CodeImp.DoomBuilder.Rendering;
+using CodeImp.DoomBuilder.Rendering.Shaders;
 
 namespace Builder.Tests
 {
@@ -233,8 +234,50 @@ namespace Builder.Tests
 			Assert.Contains("#define normaltexture texture11\n", active);
 			Assert.Contains(samplers + "\n", active);
 			Assert.Contains("uniform vec2 specularMaterial;", active);
-			Assert.Contains("vec4 frag = vec4(ProcessMaterialLight(material, ", active);
+			Assert.Contains("vec4 frag = vec4(ProcessMaterialLight(material, addLightmap(ProcessLight(material, baseLight), udbLightmapCoord).rgb)", active);
 			Assert.DoesNotContain("getDynLightContribution(material.Base", active);
+		}
+
+		// A lightmap added after the light model would skip its clamp and, for layered models, the material response
+		[Theory]
+		[InlineData(1, 0)]
+		[InlineData(2, 0)]
+		[InlineData(2, 1)]
+		[InlineData(2, 2)]
+		public void LightmapJoinsTheLightAfterTheBrightmapAndBeforeTheLightModel(int dialect, int model)
+		{
+			string source = dialect == 1 ? Build("vec4 Process(vec4 c) { return c; }", UserShaderDialect.Zandronum).FragmentSource
+				: ActiveSource(BuildModel((MaterialModel)model).FragmentSource);
+			string main = source.Substring(source.IndexOf("void main() {"));
+			int bright = main.IndexOf(dialect == 1 ? "editorBright(vTexCoord.st).rgb" : "desaturate(material.Bright)");
+			Assert.True(bright > 0);
+			string expected = dialect == 1 ? "baseLight = addLightmap(baseLight, udbLightmapCoord);\nvec4 light = getDynLightContribution(vec4(1.0), baseLight, PosW, Normal, lightmapMaxLight(udbLightmapCoord));"
+				: model == 0 ? "getDynLightContribution(material.Base, addLightmap(ProcessLight(material, baseLight), udbLightmapCoord), PosW, Normal, lightmapMaxLight(udbLightmapCoord))"
+				: "ProcessMaterialLight(material, addLightmap(ProcessLight(material, baseLight), udbLightmapCoord).rgb)";
+			Assert.True(main.IndexOf(expected) > bright);
+			Assert.Contains("udbLightmap = AttrLightmap;", (dialect == 1 ? Build("vec4 Process(vec4 c) { return c; }", UserShaderDialect.Zandronum) : BuildModel((MaterialModel)model)).VertexSource);
+		}
+
+		// A program that reads the lightmap varying without its vertex stage writing it would draw a lightmap on things
+		[Fact]
+		public void EveryWorldProgramThatAddsTheLightmapWritesItsVarying()
+		{
+			string text;
+			using(var stream = typeof(UserShaderBuilder).Assembly.GetManifestResourceStream("CodeImp.DoomBuilder.Resources.world3d.shader"))
+			using(var reader = new System.IO.StreamReader(stream)) text = reader.ReadToEnd();
+			var failed = new List<string>();
+			int checkedcount = 0;
+			foreach(Shader shader in ShaderCompiler.Compile(text).Shaders)
+			{
+				if(shader.SourceVertex == null || shader.SourceFragment == null || !shader.GetFragmentSource().Contains("addLightmap(")) continue;
+				string vertex = shader.GetVertexSource();
+				var output = System.Text.RegularExpressions.Regex.Match(vertex, @"out\s+vec3\s+(\w*Lightmap)\s*;");
+				checkedcount++;
+				if(!output.Success || !System.Text.RegularExpressions.Regex.IsMatch(vertex, @"\b" + output.Groups[1].Value + @"\s*="))
+					failed.Add(shader.Name);
+			}
+			Assert.True(checkedcount >= 8);
+			Assert.Equal(string.Empty, string.Join(", ", failed));
 		}
 
 		[Fact]

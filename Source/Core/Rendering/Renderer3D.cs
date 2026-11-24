@@ -73,6 +73,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		// Baked lightmap atlas for the preview it was uploaded from; kept while the preview is hidden so it comes back without an upload
 		private Texture lightmapatlas;
 		private LightmapPreview lightmapatlassource;
+		private long lightmapatlasversion; // MapManager.LightmapSourceVersion it was made under; a new bake frees it
 		private bool lightmapdrawn; // this frame
 		
 		// Slope handle
@@ -913,11 +914,14 @@ namespace CodeImp.DoomBuilder.Rendering
 		private void BindLightmap()
 		{
 			LightmapPreview preview = General.Map != null ? General.Map.LightmapPreview : null;
+			long version = General.Map != null ? General.Map.LightmapSourceVersion : 0;
+			if(lightmapatlassource != null && version != lightmapatlasversion) DisposeLightmapAtlas();
 			if(preview != null && preview != lightmapatlassource)
 			{
 				DisposeLightmapAtlas();
 				lightmapatlas = CreateLightmapAtlas(preview);
 				lightmapatlassource = preview;
+				lightmapatlasversion = version;
 			}
 
 			lightmapdrawn = preview != null && lightmapatlas != null && !fullbrightness && !General.Settings.ClassicRendering;
@@ -927,7 +931,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetSamplerFilter(TextureFilter.Linear, TextureFilter.Linear, MipmapFilter.None, 0f, LightmapUnit);
 				graphics.SetSamplerState(TextureAddress.Clamp, LightmapUnit);
 			}
-			graphics.SetUniform(UniformName.lightmapinfo, new Vector4f(lightmapdrawn ? 1f : 0f, lightmapdrawn ? preview.LayerCount : 1f, 0f, 0f));
+			graphics.SetUniform(UniformName.lightmapinfo, lightmapdrawn ? new Vector4f(1f, preview.LayerCount, 0.5f / preview.TextureSize, 0f) : new Vector4f(0f, 1f, 0f, 0f));
 		}
 
 		// The layers stacked vertically in one texture (LightmapData caps its height), one upload per layer; null on failure

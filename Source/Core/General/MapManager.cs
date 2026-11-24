@@ -139,6 +139,7 @@ namespace CodeImp.DoomBuilder
 		public bool IsDisposed { get { return isdisposed; } }
 
 		// The bake Visual mode draws, or null: no bake, the preview is off, or the map changed since the last check
+		internal long LightmapSourceVersion { get { return lightmapsourceversion; } }
 		public LightmapPreview LightmapPreview { get { return undoredo == null ? null : lightmappreview.Shown(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }
 		// Why LightmapPreview is null: the last check's reason, or that the map changed since; null while it is shown
 		public string LightmapPreviewReason { get { return undoredo == null ? null : lightmappreview.Explain(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }

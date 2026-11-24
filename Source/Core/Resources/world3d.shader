@@ -35,7 +35,7 @@ uniforms
 	sampler2D texture3;
 	float brightmapEnabled;
 
-	// Baked lightmap atlas, its layers stacked vertically; lightmapinfo x 1 when drawn, y the layer count
+	// Baked lightmap atlas, its layers stacked vertically; lightmapinfo x 1 when drawn, y the layer count, z half a texel in v within a layer
 	sampler2D texture15;
 	vec4 lightmapinfo;
 
@@ -358,8 +358,10 @@ functions
 	{
 		if (hasLightmap(lm))
 		{
+			// Kept half a texel inside its layer so linear filtering never reads the next one; added undesaturated, as the engine does
 			float layer = floor(lm.z + 0.5) - 1.0;
-			baselight.rgb += desaturatePart(vec4(texture(texture15, vec2(lm.x, (layer + lm.y) / lightmapinfo.y)).rgb, 1.0)).rgb;
+			float v = clamp(lm.y, lightmapinfo.z, 1.0 - lightmapinfo.z);
+			baselight.rgb += textureLod(texture15, vec2(lm.x, (layer + v) / lightmapinfo.y), 0.0).rgb;
 		}
 		return baselight;
 	}
