@@ -43,6 +43,11 @@ namespace CodeImp.DoomBuilder.Plugins.NodesViewer
 		{
 			InitializeComponent();
 			this.mode = mode;
+			if(UITheme.IsDark)
+			{
+				rightbutton.BackColor = Color.FromArgb(0x2E, 0x5A, 0x2E);
+				leftbutton.BackColor = Color.FromArgb(0x22, 0x44, 0x6A);
+			}
 
 			// Counts
 			numsegs.Text = mode.Segs.Length.ToString();

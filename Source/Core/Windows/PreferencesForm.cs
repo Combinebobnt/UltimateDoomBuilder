@@ -276,6 +276,12 @@ namespace CodeImp.DoomBuilder.Windows
 			scriptcolorpresets.SelectedIndex = 0;
 
 			blackbrowsers.Checked = General.Settings.BlackBrowsers;
+			uitheme.SelectedIndex = (General.Settings.UITheme == UIThemeKind.Dark ? 1 : 0);
+			if(!UITheme.IsSupported)
+			{
+				uitheme.Enabled = false;
+				toolTip1.SetToolTip(uithemelabel, "Dark theme is only available on the Linux build for now.");
+			}
 			classicbilinear.Checked = General.Settings.ClassicBilinear;
 			visualbilinear.Checked = General.Settings.VisualBilinear;
 			qualitydisplay.Checked = General.Settings.QualityDisplay;
@@ -457,6 +463,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			General.Colors.CreateAssistColors();
 			General.Settings.BlackBrowsers = blackbrowsers.Checked;
+			if(uitheme.Enabled) General.Settings.UITheme = (uitheme.SelectedIndex == 1 ? UIThemeKind.Dark : UIThemeKind.Light);
 			General.Settings.ClassicBilinear = classicbilinear.Checked;
 			General.Settings.VisualBilinear = visualbilinear.Checked;
 			General.Settings.QualityDisplay = qualitydisplay.Checked;
@@ -1245,8 +1252,8 @@ namespace CodeImp.DoomBuilder.Windows
 					colorbrace.Color = PixelColor.FromInt(-16711681);
 					colorbracebad.Color = PixelColor.FromInt(-65536);
 					colorwhitespace.Color = PixelColor.FromInt(-8355712);
-					colorfoldfore.Color = PixelColor.FromColor(SystemColors.ControlDark);
-					colorfoldback.Color = PixelColor.FromColor(SystemColors.ControlLightLight);
+					colorfoldfore.Color = PixelColor.FromColor(UITheme.LightSystemColor(KnownColor.ControlDark));
+					colorfoldback.Color = PixelColor.FromColor(UITheme.LightSystemColor(KnownColor.ControlLightLight));
 					colorselectionfore.Color = PixelColor.FromInt(-1);
 					colorselectionback.Color = PixelColor.FromInt(-13395457);
 					break;

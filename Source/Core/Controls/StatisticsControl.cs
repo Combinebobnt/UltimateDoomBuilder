@@ -21,11 +21,11 @@ namespace CodeImp.DoomBuilder.Controls
 			thingscount.Text = General.Map.Map.Things.Count.ToString();
 
 			// Exceeding them limits?
-			verticescount.ForeColor = (General.Map.Map.Vertices.Count > General.Map.FormatInterface.MaxVertices ? Color.Red : SystemColors.GrayText);
-			linedefscount.ForeColor = (General.Map.Map.Linedefs.Count > General.Map.FormatInterface.MaxLinedefs ? Color.Red : SystemColors.GrayText);
-			sidedefscount.ForeColor = (General.Map.Map.Sidedefs.Count > General.Map.FormatInterface.MaxSidedefs ? Color.Red : SystemColors.GrayText);
-			sectorscount.ForeColor = (General.Map.Map.Sectors.Count > General.Map.FormatInterface.MaxSectors ? Color.Red : SystemColors.GrayText);
-			thingscount.ForeColor = (General.Map.Map.Things.Count > General.Map.FormatInterface.MaxThings ? Color.Red : SystemColors.GrayText);
+			verticescount.ForeColor = (General.Map.Map.Vertices.Count > General.Map.FormatInterface.MaxVertices ? Windows.UITheme.Pick(Color.Red, Windows.UITheme.DarkWarningText) : SystemColors.GrayText);
+			linedefscount.ForeColor = (General.Map.Map.Linedefs.Count > General.Map.FormatInterface.MaxLinedefs ? Windows.UITheme.Pick(Color.Red, Windows.UITheme.DarkWarningText) : SystemColors.GrayText);
+			sidedefscount.ForeColor = (General.Map.Map.Sidedefs.Count > General.Map.FormatInterface.MaxSidedefs ? Windows.UITheme.Pick(Color.Red, Windows.UITheme.DarkWarningText) : SystemColors.GrayText);
+			sectorscount.ForeColor = (General.Map.Map.Sectors.Count > General.Map.FormatInterface.MaxSectors ? Windows.UITheme.Pick(Color.Red, Windows.UITheme.DarkWarningText) : SystemColors.GrayText);
+			thingscount.ForeColor = (General.Map.Map.Things.Count > General.Map.FormatInterface.MaxThings ? Windows.UITheme.Pick(Color.Red, Windows.UITheme.DarkWarningText) : SystemColors.GrayText);
 
 			verticeslabel.ForeColor = verticescount.ForeColor;
 			linedefslabel.ForeColor = linedefscount.ForeColor;

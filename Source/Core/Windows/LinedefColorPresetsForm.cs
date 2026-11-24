@@ -62,6 +62,7 @@ namespace CodeImp.DoomBuilder.Windows
 			preventchanges = true;
 			
 			InitializeComponent();
+			errordescription.ForeColor = UITheme.Pick(Color.DarkRed, UITheme.DarkWarningText);
 
 			// Fill filters list
 			foreach(LinedefColorPreset preset in General.Map.ConfigSettings.LinedefColorPresets)

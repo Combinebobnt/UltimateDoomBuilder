@@ -85,6 +85,8 @@ namespace CodeImp.DoomBuilder.Controls
 		public ScriptEditorPanel()
 		{
 			InitializeComponent();
+			// StatusStrip defaults to the system renderer, which draws a white top edge
+			if(Windows.UITheme.IsDark) statusbar.RenderMode = ToolStripRenderMode.ManagerRenderMode;
 			iconsmgr = new ScriptIconsManager(scripticons); //mxd
 			tabs.ImageList = scripticons; //mxd
 			PreviewKeyDown += new PreviewKeyDownEventHandler(ScriptEditorPanel_PreviewKeyDown);

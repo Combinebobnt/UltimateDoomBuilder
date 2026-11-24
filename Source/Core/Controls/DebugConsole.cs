@@ -72,10 +72,10 @@ namespace CodeImp.DoomBuilder
 			// Setup colors
 			textcolors = new Dictionary<DebugMessageType, Color> {
 				             { DebugMessageType.LOG, SystemColors.WindowText }, 
-							 { DebugMessageType.INFO, Color.DarkGreen }, 
-							 { DebugMessageType.WARNING, Color.DarkOrange }, 
-							 { DebugMessageType.ERROR, Color.DarkRed }, 
-							 { DebugMessageType.SPECIAL, Color.DarkMagenta }
+							 { DebugMessageType.INFO, Windows.UITheme.Pick(Color.DarkGreen, Color.FromArgb(0x7E, 0xC8, 0x7E)) }, 
+							 { DebugMessageType.WARNING, Windows.UITheme.Pick(Color.DarkOrange, Color.FromArgb(0xE5, 0xA0, 0x4B)) }, 
+							 { DebugMessageType.ERROR, Windows.UITheme.Pick(Color.DarkRed, Windows.UITheme.DarkWarningText) }, 
+							 { DebugMessageType.SPECIAL, Windows.UITheme.Pick(Color.DarkMagenta, Color.FromArgb(0xD6, 0x9A, 0xD6)) }
 			             };
 
 			// Setup headers

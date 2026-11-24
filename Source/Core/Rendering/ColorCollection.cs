@@ -228,8 +228,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			if(colors[SCRIPTSELECTIONBACK].ToInt() == 0) colors[SCRIPTSELECTIONBACK] = PixelColor.FromInt(-13395457);
 			if(colors[STRINGS].ToInt() == 0) colors[STRINGS] = PixelColor.FromInt(-8388608);
 			if(colors[INCLUDES].ToInt() == 0) colors[INCLUDES] = PixelColor.FromInt(-9868951);
-			if(colors[SCRIPTFOLDFORE].ToInt() == 0) colors[SCRIPTFOLDFORE] = PixelColor.FromColor(SystemColors.ControlDark);
-			if(colors[SCRIPTFOLDBACK].ToInt() == 0) colors[SCRIPTFOLDBACK] = PixelColor.FromColor(SystemColors.ControlLightLight);
+			if(colors[SCRIPTFOLDFORE].ToInt() == 0) colors[SCRIPTFOLDFORE] = PixelColor.FromColor(Windows.UITheme.LightSystemColor(KnownColor.ControlDark));
+			if(colors[SCRIPTFOLDBACK].ToInt() == 0) colors[SCRIPTFOLDBACK] = PixelColor.FromColor(Windows.UITheme.LightSystemColor(KnownColor.ControlLightLight));
 			if(colors[PROPERTIES].ToInt() == 0) colors[PROPERTIES] = PixelColor.FromInt(-16752191);
 
 			// Create assist colors

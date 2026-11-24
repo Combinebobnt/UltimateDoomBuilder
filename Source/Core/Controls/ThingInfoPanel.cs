@@ -201,8 +201,8 @@ namespace CodeImp.DoomBuilder.Controls
                 if (isacsscript)
                 {
                     arglbl1.Text = "Unknown script " + (isarg0str ? "name" : "number") + ":";
-                    arg1.ForeColor = Color.DarkRed;
-                    arglbl1.ForeColor = Color.DarkRed;
+                    arg1.ForeColor = Windows.UITheme.Pick(Color.DarkRed, Windows.UITheme.DarkWarningText);
+                    arglbl1.ForeColor = Windows.UITheme.Pick(Color.DarkRed, Windows.UITheme.DarkWarningText);
                 }
             }
 

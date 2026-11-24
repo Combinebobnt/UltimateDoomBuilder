@@ -60,7 +60,7 @@ namespace CodeImp.DoomBuilder.TagExplorer
 		private const string CAT_SECTORS = "Sectors:";
 		private const string CAT_LINEDEFS = "Linedefs:";
 
-		private readonly Color commentColor = Color.DarkMagenta;
+		private readonly Color commentColor = UITheme.Pick(Color.DarkMagenta, Color.FromArgb(0xD6, 0x9A, 0xD6));
 		private SelectedNode selection;
 		private readonly string nodetooltip;
 
@@ -1073,7 +1073,7 @@ namespace CodeImp.DoomBuilder.TagExplorer
 			//apply comment
 			if(e.Label != null)	info.Comment = e.Label;
 			e.Node.Text = info.GetName(ref comment, currentSortMode);
-			e.Node.ForeColor = string.IsNullOrEmpty(info.Comment) ? Color.Black : commentColor;
+			e.Node.ForeColor = string.IsNullOrEmpty(info.Comment) ? UITheme.Pick(Color.Black, SystemColors.WindowText) : commentColor;
 
 			// Because of multiple tags, several nodes can link to the same sector/linedef
 			UpdateTree(false);

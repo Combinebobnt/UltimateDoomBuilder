@@ -210,6 +210,8 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			// Setup controls
 			InitializeComponent();
+			// StatusStrip defaults to the system renderer, which draws a white top edge
+			if(UITheme.IsDark) statusbar.RenderMode = ToolStripRenderMode.ManagerRenderMode;
 			processinggate = new ProcessingGate(ApplyProcessing);
 
 			//mxd. Resize status labels

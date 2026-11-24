@@ -729,6 +729,9 @@ namespace CodeImp.DoomBuilder
 
 				// Create error logger
 				errorlogger = new ErrorLogger();
+
+				// Before any form exists, so every form and plugin form picks up the theme
+				UITheme.Apply(settings.UITheme);
 				
 				// Create action manager
 				actions = new ActionManager();

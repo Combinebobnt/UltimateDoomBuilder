@@ -203,7 +203,7 @@ namespace CodeImp.DoomBuilder.Controls
 				if(IsValidResult(StripPrefixes(this.Text)) || this.Text == "++" || this.Text == "--")
 					this.ForeColor = (allowrelative ? SystemColors.HotTrack : SystemColors.WindowText);
 				else
-					this.ForeColor = Color.DarkRed;
+					this.ForeColor = Windows.UITheme.Pick(Color.DarkRed, Windows.UITheme.DarkWarningText);
 			}
 			
 			base.OnTextChanged(e);

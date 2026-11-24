@@ -695,7 +695,7 @@ namespace CodeImp.DoomBuilder.Windows
 				//got missing flags
 				tooltip.SetToolTip(missingflags, string.Join(Environment.NewLine, warnings.ToArray()));
 				missingflags.Visible = true;
-				settingsgroup.ForeColor = Color.DarkRed;
+				settingsgroup.ForeColor = UITheme.Pick(Color.DarkRed, UITheme.DarkWarningText);
 				return;
 			}
 

@@ -65,6 +65,11 @@ namespace CodeImp.DoomBuilder.Controls
 		public ArgumentsControl()
 		{
 			InitializeComponent();
+			if(Windows.UITheme.IsDark)
+			{
+				arg0named.BackColor = Color.FromArgb(0x1E, 0x3A, 0x24);
+				arg0int.BackColor = Color.FromArgb(0x3D, 0x35, 0x19);
+			}
 
             Reset();
 		}

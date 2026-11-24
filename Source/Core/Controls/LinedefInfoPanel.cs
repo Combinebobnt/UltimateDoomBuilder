@@ -304,8 +304,8 @@ namespace CodeImp.DoomBuilder.Controls
 					int right = arglbl1.Right;
 					arglbl1.Text = "Unknown script " + (isarg0str ? "name" : "number") + ":";
 					arglbl1.Left = right - arglbl1.Width;
-					arg1.ForeColor = Color.DarkRed;
-					arglbl1.ForeColor = Color.DarkRed;
+					arg1.ForeColor = Windows.UITheme.Pick(Color.DarkRed, Windows.UITheme.DarkWarningText);
+					arglbl1.ForeColor = Windows.UITheme.Pick(Color.DarkRed, Windows.UITheme.DarkWarningText);
 				}
 			}
 

@@ -30,6 +30,7 @@ using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Plugins;
 using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.Types;
+using CodeImp.DoomBuilder.Windows;
 
 #endregion
 
@@ -48,6 +49,7 @@ namespace CodeImp.DoomBuilder.Config
 		
 		// Cached variables
 		private bool blackbrowsers;
+		private UIThemeKind uitheme;
 		private int visualfov;
 		private float visualmousesensx;
 		private float visualmousesensy;
@@ -179,6 +181,7 @@ namespace CodeImp.DoomBuilder.Config
 
 		internal Configuration Config { get { return cfg; } }
 		public bool BlackBrowsers { get { return blackbrowsers; } internal set { blackbrowsers = value; } }
+		public UIThemeKind UITheme { get { return uitheme; } internal set { uitheme = value; } }
 		public int VisualFOV { get { return visualfov; } internal set { visualfov = value; } }
 		public int ImageBrightness { get { return imagebrightness; } internal set { imagebrightness = value; } }
 		public float DoubleSidedAlpha { get { return doublesidedalpha; } internal set { doublesidedalpha = value; doublesidedalphabyte = (byte)(doublesidedalpha * 255f); } }
@@ -362,6 +365,7 @@ namespace CodeImp.DoomBuilder.Config
 			{
 				// Read the cache variables
 				blackbrowsers = cfg.ReadSetting("blackbrowsers", true);
+				uitheme = ReadUITheme(cfg);
 				visualfov = cfg.ReadSetting("visualfov", 80);
 				visualmousesensx = cfg.ReadSetting("visualmousesensx", 40f);
 				visualmousesensy = cfg.ReadSetting("visualmousesensy", 40f);
@@ -512,6 +516,18 @@ namespace CodeImp.DoomBuilder.Config
 			return false;
 		}
 
+		// Anything but "dark" reads as light, so an unknown value from a newer build is harmless
+		internal static UIThemeKind ReadUITheme(Configuration config)
+		{
+			string value = config.ReadSetting("uitheme", "light");
+			return string.Equals(value, "dark", StringComparison.OrdinalIgnoreCase) ? UIThemeKind.Dark : UIThemeKind.Light;
+		}
+
+		internal static void WriteUITheme(Configuration config, UIThemeKind kind)
+		{
+			config.WriteSetting("uitheme", kind == UIThemeKind.Dark ? "dark" : "light");
+		}
+
 		// This saves the program configuration
 		internal void Save(string filepathname)
 		{
@@ -519,6 +535,7 @@ namespace CodeImp.DoomBuilder.Config
 			
 			// Write the cache variables
 			cfg.WriteSetting("blackbrowsers", blackbrowsers);
+			WriteUITheme(cfg, uitheme);
 			cfg.WriteSetting("visualfov", visualfov);
 			cfg.WriteSetting("visualmousesensx", visualmousesensx);
 			cfg.WriteSetting("visualmousesensy", visualmousesensy);

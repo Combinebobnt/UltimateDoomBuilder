@@ -41,7 +41,7 @@ namespace CodeImp.DoomBuilder.Controls
 				{
 					e.Graphics.FillRectangle(bg, e.Bounds.Left + e.Bounds.Height + 2, e.Bounds.Top + 2, e.Bounds.Height, e.Bounds.Height - 5);
 				}
-				using(Pen outline = new Pen(Color.Black))
+				using(Pen outline = new Pen(Windows.UITheme.Pick(Color.Black, SystemColors.GrayText)))
 				{
 					e.Graphics.DrawRectangle(outline, e.Bounds.Left + e.Bounds.Height + 2, e.Bounds.Top + 2, e.Bounds.Height, e.Bounds.Height - 5);
 				}

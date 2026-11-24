@@ -1265,6 +1265,9 @@
     </Compile>
     <Compile Include="Windows\StatusInfo.cs" />
     <Compile Include="Windows\TanColorTable.cs" />
+    <Compile Include="Windows\DarkColorTable.cs" />
+    <Compile Include="Windows\DarkToolStripRenderer.cs" />
+    <Compile Include="Windows\UITheme.cs" />
     <Compile Include="Windows\ThingBrowserForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -686,7 +686,7 @@ namespace CodeImp.DoomBuilder.Windows
 				{
 					LinedefActivateInfo ai = (c.Tag as LinedefActivateInfo);
 					if (ai.IsTrigger)
-						c.ForeColor = (!haveactivationflag ? Color.DarkRed : SystemColors.ControlText);
+						c.ForeColor = (!haveactivationflag ? UITheme.Pick(Color.DarkRed, UITheme.DarkWarningText) : SystemColors.ControlText);
 				}
 			} 
 			else 

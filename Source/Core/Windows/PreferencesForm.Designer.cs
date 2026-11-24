@@ -41,6 +41,9 @@ namespace CodeImp.DoomBuilder.Windows
 			System.Windows.Forms.Label label1;
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PreferencesForm));
 			this.autolaunchontest = new System.Windows.Forms.CheckBox();
+			this.uithemelabel = new System.Windows.Forms.Label();
+			this.uitheme = new System.Windows.Forms.ComboBox();
+			this.uithemenote = new System.Windows.Forms.Label();
 			this.texturesizesbelow = new System.Windows.Forms.CheckBox();
 			this.blackbrowsers = new System.Windows.Forms.CheckBox();
 			this.checkforupdates = new System.Windows.Forms.CheckBox();
@@ -306,6 +309,9 @@ namespace CodeImp.DoomBuilder.Windows
 			// 
 			// groupBox1
 			// 
+			groupBox1.Controls.Add(this.uithemenote);
+			groupBox1.Controls.Add(this.uitheme);
+			groupBox1.Controls.Add(this.uithemelabel);
 			groupBox1.Controls.Add(this.autolaunchontest);
 			groupBox1.Controls.Add(this.texturesizesbelow);
 			groupBox1.Controls.Add(this.blackbrowsers);
@@ -345,6 +351,37 @@ namespace CodeImp.DoomBuilder.Windows
 			this.autolaunchontest.TabIndex = 50;
 			this.autolaunchontest.Text = "Automatically launch engine when test parameters change";
 			this.autolaunchontest.UseVisualStyleBackColor = true;
+			// 
+			// uithemelabel
+			// 
+			this.uithemelabel.AutoSize = true;
+			this.uithemelabel.Location = new System.Drawing.Point(35, 421);
+			this.uithemelabel.Name = "uithemelabel";
+			this.uithemelabel.Size = new System.Drawing.Size(84, 13);
+			this.uithemelabel.TabIndex = 51;
+			this.uithemelabel.Text = "Interface theme:";
+			// 
+			// uitheme
+			// 
+			this.uitheme.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.uitheme.FormattingEnabled = true;
+			this.uitheme.Items.AddRange(new object[] {
+            "Light",
+            "Dark"});
+			this.uitheme.Location = new System.Drawing.Point(135, 418);
+			this.uitheme.Name = "uitheme";
+			this.uitheme.Size = new System.Drawing.Size(145, 21);
+			this.uitheme.TabIndex = 52;
+			// 
+			// uithemenote
+			// 
+			this.uithemenote.AutoSize = true;
+			this.uithemenote.ForeColor = System.Drawing.SystemColors.GrayText;
+			this.uithemenote.Location = new System.Drawing.Point(132, 442);
+			this.uithemenote.Name = "uithemenote";
+			this.uithemenote.Size = new System.Drawing.Size(131, 13);
+			this.uithemenote.TabIndex = 53;
+			this.uithemenote.Text = "Takes effect after restart";
 			// 
 			// texturesizesbelow
 			// 
@@ -3086,6 +3123,9 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.Label label31;
 		private CodeImp.DoomBuilder.Controls.TransparentTrackBar activethingsalpha;
 		private System.Windows.Forms.CheckBox blackbrowsers;
+		private System.Windows.Forms.Label uithemelabel;
+		private System.Windows.Forms.ComboBox uitheme;
+		private System.Windows.Forms.Label uithemenote;
 		private System.Windows.Forms.GroupBox groupBox11;
 		private System.Windows.Forms.Label label28;
 		private System.Windows.Forms.ComboBox textlabelfontname;

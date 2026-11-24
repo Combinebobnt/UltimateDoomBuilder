@@ -129,7 +129,7 @@ namespace CodeImp.DoomBuilder.Controls
 				if(notifytab == index && notifycounter % 2 != 0)
 				{
 					g.FillRectangle(SystemBrushes.Highlight, bgbounds);
-					g.DrawString(this.TabPages[index].Text, this.Font, SystemBrushes.ControlLightLight, new RectangleF(bgbounds.Location, bounds.Size), stringformat);
+					g.DrawString(this.TabPages[index].Text, this.Font, Windows.UITheme.IsDark ? SystemBrushes.HighlightText : SystemBrushes.ControlLightLight, new RectangleF(bgbounds.Location, bounds.Size), stringformat);
 				}
 				else
 				{

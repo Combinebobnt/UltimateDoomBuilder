@@ -574,7 +574,7 @@ namespace CodeImp.DoomBuilder.Controls
 			colorswatch = color;
 			colorfilter.UseVisualStyleBackColor = color.IsEmpty;
 			colorfilter.BackColor = color.IsEmpty ? SystemColors.Control : color;
-			colorfilter.ForeColor = !color.IsEmpty && color.GetBrightness() < 0.45 ? Color.White : Color.Black;
+			colorfilter.ForeColor = !color.IsEmpty && color.GetBrightness() < 0.45 ? Color.White : (color.IsEmpty && UITheme.IsDark ? SystemColors.ControlText : Color.Black);
 			colorfilter.Text = color.IsEmpty ? "Color" : "Color *";
 			if(!blockupdate && items != null) RefillList(false, false, "color");
 		}
