@@ -169,13 +169,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			fogfactor = CalculateFogFactor(targetbrightness);
 
 			// Make vertices
-			ReadOnlyCollection<Vector2D> triverts = Sector.Sector.Triangles.Vertices;
+			LightmapFlat lightmap = GetLightmapFlat(extrafloor, innerside, true);
+			IList<Vector2D> triverts = GetFlatPositions(lightmap);
 			WorldVertex[] verts = new WorldVertex[triverts.Count];
 			for(int i = 0; i < triverts.Count; i++)
 			{
 				// Color shading
 				verts[i].c = color; //mxd
 				verts[i].SetLight(light);
+				ApplyLightmap(ref verts[i], lightmap, i);
 				
 				// Vertex coordinates
 				verts[i].x = (float)triverts[i].x;

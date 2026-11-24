@@ -138,11 +138,23 @@ namespace CodeImp.DoomBuilder
 		public bool IsChanged { get { return changed | archivecommitpending | CheckScriptChanged(); } set { changed |= value; if(!maploading) General.MainWindow.UpdateMapChangedStatus(); } }
 		public bool IsDisposed { get { return isdisposed; } }
 
-		// The bake Visual mode draws, or null: no bake, the preview is off, or the map changed since the last check
 		internal long LightmapSourceVersion { get { return lightmapsourceversion; } }
+		// The bake Visual mode draws, or null: no bake, the preview is off, or the map changed since the last check
 		public LightmapPreview LightmapPreview { get { return undoredo == null ? null : lightmappreview.Shown(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }
 		// Why LightmapPreview is null: the last check's reason, or that the map changed since; null while it is shown
 		public string LightmapPreviewReason { get { return undoredo == null ? null : lightmappreview.Explain(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }
+		// The status bar line for what the lightmap preview shows, null when there is no bake to show
+		public string LightmapPreviewStatus
+		{
+			get
+			{
+				LightmapPreview shown = LightmapPreview;
+				if(shown != null) return "Lightmap preview: on (" + shown.Source + ")";
+				if(!General.Settings.LightmapPreview) return "Lightmap preview: off";
+				if(lightmapbake == null) return null;
+				return "Lightmap preview off: " + LightmapPreviewReason;
+			}
+		}
 		// Raised after every check that shows a preview (geometry built while the check was pending has
 		// none) and whenever the reason nothing is shown changes
 		public event EventHandler LightmapPreviewChanged;

@@ -3345,6 +3345,7 @@ namespace CodeImp.DoomBuilder.Windows
 			itemtogglefog.Checked = General.Settings.GZDrawFog;
 			itemtoggleanimatedtextures.Checked = General.Settings.GZAnimateTextures;
 			itemtogglematerials.Checked = General.Settings.GZDrawMaterials;
+			itemtogglelightmappreview.Checked = General.Settings.LightmapPreview;
 			itemtogglesky.Checked = General.Settings.GZDrawSky;
 			itemtoggleclassicrendering.Checked = General.Settings.ClassicRendering;
 			foreach (ToolStripMenuItem item in itemtoggleeventlines.DropDownItems) //Check mark to show which Event Lines mode is currently active
@@ -3428,6 +3429,20 @@ namespace CodeImp.DoomBuilder.Windows
 			UpdateViewMenu();
 			UpdateGZDoomPanel();
 			DisplayStatus(StatusType.Action, "Materials rendering is " + (General.Settings.GZDrawMaterials ? "ENABLED" : "DISABLED"));
+			RedrawDisplay();
+		}
+
+		[BeginAction("togglelightmappreview")]
+		internal void ToggleLightmapPreview()
+		{
+			General.Settings.LightmapPreview = !General.Settings.LightmapPreview;
+			UpdateViewMenu();
+			if(General.Map != null)
+			{
+				// Turning it on checks the bake now rather than after the next edit
+				General.Map.RefreshLightmapPreview();
+				DisplayStatus(StatusType.Action, General.Map.LightmapPreviewStatus ?? "No current lightmap to preview");
+			}
 			RedrawDisplay();
 		}
 

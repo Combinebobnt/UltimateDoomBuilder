@@ -200,6 +200,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemtogglefog = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemtoggleanimatedtextures = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemtogglematerials = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemtogglelightmappreview = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemtogglesky = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemtoggleclassicrendering = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemtoggleeventlines = new System.Windows.Forms.ToolStripMenuItem();
@@ -861,6 +862,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemtogglefog,
 			this.itemtoggleanimatedtextures,
 			this.itemtogglematerials,
+			this.itemtogglelightmappreview,
 			this.itemtogglesky,
 			this.itemtoggleclassicrendering,
 			this.itemtoggleeventlines,
@@ -1912,6 +1914,13 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemtogglematerials.Tag = "builder_gztogglematerials";
 			this.itemtogglematerials.Text = "Render materials (Visual mode)";
 			this.itemtogglematerials.Click += new System.EventHandler(this.InvokeTaggedAction);
+			this.itemtogglelightmappreview.CheckOnClick = true;
+			this.itemtogglelightmappreview.Image = global::CodeImp.DoomBuilder.Properties.Resources.Light;
+			this.itemtogglelightmappreview.Name = "itemtogglelightmappreview";
+			this.itemtogglelightmappreview.Size = new System.Drawing.Size(273, 22);
+			this.itemtogglelightmappreview.Tag = "builder_togglelightmappreview";
+			this.itemtogglelightmappreview.Text = "Lightmap preview (Visual mode)";
+			this.itemtogglelightmappreview.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// itemsky
 			// 
@@ -3324,6 +3333,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ToolStripMenuItem itemtogglefog;
 		private System.Windows.Forms.ToolStripMenuItem itemtoggleanimatedtextures;
 		private System.Windows.Forms.ToolStripMenuItem itemtogglematerials;
+		private System.Windows.Forms.ToolStripMenuItem itemtogglelightmappreview;
 		private System.Windows.Forms.ToolStripMenuItem itemtogglesky;
 		private System.Windows.Forms.ToolStripMenuItem itemtoggleclassicrendering;
 		private System.Windows.Forms.ToolStripMenuItem itemtoggleeventlines;

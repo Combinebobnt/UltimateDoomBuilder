@@ -225,7 +225,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				bottom = sd.Floor.plane;
 				
 				// Process the polygon and create vertices
-				List<WorldVertex> verts = CreatePolygonVertices(polygons, tp, sd, lightvalue, lightabsolute);
+				WallLightmapSpan lightmap = GetWallLightmap(Sidedef, LightmapWallPart.Lower, null, vl, vr, sd.Floor.plane, osd.Floor.plane);
+				List<WorldVertex> verts = CreatePolygonVertices(polygons, tp, sd, lightvalue, lightabsolute, lightmap);
 				if(verts.Count > 2)
 				{
 					base.SetVertices(verts);

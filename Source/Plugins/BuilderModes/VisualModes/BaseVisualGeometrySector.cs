@@ -74,6 +74,48 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		#endregion
 
+		#region ================== Lightmap
+
+		// The lightmap preview shown at the last setup that asked for one
+		private LightmapPreview builtlightmap;
+		private bool lightmapqueried;
+
+		// Whether this flat asked for a lightmap when it was set up and was given another preview than the shown one
+		internal bool LightmapStale(LightmapPreview shown)
+		{
+			return lightmapqueried && builtlightmap != shown;
+		}
+
+		// The shown lightmap preview's triangles for this flat, or null to use the sector's triangulation
+		protected LightmapFlat GetLightmapFlat(Effect3DFloor extrafloor, bool innerside, bool visualceiling)
+		{
+			LightmapPreview preview = General.Map.LightmapPreview;
+			builtlightmap = preview;
+			lightmapqueried = true;
+			if(preview == null || innerside) return null;
+			int control = -1;
+			if(extrafloor != null)
+			{
+				if(extrafloor.Linedef == null || extrafloor.Linedef.Front == null) return null;
+				control = extrafloor.Linedef.Front.Sector.Index;
+			}
+			return preview.GetFlat(Sector.Sector.Index, visualceiling, control);
+		}
+
+		// Positions to build a flat's vertices from: the lightmap's triangles when there are any
+		protected IList<Vector2D> GetFlatPositions(LightmapFlat lightmap)
+		{
+			return lightmap != null ? (IList<Vector2D>)lightmap.Positions : Sector.Sector.Triangles.Vertices;
+		}
+
+		protected static void ApplyLightmap(ref WorldVertex v, LightmapFlat lightmap, int index)
+		{
+			if(lightmap == null) return;
+			v.SetLightmap(lightmap.Lightmap[index * 3], lightmap.Lightmap[index * 3 + 1], (int)lightmap.Lightmap[index * 3 + 2] - 1);
+		}
+
+		#endregion
+
 		#region ================== Properties
 		
 		new public BaseVisualSector Sector { get { return (BaseVisualSector)base.Sector; } }

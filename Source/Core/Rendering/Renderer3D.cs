@@ -616,6 +616,9 @@ namespace CodeImp.DoomBuilder.Rendering
                 // Make sure we can see this light at all
                 if (!CullLight(lightthings[i]))
                     continue;
+                // A drawn lightmap already holds the baked lights, as the engine drops them at runtime
+                if (lightmapdrawn && lightthings[i].LightType.LightRenderStyle == GZGeneral.LightRenderStyle.LIGHTMAP)
+                    continue;
                 tl.Add(lightthings[i]);
             }
 

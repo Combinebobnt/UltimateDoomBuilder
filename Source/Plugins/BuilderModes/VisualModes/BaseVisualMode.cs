@@ -61,7 +61,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private Vector3D gravity;
 		private double cameraflooroffset = 41.0;		// same as in doom
 		private double cameraceilingoffset = 10.0;
-		
+
+		// Lightmap preview: the one geometry was last brought up to date with, and the last status shown
+		private LightmapPreview lastlightmap;
+		private bool lightmapchanged;
+		private string lastlightmapstatus;
+
 		// Object picking
 		private VisualPickResult target;
 		private long lastpicktime;
@@ -631,6 +636,32 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 		
+		// Can be raised inside an edit (a check finishing during CreateUndo), so geometry waits for the next frame
+		private void OnLightmapPreviewChanged(object sender, EventArgs e)
+		{
+			lightmapchanged = true;
+			string status = General.Map.LightmapPreviewStatus;
+			if(status != null && status != lastlightmapstatus) General.Interface.DisplayStatus(StatusType.Action, status);
+			lastlightmapstatus = status;
+		}
+
+		// Rebuilds the sectors set up with another lightmap than the one now shown. Geometry built while
+		// none was shown keeps no lightmap, and one built before a hide keeps its own, drawn again once shown.
+		private void UpdateLightmapGeometry()
+		{
+			LightmapPreview shown = General.Map.LightmapPreview;
+			if(shown == lastlightmap && !lightmapchanged) return;
+			lastlightmap = shown;
+			lightmapchanged = false;
+			if(shown == null) return;
+
+			foreach(VisualSector vs in allsectors.Values)
+			{
+				BaseVisualSector bvs = vs as BaseVisualSector;
+				if(bvs != null && !bvs.IsDisposed && bvs.LightmapStale(shown)) bvs.Rebuild();
+			}
+		}
+
 		// This updates the VisualSectors and VisualThings that have their Changed property set
 		private void UpdateChangedObjects()
 		{
@@ -1537,6 +1568,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// This was the root cause for issue #160
 			FillBlockMap();
 
+			// A 2D edit or a bake since the last check is checked now, so geometry is built with the current lightmap
+			lastlightmapstatus = null;
+			General.Map.LightmapPreviewChanged += OnLightmapPreviewChanged;
+			General.Map.RefreshLightmapPreview();
+			lastlightmap = General.Map.LightmapPreview;
+			lightmapchanged = false;
+
             // (Re)create special effects
             RebuildElementData();
 
@@ -1596,6 +1634,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public override void OnDisengage()
 		{
 			base.OnDisengage();
+			General.Map.LightmapPreviewChanged -= OnLightmapPreviewChanged;
 
 			//mxd
 			if(BuilderPlug.Me.SyncSelection ? !General.Interface.ShiftState : General.Interface.ShiftState)
@@ -1652,6 +1691,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public override void OnProcess(long deltatime)
 		{
 			long pickinterval = PICK_INTERVAL; // biwa
+			UpdateLightmapGeometry();
 			// Process things?
 			base.ProcessThings = (BuilderPlug.Me.ShowVisualThings != 0);
 			

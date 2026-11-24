@@ -67,6 +67,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Undo/redo
 		protected int undoticket;
 		
+		// The lightmap preview shown at the last setup that asked for one
+		private LightmapPreview builtlightmap;
+		private bool lightmapqueried;
+
 		#endregion
 		
 		#region ================== Properties
@@ -181,8 +185,53 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return CreatePolygonVertices(polylist, tp, sd, lightvalue, lightabsolute);
 		}*/
 
+		// Whether this part asked for a lightmap when it was set up and was given another preview than the shown one
+		internal bool LightmapStale(LightmapPreview shown)
+		{
+			return lightmapqueried && builtlightmap != shown;
+		}
+
+		// A wall part's lightmap coordinates as a function of position along the drawn side and height
+		protected sealed class WallLightmapSpan
+		{
+			private readonly WallLightmap lightmap;
+			private readonly Vector2D start;
+			private readonly Vector2D delta;
+			private readonly double lengthsq;
+
+			public WallLightmapSpan(WallLightmap lightmap, Vector2D start, Vector2D end)
+			{
+				this.lightmap = lightmap;
+				this.start = start;
+				delta = end - start;
+				lengthsq = delta.GetLengthSq();
+			}
+
+			public void Apply(ref WorldVertex v)
+			{
+				double t = lengthsq > 0 ? ((v.x - start.x) * delta.x + (v.y - start.y) * delta.y) / lengthsq : 0;
+				v.SetLightmap((float)lightmap.GetU(t, v.z), (float)lightmap.GetV(t, v.z), lightmap.Layer);
+			}
+		}
+
+		// The shown lightmap preview's coordinates for a wall part drawn from vl to vr, or null. keyed is the
+		// side the baker stored the part on; bottom and top are the planes the baker took its corner heights from.
+		protected WallLightmapSpan GetWallLightmap(Sidedef keyed, LightmapWallPart part, Sector control, Vector2D vl, Vector2D vr, Plane bottom, Plane top)
+		{
+			LightmapPreview preview = General.Map.LightmapPreview;
+			builtlightmap = preview;
+			lightmapqueried = true;
+			if(preview == null || keyed == null) return null;
+			int layer;
+			Vector2D[] corners = preview.GetWallCorners(keyed.Index, part, control != null ? control.Index : -1, out layer);
+			if(corners == null) return null;
+			WallLightmap lightmap;
+			if(!WallLightmap.Fit(corners, bottom.GetZ(vl), top.GetZ(vl), top.GetZ(vr), bottom.GetZ(vr), layer, out lightmap)) return null;
+			return new WallLightmapSpan(lightmap, vl, vr);
+		}
+
 		// This creates vertices from a wall polygon and applies lighting
-		protected List<WorldVertex> CreatePolygonVertices(List<WallPolygon> poly, TexturePlane tp, SectorData sd, int lightvalue, bool lightabsolute)
+		protected List<WorldVertex> CreatePolygonVertices(List<WallPolygon> poly, TexturePlane tp, SectorData sd, int lightvalue, bool lightabsolute, WallLightmapSpan lightmap = null)
 		{
 			List<WallPolygon> polygons = new List<WallPolygon>(poly);
 			List<WorldVertex> verts = new List<WorldVertex>();
@@ -285,7 +334,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd. Interpolate vertex colors?
 			for(int i = 0; i < verts.Count; i++)
 				verts[i] = InterpolateVertexColor(verts[i], sd);
-			
+
+			if(lightmap != null)
+			{
+				for(int i = 0; i < verts.Count; i++)
+				{
+					WorldVertex v = verts[i];
+					lightmap.Apply(ref v);
+					verts[i] = v;
+				}
+			}
+
 			return verts;
 		}
 

@@ -308,7 +308,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				// Process the polygon and create vertices
 				if(polygons.Count > 0)
 				{
-					List<WorldVertex> verts = CreatePolygonVertices(polygons, tp, sd, lightvalue, lightabsolute);
+					// The baker keys this wall on the side facing into the 3D floor's sector, its corners run along this side
+					SectorData control = mode.GetSectorData(sourceside.Sector);
+					WallLightmapSpan lightmap = GetWallLightmap(Sidedef.Other, LightmapWallPart.Middle, sourceside.Sector, vl, vr, control.Floor.plane, control.Ceiling.plane);
+					List<WorldVertex> verts = CreatePolygonVertices(polygons, tp, sd, lightvalue, lightabsolute, lightmap);
 					if(verts.Count > 2)
 					{
 						if (extrafloor.Sloped3dFloor) this.RenderPass = RenderPass.Mask; //mxd

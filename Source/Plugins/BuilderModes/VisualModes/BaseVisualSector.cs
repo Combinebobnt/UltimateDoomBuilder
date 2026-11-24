@@ -202,6 +202,22 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 		
+		// Whether any of its parts was set up with another lightmap preview than the shown one
+		internal bool LightmapStale(LightmapPreview shown)
+		{
+			if((floor != null && floor.LightmapStale(shown)) || (ceiling != null && ceiling.LightmapStale(shown))) return true;
+			foreach(VisualFloor f in extrafloors) if(f.LightmapStale(shown)) return true;
+			foreach(VisualCeiling c in extraceilings) if(c.LightmapStale(shown)) return true;
+			if(sides == null) return false;
+			foreach(VisualSidedefParts parts in sides.Values)
+			{
+				if((parts.upper != null && parts.upper.LightmapStale(shown)) || (parts.lower != null && parts.lower.LightmapStale(shown))
+					|| (parts.middlesingle != null && parts.middlesingle.LightmapStale(shown))) return true;
+				if(parts.middle3d != null) foreach(VisualMiddle3D m in parts.middle3d) if(m.LightmapStale(shown)) return true;
+			}
+			return false;
+		}
+
 		// This (re)builds the visual sector, calculating all geometry from scratch
 		public void Rebuild()
 		{
