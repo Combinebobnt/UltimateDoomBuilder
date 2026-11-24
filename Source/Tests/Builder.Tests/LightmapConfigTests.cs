@@ -69,6 +69,7 @@ namespace Builder.Tests
 			Assert.Equal(new[] { "light_softshadowradius", "lm_falloff" }, Keys(cfg, "thingtypes.lightmaplights.9881.adduniversalfields"));
 			Assert.Equal(11, cfg.ReadSetting("universalfields.thing.lm_falloff.type", -1));
 			Assert.Equal(0, cfg.ReadSetting("universalfields.thing.lm_falloff.default", -1));
+			Assert.Equal(new[] { "0", "1", "2", "3" }, Keys(cfg, "universalfields.thing.lm_falloff.enum"));
 			Assert.Equal(0.0, cfg.ReadSetting("universalfields.thing.light_softshadowradius.default", -1.0));
 		}
 
