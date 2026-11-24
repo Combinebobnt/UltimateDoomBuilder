@@ -45,11 +45,6 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Methods
 
-		public static DesktopThemeResult Detect()
-		{
-			return Detect(Environment.GetEnvironmentVariable, new ProcessCommandRunner());
-		}
-
 		// First answer wins: GTK_THEME, MATE's theme name, the settings portal, GNOME's keys. Never throws.
 		public static DesktopThemeResult Detect(Func<string, string> getenv, ICommandRunner runner)
 		{
@@ -132,6 +127,7 @@ namespace CodeImp.DoomBuilder.Windows
 					// dconf prints warnings there in restricted environments
 					RedirectStandardError = true,
 				};
+				ForkUpdateChecker.CleanAppImageEnvironment(info);
 				Stopwatch elapsed = Stopwatch.StartNew();
 				p = Process.Start(info);
 				if(p == null) return null;
@@ -140,7 +136,7 @@ namespace CodeImp.DoomBuilder.Windows
 				p.BeginErrorReadLine();
 				Task<string> output = p.StandardOutput.ReadToEndAsync();
 
-				if(!p.WaitForExit(timeoutms) || !output.Wait(Math.Max(0, timeoutms - (int)elapsed.ElapsedMilliseconds)))
+				if(!p.WaitForExit(timeoutms) || !output.Wait(Math.Max(100, timeoutms - (int)elapsed.ElapsedMilliseconds)))
 				{
 					try { p.Kill(); }
 					catch(Exception) { }

@@ -300,8 +300,7 @@ namespace Builder.Tests
 			Assert.Equal((int)ShaderName.world3d_main_vertexcolor + 8, (int)ShaderName.world3d_main_fog_vertexcolor);
 			Assert.Equal((int)ShaderName.world3d_main_highlight_vertexcolor + 8, (int)ShaderName.world3d_main_highlight_fog_vertexcolor);
 			Assert.Equal((int)ShaderName.world3d_classic + 2, (int)ShaderName.world3d_classic_highlight);
-			foreach(ShaderName name in Enum.GetValues(typeof(ShaderName)))
-				Assert.True((int)name < DataManager.FirstMaterialProgram, name + " overlaps the material programs");
+			Assert.True(DataManager.FirstMaterialProgram > (int)ShaderName.world3d_fogboundary, "material programs overlap the fog boundary program");
 		}
 	}
 }

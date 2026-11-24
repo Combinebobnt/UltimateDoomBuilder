@@ -431,7 +431,7 @@ namespace CodeImp.DoomBuilder
 		}
 
 		// A child of the AppImage must not inherit the image's library and Mono paths
-		private static void CleanAppImageEnvironment(ProcessStartInfo info)
+		internal static void CleanAppImageEnvironment(ProcessStartInfo info)
 		{
 			if(string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPDIR"))) return;
 			foreach(string name in appimageenv) info.EnvironmentVariables.Remove(name);

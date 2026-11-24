@@ -2266,7 +2266,8 @@ namespace CodeImp.DoomBuilder
 			try
 			{
 				error = WriteSeedWad(tempwadreader.WadFile, TEMP_MAP_HEADER, path, config.MapLumps, out lightmap);
-				if(error == null)
+				if(error != null) error = "the opened map's lumps don't validate (" + error + ")";
+				else
 				{
 					OutputTextmap(out fingerprint);
 					if(fingerprint == null) error = "the map's TEXTMAP could not be parsed back";
@@ -2287,7 +2288,6 @@ namespace CodeImp.DoomBuilder
 				return;
 			}
 
-			ResetLightmapCache("the opened map's lightmap replaces it");
 			lightmapbake = new LightmapBakeCache(path, fingerprint, lightmap.ToString() + ", as opened");
 			lightmapbakemissed = false;
 			General.WriteLogLine("Lightmap bake seeded from the opened map (" + lightmapbake.Summary + ") in " + timer.ElapsedMilliseconds + " ms.");
@@ -3172,7 +3172,7 @@ namespace CodeImp.DoomBuilder
 				this.options = optionsform.Options;
 				if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase))
 				{
-					// Discarding a bake the map still had leaves Test without it, so the next Test says so
+					// The bake (this session's or the opened file's) is discarded: Test warns unless the saved map kept its LIGHTMAP
 					if(lightmapbake != null) lightmapstale = true;
 					ResetLightmapCache("the game configuration changed");
 				}
