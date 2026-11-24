@@ -1082,6 +1082,7 @@
     <Compile Include="General\MurmurHash2.cs" />
     <Compile Include="General\SavePurpose.cs" />
     <Compile Include="General\ForkUpdateChecker.cs" />
+    <Compile Include="General\HelpPaths.cs" />
     <Compile Include="General\UpdateChecker.cs" />
     <Compile Include="Geometry\CurveTools.cs" />
     <Compile Include="Geometry\InterpolationTools.cs" />
@@ -1676,6 +1677,12 @@
     <!-- Get all files in the assets directory to copy them to output. Everything with IsAsset set to true will be copied -->
     <None Include="..\..\Assets\Common\**\*">
       <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <Visible>false</Visible>
+      <IsAsset>true</IsAsset>
+    </None>
+    <!-- The HTML manual, which F1 opens in a browser where no CHM viewer exists -->
+    <None Include="..\..\Help\**\*" Exclude="..\..\Help\Excluded\**;..\..\Help\*.hhc;..\..\Help\*.hhk;..\..\Help\*.hhp">
+      <Link>Help\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <Visible>false</Visible>
       <IsAsset>true</IsAsset>
     </None>

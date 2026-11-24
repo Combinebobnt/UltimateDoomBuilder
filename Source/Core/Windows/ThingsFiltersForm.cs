@@ -330,7 +330,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// Help
 		private void ThingsFiltersForm_HelpRequested(object sender, HelpEventArgs hlpevent)
 		{
-			General.ShowHelp("w_thingsfilter.html");
+			General.ShowHelp("w_thingsfilters.html");
 			hlpevent.Handled = true;
 		}
 

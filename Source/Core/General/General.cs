@@ -189,6 +189,7 @@ namespace CodeImp.DoomBuilder
 		private const string SPRITES_DIR = "Sprites";
 		private const string TEXTURES_DIR = "Textures"; //mxd
 		private const string HELP_FILE = "Refmanual.chm";
+		private const string HELP_DIR = "Help";
 
 		#endregion
 
@@ -2115,6 +2116,8 @@ namespace CodeImp.DoomBuilder
 		// This shows the reference manual
 		public static void ShowHelp(string pagefile, string chmfile)
 		{
+			if(OpenHtmlHelp(pagefile)) return;
+
 			// Check if the file can be found in the root
 			string filepathname = Path.Combine(apppath, chmfile);
 			if(!File.Exists(filepathname))
@@ -2131,6 +2134,34 @@ namespace CodeImp.DoomBuilder
 			
 			// Show help file
 			Help.ShowHelp(mainwindow, filepathname, HelpNavigator.Topic, pagefile);
+		}
+
+		// Mono has no CHM viewer unless MONO_HELP_VIEWER names one, so open the HTML manual in a browser
+		private static bool OpenHtmlHelp(string pagefile)
+		{
+			if(Environment.OSVersion.Platform != PlatformID.Unix) return false;
+			if(!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MONO_HELP_VIEWER"))) return false;
+			string helpdir = Path.Combine(apppath, HELP_DIR);
+			if(!Directory.Exists(helpdir)) return false;
+
+			bool missing;
+			string path = HelpPaths.Resolve(helpdir, pagefile, out missing);
+			if(missing) WriteLogLine("WARNING: Help page \"" + pagefile + "\" not found in \"" + helpdir + "\"");
+			if(path == null) return false;
+
+			WriteLogLine("Opening help: " + path);
+			try
+			{
+				ProcessStartInfo info = new ProcessStartInfo("xdg-open", "\"" + HelpPaths.ToUri(path) + "\"") { UseShellExecute = false };
+				ForkUpdateChecker.CleanAppImageEnvironment(info);
+				Process.Start(info);
+			}
+			catch(Exception ex)
+			{
+				WriteLogLine("ERROR: Could not open the help page: " + ex.Message);
+				ShowWarningMessage("Could not open the help page in a browser: " + ex.Message + "\n\n" + path, MessageBoxButtons.OK);
+			}
+			return true;
 		}
 
 		// This returns a unique temp filename
