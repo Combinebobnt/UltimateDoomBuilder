@@ -765,6 +765,8 @@ namespace CodeImp.DoomBuilder.Windows
 			// Browse for test program
 			if(NativeFileDialogs.Show(testprogramdialog) == DialogResult.OK)
 			{
+				// Keep a name typed into the engine box before the list is rebuilt
+				ApplyTestEngineNameChange();
 				preventchanges = true;
 
 				// Remove EngineInfos without program path
