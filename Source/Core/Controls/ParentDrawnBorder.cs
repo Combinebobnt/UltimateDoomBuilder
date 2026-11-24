@@ -12,6 +12,7 @@ namespace CodeImp.DoomBuilder.Controls
 	// Moves a control's border into its parent's client area: the control loses its border and
 	// shrinks to its old client rectangle, and the parent paints the ring around it.
 	// Used on Mono, where a control's non-client border paints late or not at all while Visual mode runs.
+	// A converted control must keep the parent it had when converted.
 	internal static class ParentDrawnBorder
 	{
 		#region ================== Types
@@ -71,18 +72,11 @@ namespace CodeImp.DoomBuilder.Controls
 			}
 		}
 
-		// The bounds the control had before conversion (its Bounds when not converted)
 		public static Rectangle OuterBounds(Control c)
 		{
 			Converted info;
 			if(converted.TryGetValue(c, out info)) return Rectangle.Inflate(c.Bounds, info.Width, info.Width);
 			return c.Bounds;
-		}
-
-		internal static bool IsConverted(Control c)
-		{
-			Converted info;
-			return converted.TryGetValue(c, out info);
 		}
 
 		private static BorderStyle GetBorderStyle(Control c)
@@ -98,12 +92,13 @@ namespace CodeImp.DoomBuilder.Controls
 			else if(c is Panel) ((Panel)c).BorderStyle = style;
 		}
 
-		internal static void DrawRing(Graphics g, Rectangle ring, BorderStyle style)
+		private static void DrawRing(Graphics g, Rectangle ring, BorderStyle style)
 		{
+			// The same colors Mono's own non-client border uses, which the dark theme remaps
 			if(style == BorderStyle.Fixed3D)
 				ControlPaint.DrawBorder3D(g, ring, Border3DStyle.Sunken);
 			else
-				ControlPaint.DrawBorder(g, ring, Color.Black, ButtonBorderStyle.Solid);
+				ControlPaint.DrawBorder(g, ring, SystemColors.WindowFrame, ButtonBorderStyle.Solid);
 		}
 
 		#endregion

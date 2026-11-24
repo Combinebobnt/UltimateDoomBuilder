@@ -74,7 +74,28 @@ namespace Builder.Tests
 			Assert.Equal(new Rectangle(4, 4, 30, 30), plain.Bounds);
 			Assert.Equal(plain.Bounds, ParentDrawnBorder.OuterBounds(plain));
 			Assert.Equal(BorderStyle.Fixed3D, orphan.BorderStyle);
-			Assert.False(ParentDrawnBorder.IsConverted(orphan));
+			Assert.Equal(new Rectangle(0, 0, 64, 64), orphan.Bounds);
+			Assert.Equal(orphan.Bounds, ParentDrawnBorder.OuterBounds(orphan));
+		}
+
+		[Fact]
+		public void HidingOrMovingAChildInvalidatesItsOldAndNewRing()
+		{
+			Panel parent = new Panel { Size = new Size(200, 100) };
+			Panel swatch = Bordered(BorderStyle.FixedSingle, new Rectangle(10, 20, 20, 12), parent);
+			ParentDrawnBorder.Apply(swatch);
+			parent.CreateControl();
+			List<Rectangle> invalidated = new List<Rectangle>();
+			parent.Invalidated += (s, e) => invalidated.Add(e.InvalidRect);
+
+			swatch.Visible = false;
+			Assert.True(invalidated.Exists(r => r.Contains(new Rectangle(10, 20, 20, 12))), "hide: " + string.Join(" ", invalidated));
+
+			invalidated.Clear();
+			swatch.Visible = true;
+			swatch.Location = new Point(101, 51);
+			Assert.True(invalidated.Exists(r => r.Contains(new Rectangle(10, 20, 20, 12))), "move, old ring: " + string.Join(" ", invalidated));
+			Assert.True(invalidated.Exists(r => r.Contains(new Rectangle(100, 50, 20, 12))), "move, new ring: " + string.Join(" ", invalidated));
 		}
 
 		[Fact]
