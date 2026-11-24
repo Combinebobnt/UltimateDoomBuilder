@@ -200,7 +200,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				if(wantid || idflags != 0)
 				{
-					if(c.LineId > 255 * 256 + 255) issues.Add("line ID " + c.LineId + " is over 65535");
+					if(c.LineId < 0 || c.LineId > 255 * 256 + 255) issues.Add("line ID " + c.LineId + " is outside 0..65535");
 					h.Action = Specials.Line_SetIdentification;
 					h.Args = new[] { c.LineId & 255, idflags, 0, 0, (c.LineId >> 8) & 255 };
 				}

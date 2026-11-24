@@ -45,6 +45,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		};
 		private const int ML2_RESERVEDLINEFLAG = 0x2;
 
+		private static readonly string[] doomthingdefaults = { "single", "coop", "dm", "class1", "class2", "class3" };
+
 		// Thing types whose arg0 is a line ID (maploader/slopes.cpp, SlopeLineToPoint)
 		private static readonly HashSet<int> lineidthings = new HashSet<int> { 9500, 9501 };
 
@@ -81,7 +83,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			for(int i = 0; i < map.Lines.Count; i++) lines.Add(ReadLine(map.Lines[i], i, source, report));
 
 			List<ThingState> things = new List<ThingState>(map.Things.Count);
-			foreach(ThingRecord t in map.Things) things.Add(ReadThing(t, source));
+			for(int i = 0; i < map.Things.Count; i++) things.Add(ReadThing(map.Things[i], i, source, report));
 
 			HashSet<int> referenced = ReferencedLineIds(lines, things, source.Format != MapFormat.Doom);
 
@@ -171,6 +173,13 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 
 			foreach(string name in UdmfLineCodec.FieldNames) s.Flags.Remove(name);
+
+			// Line_SetIdentification's flags: the Hexen reader fills the canonical list, the others the names; each writer reads one
+			foreach(string f in s.Line.IdFlags) s.Flags[f] = true;
+			s.Line.IdFlags.Clear();
+			foreach(string f in Linedef.IdentificationArgFlags)
+				if(f != "firstsideonly" && s.Flags.ContainsKey(f)) s.Line.IdFlags.Add(f);
+
 			if(s.Line.Special == 0) s.Line.Args = new int[5]; // the engine's arg0 = tag on Doom lines with no special means nothing
 			return s;
 		}
@@ -210,7 +219,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				r.Bits = NamesToBits(s.Flags, p.LineFlagTable, IsActivationEntry);
 				if(h.Repeat) r.Bits |= HEXEN_REPEAT;
 				if(h.Monsters) r.Bits |= HEXEN_MONSTERS;
-				ReportLostNames(s.Flags, BitsToNames(r.Bits & ~(HEXEN_REPEAT | HEXEN_MONSTERS), p.LineFlagTable, false), ConversionElement.Linedef, index, report);
+				Dictionary<string, bool> bitnames = new Dictionary<string, bool>(s.Flags);
+				foreach(string f in c.IdFlags) bitnames.Remove(f); // the codec stores these in args and reports what it can't
+				ReportLostNames(bitnames, BitsToNames(r.Bits & ~(HEXEN_REPEAT | HEXEN_MONSTERS), p.LineFlagTable, false), ConversionElement.Linedef, index, report);
 
 				if(c.LineId != 0 && !needid && HexenLineCodec.Read(h).LineId != c.LineId)
 					report.Drop(ConversionElement.Linedef, index, "line ID no special refers to (scripts may)");
@@ -230,14 +241,18 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				r.Action = d.Value.Type;
 				tag = d.Value.Tag;
-				r.Bits |= d.Value.Flags;
-				if(d.Value.LostPassthrough) report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "use-through activation written as plain use: the target has no passthrough flag");
+				r.Bits |= d.Value.Flags & p.DoomLineFlagBits;
+				if(d.Value.LostPassthrough || (d.Value.Flags & ~p.DoomLineFlagBits) != 0) report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "use-through activation written as plain use: the target has no passthrough flag");
 				if(c.LineId != 0 && tag != c.LineId)
 				{
 					if(needid) report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "line ID " + c.LineId + " lost: the tag holds " + tag);
 					else report.Drop(ConversionElement.Linedef, index, "line ID no special refers to (scripts may)");
 				}
 			}
+
+			// Every Doom line's ID is its tag, so a sector tag can make it the target of a line special
+			if(tag != 0 && tag != c.LineId && referenced.Contains(tag))
+				report.Add(ConversionElement.Linedef, index, ConversionSeverity.Lossy, "tag " + tag + " also makes it line ID " + tag + ", which a special targets");
 			if(r.Action != 0) report.LinesTranslated++;
 			r.Tags = new List<int> { ToShort(tag, ConversionElement.Linedef, index, "tag", report) };
 
@@ -284,52 +299,61 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		{
 			// Line IDs the engine looks up for a special's arg (GetLineIdIterator callers in p_lnspec.cpp, maploader and playsim)
 			HashSet<int> ids = new HashSet<int>();
-			foreach(LineState s in lines)
+			foreach(LineState s in lines) AddReferences(s.Line.Special, s.Line.Args, ids);
+
+			// Thing specials run the same line specials; slope things name a line in arg0
+			if(thingargs)
 			{
-				int[] a = s.Line.Args;
-				switch(s.Line.Special)
+				foreach(ThingState t in things)
 				{
-					case 16: // Transfer_WallLight
-					case 48: // Sector_Attach3dMidtex
-					case 52: // Scroll_Wall
-					case 53: // Line_SetTextureOffset
-					case 55: // Line_SetBlocking
-					case 56: // Line_SetTextureScale
-					case 150: // Line_SetHealth
-					case 156: // Line_SetPortal: the partner line
-					case 183: // Line_AlignCeiling
-					case 184: // Line_AlignFloor
-					case 208: // TranslucentLine
-					case 221: // Scroll_Texture_Both
-					case 222: // Scroll_Texture_Model: the scrolling lines carry the model's ID
-					case 281: // Line_SetAutomapFlags
-					case 282: // Line_SetAutomapStyle
-						ids.Add(a[0]);
-						break;
-					case 57: // Sector_SetPortal, type 5
-						if(a[1] == 5) ids.Add(a[0]);
-						break;
-					case 107: // Line_SetPortalTarget
-						ids.Add(a[0]);
-						ids.Add(a[1]);
-						break;
-					case 215: // Teleport_Line
-					case 225: // Scroll_Texture_Offsets
-						ids.Add(a[1]);
-						break;
-					case Specials.Static_Init:
-						if(a[1] == Specials.Init_SectorLink) ids.Add(a[0]);
-						break;
+					AddReferences(t.Record.Action, t.Record.Args, ids);
+					if(lineidthings.Contains(t.Record.Type)) ids.Add(t.Record.Args[0]);
 				}
 			}
 
 			// TranslucentLine and Scroll_Texture_Model with arg0 0 mean the line itself
 			ids.Remove(0);
-
-			if(thingargs)
-				foreach(ThingState t in things)
-					if(lineidthings.Contains(t.Record.Type) && t.Record.Args[0] != 0) ids.Add(t.Record.Args[0]);
 			return ids;
+		}
+
+		private static void AddReferences(int special, int[] a, HashSet<int> ids)
+		{
+			switch(special)
+			{
+				case 16: // Transfer_WallLight
+				case 48: // Sector_Attach3dMidtex
+				case 52: // Scroll_Wall
+				case 53: // Line_SetTextureOffset
+				case 55: // Line_SetBlocking
+				case 56: // Line_SetTextureScale
+				case 150: // Line_SetHealth
+				case 156: // Line_SetPortal: the partner line
+				case 183: // Line_AlignCeiling
+				case 184: // Line_AlignFloor
+				case 221: // Scroll_Texture_Both: a negative ID picks the back side
+					ids.Add(System.Math.Abs(a[0]));
+					break;
+				case 208: // TranslucentLine
+				case 222: // Scroll_Texture_Model: the scrolling lines carry the model's ID
+				case 281: // Line_SetAutomapFlags
+				case 282: // Line_SetAutomapStyle
+					ids.Add(a[0]);
+					break;
+				case 57: // Sector_SetPortal, type 5
+					if(a[1] == 5) ids.Add(a[0]);
+					break;
+				case 107: // Line_SetPortalTarget
+					ids.Add(a[0]);
+					ids.Add(a[1]);
+					break;
+				case 215: // Teleport_Line
+				case 225: // Scroll_Texture_Offsets
+					ids.Add(a[1]);
+					break;
+				case Specials.Static_Init:
+					if(a[1] == Specials.Init_SectorLink) ids.Add(a[0]);
+					break;
+			}
 		}
 
 		#endregion
@@ -381,13 +405,14 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		#region ================== Things
 
-		private static ThingState ReadThing(ThingRecord r, FormatProfile p)
+		private static ThingState ReadThing(ThingRecord r, int index, FormatProfile p, ConversionReport report)
 		{
 			ThingState s = new ThingState { Record = r.Clone() };
 			if(p.IsBinary)
 			{
 				int left;
-				s.Flags = BitsToNames(r.Bits, p.ThingFlagTable, true, out left);
+				s.Flags = ThingNames(r.Bits, p, out left);
+				if(left != 0) report.Drop(ConversionElement.Thing, index, "flag bits 0x" + left.ToString("x") + " (no UDMF name in the config)");
 				if(p.Format == MapFormat.Hexen) s.Record.Tag = (short)r.Tag; // mapthinghexen_t's tid is int16
 			}
 			else
@@ -411,7 +436,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			foreach(string f in r.Fields) report.Drop(ConversionElement.Thing, index, "field " + f);
 			r.Fields = new List<string>();
 			r.Bits = NamesToBits(s.Flags, p.ThingFlagTable, null);
-			ReportLostNames(s.Flags, BitsToNames(r.Bits, p.ThingFlagTable, true), ConversionElement.Thing, index, report);
+			int unused;
+			ReportLostNames(s.Flags, ThingNames(r.Bits, p, out unused), ConversionElement.Thing, index, report);
 
 			if(p.Format == MapFormat.Hexen)
 			{
@@ -468,6 +494,15 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return names;
 		}
 
+		private static Dictionary<string, bool> ThingNames(int bits, FormatProfile p, out int leftover)
+		{
+			// Doom-format things start in every class and game mode (maploader.cpp LoadThings' 0x7e0); table bits only clear them
+			Dictionary<string, bool> names = BitsToNames(bits, p.ThingFlagTable, true, out leftover);
+			if(p.Format == MapFormat.Doom)
+				foreach(string n in doomthingdefaults) if(!names.ContainsKey(n)) names[n] = true;
+			return names;
+		}
+
 		private static Dictionary<string, bool> BitsToNames(int bits, List<FlagTranslation> table, bool withfalse)
 		{
 			int left;
@@ -515,6 +550,8 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			// Doom and Hexen store tags, TIDs and sector specials in 16 bits, which the engine reads signed
 			if(value < short.MinValue || value > ushort.MaxValue)
 				report.Add(element, index, ConversionSeverity.Lossy, what + " " + value + " doesn't fit 16 bits; written as " + (value & 0xffff));
+			else if(value > short.MaxValue)
+				report.Add(element, index, ConversionSeverity.Lossy, what + " " + value + " is read back by the engine as " + (short)value);
 			return value & 0xffff;
 		}
 

@@ -78,8 +78,13 @@ namespace Builder.Tests
 				ConversionReport there, back;
 				MapRecords mid = Convert(map, "GZDoom_DoomDoom", via, out there);
 				MapRecords result = Convert(mid, via, "GZDoom_DoomDoom", out back);
-				HashSet<int> reported = new HashSet<int>(there.Issues.Concat(back.Issues).Where(i => i.Element == ConversionElement.Linedef).Select(i => i.Index));
-				if(via.EndsWith("UDMF") && reported.Count > 0) failures.Add(via + ": UDMF reported " + string.Join("; ", there.Issues.Concat(back.Issues).Take(5)));
+				// Every tag-23 line is ID 23, which the map's TranslucentLine types refer to, so Hexen reports IDs everywhere; only other reasons may skip a line
+				string[] known = { "has no Hexen equivalent", "doesn't fit Hexen's one-byte action", "doesn't fit Hexen's one byte", "has no Doom type the target offers" };
+				var lossy = there.Issues.Concat(back.Issues).Where(i => i.Element == ConversionElement.Linedef && !i.Message.StartsWith("line ID") && !i.Message.StartsWith("tag ")).ToList();
+				HashSet<int> reported = new HashSet<int>(lossy.Select(i => i.Index));
+				HashSet<int> idreported = new HashSet<int>(there.Issues.Concat(back.Issues).Where(i => i.Message.StartsWith("line ID")).Select(i => i.Index));
+				foreach(ConversionIssue i in lossy) if(!known.Any(k => i.Message.Contains(k))) failures.Add(via + " unexpected: " + i);
+				if(via.EndsWith("UDMF") && there.Issues.Count + back.Issues.Count > 0) failures.Add(via + ": UDMF reported " + string.Join("; ", there.Issues.Concat(back.Issues).Take(5)));
 
 				for(int i = 0; i < map.Lines.Count; i++)
 				{
@@ -89,7 +94,7 @@ namespace Builder.Tests
 					// Hexen has no passthrough bit; the engine only reads it on use lines, which UseThrough carries
 					bool idlepassthrough = via.EndsWith("Hexen") && (a.Bits ^ r.Bits) == 0x200 && x.Translate(a.Action, a.Bits, 0).Activation != LineActivation.UseThrough;
 					if(r.Bits != a.Bits && !idlepassthrough) failures.Add(what + ": bits became " + r.Bits);
-					if(r.Tags[0] != a.Tags[0] && x.Translate(a.Action, a.Bits, a.Tags[0]).Special != 0) failures.Add(what + ": tag became " + r.Tags[0]);
+					if(r.Tags[0] != a.Tags[0] && !idreported.Contains(i) && x.Translate(a.Action, a.Bits, a.Tags[0]).Special != 0) failures.Add(what + ": tag became " + r.Tags[0]);
 					if(r.Action == a.Action) continue;
 					CanonicalLine ca = x.Translate(a.Action, a.Bits, a.Tags[0]), cr = x.Translate(r.Action, r.Bits, r.Tags[0]);
 					HexenLineCodec.ClearIdArg(ca);
@@ -286,6 +291,82 @@ namespace Builder.Tests
 			Assert.Equal(1 | 0x80, Convert(udmf, "GZDoom_DoomUDMF", "Boom_DoomDoom", out report).Sectors[0].Special);
 			Assert.Equal(0, Convert(udmf, "GZDoom_DoomUDMF", "Doom_DoomDoom", out report).Sectors[0].Special);
 			Assert.Single(report.Issues);
+
+			// Vanilla has no passthrough bit in its config, so a use-through door (Door_Open, S1 type 103) says so
+			MapRecords door = new MapRecords();
+			door.Lines.Add(new LineRecord { Action = 11, Args = new[] { 1, 16, 0, 0, 0 }, Flags = { { "playeruse", true }, { "passuse", true } } });
+			Assert.Equal(0, Convert(door, "GZDoom_DoomUDMF", "Doom_DoomDoom", out report).Lines[0].Bits & 0x200);
+			Assert.Contains(report.Issues, i => i.Message.Contains("passthrough"));
+		}
+
+		// One line refers to ID 7 per case; a Hexen write must keep ID 7 on the plain line
+		[Fact]
+		public void ReferencedLineIds_EverySpecialThatLooksUpALine()
+		{
+			var cases = new List<Tuple<string, LineRecord, ThingRecord>>();
+			foreach(int s in new[] { 16, 48, 52, 53, 55, 56, 150, 156, 183, 184, 208, 222, 281, 282 })
+				cases.Add(Tuple.Create("special " + s, new LineRecord { Action = s, Args = new[] { 7, 0, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("Scroll_Texture_Both back side", new LineRecord { Action = 221, Args = new[] { -7, 0, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("Sector_SetPortal type 5", new LineRecord { Action = 57, Args = new[] { 7, 5, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("Line_SetPortalTarget arg1", new LineRecord { Action = 107, Args = new[] { 3, 7, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("Teleport_Line", new LineRecord { Action = 215, Args = new[] { 0, 7, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("Scroll_Texture_Offsets", new LineRecord { Action = 225, Args = new[] { 0, 7, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("Static_Init sector link", new LineRecord { Action = 190, Args = new[] { 7, 3, 0, 0, 0 } }, (ThingRecord)null));
+			cases.Add(Tuple.Create("slope thing", (LineRecord)null, new ThingRecord { Type = 9500, Args = new[] { 7, 0, 0, 0, 0 } }));
+			cases.Add(Tuple.Create("thing special", (LineRecord)null, new ThingRecord { Type = 3004, Action = 55, Args = new[] { 7, 0, 0, 0, 0 } }));
+
+			List<string> failures = new List<string>();
+			foreach(var c in cases)
+			{
+				MapRecords map = new MapRecords();
+				map.Lines.Add(new LineRecord { Tags = new List<int> { 7 } });
+				if(c.Item2 != null) { c.Item2.Flags["playercross"] = true; map.Lines.Add(c.Item2); }
+				if(c.Item3 != null) map.Things.Add(c.Item3);
+				ConversionReport report;
+				LineRecord l = Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomHexen", out report).Lines[0];
+				if(l.Action != 121 || l.Args[0] != 7) failures.Add(c.Item1 + ": " + l.Action + "(" + string.Join(", ", l.Args) + ")");
+			}
+			Assert.True(failures.Count == 0, string.Join("\n", failures));
+		}
+
+		// Line_SetIdentification's flags reach Doom bits, and Doom's bits reach Line_SetIdentification
+		[Fact]
+		public void IdentificationFlags_CrossBetweenHexenArgsAndDoomBits()
+		{
+			MapRecords hexen = new MapRecords();
+			hexen.Lines.Add(new LineRecord { Action = 121, Args = new[] { 5, 32, 0, 0, 0 } }); // midtex3d
+			ConversionReport report;
+			MapRecords doom = Convert(hexen, "GZDoom_DoomHexen", "GZDoom_DoomDoom", out report);
+			Assert.Equal(1 << 10, doom.Lines[0].Bits);
+
+			MapRecords back = Convert(doom, "GZDoom_DoomDoom", "GZDoom_DoomHexen", out report);
+			Assert.Equal(121, back.Lines[0].Action);
+			Assert.Equal(32, back.Lines[0].Args[1]);
+			Assert.True(report.Dropped.Count == 0, report.ToString());
+		}
+
+		// Doom-format things are in every game mode unless a bit clears it, which vanilla's table can't express
+		[Fact]
+		public void ThingModes_FollowTheDoomFormatsDefaults()
+		{
+			MapRecords map = new MapRecords();
+			map.Things.Add(new ThingRecord { Type = 3004, Bits = 1 });
+			ConversionReport report;
+			Dictionary<string, bool> f = Convert(map, "Doom_Doom2Doom", "GZDoom_DoomUDMF", out report).Things[0].Flags;
+			Assert.True(f["single"] && f["coop"] && f["dm"], string.Join(", ", f));
+
+			MapRecords udmf = new MapRecords();
+			udmf.Things.Add(new ThingRecord { Type = 3004, Flags = { { "skill1", true }, { "skill2", true }, { "single", true } } }); // single player only
+			Convert(udmf, "GZDoom_DoomUDMF", "Doom_Doom2Doom", out report);
+			Assert.True(report.HasDropped(ConversionElement.Thing, "flag coop (set by the format)"), report.ToString());
+			Assert.Equal(1 | 32 | 64, Convert(udmf, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report).Things[0].Bits); // Boom's not-DM, not-coop
+
+			// Hexen TIDs are int16 in the engine
+			MapRecords hx = new MapRecords();
+			hx.Things.Add(new ThingRecord { Type = 3004, Tag = 0x9C40 });
+			MapRecords u = Convert(hx, "GZDoom_DoomHexen", "GZDoom_DoomUDMF", out report);
+			Assert.Equal(-25536, u.Things[0].Tag);
+			Assert.Equal(0x9C40, Convert(u, "GZDoom_DoomUDMF", "GZDoom_DoomHexen", out report).Things[0].Tag);
 		}
 	}
 }
