@@ -318,6 +318,12 @@
     <None Include="Resources\FlipSelectionV.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\RotateSelectionCCW.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\RotateSelectionCW.png" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Interface\EditSelectionPanel.resx">
       <SubType>Designer</SubType>
       <DependentUpon>EditSelectionPanel.cs</DependentUpon>

@@ -58,6 +58,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.fliph = new System.Windows.Forms.Button();
 			this.label13 = new System.Windows.Forms.Label();
 			this.label11 = new System.Windows.Forms.Label();
+			this.rotccw = new System.Windows.Forms.Button();
+			this.rotcw = new System.Windows.Forms.Button();
 			this.tooltip = new System.Windows.Forms.ToolTip(this.components);
 			this.pinfloortextures = new System.Windows.Forms.CheckBox();
 			this.gbTextures = new System.Windows.Forms.GroupBox();
@@ -300,6 +302,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.groupBox3.Controls.Add(this.fliph);
 			this.groupBox3.Controls.Add(this.label13);
 			this.groupBox3.Controls.Add(this.label11);
+			this.groupBox3.Controls.Add(this.rotcw);
+			this.groupBox3.Controls.Add(this.rotccw);
 			this.groupBox3.Controls.Add(this.absrot);
 			this.groupBox3.Location = new System.Drawing.Point(3, 272);
 			this.groupBox3.Name = "groupBox3";
@@ -351,7 +355,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.flipv.Location = new System.Drawing.Point(94, 80);
 			this.flipv.Name = "flipv";
 			this.flipv.Size = new System.Drawing.Size(30, 30);
-			this.flipv.TabIndex = 2;
+			this.flipv.TabIndex = 4;
 			this.tooltip.SetToolTip(this.flipv, "Flip Selection Vertically");
 			this.flipv.UseVisualStyleBackColor = true;
 			this.flipv.Click += new System.EventHandler(this.flipv_Click);
@@ -363,7 +367,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.fliph.Location = new System.Drawing.Point(58, 80);
 			this.fliph.Name = "fliph";
 			this.fliph.Size = new System.Drawing.Size(30, 30);
-			this.fliph.TabIndex = 1;
+			this.fliph.TabIndex = 3;
 			this.tooltip.SetToolTip(this.fliph, "Flip Selection Horizontally");
 			this.fliph.UseVisualStyleBackColor = true;
 			this.fliph.Click += new System.EventHandler(this.fliph_Click);
@@ -385,6 +389,30 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.label11.Size = new System.Drawing.Size(28, 13);
 			this.label11.TabIndex = 22;
 			this.label11.Text = "deg.";
+			// 
+			// rotccw
+			// 
+			this.rotccw.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+			this.rotccw.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCCW;
+			this.rotccw.Location = new System.Drawing.Point(178, 23);
+			this.rotccw.Name = "rotccw";
+			this.rotccw.Size = new System.Drawing.Size(24, 24);
+			this.rotccw.TabIndex = 1;
+			this.tooltip.SetToolTip(this.rotccw, "Rotate Selection 90 Degrees Counterclockwise");
+			this.rotccw.UseVisualStyleBackColor = true;
+			this.rotccw.Click += new System.EventHandler(this.rotccw_Click);
+			// 
+			// rotcw
+			// 
+			this.rotcw.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+			this.rotcw.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCW;
+			this.rotcw.Location = new System.Drawing.Point(206, 23);
+			this.rotcw.Name = "rotcw";
+			this.rotcw.Size = new System.Drawing.Size(24, 24);
+			this.rotcw.TabIndex = 2;
+			this.tooltip.SetToolTip(this.rotcw, "Rotate Selection 90 Degrees Clockwise");
+			this.rotcw.UseVisualStyleBackColor = true;
+			this.rotcw.Click += new System.EventHandler(this.rotcw_Click);
 			// 
 			// pinfloortextures
 			// 
@@ -670,6 +698,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.Label label14;
 		private System.Windows.Forms.Button flipv;
 		private System.Windows.Forms.Button fliph;
+		private System.Windows.Forms.Button rotccw;
+		private System.Windows.Forms.Button rotcw;
 		private System.Windows.Forms.Label label16;
 		private System.Windows.Forms.Label label19;
 		private System.Windows.Forms.Button orgposx;

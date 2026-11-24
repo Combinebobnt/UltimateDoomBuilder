@@ -227,6 +227,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.FocusDisplay();
 		}
 
+		private void rotccw_Click(object sender, EventArgs e)
+		{
+			General.Actions.InvokeAction("buildermodes_rotateselection90ccw");
+			General.Interface.FocusDisplay();
+		}
+
+		private void rotcw_Click(object sender, EventArgs e)
+		{
+			General.Actions.InvokeAction("buildermodes_rotateselection90cw");
+			General.Interface.FocusDisplay();
+		}
+
 		private void orgposx_Click(object sender, EventArgs e)
 		{
 			mode.SetAbsPosX(orgpos.x);

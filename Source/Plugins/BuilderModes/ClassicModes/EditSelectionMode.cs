@@ -1301,6 +1301,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.BeginToolbarUpdate(); //mxd
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.FlipSelectionH);
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.FlipSelectionV);
+			General.Interface.AddButton(BuilderPlug.Me.MenusForm.RotateSelectionCCW);
+			General.Interface.AddButton(BuilderPlug.Me.MenusForm.RotateSelectionCW);
 			General.Interface.EndToolbarUpdate(); //mxd
 
 			//mxd. Get EditPanel-related settings
@@ -1981,6 +1983,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.BeginToolbarUpdate(); //mxd
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.FlipSelectionH);
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.FlipSelectionV);
+			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.RotateSelectionCCW);
+			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.RotateSelectionCW);
 			General.Interface.EndToolbarUpdate(); //mxd
 
 			//mxd. Save EditPanel-related settings 
@@ -2364,6 +2368,19 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			UpdateRectangleComponents();
 			General.Map.Map.Update();
 			General.Interface.RedrawDisplay();
+		}
+
+		// Quarter turns go through SetAbsRotation for the same full update as the Rotation field
+		[BeginAction("rotateselection90cw")]
+		public void RotateSelection90CW()
+		{
+			SetAbsRotation(Angle2D.AddQuarterTurns(rotation, -1));
+		}
+
+		[BeginAction("rotateselection90ccw")]
+		public void RotateSelection90CCW()
+		{
+			SetAbsRotation(Angle2D.AddQuarterTurns(rotation, 1));
 		}
 
 		[BeginAction("moveselectionup")]
