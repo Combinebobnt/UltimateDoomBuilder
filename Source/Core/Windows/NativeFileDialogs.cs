@@ -383,6 +383,8 @@ namespace CodeImp.DoomBuilder.Windows
 				if(blocker != null) Application.RemoveMessageFilter(blocker);
 				if(blockedmodal != null) blockedmodal.FormClosing -= CancelClose;
 				if(display != IntPtr.Zero) X11TransientHint.Close(display);
+				// The blocker dropped the key-ups of the shortcut that opened the chooser
+				if(General.MainWindow != null) General.MainWindow.ReleaseAllKeys();
 				if(ownerform != null && !ownerform.IsDisposed) ownerform.Activate();
 			}
 			return result;
