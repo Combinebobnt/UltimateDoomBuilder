@@ -144,6 +144,19 @@ namespace Builder.Tests
 			Assert.Empty(check.Changed);
 		}
 
+		// The engine takes the exit's group from its front sector, so a back-only exit has no group to move
+		[Fact]
+		public void ExitLine_WithOnlyABackSector_IsRefused()
+		{
+			Builder b = Layout();
+			b.D.Lines[1].Front = -1;
+			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps());
+			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(), r, Find(r, PortalKind.LinePortal));
+
+			Assert.Equal(PortalAlignHandle.None, t.Handle);
+			Assert.Contains("no sector", t.Refusal);
+		}
+
 		[Fact]
 		public void LinePair_InOneGroup_IsRefused()
 		{

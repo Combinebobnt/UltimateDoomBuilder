@@ -788,6 +788,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void CreatePortal()
 		{
 			if(General.Map == null) return;
+			General.Editing.CancelVolatileMode();
 			PortalCapabilities caps = PortalMapSource.Capabilities(General.Map.Config, General.Map.FormatInterface);
 			if(!caps.Any)
 			{

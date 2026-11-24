@@ -149,11 +149,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			MapSet map = General.Map.Map;
 			float min = General.Map.FormatInterface.MinCoordinate, max = General.Map.FormatInterface.MaxCoordinate;
-			foreach(Vector2D p in edit.Vertices.Values)
+			List<Vector2D> moved = new List<Vector2D>(edit.Vertices.Values);
+			moved.AddRange(edit.Things.Values);
+			foreach(Vector2D p in moved)
 			{
 				if(p.x < min || p.x > max || p.y < min || p.y > max)
 				{
-					General.ShowWarningMessage("The move puts a vertex outside the map format's coordinate range (" + min + " to " + max + ").", MessageBoxButtons.OK);
+					General.ShowWarningMessage("The move puts a vertex or thing outside the map format's coordinate range (" + min + " to " + max + ").", MessageBoxButtons.OK);
 					return false;
 				}
 			}
@@ -162,18 +164,27 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				return false;
 
 			General.Map.UndoRedo.CreateUndo(exact ? "Make portal exact" : edit.RepickLine >= 0 ? "Re-pick portal reference line" : "Align portal");
+			List<Thing> movedthings = new List<Thing>();
 			if(target.Handle == PortalAlignHandle.Island && !exact && edit.RepickLine < 0)
 			{
 				MoveIslandSectors(Delta);
 				foreach(Thing t in map.Things)
 				{
-					Sector s = t.Sector ?? map.GetSectorByCoordinates(new Vector2D(t.Position.x, t.Position.y));
-					if(s != null && target.IslandSectors.Contains(s.Index)) t.Move(new Vector2D(t.Position.x, t.Position.y) + Delta);
+					// The sector under the thing, not its cached one, which a plain move leaves stale
+					Sector s = map.GetSectorByCoordinates(new Vector2D(t.Position.x, t.Position.y));
+					if(s == null || !target.IslandSectors.Contains(s.Index)) continue;
+					t.Move(new Vector2D(t.Position.x, t.Position.y) + Delta);
+					movedthings.Add(t);
 				}
 			}
 			else
 			{
-				foreach(KeyValuePair<int, Vector2D> pair in edit.Things) map.GetThingByIndex(pair.Key).Move(pair.Value);
+				foreach(KeyValuePair<int, Vector2D> pair in edit.Things)
+				{
+					Thing t = map.GetThingByIndex(pair.Key);
+					t.Move(pair.Value);
+					movedthings.Add(t);
+				}
 			}
 			foreach(KeyValuePair<int, Vector2D> pair in edit.Vertices) map.GetVertexByIndex(pair.Key).Move(pair.Value);
 			foreach(PortalLineEdit e in edit.LineEdits)
@@ -185,6 +196,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			map.SnapAllToAccuracy();
 			map.Update();
+			foreach(Thing t in movedthings) t.DetermineSector();
 			General.Map.ThingsFilter.Update();
 			General.Map.IsChanged = true;
 			return true;
@@ -356,7 +368,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				Vector2D raw = dragstartdelta + (mousemappos - dragstartmappos);
 				bool snap = General.Interface.ShiftState ^ General.Interface.SnapToGrid;
-				Vector2D d = snap ? General.Map.Grid.SnappedToGrid(raw) : new Vector2D(Math.Round(raw.x), Math.Round(raw.y));
+				// A move snaps to the grid size alone: the grid's origin and rotation place positions, not offsets
+				double size = General.Map.Grid.GridSizeF;
+				Vector2D d = snap && size >= 1 ? GridSetup.SnappedToGrid(raw, size, 1.0 / size) : raw;
+				d = new Vector2D(Math.Round(d.x), Math.Round(d.y));
 				if(d.x != Delta.x || d.y != Delta.y)
 				{
 					SetMove(d);

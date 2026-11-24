@@ -284,7 +284,8 @@ namespace CodeImp.DoomBuilder.Portals
 			return (l.Front >= 0 && t.IslandSectors.Contains(l.Front)) || (l.Back >= 0 && t.IslandSectors.Contains(l.Back));
 		}
 
-		private static int SideSector(PortalLine l) { return l.Front >= 0 ? l.Front : l.Back; }
+		// The engine takes a portal line's group from its front sector
+		private static int SideSector(PortalLine l) { return l.Front; }
 
 		private static bool Same(Vector2D a, Vector2D b) { return Math.Abs(a.x - b.x) < EPSILON && Math.Abs(a.y - b.y) < EPSILON; }
 

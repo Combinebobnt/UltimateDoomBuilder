@@ -496,6 +496,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			if(e.Button == MouseButtons.Right)
 			{
+				// An open align mode holds a snapshot that an edit here would make stale
+				if(e.Node.Tag is PortalEnd) General.Editing.CancelVolatileMode();
 				if(e.Node.Tag is PortalEnd && EditElement(((PortalEnd)e.Node.Tag).Element))
 				{
 					General.Map.Map.Update();

@@ -65,7 +65,8 @@ namespace CodeImp.DoomBuilder.Portals
 				int sector = -1;
 				if(IsPortalThing(caps, t.Type))
 				{
-					Sector s = t.Sector ?? map.GetSectorByCoordinates(new Vector2D(t.Position.x, t.Position.y));
+					// A moved thing keeps a stale cached sector, so look it up
+					Sector s = map.GetSectorByCoordinates(new Vector2D(t.Position.x, t.Position.y));
 					if(s != null) sector = s.Index;
 				}
 				data.AddThing(t.Type, t.Tag, t.Args, new Vector2D(t.Position.x, t.Position.y), sector);
