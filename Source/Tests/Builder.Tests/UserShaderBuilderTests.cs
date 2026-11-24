@@ -267,12 +267,10 @@ namespace Builder.Tests
 		{
 			var typed = new GldefsMaterial { Shader = "s", ShaderModel = MaterialModel.Specular };
 			var layers = new GldefsMaterial { Shader = "s" };
-			layers.Layers["normal"] = "n";
-			layers.Layers["specular"] = "s";
-			Assert.Equal(MaterialModel.Specular, MaterialModels.DeclaredShaderModel(typed, UserShaderDialect.UZDoom));
-			Assert.Equal(MaterialModel.Specular, MaterialModels.DeclaredShaderModel(layers, UserShaderDialect.UZDoom));
-			Assert.Equal(MaterialModel.Default, MaterialModels.DeclaredShaderModel(typed, UserShaderDialect.Zandronum));
-			Assert.Equal(MaterialModel.Default, MaterialModels.DeclaredShaderModel(layers, UserShaderDialect.Zandronum));
+			Assert.Equal(MaterialModel.Specular, MaterialModels.DeclaredShaderModel(typed, MaterialModel.Pbr, UserShaderDialect.UZDoom));
+			Assert.Equal(MaterialModel.Specular, MaterialModels.DeclaredShaderModel(layers, MaterialModel.Specular, UserShaderDialect.UZDoom));
+			Assert.Equal(MaterialModel.Default, MaterialModels.DeclaredShaderModel(typed, MaterialModel.Pbr, UserShaderDialect.Zandronum));
+			Assert.Equal(MaterialModel.Default, MaterialModels.DeclaredShaderModel(layers, MaterialModel.Specular, UserShaderDialect.Zandronum));
 		}
 
 		[Fact]

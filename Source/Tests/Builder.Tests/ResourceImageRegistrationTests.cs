@@ -258,6 +258,48 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void MaterialShaderKeepsItsProgramWhenALayerImageIsMissingAndUnsampledLayersStayUnloaded()
+		{
+			Configure("uzdoom");
+			var reader = Archive(Image("textures/WALL.png"), Image("materials/n.png"), Image("materials/m.png"),
+				Text("GLDEFS", "material texture WALL { normal \"materials/n.png\" specular \"materials/missing.png\" metallic \"materials/m.png\" shader \"shaders/s.fp\" }"));
+			DataManager data = Load(reader);
+			ApplyMaterials(data, reader);
+			ImageData image = data.GetTextureImage("WALL");
+			GldefsMaterial definition = Get<Dictionary<ImageData, GldefsMaterial>>(data, "materials")[image];
+			// The declare path's model: the paths alone say Specular, the existing images Default.
+			// Its missing-image warning would update the main window, so detach it as the warp test does.
+			object window = typeof(General).GetField("mainwindow", Static)!.GetValue(null);
+			typeof(General).GetField("mainwindow", Static)!.SetValue(null, null);
+			MaterialModel model;
+			try { model = (MaterialModel)Call(data, "LayerModel", definition, UserShaderDialect.UZDoom); }
+			finally { typeof(General).GetField("mainwindow", Static)!.SetValue(null, window); }
+			Assert.Equal(MaterialModel.Default, model);
+			MaterialModel shadermodel = MaterialModels.DeclaredShaderModel(definition, model, UserShaderDialect.UZDoom);
+			var program = UserShaderBuilder.Build(definition, UserShaderDialect.UZDoom, "vec4 Process(vec4 c) { return c; }", shadermodel);
+			Get<Dictionary<string, UserShaderProgram>>(data, "materialprograms")[UserShaderBuilder.Key(definition, UserShaderDialect.UZDoom, shadermodel)] = program;
+			ResolvedMaterial resolved = data.GetMaterial(image);
+			Assert.Equal(MaterialModel.Default, resolved.Model);
+			Assert.Same(program, resolved.Program);
+			var images = Get<Dictionary<string, ImageData>>(data, "materialimages");
+			Assert.False(images.ContainsKey("materials/n.png"), "A Default-model material loaded a layer it never samples");
+			Assert.False(images.ContainsKey("materials/m.png"), "A Default-model material loaded a layer it never samples");
+			Assert.Equal(1, map.Logger.ErrorsCount);
+		}
+
+		[Fact]
+		public void AutoMaterialFilesAreFoundByTitleWithTheLastContainerWinning()
+		{
+			Configure("uzdoom");
+			var first = Archive(Image("materials/normalmaps/auto/WALL.png"), Image("brightmaps/auto/WALL.png"));
+			var second = Archive(Image("materials/normalmaps/auto/wall.jpg"));
+			DataManager data = Load(first, second);
+			Assert.Equal("materials/normalmaps/auto/wall.jpg", ((string)Call(data, "FindAutoMaterialFile", "materials/normalmaps/auto/WALL")).ToLowerInvariant());
+			Assert.Equal("brightmaps/auto/wall.png", ((string)Call(data, "FindAutoMaterialFile", "brightmaps/auto/WALL")).ToLowerInvariant());
+			Assert.Null(Call(data, "FindAutoMaterialFile", "materials/specular/auto/WALL"));
+		}
+
+		[Fact]
 		public void SwirlMetadataDoesNotEnableWarpInVanillaConfiguration()
 		{
 			Configure("doom2");

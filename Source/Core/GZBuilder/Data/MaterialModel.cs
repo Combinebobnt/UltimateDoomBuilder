@@ -16,24 +16,18 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 			return metallic && roughness && ao ? MaterialModel.Pbr : MaterialModel.Default;
 		}
 
-		internal static MaterialModel Select(GldefsMaterial material, UserShaderDialect dialect)
-		{
-			return Select(material.HasLayer("normal"), material.HasLayer("specular"), material.HasLayer("metallic"),
-				material.HasLayer("roughness"), material.HasLayer("ao"), dialect);
-		}
-
 		// UZDoom applies a user shader only to a texture whose model matches the shader's type; Zandronum has one model
 		internal static bool ShaderApplies(GldefsMaterial material, MaterialModel model, UserShaderDialect dialect)
 		{
 			return dialect != UserShaderDialect.UZDoom || (material.ShaderModel ?? model) == model;
 		}
 
-		// The model a shader's program is built for. A material block's shader takes the model of its layers,
-		// approximated by the merged layer paths; UZDoom uses the layers known when the block is parsed.
-		internal static MaterialModel DeclaredShaderModel(GldefsMaterial material, UserShaderDialect dialect)
+		// The model a shader's program is built for. A material block's shader takes the model of its layers
+		// (layermodel, from the merged layers whose images exist); UZDoom uses the layers known when the block is parsed.
+		internal static MaterialModel DeclaredShaderModel(GldefsMaterial material, MaterialModel layermodel, UserShaderDialect dialect)
 		{
 			if(dialect != UserShaderDialect.UZDoom) return MaterialModel.Default;
-			return material.ShaderModel ?? Select(material, dialect);
+			return material.ShaderModel ?? layermodel;
 		}
 
 		// A HardwareShader block's "material" keyword; null for an unknown type

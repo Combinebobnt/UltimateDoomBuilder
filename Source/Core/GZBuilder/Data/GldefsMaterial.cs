@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Rendering;
 
@@ -80,6 +81,12 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 			new KeyValuePair<string, string>("roughness", "materials/roughness/auto/"),
 			new KeyValuePair<string, string>("ao", "materials/ao/auto/"),
 		};
+
+		// The directories AddAutoLayers searches, each ending in '/', with whether it holds a lighting layer
+		internal static IEnumerable<KeyValuePair<string, bool>> AutoLayerDirectories
+		{
+			get { return autolayers.Select(layer => new KeyValuePair<string, bool>(layer.Value, layer.Key != "brightmap")); }
+		}
 
 		// Fills the layers a definition left empty from the auto paths; returns the material, new if one was needed
 		internal static GldefsMaterial AddAutoLayers(GldefsMaterial material, string shortname, Func<string, string> find)

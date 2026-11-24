@@ -925,6 +925,18 @@ namespace CodeImp.DoomBuilder.Data
 			return matches.Length > 0 ? matches[0] : null;
 		}
 
+		// The files directly in a directory by title, first match winning as in FindMaterialFile
+		internal Dictionary<string, string> FilesByTitle(string path)
+		{
+			var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach(string file in GetAllFiles(path, false))
+			{
+				string title = Path.GetFileNameWithoutExtension(file);
+				if(!result.ContainsKey(title)) result[title] = file;
+			}
+			return result;
+		}
+
 		internal ImageData CreateMaterialImage(string path)
 		{
 			return CreateImage(path, ImageDataFormat.DOOMPICTURE);

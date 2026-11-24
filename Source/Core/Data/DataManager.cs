@@ -99,6 +99,7 @@ namespace CodeImp.DoomBuilder.Data
 		private Dictionary<ImageData, GldefsMaterial> materials;
 		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedmaterials = new Dictionary<ImageData, ResolvedMaterial>();
 		private readonly Dictionary<ImageData, ResolvedMaterial> resolvedwarpmaterials = new Dictionary<ImageData, ResolvedMaterial>();
+		private Dictionary<string, KeyValuePair<string, bool>> automaterialfiles;
 		private readonly Dictionary<string, ImageData> materialimages = new Dictionary<string, ImageData>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, UserShaderProgram> materialprograms = new Dictionary<string, UserShaderProgram>();
 		private readonly Dictionary<ImageData, ImageData> shortmaterialimages = new Dictionary<ImageData, ImageData>();
@@ -2892,14 +2893,15 @@ namespace CodeImp.DoomBuilder.Data
 					DeclareMaterialProgram(UserShaderBuilder.WarpKey(style, warpdialect), UserShaderBuilder.BuildWarp(style, warpdialect));
 			UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName);
 			if(dialect == UserShaderDialect.None) return;
-			// Both, since a missing layer image can turn a texture's model into the other one
-			if(materials.Values.Any(material => MaterialModels.Select(material, dialect) != MaterialModel.Default))
+			// Both built-ins, also when only auto layers exist, since GetMaterial can find those later
+			if(dialect == UserShaderDialect.UZDoom && (materials.Values.Any(material => LayerModel(material, dialect) != MaterialModel.Default)
+				|| AutoMaterialFiles().Values.Any(file => file.Value)))
 				foreach(MaterialModel model in new[] { MaterialModel.Specular, MaterialModel.Pbr })
 					DeclareMaterialProgram(UserShaderBuilder.LayeredKey(model), UserShaderBuilder.BuildLayered(model));
 			foreach(GldefsMaterial material in materials.Values)
 			{
 				if(string.IsNullOrEmpty(material.Shader)) continue;
-				MaterialModel shadermodel = MaterialModels.DeclaredShaderModel(material, dialect);
+				MaterialModel shadermodel = MaterialModels.DeclaredShaderModel(material, LayerModel(material, dialect), dialect);
 				string key = UserShaderBuilder.Key(material, dialect, shadermodel);
 				if(materialprograms.ContainsKey(key)) continue;
 				TextResourceData data = GetTextResourceData(material.Shader);
@@ -2947,19 +2949,66 @@ namespace CodeImp.DoomBuilder.Data
 			if(material != null) materials[image] = material;
 		}
 
+		// Every file in the auto material directories, keyed "<directory>/<title>", the last container winning,
+		// with whether it is a lighting layer. Built once per load: a lookup per image and layer would rescan each container.
+		private Dictionary<string, KeyValuePair<string, bool>> AutoMaterialFiles()
+		{
+			if(automaterialfiles != null) return automaterialfiles;
+			automaterialfiles = new Dictionary<string, KeyValuePair<string, bool>>(StringComparer.OrdinalIgnoreCase);
+			for(int i = containers.Count - 1; i >= 0; i--)
+			{
+				var reader = containers[i] as PK3StructuredReader;
+				if(reader == null) continue;
+				foreach(var directory in GldefsMaterial.AutoLayerDirectories)
+					foreach(var file in reader.FilesByTitle(directory.Key.TrimEnd('/')))
+						if(!automaterialfiles.ContainsKey(directory.Key + file.Key))
+							automaterialfiles[directory.Key + file.Key] = new KeyValuePair<string, bool>(file.Value, directory.Value);
+			}
+			return automaterialfiles;
+		}
+
 		private string FindAutoMaterialFile(string name)
+		{
+			int slash = name.LastIndexOf('/');
+			KeyValuePair<string, bool> file;
+			return AutoMaterialFiles().TryGetValue(name.Substring(0, slash + 1) + Path.GetFileNameWithoutExtension(name.Substring(slash + 1)), out file) ? file.Key : null;
+		}
+
+		// UZDoom's light model for a definition, from the layers whose images exist: its GLDEFS parser drops a missing one
+		private MaterialModel LayerModel(GldefsMaterial material, UserShaderDialect dialect)
+		{
+			if(dialect != UserShaderDialect.UZDoom) return MaterialModel.Default;
+			return MaterialModels.Select(MaterialLayerExists(material, "normal"), MaterialLayerExists(material, "specular"),
+				MaterialLayerExists(material, "metallic"), MaterialLayerExists(material, "roughness"), MaterialLayerExists(material, "ao"), dialect);
+		}
+
+		// Checks without loading; a missing image warns once
+		private bool MaterialLayerExists(GldefsMaterial material, string layer)
+		{
+			string path;
+			if(!material.Layers.TryGetValue(layer, out path) || string.IsNullOrEmpty(path)) return false;
+			ImageData image;
+			if(materialimages.TryGetValue(path, out image)) return image != null;
+			string filename;
+			return FindMaterialImage(path, out filename) >= 0 || LoadMaterialImage(path) != null;
+		}
+
+		// The container index holding a material image, last container first, or -1
+		private int FindMaterialImage(string path, out string filename)
 		{
 			for(int i = containers.Count - 1; i >= 0; i--)
 			{
 				var reader = containers[i] as PK3StructuredReader;
-				string path = reader == null ? null : reader.FindMaterialFile(name, true);
-				if(path != null) return path;
+				filename = reader == null ? path : reader.FindMaterialFile(path, false);
+				if(filename != null && containers[i].FileExists(filename)) return i;
 			}
-			return null;
+			filename = null;
+			return -1;
 		}
 
 		private void ClearMaterialImages()
 		{
+			automaterialfiles = null;
 			for(int unit = 2; unit < RenderDevice.MaxTextureUnits; unit++) General.Map.Graphics.SetTexture(null, unit);
 			foreach(UserShaderProgram program in materialprograms.Values)
 				if(program != null) General.Map.Graphics.DeclareShader(program.Index, string.Empty, string.Empty, string.Empty);
@@ -2972,7 +3021,8 @@ namespace CodeImp.DoomBuilder.Data
 
 		internal ResolvedMaterial GetMaterial(ImageData image, bool animate = false)
 		{
-			WarpInfo? warp = animate && (!string.IsNullOrEmpty(General.Map.Config.DecorateGames) || General.Map.Config.BaseGame == GameType.HEXEN) ? GetWarp(image) : null;
+			WarpInfo? warpinfo = !string.IsNullOrEmpty(General.Map.Config.DecorateGames) || General.Map.Config.BaseGame == GameType.HEXEN ? GetWarp(image) : null;
+			WarpInfo? warp = animate ? warpinfo : null;
 			var cache = warp.HasValue ? resolvedwarpmaterials : resolvedmaterials;
 			ResolvedMaterial resolved;
 			if(cache.TryGetValue(image, out resolved)) return resolved;
@@ -2996,17 +3046,16 @@ namespace CodeImp.DoomBuilder.Data
 				UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName);
 				resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap),
 					Textures = definition.Textures.Select(pair => LoadMaterialImage(pair.Value)).ToArray() };
-				// Zandronum has no layered materials, so its layers stay metadata
-				if(dialect == UserShaderDialect.UZDoom)
+				// Zandronum has no layered materials, so its layers stay metadata. UZDoom gives a warped texture
+				// none either, animated or not. Only the layers the model samples are loaded.
+				resolved.Model = warpinfo.HasValue ? MaterialModel.Default : LayerModel(definition, dialect);
+				if(resolved.Model != MaterialModel.Default) resolved.Normal = LoadMaterialLayer(definition, "normal");
+				if(resolved.Model == MaterialModel.Specular) resolved.Specular = LoadMaterialLayer(definition, "specular");
+				if(resolved.Model == MaterialModel.Pbr)
 				{
-					resolved.Normal = LoadMaterialLayer(definition, "normal");
-					resolved.Specular = LoadMaterialLayer(definition, "specular");
 					resolved.Metallic = LoadMaterialLayer(definition, "metallic");
 					resolved.Roughness = LoadMaterialLayer(definition, "roughness");
 					resolved.Ao = LoadMaterialLayer(definition, "ao");
-					// As in UZDoom, a layer whose image is missing doesn't count towards the model
-					resolved.Model = MaterialModels.Select(resolved.Normal != null, resolved.Specular != null, resolved.Metallic != null,
-						resolved.Roughness != null, resolved.Ao != null, dialect);
 				}
 				UserShaderProgram program = null;
 				if(!string.IsNullOrEmpty(definition.Shader) && MaterialModels.ShaderApplies(definition, resolved.Model, dialect))
@@ -3029,11 +3078,11 @@ namespace CodeImp.DoomBuilder.Data
 			if(string.IsNullOrEmpty(path)) return null;
 			ImageData image;
 			if(materialimages.TryGetValue(path, out image)) return image;
-			for(int i = containers.Count - 1; i >= 0; i--)
+			string filename;
+			int i = FindMaterialImage(path, out filename);
+			if(i >= 0)
 			{
 				var reader = containers[i] as PK3StructuredReader;
-				string filename = reader == null ? path : reader.FindMaterialFile(path, false);
-				if(filename == null || !containers[i].FileExists(filename)) continue;
 				image = reader == null ? new MaterialLumpImage(containers[i], filename) : reader.CreateMaterialImage(filename);
 				image.AllowUnload = false;
 				image.UsedInMap = true;
