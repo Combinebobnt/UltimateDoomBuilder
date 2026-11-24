@@ -22,6 +22,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Actions;
+using CodeImp.DoomBuilder.Controls;
 using Action = CodeImp.DoomBuilder.Actions.Action;
 
 #endregion
@@ -273,6 +274,8 @@ namespace CodeImp.DoomBuilder.Windows
 			base.OnLoad(e);
 
 			if(this.DesignMode) return;
+
+			MixedCheckGlyph.AttachTree(this);
 
 			GeomDebug("OnLoad:entry");
 			if(GeomDebugEnabled)
