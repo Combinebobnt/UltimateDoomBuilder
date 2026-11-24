@@ -14,6 +14,8 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		internal ImageData[] Textures;
 		internal UserShaderProgram Program;
 		internal MaterialModel Model;
+		// The built-in program for Model, used when Program is missing or doesn't compile
+		internal UserShaderProgram LayeredProgram;
 		internal ImageData Normal, Specular, Metallic, Roughness, Ao;
 
 		// The layer images the model samples, in texture unit order after the brightmap

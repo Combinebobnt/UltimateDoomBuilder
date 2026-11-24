@@ -263,22 +263,24 @@ functions
 		return color;
 	}
 
-	vec3 getOneDynLightContribution(vec3 PosW, vec3 Normal, vec3 light, vec4 lColor, vec4 lPosAndRadius, vec4 lOrientation, vec2 l2Radius, vec2 lStrengthAndLinearity)
+	// One light's strength at a pixel, 0 when it doesn't reach. The facing test uses the surface's geometric
+	// normal and the attenuated light's N.L the shading normal, which only a normal map makes different.
+	float dynLightPower(vec3 PosW, vec3 geomNormal, vec3 shadeNormal, vec4 lColor, vec4 lPosAndRadius, vec4 lOrientation, vec2 l2Radius, vec2 lStrengthAndLinearity)
 	{
 
 		//is face facing away from light source?
 		//      update 01.02.2017: offset the equation by 3px back to try to emulate GZDoom's broken visibility check.
-		float diffuseContribution = dot(Normal, normalize(lPosAndRadius.xyz - PosW + Normal * 3.0));
-		if (diffuseContribution < 0.0 && (ignoreNormals == 0 || (lColor.a > 0.979 && lColor.a < 0.981))) // attenuated light and facing away
-			return light;
-		
-		diffuseContribution = max(diffuseContribution, 0.0); // to make sure
+		float facing = dot(geomNormal, normalize(lPosAndRadius.xyz - PosW + geomNormal * 3.0));
+		if (facing < 0.0 && (ignoreNormals == 0 || (lColor.a > 0.979 && lColor.a < 0.981))) // attenuated light and facing away
+			return 0.0;
+
+		float diffuseContribution = max(dot(shadeNormal, normalize(lPosAndRadius.xyz - PosW + shadeNormal * 3.0)), 0.0);
 
 		//is pixel in light range?
 		float dist = distance(PosW, lPosAndRadius.xyz);
 
 		if (dist > lPosAndRadius.w)
-			return light;
+			return 0.0;
 
 		float power = 1.0;
 
@@ -305,11 +307,17 @@ functions
 		// for w/e reason GZDoom also does this
 		power *= lColor.a;
 
+		return power;
+	}
+
+	vec3 getOneDynLightContribution(vec3 PosW, vec3 Normal, vec3 light, vec4 lColor, vec4 lPosAndRadius, vec4 lOrientation, vec2 l2Radius, vec2 lStrengthAndLinearity)
+	{
+		float power = dynLightPower(PosW, Normal, Normal, lColor, lPosAndRadius, lOrientation, l2Radius, lStrengthAndLinearity);
+
 		if (lColor.a >= 1)
 			return light.rgb - lColor.rgb * power;
 
 		return light.rgb + lColor.rgb * power;
-
 	}
 
 	vec4 getDynLightContribution(vec4 tcolor, vec4 baselight, vec3 PosW, vec3 Normal)

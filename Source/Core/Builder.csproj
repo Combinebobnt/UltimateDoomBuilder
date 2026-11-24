@@ -839,6 +839,9 @@
     <None Include="Resources\ColorPick.png" />
     <EmbeddedResource Include="Resources\world3d.shader" />
     <EmbeddedResource Include="Resources\usershader_prelude.glsl" />
+    <EmbeddedResource Include="Resources\usershader_material.glsl" />
+    <EmbeddedResource Include="Resources\material_func_spec.glsl" />
+    <EmbeddedResource Include="Resources\material_func_pbr.glsl" />
     <EmbeddedResource Include="Resources\warp1_uzdoom.glsl" />
     <EmbeddedResource Include="Resources\warp2_uzdoom.glsl" />
     <EmbeddedResource Include="Resources\warp1_zandronum.glsl" />

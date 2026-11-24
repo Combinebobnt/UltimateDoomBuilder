@@ -93,6 +93,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			DeclareUniform(UniformName.lightoverride, "lightoverride", UniformType.Vec4f);
 			DeclareUniform(UniformName.vertexColorAdd, "vertexColorAdd", UniformType.Vec4f);
 			DeclareUniform(UniformName.lightparams, "lightparams", UniformType.Vec4f);
+			DeclareUniform(UniformName.specularMaterial, "specularMaterial", UniformType.Vec2f);
 
             // 2d fsaa
             CompileShader(ShaderName.display2d_fsaa, "display2d.shader", "display2d_fsaa");
@@ -855,7 +856,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		lightmodel,
 		lightoverride,
 		vertexColorAdd,
-		lightparams
+		lightparams,
+		specularMaterial
     }
 
     public enum VertexFormat : int { Flat, World }

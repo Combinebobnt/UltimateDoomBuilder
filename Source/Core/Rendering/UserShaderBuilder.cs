@@ -35,9 +35,10 @@ namespace CodeImp.DoomBuilder.Rendering
 			return GldefsMaterial.IsGZDoom(engine) ? UserShaderDialect.UZDoom : UserShaderDialect.None;
 		}
 
-		internal static string Key(GldefsMaterial material, UserShaderDialect dialect)
+		internal static string Key(GldefsMaterial material, UserShaderDialect dialect, MaterialModel model = MaterialModel.Default)
 		{
 			var key = new StringBuilder(material.Shader.Replace('\\', '/').ToLowerInvariant() + "\n" + dialect + "\n");
+			if(model != MaterialModel.Default) key.Append(model).Append('\n');
 			foreach(string define in material.Defines) key.Append("#define ").Append(define).Append('\n');
 			for(int i = 0; i < material.Textures.Count; i++) key.Append("#define ").Append(material.Textures[i].Key).Append(" texture").Append(i + 4).Append('\n');
 			return key.ToString();
@@ -75,8 +76,23 @@ namespace CodeImp.DoomBuilder.Rendering
 			return program;
 		}
 
-		internal static UserShaderProgram Build(GldefsMaterial material, UserShaderDialect dialect, string source)
+		internal static string LayeredKey(MaterialModel model)
 		{
+			return "builtin:" + model.ToString().ToLowerInvariant();
+		}
+
+		// The program a layered material uses when it has no user shader of its type: UZDoom's func_spec/func_pbr
+		internal static UserShaderProgram BuildLayered(MaterialModel model)
+		{
+			if(model == MaterialModel.Default) throw new ArgumentOutOfRangeException("model");
+			string source = Resource(model == MaterialModel.Specular ? "material_func_spec.glsl" : "material_func_pbr.glsl");
+			return Build(new GldefsMaterial { Shader = LayeredKey(model) }, UserShaderDialect.UZDoom, source, model);
+		}
+
+		internal static UserShaderProgram Build(GldefsMaterial material, UserShaderDialect dialect, string source, MaterialModel model = MaterialModel.Default)
+		{
+			// Only UZDoom has layered light models
+			bool layered = dialect == UserShaderDialect.UZDoom && model != MaterialModel.Default;
 			var shader = ShaderCompiler.Compile(Resource("world3d.shader")).GetShader("world3d_main_fog");
 			string shared = shader.GetSharedSource();
 			string vertex = @"
@@ -103,6 +119,7 @@ void main()
 }
 ";
 			var fragment = new StringBuilder(shared);
+			if(layered) fragment.AppendLine(model == MaterialModel.Specular ? "#define SPECULAR" : "#define PBR").AppendLine("#define NORMALMAP");
 			fragment.Append(Resource("usershader_prelude.glsl"));
 			if(dialect == UserShaderDialect.Zandronum) fragment.AppendLine("#define DOOMLIGHTFACTOR 232.0");
 			foreach(string define in material.Defines) fragment.Append("#define ").AppendLine(define);
@@ -121,6 +138,8 @@ void main()
 				}
 				if(!source.Contains("ProcessLight")) fragment.AppendLine("vec4 ProcessLight(Material material, vec4 color) { return color; }");
 			}
+			// After the user source, as UZDoom appends its light model last
+			if(layered) fragment.Append(Resource("usershader_material.glsl"));
 			fragment.AppendLine("void main() {");
 			fragment.AppendLine("vec4 baseLight = useVertexColorUniform > 0.0 ? sectorLight(vertexColor, lightoverride, PosW) : sectorLight(Color, vSectorLight, PosW);");
 			fragment.AppendLine("udbVColor = baseLight;");
@@ -137,7 +156,8 @@ void main()
 				fragment.AppendLine("Material material; material.Base = vec4(0.0); material.Bright = vec4(0.0); material.Glow = vec4(0.0); material.Normal = vec3(0.0); material.Specular = vec3(0.0); material.Glossiness = 0.0; material.SpecularLevel = 0.0; material.Metallic = 0.0; material.Roughness = 0.0; material.AO = 0.0;");
 				fragment.AppendLine("#ifdef LEGACY_USER_SHADER\nmaterial = ProcessMaterial();\n#else\nSetupMaterial(material);\n#endif");
 				fragment.AppendLine("baseLight.rgb = min(baseLight.rgb + desaturate(material.Bright).rgb, vec3(1.0));");
-				fragment.AppendLine("vec4 frag = getDynLightContribution(material.Base, ProcessLight(material, baseLight), PosW, Normal); frag.rgb += material.Glow.rgb;");
+				if(layered) fragment.AppendLine("vec4 frag = vec4(ProcessMaterialLight(material, ProcessLight(material, baseLight).rgb), material.Base.a * baseLight.a); frag.rgb += material.Glow.rgb;");
+				else fragment.AppendLine("vec4 frag = getDynLightContribution(material.Base, ProcessLight(material, baseLight), PosW, Normal); frag.rgb += material.Glow.rgb;");
 			}
 			fragment.AppendLine(@"
 frag = mix(frag, vec4(stencilColor.rgb, frag.a), stencilColor.a);

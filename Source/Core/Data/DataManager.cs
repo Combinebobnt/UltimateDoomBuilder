@@ -2892,10 +2892,15 @@ namespace CodeImp.DoomBuilder.Data
 					DeclareMaterialProgram(UserShaderBuilder.WarpKey(style, warpdialect), UserShaderBuilder.BuildWarp(style, warpdialect));
 			UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName);
 			if(dialect == UserShaderDialect.None) return;
+			// Both, since a missing layer image can turn a texture's model into the other one
+			if(materials.Values.Any(material => MaterialModels.Select(material, dialect) != MaterialModel.Default))
+				foreach(MaterialModel model in new[] { MaterialModel.Specular, MaterialModel.Pbr })
+					DeclareMaterialProgram(UserShaderBuilder.LayeredKey(model), UserShaderBuilder.BuildLayered(model));
 			foreach(GldefsMaterial material in materials.Values)
 			{
 				if(string.IsNullOrEmpty(material.Shader)) continue;
-				string key = UserShaderBuilder.Key(material, dialect);
+				MaterialModel shadermodel = MaterialModels.DeclaredShaderModel(material, dialect);
+				string key = UserShaderBuilder.Key(material, dialect, shadermodel);
 				if(materialprograms.ContainsKey(key)) continue;
 				TextResourceData data = GetTextResourceData(material.Shader);
 				if(data == null || data.Stream == null)
@@ -2906,7 +2911,7 @@ namespace CodeImp.DoomBuilder.Data
 				}
 				string source;
 				using(var reader = new StreamReader(data.Stream)) source = reader.ReadToEnd();
-				UserShaderProgram program = UserShaderBuilder.Build(material, dialect, source);
+				UserShaderProgram program = UserShaderBuilder.Build(material, dialect, source, shadermodel);
 				DeclareMaterialProgram(key, program);
 			}
 		}
@@ -3005,8 +3010,9 @@ namespace CodeImp.DoomBuilder.Data
 				}
 				UserShaderProgram program = null;
 				if(!string.IsNullOrEmpty(definition.Shader) && MaterialModels.ShaderApplies(definition, resolved.Model, dialect))
-					materialprograms.TryGetValue(UserShaderBuilder.Key(definition, dialect), out program);
+					materialprograms.TryGetValue(UserShaderBuilder.Key(definition, dialect, resolved.Model), out program);
 				resolved.Program = program;
+				if(resolved.Model != MaterialModel.Default) materialprograms.TryGetValue(UserShaderBuilder.LayeredKey(resolved.Model), out resolved.LayeredProgram);
 			}
 			cache[image] = resolved;
 			return resolved;

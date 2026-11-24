@@ -150,6 +150,131 @@ namespace Builder.Tests
 			Assert.True(program.FragmentSource.IndexOf("udbVColor = baseLight;") > baselight);
 		}
 
+		// The lines a GLSL preprocessor keeps, for #if/#ifdef on defined() of names #defined earlier; any other
+		// condition keeps both branches, so a check on what is absent stays conservative
+		private static string ActiveSource(string source)
+		{
+			var defines = new HashSet<string>();
+			var stack = new Stack<(bool parent, bool active, bool taken)>();
+			bool active = true;
+			var output = new System.Text.StringBuilder();
+			foreach(string raw in source.Split('\n'))
+			{
+				string line = raw.Trim();
+				var cond = System.Text.RegularExpressions.Regex.Match(line, @"^#\s*(if|elif|ifdef|ifndef)\s+(?:defined\s*\(\s*(\w+)\s*\)|(\w+))\s*$");
+				if(line.StartsWith("#if") || line.StartsWith("#elif"))
+				{
+					bool known = cond.Success && (cond.Groups[1].Value != "if" && cond.Groups[1].Value != "elif" || cond.Groups[2].Success);
+					string name = cond.Success ? (cond.Groups[2].Success ? cond.Groups[2].Value : cond.Groups[3].Value) : null;
+					bool value = !known || (cond.Groups[1].Value == "ifndef" ? !defines.Contains(name) : defines.Contains(name));
+					if(line.StartsWith("#elif"))
+					{
+						var top = stack.Pop();
+						bool now = top.parent && !top.taken && value;
+						stack.Push((top.parent, now, top.taken || (known && now)));
+						active = top.parent && (!known || now);
+					}
+					else
+					{
+						bool now = active && value;
+						stack.Push((active, now, known && now));
+						active = now;
+					}
+					continue;
+				}
+				if(line.StartsWith("#else"))
+				{
+					var top = stack.Pop();
+					stack.Push((top.parent, top.parent && !top.taken, true));
+					active = top.parent && !top.taken;
+					continue;
+				}
+				if(line.StartsWith("#endif"))
+				{
+					active = stack.Pop().parent;
+					continue;
+				}
+				if(!active) continue;
+				var define = System.Text.RegularExpressions.Regex.Match(line, @"^#\s*define\s+(\w+)");
+				if(define.Success) defines.Add(define.Groups[1].Value);
+				output.Append(raw).Append('\n');
+			}
+			return output.ToString();
+		}
+
+		private static UserShaderProgram BuildModel(MaterialModel model, UserShaderDialect dialect = UserShaderDialect.UZDoom)
+		{
+			return UserShaderBuilder.Build(new GldefsMaterial { Shader = "shaders/test.fp" }, dialect, "void SetupMaterial(inout Material m) { SetMaterialProps(m, vTexCoord.st); }", model);
+		}
+
+		[Theory]
+		[InlineData(0, 2)]
+		[InlineData(1, 1)]
+		[InlineData(2, 1)]
+		public void DefaultModelProgramsGainNoLayerCode(int model, int dialect)
+		{
+			string active = ActiveSource(BuildModel((MaterialModel)model, (UserShaderDialect)dialect).FragmentSource);
+			foreach(string name in new[] { "SPECULAR", "PBR", "NORMALMAP" })
+				Assert.DoesNotContain("#define " + name + "\n", active);
+			foreach(string name in new[] { "texture11", "texture12", "texture13", "texture14", "specularMaterial", "ProcessMaterialLight", "dFdx" })
+				Assert.DoesNotContain(name, active);
+			Assert.Contains("getDynLightContribution(", active);
+		}
+
+		[Theory]
+		[InlineData(1, "#define speculartexture texture12")]
+		[InlineData(2, "#define metallictexture texture12\n#define roughnesstexture texture13\n#define aotexture texture14")]
+		public void LayeredModelsDefineTheirModelAndSamplers(int model, string samplers)
+		{
+			string active = ActiveSource(BuildModel((MaterialModel)model).FragmentSource);
+			Assert.Contains(model == 1 ? "#define SPECULAR\n" : "#define PBR\n", active);
+			Assert.DoesNotContain(model == 1 ? "#define PBR\n" : "#define SPECULAR\n", active);
+			Assert.Contains("#define NORMALMAP\n", active);
+			Assert.Contains("#define normaltexture texture11\n", active);
+			Assert.Contains(samplers + "\n", active);
+			Assert.Contains("uniform vec2 specularMaterial;", active);
+			Assert.Contains("vec4 frag = vec4(ProcessMaterialLight(material, ProcessLight(material, baseLight).rgb)", active);
+			Assert.DoesNotContain("getDynLightContribution(material.Base", active);
+		}
+
+		[Fact]
+		public void PbrDropsAdditiveLightsAndSpecularKeepsThem()
+		{
+			string pbr = ActiveSource(UserShaderBuilder.BuildLayered(MaterialModel.Pbr).FragmentSource);
+			string spec = ActiveSource(UserShaderBuilder.BuildLayered(MaterialModel.Specular).FragmentSource);
+			Assert.Contains("if (lightColor[i].a < 0.4) continue;", pbr);
+			Assert.DoesNotContain("addlight", pbr.Substring(pbr.IndexOf("vec3 ProcessMaterialLight")));
+			Assert.Contains("addlight += lightColor[i].rgb * attenuation;", spec);
+		}
+
+		[Fact]
+		public void ModelKeysAndBuiltInLayeredPrograms()
+		{
+			var material = new GldefsMaterial { Shader = "shaders/test.fp" };
+			var keys = new[] { MaterialModel.Default, MaterialModel.Specular, MaterialModel.Pbr }.Select(model => UserShaderBuilder.Key(material, UserShaderDialect.UZDoom, model)).ToArray();
+			Assert.Equal(3, keys.Distinct().Count());
+			Assert.Equal(UserShaderBuilder.Key(material, UserShaderDialect.UZDoom), keys[0]);
+			Assert.NotEqual(UserShaderBuilder.LayeredKey(MaterialModel.Specular), UserShaderBuilder.LayeredKey(MaterialModel.Pbr));
+			var first = UserShaderBuilder.BuildLayered(MaterialModel.Specular);
+			Assert.Equal(UserShaderBuilder.LayeredKey(MaterialModel.Specular), first.Path);
+			Assert.Equal(first.FragmentSource, UserShaderBuilder.BuildLayered(MaterialModel.Specular).FragmentSource);
+			Assert.Contains("material.Specular = texture(speculartexture", first.FragmentSource);
+			Assert.Contains("material.AO = texture(aotexture", UserShaderBuilder.BuildLayered(MaterialModel.Pbr).FragmentSource);
+		}
+
+		[Fact]
+		public void ShaderModelIsDefaultOutsideUZDoom()
+		{
+			var typed = new GldefsMaterial { Shader = "s", ShaderModel = MaterialModel.Specular };
+			var layers = new GldefsMaterial { Shader = "s" };
+			layers.Layers["normal"] = "n";
+			layers.Layers["specular"] = "s";
+			Assert.Equal(MaterialModel.Specular, MaterialModels.DeclaredShaderModel(typed, UserShaderDialect.UZDoom));
+			Assert.Equal(MaterialModel.Specular, MaterialModels.DeclaredShaderModel(layers, UserShaderDialect.UZDoom));
+			Assert.Equal(MaterialModel.Default, MaterialModels.DeclaredShaderModel(typed, UserShaderDialect.Zandronum));
+			Assert.Equal(MaterialModel.Default, MaterialModels.DeclaredShaderModel(layers, UserShaderDialect.Zandronum));
+		}
+
 		[Fact]
 		public void ProgramKeySharesCodeButNotDefinesOrSamplerLayout()
 		{

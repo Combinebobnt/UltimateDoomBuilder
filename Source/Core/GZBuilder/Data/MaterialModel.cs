@@ -28,6 +28,14 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 			return dialect != UserShaderDialect.UZDoom || (material.ShaderModel ?? model) == model;
 		}
 
+		// The model a shader's program is built for. A material block's shader takes the model of its layers,
+		// approximated by the merged layer paths; UZDoom uses the layers known when the block is parsed.
+		internal static MaterialModel DeclaredShaderModel(GldefsMaterial material, UserShaderDialect dialect)
+		{
+			if(dialect != UserShaderDialect.UZDoom) return MaterialModel.Default;
+			return material.ShaderModel ?? Select(material, dialect);
+		}
+
 		// A HardwareShader block's "material" keyword; null for an unknown type
 		internal static MaterialModel? FromShaderType(string type)
 		{
