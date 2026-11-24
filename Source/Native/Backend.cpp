@@ -249,6 +249,11 @@ extern "C"
 		return device->SetPixels(texture, data);
 	}
 
+	bool RenderDevice_SetPixelsRect(RenderDevice* device, Texture* texture, int x, int y, int width, int height, const void* data)
+	{
+		return device->SetPixelsRect(texture, x, y, width, height, data);
+	}
+
 	bool RenderDevice_SetCubePixels(RenderDevice* device, Texture* texture, CubeMapFace face, const void* data)
 	{
 		return device->SetCubePixels(texture, face, data);

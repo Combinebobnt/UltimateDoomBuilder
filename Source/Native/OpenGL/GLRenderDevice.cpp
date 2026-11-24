@@ -698,6 +698,14 @@ bool GLRenderDevice::SetPixels(Texture* itexture, const void* data)
 	return CheckGLError();
 }
 
+bool GLRenderDevice::SetPixelsRect(Texture* itexture, int x, int y, int width, int height, const void* data)
+{
+	CheckContext();
+	GLTexture* texture = static_cast<GLTexture*>(itexture);
+	if (!texture->SetPixelsRect(this, x, y, width, height, data)) return false;
+	return CheckGLError();
+}
+
 bool GLRenderDevice::SetCubePixels(Texture* itexture, CubeMapFace face, const void* data)
 {
 	GLTexture* texture = static_cast<GLTexture*>(itexture);

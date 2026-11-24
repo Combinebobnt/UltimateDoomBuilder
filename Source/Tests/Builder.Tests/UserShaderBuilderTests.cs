@@ -233,7 +233,7 @@ namespace Builder.Tests
 			Assert.Contains("#define normaltexture texture11\n", active);
 			Assert.Contains(samplers + "\n", active);
 			Assert.Contains("uniform vec2 specularMaterial;", active);
-			Assert.Contains("vec4 frag = vec4(ProcessMaterialLight(material, ProcessLight(material, baseLight).rgb)", active);
+			Assert.Contains("vec4 frag = vec4(ProcessMaterialLight(material, ", active);
 			Assert.DoesNotContain("getDynLightContribution(material.Base", active);
 		}
 

@@ -35,6 +35,10 @@ uniforms
 	sampler2D texture3;
 	float brightmapEnabled;
 
+	// Baked lightmap atlas, its layers stacked vertically; lightmapinfo x 1 when drawn, y the layer count
+	sampler2D texture15;
+	vec4 lightmapinfo;
+
 	// classic lighting related
 	int drawPaletted;
 	ivec2 colormapSize;
@@ -320,7 +324,8 @@ functions
 		return light.rgb + lColor.rgb * power;
 	}
 
-	vec4 getDynLightContribution(vec4 tcolor, vec4 baselight, vec3 PosW, vec3 Normal)
+	// maxlight > 0 clamps the sum of base and dynamic light to it, as the engine does where a lightmap is drawn
+	vec4 getDynLightContribution(vec4 tcolor, vec4 baselight, vec3 PosW, vec3 Normal, float maxlight)
 	{
 		vec3 light = vec3(0, 0, 0);
 		vec3 addlight = vec3(0, 0, 0);
@@ -337,7 +342,31 @@ functions
 			}
 		}
 
-		return vec4(tcolor.rgb*(baselight.rgb+desaturatePart(vec4(light, 1.0)).rgb)+desaturatePart(vec4(addlight, 1.0)).rgb, tcolor.a*baselight.a);
+		vec3 total = baselight.rgb + desaturatePart(vec4(light, 1.0)).rgb;
+		if (maxlight > 0.0) total = clamp(total, 0.0, maxlight);
+		return vec4(tcolor.rgb*total+desaturatePart(vec4(addlight, 1.0)).rgb, tcolor.a*baselight.a);
+	}
+
+	// Lightmap: u and v within the layer, and the layer + 1 (0 for none)
+	bool hasLightmap(vec3 lm)
+	{
+		return lightmapinfo.x > 0.0 && lm.z > 0.5;
+	}
+
+	// The baked light adds to the sector light after glow and brightmap, before dynamic lights
+	vec4 addLightmap(vec4 baselight, vec3 lm)
+	{
+		if (hasLightmap(lm))
+		{
+			float layer = floor(lm.z + 0.5) - 1.0;
+			baselight.rgb += desaturatePart(vec4(texture(texture15, vec2(lm.x, (layer + lm.y) / lightmapinfo.y)).rgb, 1.0)).rgb;
+		}
+		return baselight;
+	}
+
+	float lightmapMaxLight(vec3 lm)
+	{
+		return hasLightmap(lm) ? 1.4 : 0.0;
 	}
 
 	// Glow from the ceiling and floor flats, fading over its height (the engine's main.fp arithmetic)
@@ -380,6 +409,7 @@ shader world3d_main
 		vec2 TextureCoordinate;
 		vec3 Normal;
 		vec4 Light;
+		vec3 Lightmap;
 	}
 
 	v2f
@@ -392,6 +422,7 @@ shader world3d_main
 		vec3_flat flatNormal;
 		vec4_flat flatColor;
 		vec4 Light;
+		vec3 Lightmap;
 	}
 
 	out
@@ -410,13 +441,14 @@ shader world3d_main
 		v2f.flatColor = in.Color;
 		v2f.flatNormal = normalize(in.Normal);
 		v2f.Light = in.Light;
+		v2f.Lightmap = in.Lightmap;
 	}
 	
 	fragment
 	{
 		vec4 tcolor = desaturatePart(texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y)));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, addLightmap(getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.Lightmap), v2f.PosW, v2f.Normal, lightmapMaxLight(v2f.Lightmap));
 		out.FragColor = desaturateFinal(tcolor);
 
 		#if defined(ALPHA_TEST)
@@ -450,7 +482,7 @@ shader world3d_main_highlight extends world3d_main
 	{
 		vec4 tcolor = desaturatePart(texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y)));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, addLightmap(getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.Lightmap), v2f.PosW, v2f.Normal, lightmapMaxLight(v2f.Lightmap));
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -522,6 +554,7 @@ shader world3d_main_vertexcolor extends world3d_main
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.Light = lightoverride;
+		v2f.Lightmap = vec3(0.0);
 	}
 }
 
@@ -552,6 +585,7 @@ shader world3d_highlight_vertexcolor extends world3d_main_highlight
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.Light = lightoverride;
+		v2f.Lightmap = vec3(0.0);
 	}
 }
 
@@ -561,7 +595,7 @@ shader world3d_main_fog extends world3d_main
 	{
 		vec4 tcolor = desaturatePart(texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y)));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, addLightmap(getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.Lightmap), v2f.PosW, v2f.Normal, lightmapMaxLight(v2f.Lightmap));
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -585,7 +619,7 @@ shader world3d_main_highlight_fog extends world3d_main_fog
 	{
 		vec4 tcolor = desaturatePart(texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y)));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = vec4(getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal).rgb, tcolor.a);
+		tcolor = vec4(getDynLightContribution(tcolor, addLightmap(getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.Lightmap), v2f.PosW, v2f.Normal, lightmapMaxLight(v2f.Lightmap)).rgb, tcolor.a);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -619,6 +653,7 @@ shader world3d_main_fog_vertexcolor extends world3d_main_fog
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.Light = lightoverride;
+		v2f.Lightmap = vec3(0.0);
 	}
 }
 
@@ -633,6 +668,7 @@ shader world3d_main_highlight_fog_vertexcolor extends world3d_main_highlight_fog
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.Light = lightoverride;
+		v2f.Lightmap = vec3(0.0);
 	}
 }
 

@@ -85,6 +85,29 @@ bool GLTexture::SetPixels(GLRenderDevice* device, const void* data)
 	return true;
 }
 
+// Updates part of level 0 without generating mipmaps, so a large texture can be filled in pieces
+bool GLTexture::SetPixelsRect(GLRenderDevice* device, int x, int y, int width, int height, const void* data)
+{
+	if (IsCubeTexture() || !data || x < 0 || y < 0 || width < 1 || height < 1 || x + width > mWidth || y + height > mHeight) return false;
+	GLint texture = GetTexture(device);
+	if (!texture) return false;
+
+	GLint oldActiveTex = GL_TEXTURE0;
+	glGetIntegerv(GL_ACTIVE_TEXTURE, &oldActiveTex);
+	glActiveTexture(GL_TEXTURE0);
+	GLint oldBinding = 0;
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldBinding);
+
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, mTexture);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, ToDataFormat(mFormat), ToDataType(mFormat), data);
+
+	glBindTexture(GL_TEXTURE_2D, oldBinding);
+	glActiveTexture(oldActiveTex);
+
+	return true;
+}
+
 bool GLTexture::SetCubePixels(GLRenderDevice* device, CubeMapFace face, const void* data)
 {
 	static GLint cubeMapFaceToGL[] =

@@ -26,7 +26,7 @@
 
 enum class CubeMapFace : int { PositiveX, PositiveY, PositiveZ, NegativeX, NegativeY, NegativeZ };
 enum class VertexFormat : int32_t { Flat, World };
-enum class DeclarationUsage : int32_t { Position, Color, TextureCoordinate, Normal, Light };
+enum class DeclarationUsage : int32_t { Position, Color, TextureCoordinate, Normal, Light, Lightmap };
 
 enum class Cull : int { None, Clockwise };
 enum class Blend : int { InverseSourceAlpha, SourceAlpha, One };
@@ -100,6 +100,7 @@ public:
 	virtual bool SetVertexBufferSubdata(VertexBuffer* buffer, int64_t destOffset, void* data, int64_t size) = 0;
 	virtual bool SetIndexBufferData(IndexBuffer* buffer, void* data, int64_t size) = 0;
 	virtual bool SetPixels(Texture* texture, const void* data) = 0;
+	virtual bool SetPixelsRect(Texture* texture, int x, int y, int width, int height, const void* data) = 0;
 	virtual bool SetCubePixels(Texture* texture, CubeMapFace face, const void* data) = 0;
 	virtual void* MapPBO(Texture* texture) = 0;
 	virtual bool UnmapPBO(Texture* texture) = 0;
@@ -111,7 +112,7 @@ public:
 	virtual ~VertexBuffer() = default;
 
 	static const int FlatStride = 24;
-	static const int WorldStride = 40;
+	static const int WorldStride = 52;
 };
 
 class IndexBuffer

@@ -37,6 +37,7 @@ EXPORTS
 	RenderDevice_SetVertexBufferSubdata
 	RenderDevice_SetIndexBufferData
 	RenderDevice_SetPixels
+	RenderDevice_SetPixelsRect
 	RenderDevice_SetCubePixels
 	RenderDevice_MapPBO
 	RenderDevice_UnmapPBO

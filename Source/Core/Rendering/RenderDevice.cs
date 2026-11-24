@@ -94,6 +94,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			DeclareUniform(UniformName.vertexColorAdd, "vertexColorAdd", UniformType.Vec4f);
 			DeclareUniform(UniformName.lightparams, "lightparams", UniformType.Vec4f);
 			DeclareUniform(UniformName.specularMaterial, "specularMaterial", UniformType.Vec2f);
+			DeclareUniform(UniformName.lightmapinfo, "lightmapinfo", UniformType.Vec4f);
 
             // 2d fsaa
             CompileShader(ShaderName.display2d_fsaa, "display2d.shader", "display2d_fsaa");
@@ -584,6 +585,22 @@ namespace CodeImp.DoomBuilder.Rendering
             ThrowIfFailed(RenderDevice_SetPixels(Handle, texture.Handle, new IntPtr(pixeldata)));
         }
 
+        // Fills a rectangle of a float-format texture (Rgba16f, Rgba32f) with RGBA floats, without mipmaps
+        public void SetPixelsRect(Texture texture, int x, int y, int width, int height, float[] rgba)
+        {
+            if (rgba == null || rgba.LongLength < (long)width * height * 4) throw new ArgumentException("rgba is smaller than the rectangle");
+            if (texture.Format != TextureFormat.Rgba16f && texture.Format != TextureFormat.Rgba32f) throw new ArgumentException("not an RGBA float texture");
+            GCHandle pin = GCHandle.Alloc(rgba, GCHandleType.Pinned);
+            try
+            {
+                ThrowIfFailed(RenderDevice_SetPixelsRect(Handle, texture.Handle, x, y, width, height, pin.AddrOfPinnedObject()));
+            }
+            finally
+            {
+                pin.Free();
+            }
+        }
+
         public unsafe void* MapPBO(Texture texture)
         {
             void* ptr = RenderDevice_MapPBO(Handle, texture.Handle).ToPointer();
@@ -768,6 +785,9 @@ namespace CodeImp.DoomBuilder.Rendering
         protected static extern IntPtr RenderDevice_MapPBO(IntPtr handle, IntPtr texture);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
+        protected static extern bool RenderDevice_SetPixelsRect(IntPtr handle, IntPtr texture, int x, int y, int width, int height, IntPtr data);
+
+        [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
         protected static extern bool RenderDevice_UnmapPBO(IntPtr handle, IntPtr texture);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
@@ -899,7 +919,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		lightoverride,
 		vertexColorAdd,
 		lightparams,
-		specularMaterial
+		specularMaterial,
+		lightmapinfo
     }
 
     public enum VertexFormat : int { Flat, World }

@@ -69,6 +69,11 @@ namespace CodeImp.DoomBuilder.Rendering
 
 		// The map's light model, resolved once per frame
 		private LightModelSettings lightsettings;
+
+		// Baked lightmap atlas for the preview it was uploaded from; kept while the preview is hidden so it comes back without an upload
+		private Texture lightmapatlas;
+		private LightmapPreview lightmapatlassource;
+		private bool lightmapdrawn; // this frame
 		
 		// Slope handle
 		private VisualSlopeHandle visualslopehandle;
@@ -188,6 +193,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				// Clean up
 				vertexhandle?.Dispose(); //mxd
 				visualslopehandle?.Dispose();
+				DisposeLightmapAtlas();
 
 				// Done
 				base.Dispose();
@@ -203,6 +209,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		public override void UnloadResource()
 		{
 			crosshairverts = null;
+			DisposeLightmapAtlas();
 		}
 		
 		// This is called resets when the device is reset
@@ -452,6 +459,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		public void FinishGeometry()
 		{
 			FrameTiming.Lap(FrameBucket.Gather);
+			BindLightmap();
 			//mxd. Sort lights
 			if(General.Settings.GZDrawLightsMode != LightRenderMode.NONE && !fullbrightness && lightthings.Count > 0)
 				UpdateLights();
@@ -894,7 +902,62 @@ namespace CodeImp.DoomBuilder.Rendering
 		private void UnbindMaterials()
 		{
 			graphics.SetUniform(UniformName.brightmapEnabled, false);
-			for(int unit = 2; unit < RenderDevice.MaxTextureUnits; unit++) graphics.SetTexture(null, unit);
+			for(int unit = 2; unit < RenderDevice.MaxTextureUnits; unit++)
+				if(unit != LightmapUnit) graphics.SetTexture(null, unit);
+		}
+
+		// The baked lightmap atlas (texture15), after the material layer units
+		private const int LightmapUnit = FirstLayerUnit + LayerUnits;
+
+		// Binds the current lightmap preview's atlas, uploading it when the preview changed; sets lightmapdrawn
+		private void BindLightmap()
+		{
+			LightmapPreview preview = General.Map != null ? General.Map.LightmapPreview : null;
+			if(preview != null && preview != lightmapatlassource)
+			{
+				DisposeLightmapAtlas();
+				lightmapatlas = CreateLightmapAtlas(preview);
+				lightmapatlassource = preview;
+			}
+
+			lightmapdrawn = preview != null && lightmapatlas != null && !fullbrightness && !General.Settings.ClassicRendering;
+			graphics.SetTexture(lightmapdrawn ? lightmapatlas : null, LightmapUnit);
+			if(lightmapdrawn)
+			{
+				graphics.SetSamplerFilter(TextureFilter.Linear, TextureFilter.Linear, MipmapFilter.None, 0f, LightmapUnit);
+				graphics.SetSamplerState(TextureAddress.Clamp, LightmapUnit);
+			}
+			graphics.SetUniform(UniformName.lightmapinfo, new Vector4f(lightmapdrawn ? 1f : 0f, lightmapdrawn ? preview.LayerCount : 1f, 0f, 0f));
+		}
+
+		// The layers stacked vertically in one texture (LightmapData caps its height), one upload per layer; null on failure
+		private Texture CreateLightmapAtlas(LightmapPreview preview)
+		{
+			int size = preview.TextureSize, layers = preview.LayerCount;
+			if(size < 1 || layers < 1) return null;
+
+			long start = Clock.CurrentTime;
+			Texture atlas = new Texture(size, size * layers, TextureFormat.Rgba16f);
+			try
+			{
+				for(int i = 0; i < layers; i++) graphics.SetPixelsRect(atlas, 0, i * size, size, size, preview.GetLayerRgba(i));
+			}
+			catch(Exception e)
+			{
+				atlas.Dispose();
+				General.ErrorLogger.Add(ErrorType.Warning, "Lightmap preview: the lightmap could not be uploaded (" + e.Message + ").");
+				return null;
+			}
+			General.WriteLogLine("Lightmap preview: uploaded " + layers + " layer" + (layers == 1 ? "" : "s") + " of " + size + "x" + size + " in " + (Clock.CurrentTime - start) + " ms");
+			return atlas;
+		}
+
+		private void DisposeLightmapAtlas()
+		{
+			if(lightmapatlas != null) lightmapatlas.Dispose();
+			lightmapatlas = null;
+			lightmapatlassource = null;
+			lightmapdrawn = false;
 		}
 
 		// This performs a single render pass

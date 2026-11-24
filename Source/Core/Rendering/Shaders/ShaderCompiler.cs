@@ -150,6 +150,9 @@ namespace CodeImp.DoomBuilder.Rendering.Shaders
                         case "Light":
                             location = 4;
                             break;
+                        case "Lightmap":
+                            location = 5;
+                            break;
                         default:
                             throw new ShaderCompileException("Invalid input field {0} (not supported)", field.Name);
                     }

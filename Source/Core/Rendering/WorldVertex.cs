@@ -28,7 +28,7 @@ namespace CodeImp.DoomBuilder.Rendering
     public struct WorldVertex
 	{
 		// Vertex format
-		public const int Stride = 40; //mxd: 9 * 4, was 6 * 4; plus the 4-byte light
+		public const int Stride = 52; //mxd: 9 * 4, was 6 * 4; plus the 4-byte light and 3 lightmap floats
 
 		// Members
 		public float x;
@@ -49,6 +49,11 @@ namespace CodeImp.DoomBuilder.Rendering
 		public byte foglight;
 		public byte lit;
 
+		// Baked lightmap: atlas u and v within the layer, and the layer + 1 (0: no lightmap)
+		public float lu;
+		public float lv;
+		public float lw;
+
 		// Constructor
 		public WorldVertex(float x, float y, float z, int c, float u, float v)
 		{
@@ -65,6 +70,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nz = 0.0f;
 
 			this.light = this.shaded = this.foglight = this.lit = 0;
+			this.lu = this.lv = this.lw = 0.0f;
 		}
 
 		// Constructor
@@ -115,6 +121,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nz = 0.0f;
 
 			this.light = this.shaded = this.foglight = this.lit = 0;
+			this.lu = this.lv = this.lw = 0.0f;
 		}
 
 		// Constructor with a packed light (LightModel.PackLight)
@@ -130,6 +137,14 @@ namespace CodeImp.DoomBuilder.Rendering
 			shaded = (byte)(packed >> 8);
 			foglight = (byte)(packed >> 16);
 			lit = (byte)(packed >> 24);
+		}
+
+		// Sets the lightmap attribute; layer is the atlas layer, or -1 for no lightmap
+		public void SetLightmap(float u, float v, int layer)
+		{
+			lu = u;
+			lv = v;
+			lw = layer + 1;
 		}
 
 		// The packed light, as SetLight takes it
@@ -247,6 +262,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nz = 0.0f;
 
 			this.light = this.shaded = this.foglight = this.lit = 0;
+			this.lu = this.lv = this.lw = 0.0f;
 		}
 
 		// Constructor
@@ -265,6 +281,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nz = 0.0f;
 
 			this.light = this.shaded = this.foglight = this.lit = 0;
+			this.lu = this.lv = this.lw = 0.0f;
 		}
 	}
 }

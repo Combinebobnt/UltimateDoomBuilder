@@ -76,6 +76,7 @@ public:
 	bool SetIndexBufferData(IndexBuffer* buffer, void* data, int64_t size) override;
 
 	bool SetPixels(Texture* texture, const void* data) override;
+	bool SetPixelsRect(Texture* texture, int x, int y, int width, int height, const void* data) override;
 	bool SetCubePixels(Texture* texture, CubeMapFace face, const void* data) override;
 	void* MapPBO(Texture* texture) override;
 	bool UnmapPBO(Texture* texture) override;

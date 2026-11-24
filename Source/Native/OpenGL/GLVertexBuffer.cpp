@@ -64,11 +64,13 @@ void GLSharedVertexBuffer::SetupWorldVAO()
 	glEnableVertexAttribArray((int)DeclarationUsage::TextureCoordinate);
 	glEnableVertexAttribArray((int)DeclarationUsage::Normal);
 	glEnableVertexAttribArray((int)DeclarationUsage::Light);
+	glEnableVertexAttribArray((int)DeclarationUsage::Lightmap);
 	glVertexAttribPointer((int)DeclarationUsage::Position, 3, GL_FLOAT, GL_FALSE, VertexBuffer::WorldStride, (const void*)0);
 	glVertexAttribPointer((int)DeclarationUsage::Color, GL_BGRA, GL_UNSIGNED_BYTE, GL_TRUE, VertexBuffer::WorldStride, (const void*)12);
 	glVertexAttribPointer((int)DeclarationUsage::TextureCoordinate, 2, GL_FLOAT, GL_FALSE, VertexBuffer::WorldStride, (const void*)16);
 	glVertexAttribPointer((int)DeclarationUsage::Normal, 3, GL_FLOAT, GL_FALSE, VertexBuffer::WorldStride, (const void*)24);
 	glVertexAttribPointer((int)DeclarationUsage::Light, 4, GL_UNSIGNED_BYTE, GL_TRUE, VertexBuffer::WorldStride, (const void*)36);
+	glVertexAttribPointer((int)DeclarationUsage::Lightmap, 3, GL_FLOAT, GL_FALSE, VertexBuffer::WorldStride, (const void*)40);
 }
 
 /////////////////////////////////////////////////////////////////////////////

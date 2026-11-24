@@ -38,6 +38,7 @@ public:
 	void SetCubeImage(int size, PixelFormat format) override;
 
 	bool SetPixels(GLRenderDevice* device, const void* data);
+	bool SetPixelsRect(GLRenderDevice* device, int x, int y, int width, int height, const void* data);
 	bool SetCubePixels(GLRenderDevice* device, CubeMapFace face, const void* data);
 
 	bool IsCubeTexture() const { return mCubeTexture; }
