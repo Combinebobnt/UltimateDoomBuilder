@@ -423,6 +423,7 @@
     <Compile Include="FindReplace\FindVertexNumber.cs" />
     <Compile Include="General\HintLabel.cs" />
     <Compile Include="General\BuilderModesTools.cs" />
+    <Compile Include="General\DrawingSymmetry.cs" />
     <Compile Include="General\ExtrudePath.cs" />
     <Compile Include="General\CameraFall.cs" />
     <Compile Include="General\SelectionLabel.cs" />

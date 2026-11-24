@@ -32,6 +32,8 @@
 			this.continuousdrawing = new System.Windows.Forms.ToolStripButton();
 			this.autoclosedrawing = new System.Windows.Forms.ToolStripButton();
 			this.showguidelines = new System.Windows.Forms.ToolStripButton();
+			this.mirrorx = new System.Windows.Forms.ToolStripButton();
+			this.mirrory = new System.Windows.Forms.ToolStripButton();
 			this.toolStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -40,7 +42,9 @@
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.continuousdrawing,
             this.autoclosedrawing,
-            this.showguidelines});
+            this.showguidelines,
+            this.mirrorx,
+            this.mirrory});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(619, 25);
@@ -79,6 +83,30 @@
 			this.showguidelines.Text = "Guidelines";
 			this.showguidelines.CheckedChanged += new System.EventHandler(this.showguidelines_CheckedChanged);
 			// 
+			// mirrorx
+			// 
+			this.mirrorx.CheckOnClick = true;
+			this.mirrorx.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.FlipSelectionH;
+			this.mirrorx.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.mirrorx.Margin = new System.Windows.Forms.Padding(2, 1, 0, 2);
+			this.mirrorx.Name = "mirrorx";
+			this.mirrorx.Size = new System.Drawing.Size(117, 22);
+			this.mirrorx.Text = "Mirror left/right";
+			this.mirrorx.ToolTipText = "Mirror the drawing across the vertical line through the 2D cursor";
+			this.mirrorx.CheckedChanged += new System.EventHandler(this.mirrorx_CheckedChanged);
+			// 
+			// mirrory
+			// 
+			this.mirrory.CheckOnClick = true;
+			this.mirrory.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.FlipSelectionV;
+			this.mirrory.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.mirrory.Margin = new System.Windows.Forms.Padding(2, 1, 0, 2);
+			this.mirrory.Name = "mirrory";
+			this.mirrory.Size = new System.Drawing.Size(110, 22);
+			this.mirrory.Text = "Mirror up/down";
+			this.mirrory.ToolTipText = "Mirror the drawing across the horizontal line through the 2D cursor";
+			this.mirrory.CheckedChanged += new System.EventHandler(this.mirrory_CheckedChanged);
+			// 
 			// DrawLineOptionsPanel
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -99,5 +127,7 @@
 		private System.Windows.Forms.ToolStripButton continuousdrawing;
 		private System.Windows.Forms.ToolStripButton autoclosedrawing;
 		private System.Windows.Forms.ToolStripButton showguidelines;
+		private System.Windows.Forms.ToolStripButton mirrorx;
+		private System.Windows.Forms.ToolStripButton mirrory;
 	}
 }

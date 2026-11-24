@@ -46,6 +46,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		#region ================== Constants
 
 		protected const float LINE_THICKNESS = 0.8f;
+		private const string MIRROR_NEEDS_CURSOR = "Mirror drawing needs the 2D cursor (Place 2D Cursor at Mouse).";
 
 		#endregion
 
@@ -76,7 +77,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		//mxd. Interface
 		private DrawLineOptionsPanel panel;
-		
+
+		// Mirroring across the 2D cursor. Set only from panel events, so they stay false in subclass modes.
+		private bool mirrorx;
+		private bool mirrory;
+		private bool loadingsettings;
+
 		#endregion
 
 		#region ================== Properties
@@ -168,6 +174,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// Render drawing lines
 			if(renderer.StartOverlay(true))
 			{
+				// Mirror preview goes under the original
+				if(MirrorActive) RenderMirrorPreview(curp, vsize);
+
 				// Go for all points to draw lines
 				PixelColor color;
 				if(points.Count > 0)
@@ -231,6 +240,57 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			// Done
 			renderer.Present();
+		}
+
+		private bool MirrorActive { get { return (mirrorx || mirrory) && General.Map.Cursor2D.IsSet; } }
+
+		// Axis lines, the copies accept would create, then the mirrored rubber band and mouse vertex
+		private void RenderMirrorPreview(DrawnVertex curp, float vsize)
+		{
+			Vector2D pivot = General.Map.Cursor2D.Position;
+			PixelColor axiscolor = General.Colors.Guideline.WithAlpha(80);
+			List<Line3D> axes = new List<Line3D>();
+			if(mirrorx) axes.Add(new Line3D(new Vector2D(pivot.x, General.Map.Config.TopBoundary), new Vector2D(pivot.x, General.Map.Config.BottomBoundary), axiscolor, false));
+			if(mirrory) axes.Add(new Line3D(new Vector2D(General.Map.Config.LeftBoundary, pivot.y), new Vector2D(General.Map.Config.RightBoundary, pivot.y), axiscolor, false));
+			renderer.RenderArrows(axes);
+
+			if(points.Count > 1) RenderReplicas(DrawingSymmetry.Mirror(points, pivot, mirrorx, mirrory));
+
+			// Each active reflection of the rubber band and the mouse vertex
+			PixelColor dim = General.Colors.Selection.WithAlpha(64);
+			for(int r = 1; r < 4; r++)
+			{
+				bool rx = (r & 1) != 0, ry = (r & 2) != 0;
+				if((rx && !mirrorx) || (ry && !mirrory)) continue;
+				Vector2D end = Reflected(curp.pos, pivot, rx, ry);
+				if(points.Count > 0)
+					renderer.RenderLine(Reflected(points[points.Count - 1].pos, pivot, rx, ry), end, LINE_THICKNESS, dim, true);
+				renderer.RenderRectangleFilled(new RectangleF((float)(end.x - vsize), (float)(end.y - vsize), vsize * 2.0f, vsize * 2.0f), dim, true);
+			}
+		}
+
+		private static Vector2D Reflected(Vector2D p, Vector2D pivot, bool rx, bool ry)
+		{
+			if(rx) p = PivotMath.MirroredAcross(p, pivot, true);
+			if(ry) p = PivotMath.MirroredAcross(p, pivot, false);
+			return p;
+		}
+
+		// Replicated paths in the dimmed selection colour, shared with other symmetry tools
+		protected void RenderReplicas(List<List<DrawnVertex>> paths)
+		{
+			PixelColor color = General.Colors.Selection.WithAlpha(128);
+			float vsize = (renderer.VertexSize + 1.0f) / renderer.Scale;
+			foreach(List<DrawnVertex> path in paths)
+			{
+				for(int i = 1; i < path.Count; i++)
+				{
+					renderer.RenderLine(path[i - 1].pos, path[i].pos, LINE_THICKNESS, color, true);
+					RenderLinedefDirectionIndicator(path[i - 1].pos, path[i].pos, color);
+				}
+				foreach(DrawnVertex v in path)
+					renderer.RenderRectangleFilled(new RectangleF((float)(v.pos.x - vsize), (float)(v.pos.y - vsize), vsize * 2.0f, vsize * 2.0f), color, true);
+			}
 		}
 
 		protected void RenderGuidelines(Vector2D start, Vector2D end, PixelColor c)
@@ -559,7 +619,24 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// This gets the aligned and snapped draw position
 		protected DrawnVertex GetCurrentPosition()
 		{
-			return GetCurrentPosition(mousemappos, snaptonearest, snaptogrid, snaptocardinaldirection, usefourcardinaldirections, renderer, points);
+			DrawnVertex p = GetCurrentPosition(mousemappos, snaptonearest, snaptogrid, snaptocardinaldirection, usefourcardinaldirections, renderer, points);
+			if(MirrorActive && snaptonearest && !snaptocardinaldirection) p.pos = SnappedToMirrorAxis(p.pos);
+			return p;
+		}
+
+		// Moves a position within stitch range of an active mirror axis onto it, unless it sits on geometry
+		private Vector2D SnappedToMirrorAxis(Vector2D pos)
+		{
+			foreach(DrawnVertex v in points)
+				if(Vector2D.DistanceSq(v.pos, pos) < 0.000001) return pos;
+			if(General.Map.Map.NearestVertexSquareRange(pos, 0.001) != null) return pos;
+			if(General.Map.Map.NearestLinedefRange(pos, 0.01) != null) return pos;
+
+			Vector2D pivot = General.Map.Cursor2D.Position;
+			double range = BuilderPlug.Me.StitchRange / renderer.Scale;
+			if(mirrorx && Math.Abs(pos.x - pivot.x) < range) pos.x = pivot.x;
+			if(mirrory && Math.Abs(pos.y - pivot.y) < range) pos.y = pivot.y;
+			return pos;
 		}
 		
 		// This draws a point at a specific location
@@ -722,11 +799,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			panel.OnContinuousDrawingChanged += OnContinuousDrawingChanged;
 			panel.OnAutoCloseDrawingChanged += OnAutoCloseDrawingChanged;
 			panel.OnShowGuidelinesChanged += OnShowGuidelinesChanged;
+			panel.OnMirrorXChanged += OnMirrorXChanged;
+			panel.OnMirrorYChanged += OnMirrorYChanged;
 
 			// Needs to be set after adding the events...
+			loadingsettings = true;
 			panel.ContinuousDrawing = General.Settings.ReadPluginSetting("drawlinesmode.continuousdrawing", false);
 			panel.AutoCloseDrawing = General.Settings.ReadPluginSetting("drawlinesmode.autoclosedrawing", false);
 			panel.ShowGuidelines = General.Settings.ReadPluginSetting("drawlinesmode.showguidelines", false);
+			panel.MirrorX = General.Settings.ReadPluginSetting("drawlinesmode.mirrorx", false);
+			panel.MirrorY = General.Settings.ReadPluginSetting("drawlinesmode.mirrory", false);
+			loadingsettings = false;
 
 			// Create guide labels
 			guidelabels = new LineLengthLabel[4];
@@ -756,6 +839,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Settings.WritePluginSetting("drawlinesmode.continuousdrawing", panel.ContinuousDrawing);
 			General.Settings.WritePluginSetting("drawlinesmode.autoclosedrawing", panel.AutoCloseDrawing);
 			General.Settings.WritePluginSetting("drawlinesmode.showguidelines", panel.ShowGuidelines);
+			General.Settings.WritePluginSetting("drawlinesmode.mirrorx", panel.MirrorX);
+			General.Settings.WritePluginSetting("drawlinesmode.mirrory", panel.MirrorY);
 			panel.Unregister();
 		}
 
@@ -826,25 +911,37 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				string word = adjectives[points.Count % adjectives.Length];
 				word = (points.Count > adjectives.Length) ? "very " + word : word;
 				string a = ((word[0] == 'a') || (word[0] == 'e') || (word[0] == 'o') || (word[0] == 'u')) ? "an " : "a ";
-				General.Interface.DisplayStatus(StatusType.Action, "Created " + a + word + " drawing.");
-				
-				// Make the drawing
-				if(Tools.DrawLines(points, true, BuilderPlug.Me.AutoAlignTextureOffsetsOnCreate)) //mxd
+
+				// Mirror copies, falling back to the original alone
+				List<List<DrawnVertex>> paths = new List<List<DrawnVertex>> { new List<DrawnVertex>(points) };
+				string warning = null;
+				if(mirrorx || mirrory)
 				{
-					// Snap to map format accuracy
-					General.Map.Map.SnapAllToAccuracy();
+					if(!General.Map.Cursor2D.IsSet)
+					{
+						warning = MIRROR_NEEDS_CURSOR;
+					}
+					else
+					{
+						List<List<DrawnVertex>> mirrored = DrawingSymmetry.Mirror(points, General.Map.Cursor2D.Position, mirrorx, mirrory);
+						if(DrawingSymmetry.AnyOutside(mirrored, General.Map.Config.LeftBoundary, General.Map.Config.RightBoundary,
+							General.Map.Config.TopBoundary, General.Map.Config.BottomBoundary))
+							warning = "The mirror copy was outside the map, so only the original was drawn.";
+						else
+							paths = mirrored;
+					}
+				}
 
-					// Clear selection
-					General.Map.Map.ClearAllSelected();
+				string suffix = "";
+				if(paths.Count > 1) suffix = " (mirrored, " + (paths.Count - 1) + (paths.Count == 2 ? " copy)" : " copies)");
+				else if(paths[0].Count != points.Count) suffix = " (mirrored)";
+				General.Interface.DisplayStatus(StatusType.Action, "Created " + a + word + " drawing" + suffix + ".");
 
-					// Update cached values
-					General.Map.Map.Update();
-
-					//mxd. Outer sectors may require some splittin...
-					if(General.Settings.SplitJoinedSectors) Tools.SplitOuterSectors(General.Map.Map.GetMarkedLinedefs(true));
-
+				// Make the drawing
+				List<Sector> newsectors;
+				if(DrawingSymmetry.DrawPaths(paths, BuilderPlug.Me.AutoAlignTextureOffsetsOnCreate, out newsectors)) //mxd
+				{
 					// Edit new sectors?
-					List<Sector> newsectors = General.Map.Map.GetMarkedSectors(true);
 					if(BuilderPlug.Me.EditNewSector && (newsectors.Count > 0))
 						General.Interface.ShowEditSectors(newsectors);
 
@@ -857,11 +954,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					// Map is changed
 					General.Map.IsChanged = true;
 				}
-				else
-				{
-					// Drawing failed
-					General.Map.UndoRedo.WithdrawUndo();
-				}
+
+				if(warning != null) General.Interface.DisplayStatus(StatusType.Warning, warning);
 			}
 
 			// Done
@@ -959,6 +1053,25 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.RedrawDisplay();
 		}
 
+		protected void OnMirrorXChanged(object value, EventArgs e)
+		{
+			mirrorx = (bool)value;
+			OnMirrorChanged(mirrorx);
+		}
+
+		protected void OnMirrorYChanged(object value, EventArgs e)
+		{
+			mirrory = (bool)value;
+			OnMirrorChanged(mirrory);
+		}
+
+		private void OnMirrorChanged(bool turnedon)
+		{
+			if(turnedon && !loadingsettings && !General.Map.Cursor2D.IsSet)
+				General.Interface.DisplayStatus(StatusType.Warning, MIRROR_NEEDS_CURSOR);
+			if(!loadingsettings) General.Interface.RedrawDisplay();
+		}
+
 		#endregion
 
 		#region ================== Actions
@@ -996,6 +1109,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			Update();
 		}
 		
+		[BeginAction("togglemirrordrawingx")]
+		public void ToggleMirrorDrawingX()
+		{
+			if(panel != null) panel.MirrorX = !panel.MirrorX;
+		}
+
+		[BeginAction("togglemirrordrawingy")]
+		public void ToggleMirrorDrawingY()
+		{
+			if(panel != null) panel.MirrorY = !panel.MirrorY;
+		}
+
 		// Finish drawing
 		[BeginAction("finishdraw")]
 		public void FinishDraw()

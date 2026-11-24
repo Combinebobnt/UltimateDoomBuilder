@@ -26,6 +26,11 @@
 		<br />
 		This editing mode is one of the classic (2D) editing modes. This mode is volatile, which means that this mode returns to the previous stable mode when the map is saved or closed, either accepting or discarding your preview changes. You can access this mode by pressing <b>Control+D</b> in any classic mode.
 		
+		<h2>Mirrored drawing</h2>
+		The <b>Mirror left/right</b> and <b>Mirror up/down</b> toolbar buttons (also in the Draw menu, and as the unbound Toggle Mirror Left/Right and Toggle Mirror Up/Down actions) mirror your drawing across the vertical or horizontal line through the 2D cursor. With both on you get four copies. They need a placed 2D cursor (Place 2D Cursor at Mouse); without one only your own drawing is created. While drawing, the mirror lines and a dimmed preview of the copies show exactly what will be created, and the whole drawing is one undo step.<br />
+		<br />
+		A drawing that starts and ends on a mirror line and stays on one side of it is joined with its mirror image into one closed shape, so half a room drawn from the line back to it becomes one symmetric sector. A drawing with only one end on the line becomes one longer line through it. Any other drawing, including a closed shape or one that crosses the line, gets a separate copy, which is drawn as if you had drawn it by hand right after the original. With snap to nearest on (Control), a vertex close to a mirror line snaps onto it. If a copy would fall outside the map, only the original is drawn.<br />
+		
 		<h2>Default Controls</h2>
 		<table border="0" cellspacing="6" width="90%">
 		<tr>
