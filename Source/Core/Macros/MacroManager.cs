@@ -50,6 +50,8 @@ namespace CodeImp.DoomBuilder.Macros
 		internal MacroManager()
 		{
 			store.Load(General.Settings.Config);
+			foreach(string error in store.LoadErrors)
+				General.WriteLogLine("WARNING: skipped an unreadable saved macro (" + error + "); it is dropped when macros are next saved.");
 			General.Actions.BindMethods(this);
 			General.Actions.ActionInvoked += OnActionInvoked;
 		}
@@ -80,6 +82,13 @@ namespace CodeImp.DoomBuilder.Macros
 			return modename;
 		}
 
+		// "Sectors Mode" stays as is, "Visual" becomes "Visual mode"
+		internal static string ModePhrase(string modename)
+		{
+			string title = ModeTitle(modename);
+			return title.EndsWith(" mode", StringComparison.OrdinalIgnoreCase) ? title : title + " mode";
+		}
+
 		internal static string ActionTitle(string name)
 		{
 			return General.Actions.Exists(name) ? General.Actions.GetActionByName(name).Title : name;
@@ -93,11 +102,13 @@ namespace CodeImp.DoomBuilder.Macros
 			if(General.Map == null) return "no map is open";
 			if(running) return "a macro is already running";
 			if(recording) return "a macro is being recorded";
+			if((General.Editing.Mode != null) && General.Editing.Mode.Attributes.Volatile) return "finish drawing, pasting or editing the selection first";
+			if(General.Map.UndoRedo.IgnorePropChanges) return "finish the current edit first";
 			if(m.MalformedSteps != null) return "its saved steps can't be read";
 			if(m.Steps.Count == 0) return "it has no steps";
 			List<string> missing = m.MissingActions(ActionExists);
 			if(missing.Count > 0) return "missing action" + (missing.Count > 1 ? "s " : " ") + string.Join(", ", missing.ToArray());
-			if(!m.AnyMode && m.Mode != CurrentModeName) return "it runs in " + ModeTitle(m.Mode) + " mode";
+			if(!m.AnyMode && m.Mode != CurrentModeName) return "it runs in " + ModePhrase(m.Mode);
 			return null;
 		}
 
@@ -338,6 +349,9 @@ namespace CodeImp.DoomBuilder.Macros
 			General.WriteLogLine("Running macro '" + m.Name + "' (" + MacroStore.EncodeSteps(m.Steps) + ")...");
 
 			string ilogprevious = InteractionLog.BeginAmbient("macro");
+			bool dialogcancelled = false;
+			EventHandler oncancel = (s, e) => dialogcancelled = true;
+			DelayedForm.ModalCancelled += oncancel;
 			try
 			{
 				undo.BeginCompound("Macro: " + m.Name);
@@ -348,7 +362,7 @@ namespace CodeImp.DoomBuilder.Macros
 					steptitle = a.Title;
 					for(int i = 0; (i < step.Count) && (failure == null) && !dropped; i++)
 					{
-						if(!a.BeginBound && !a.EndBound) { failure = "it does nothing in " + ModeTitle(CurrentModeName) + " mode"; break; }
+						if(!a.BeginBound && !a.EndBound) { failure = "it does nothing in " + ModePhrase(CurrentModeName); break; }
 
 						try { General.Actions.InvokeAction(step.Action); }
 						catch(Exception e)
@@ -361,6 +375,7 @@ namespace CodeImp.DoomBuilder.Macros
 
 						if(undo.CompoundDropped || (General.Map == null) || (General.Map.UndoRedo != undo)) { dropped = true; break; }
 						if(undo.CompoundAborted) { failure = undo.CompoundAbortReason; break; }
+						if(dialogcancelled) { failure = "its dialog was cancelled"; break; }
 						if((General.Editing.Mode != null) && General.Editing.Mode.Attributes.Volatile)
 						{
 							failure = "it left a drawing or editing mode open";
@@ -373,6 +388,7 @@ namespace CodeImp.DoomBuilder.Macros
 			}
 			finally
 			{
+				DelayedForm.ModalCancelled -= oncancel;
 				InteractionLog.EndAmbient(ilogprevious);
 			}
 

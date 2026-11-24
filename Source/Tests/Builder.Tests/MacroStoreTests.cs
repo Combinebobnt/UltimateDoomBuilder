@@ -97,20 +97,48 @@ namespace Builder.Tests
 			Assert.Equal("A (2)", store.UniqueName("A"));
 		}
 
+		// Saves go over the block already in the program configuration, as every save after the first does
 		[Fact]
 		public void DeletedMacroStaysDeleted()
 		{
+			Configuration cfg = new Configuration(true);
 			MacroStore store = new MacroStore();
 			store.Put(Make("A", "x"), null);
 			store.Put(Make("B", "y"), null);
-			MacroStore first = Reload(store);
-			first.Remove(first.ByName("A"));
-			MacroStore second = Reload(first);
-			Assert.Equal(1, second.Macros.Count);
-			Assert.Null(second.ByName("A"));
+			store.Save(cfg);
 
-			second.Remove(second.ByName("B"));
-			Assert.Equal(0, Reload(second).Macros.Count);
+			store.Remove(store.ByName("A"));
+			store.Save(cfg);
+			MacroStore loaded = new MacroStore();
+			loaded.Load(cfg);
+			Assert.Equal(1, loaded.Macros.Count);
+			Assert.Null(loaded.ByName("A"));
+			Assert.False(cfg.SettingExists(MacroStore.SETTING + ".m2"));
+
+			loaded.Remove(loaded.ByName("B"));
+			loaded.Save(cfg);
+			MacroStore empty = new MacroStore();
+			empty.Load(cfg);
+			Assert.Equal(0, empty.Macros.Count);
+		}
+
+		// The store loads before the main window exists, so a hand-edited block must not throw
+		[Fact]
+		public void MalformedEntriesAreSkipped()
+		{
+			Configuration cfg = new Configuration(true);
+			Assert.True(cfg.InputConfiguration("macros { m1 { name = \"Good\"; steps = \"a\"; } m2 { name = \"Bad\"; slot = \"x\"; steps = \"b\"; } m3 = 5; }"));
+			MacroStore store = new MacroStore();
+			store.Load(cfg);
+			Assert.Equal(1, store.Macros.Count);
+			Assert.Equal("Good", store.Macros[0].Name);
+			Assert.Equal(2, store.LoadErrors.Count);
+
+			Configuration scalar = new Configuration(true);
+			scalar.WriteSetting(MacroStore.SETTING, 5);
+			store.Load(scalar);
+			Assert.Equal(0, store.Macros.Count);
+			Assert.Equal(1, store.LoadErrors.Count);
 		}
 	}
 }

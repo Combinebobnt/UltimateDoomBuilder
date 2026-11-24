@@ -81,10 +81,20 @@ namespace CodeImp.DoomBuilder.Macros
 
 		#region ================== Load / Save
 
+		// Entries that couldn't be read and were skipped, for the log
+		public List<string> LoadErrors { get { return loaderrors; } }
+		private readonly List<string> loaderrors = new List<string>();
+
 		internal void Load(Configuration cfg)
 		{
 			macros.Clear();
-			IDictionary block = cfg.ReadSetting(SETTING, new Hashtable());
+			loaderrors.Clear();
+			IDictionary block = cfg.ReadSettingObject(SETTING, null) as IDictionary;
+			if(block == null)
+			{
+				if(cfg.SettingExists(SETTING)) loaderrors.Add("\"" + SETTING + "\" is not a block");
+				return;
+			}
 			List<KeyValuePair<long, string>> keys = new List<KeyValuePair<long, string>>();
 			foreach(DictionaryEntry e in block)
 			{
@@ -98,11 +108,21 @@ namespace CodeImp.DoomBuilder.Macros
 			foreach(KeyValuePair<long, string> k in keys)
 			{
 				string path = SETTING + "." + k.Value + ".";
+				if(!(block[k.Value] is IDictionary)) { loaderrors.Add(k.Value + " is not a block"); continue; }
 				Macro macro = new Macro();
-				macro.Name = cfg.ReadSetting(path + "name", "").Trim();
-				macro.Mode = cfg.ReadSetting(path + "mode", "");
-				macro.AnyMode = cfg.ReadSetting(path + "anymode", false);
-				int slot = cfg.ReadSetting(path + "slot", 0);
+				int slot;
+				try
+				{
+					macro.Name = cfg.ReadSetting(path + "name", "").Trim();
+					macro.Mode = cfg.ReadSetting(path + "mode", "");
+					macro.AnyMode = cfg.ReadSetting(path + "anymode", false);
+					slot = cfg.ReadSetting(path + "slot", 0);
+				}
+				catch(Exception e) when((e is FormatException) || (e is InvalidCastException) || (e is OverflowException))
+				{
+					loaderrors.Add(k.Value + ": " + e.Message);
+					continue;
+				}
 				macro.Slot = ((slot >= 1) && (slot <= Macro.MAX_SLOTS)) ? slot : 0;
 
 				string text = cfg.ReadSetting(path + "steps", "");

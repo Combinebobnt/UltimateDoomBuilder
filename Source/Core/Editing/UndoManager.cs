@@ -913,6 +913,9 @@ namespace CodeImp.DoomBuilder.Editing
 			General.Map.IsChanged = compoundpreviouschanged;
 			compound.End();
 			General.WriteLogLine("Compound undo level rolled back.");
+
+			// PerformUndo's OnUndoEnd listed the run's redo; refresh lists now that it is gone
+			General.Plugins.OnUndoWithdrawn();
 			General.MainWindow.UpdateInterface();
 			return true;
 		}

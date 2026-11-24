@@ -132,7 +132,6 @@ namespace CodeImp.DoomBuilder.Windows
 			bool recording = (macros != null) && macros.IsRecording;
 			bool running = (macros != null) && macros.IsRunning;
 
-			menumacros.Visible = maploaded;
 			itemmacrorecord.Text = recording ? "Stop &Recording" : "&Record Macro";
 			itemmacrorecord.Image = recording ? macrostopimage : macrorecordimage;
 			itemmacrorecord.Enabled = maploaded && !running;

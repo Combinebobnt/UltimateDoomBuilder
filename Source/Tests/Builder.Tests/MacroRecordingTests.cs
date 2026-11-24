@@ -53,6 +53,7 @@ namespace Builder.Tests
 		public void EveryDenylistedNameIsAnAction()
 		{
 			HashSet<string> actions = new HashSet<string>(ActionNames(typeof(General).Assembly).Concat(ActionNames(typeof(CodeImp.DoomBuilder.BuilderModes.BuilderPlug).Assembly)));
+			actions.UnionWith(PluginSourceActionNames());
 			List<string> missing = MacroRecording.NotRecordable.Where(n => !actions.Contains(n)).ToList();
 			Assert.True(missing.Count == 0, "not actions: " + string.Join(", ", missing.ToArray()));
 		}
@@ -67,6 +68,34 @@ namespace Builder.Tests
 			string prefix = asm.GetName().Name.ToLowerInvariant() + "_";
 			List<string> names = new List<string>();
 			foreach(DictionaryEntry e in cfg.Root) names.Add(prefix + e.Key);
+			return names;
+		}
+
+		// Plugins the tests don't reference, read from the source tree above the editor or test binaries
+		private static IEnumerable<string> PluginSourceActionNames()
+		{
+			string plugins = null;
+			foreach(string start in new[] { typeof(General).Assembly.Location, typeof(MacroRecordingTests).Assembly.Location })
+			{
+				for(DirectoryInfo d = new FileInfo(start).Directory; d != null && plugins == null; d = d.Parent)
+					if(Directory.Exists(Path.Combine(d.FullName, "Source", "Plugins"))) plugins = Path.Combine(d.FullName, "Source", "Plugins");
+				if(plugins != null) break;
+			}
+			Assert.True(plugins != null, "Source/Plugins not found above the test binaries");
+
+			List<string> names = new List<string>();
+			foreach(string dir in Directory.GetDirectories(plugins))
+			{
+				string cfgpath = Path.Combine(dir, "Resources", "Actions.cfg");
+				string csproj = Directory.GetFiles(dir, "*.csproj").FirstOrDefault();
+				if(!File.Exists(cfgpath) || csproj == null) continue;
+				System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(csproj), "<AssemblyName>([^<]+)</AssemblyName>");
+				if(!m.Success) continue;
+				Configuration cfg = new Configuration();
+				cfg.InputConfiguration(File.ReadAllText(cfgpath));
+				Assert.False(cfg.ErrorResult, cfgpath);
+				foreach(DictionaryEntry e in cfg.Root) names.Add(m.Groups[1].Value.ToLowerInvariant() + "_" + e.Key);
+			}
 			return names;
 		}
 	}

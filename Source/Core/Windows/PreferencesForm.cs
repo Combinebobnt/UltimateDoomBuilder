@@ -73,10 +73,9 @@ namespace CodeImp.DoomBuilder.Windows
 			InitializeComponent();
 			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
 
-			// A third column beside the designer's toolbar checkboxes
+			// Beside the short last entry of the designer's second column; the long top rows fill the box
 			toolbar_macros = new CheckBox { AutoSize = true, Name = "toolbar_macros", Text = "Macros", UseVisualStyleBackColor = true };
-			int column3 = Math.Max(Math.Max(toolbar_filter.Right, toolbar_viewmodes.Right), Math.Max(Math.Max(toolbar_geometry.Right, toolbar_testing.Right), toolbar_gzdoom.Right)) + 8;
-			toolbar_macros.Location = new Point(column3, toolbar_filter.Top);
+			toolbar_macros.Location = new Point(toolbar_gzdoom.Right + 16, toolbar_gzdoom.Top);
 			groupBox5.Controls.Add(toolbar_macros);
 
 			// Interface

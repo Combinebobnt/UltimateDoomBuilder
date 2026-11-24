@@ -57,12 +57,12 @@ namespace CodeImp.DoomBuilder.Macros
 			"builder_viewmapstatistics", "builder_showerrors", "builder_thingsfilterssetup",
 			"builder_linedefcolorssetup", "builder_gridsetup", "builder_toggleinfopanel",
 			"buildermodes_exporttoobj", "buildermodes_exporttoimage", "buildermodes_exporttoidstudio",
+			"builder_createprefab", "builder_insertprefabfile",
+			"buildereffects_importobjasterrain", "colorpicker_togglelightpannel",
+			"rejectexplorer_rejectexplorercolorconfiguration",
+			"soundpropagationmode_soundpropagationcolorconfiguration", "usdf_opendialogeditor",
 
-			// Macros
-			"builder_macrorecord", "builder_macrorunlast", "builder_macromanage",
-			"builder_macroslot1", "builder_macroslot2", "builder_macroslot3", "builder_macroslot4",
-			"builder_macroslot5", "builder_macroslot6", "builder_macroslot7", "builder_macroslot8",
-			"builder_macroslot9", "builder_macroslot10",
+			// The macro actions themselves are filtered by their builder_macro prefix in Classify
 		};
 
 		internal static bool IsMouseButton(int key)

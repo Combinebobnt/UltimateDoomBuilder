@@ -774,6 +774,9 @@ namespace CodeImp.DoomBuilder.Windows
 			base.OnFormClosing(e);
 			if(e.CloseReason == CloseReason.ApplicationExitCall) return;
 
+			// The map close below would defer the save offer to a message that never runs on exit
+			if((General.Macros != null) && General.Macros.IsRecording) General.Macros.StopRecording(true);
+
 			// Close the map
 			if(General.CloseMap()) 
 			{

@@ -69,7 +69,7 @@ namespace CodeImp.DoomBuilder.Windows
 			layout.Controls.Add(slot, 1, 1);
 
 			layout.Controls.Add(new Label { Text = "Recorded in:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-			layout.Controls.Add(new Label { Text = MacroManager.ModeTitle(macro.Mode) + " mode", AutoSize = true, Anchor = AnchorStyles.Left }, 1, 2);
+			layout.Controls.Add(new Label { Text = MacroManager.ModePhrase(macro.Mode), AutoSize = true, Anchor = AnchorStyles.Left }, 1, 2);
 
 			anymode = new CheckBox { Text = "Run in any mode", AutoSize = true, Checked = macro.AnyMode };
 			layout.Controls.Add(anymode, 1, 3);

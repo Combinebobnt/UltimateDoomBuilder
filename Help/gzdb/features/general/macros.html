@@ -56,7 +56,7 @@
 		<li>A macro with a key slot runs from the key bound to that slot's "Run Macro Slot" action.</li>
 	</ul>
 	<p>
-		A macro works on what is selected or highlighted <b>when it runs</b>. Actions that act on the highlighted element or on the mouse position use the current mouse position, so run such a macro from its slot key with the mouse over the map rather than from a menu. Modifier keys held with the slot key (for example Ctrl or Shift) stay held while the macro runs, so actions that behave differently with a modifier held will do so.
+		A macro works on what is selected or highlighted <b>when it runs</b>. Actions that act on the highlighted element or on the mouse position use the current mouse position, so run such a macro from its slot key with the mouse over the map rather than from a menu. Modifier keys held with the slot key (for example Ctrl or Shift) stay held while the macro runs, so actions that behave differently with a modifier held will do so. A macro can't start while you are drawing, pasting or editing a selection: finish or cancel that first.
 	</p>
 	<p>
 		<b>Undo:</b> each run is one undo step named <i>Macro: &lt;name&gt;</i>, and it never merges with the edit you made before it. A macro that only changes the selection leaves the undo history and the redo history as they were.
@@ -67,7 +67,7 @@
 		A run is all or nothing. If a step fails, every change the run made so far is undone and the status bar shows <i>Macro 'name' stopped at step N (action): reason; changes rolled back.</i> A run stops when:
 	</p>
 	<ul>
-		<li>you cancel an edit dialog that a step opened;</li>
+		<li>you cancel a dialog that a step opened, whether or not you changed anything in it;</li>
 		<li>a step's action does nothing in the current mode;</li>
 		<li>a step leaves a drawing or editing mode open;</li>
 		<li>a step fails with an error (it is also listed in the Errors and Warnings window).</li>
