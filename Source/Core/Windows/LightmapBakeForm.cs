@@ -673,7 +673,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(described == null)
 				estimate.Text = "No estimate until the first CPU-traced " + kind + " on this machine (" + texeltext + ").";
 			else
-				estimate.Text = described + " for " + texeltext + ", from this machine's earlier CPU-traced " + kind + "s.";
+				estimate.Text = described + " for " + texeltext + ", from this machine's earlier CPU-traced " + kind + ".";
 			return described;
 		}
 

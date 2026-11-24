@@ -73,9 +73,9 @@ namespace CodeImp.DoomBuilder
 		private bool savedwithlightmap; // The last save wrote a LIGHTMAP
 		private bool lightmapstale; // The map had a bake that saves can no longer write; only a match, a bake or a map switch clears it
 		private bool lightmapstaleasked; // Test already offered a rebake, or an auto-bake failed, for this stale episode
-		private LightmapBakeCache autobakefailedfor; // The bake whose below-target auto-bake on Save failed
+		private LightmapBakeCache autobakeheldfor; // The bake a Save auto-bake last ran on or produced; it isn't auto-baked again
 		private bool autobakeaftersave; // The last save ended stale on an opted-in map; the save action rebakes
-		private bool autobakeresave; // The save after an auto-bake, which never starts another
+		private bool autobakeblocked; // Inside a save that can't start an auto-bake
 		private long lightmapsourceversion; // Moves when the bake is replaced or discarded
 		private LightmapPreviewState lightmappreview;
 		private LightmapPreviewCheck lightmapcheck; // Null unless a fingerprint is being computed for the preview
@@ -1538,7 +1538,7 @@ namespace CodeImp.DoomBuilder
 
 			// Once, on the next save into a file; autosave and Test leave it pending, and so does an
 			// auto-bake, whose resave writes the lightmap or whose failure reports the drop
-			autobakeaftersave = !autobakeresave && AutoBakeAfterSave(purpose, options.LightmapBake.AutoBake, lightmapstale, LightmapBelowTarget(), AutoBakeDeclined(), CanAutoBake());
+			autobakeaftersave = AutoBakeDueAfterSave(purpose);
 			if(lightmapdropped && ReportsLightmapDrop(purpose) && !autobakeaftersave) ReportLightmapDrop();
 
 			// Success!
@@ -2526,16 +2526,23 @@ namespace CodeImp.DoomBuilder
 		}
 
 		// The saved lightmap is a coarser bake than the map's stored quality, e.g. a Quick bake
-		private bool LightmapBelowTarget()
+		internal static bool LightmapBelowTarget(bool savedwithlightmap, LightmapBakeQuality bake, LightmapBakeQuality target)
 		{
-			LightmapBakeQuality target = options.LightmapBake.Quality;
-			return savedwithlightmap && lightmapbake != null && lightmapbake.Quality != null && target != null && lightmapbake.Quality.IsBelow(target);
+			return savedwithlightmap && bake != null && target != null && bake.IsBelow(target);
 		}
 
-		// An auto-bake already failed (or Test already asked) for this stale episode or this bake
-		private bool AutoBakeDeclined()
+		// Test already asked, or an auto-bake already ran, for this stale episode or (not stale) this bake
+		internal static bool AutoBakeDeclined(bool stale, bool staleasked, bool bakealreadyautobaked)
 		{
-			return (lightmapstale ? lightmapstaleasked : (lightmapbake != null && ReferenceEquals(lightmapbake, autobakefailedfor)));
+			return (stale ? staleasked : bakealreadyautobaked);
+		}
+
+		private bool AutoBakeDueAfterSave(SavePurpose purpose)
+		{
+			if(autobakeblocked) return false;
+			bool below = LightmapBelowTarget(savedwithlightmap, lightmapbake != null ? lightmapbake.Quality : null, options.LightmapBake.Quality);
+			bool declined = AutoBakeDeclined(lightmapstale, lightmapstaleasked, lightmapbake != null && ReferenceEquals(lightmapbake, autobakeheldfor));
+			return AutoBakeAfterSave(purpose, options.LightmapBake.AutoBake, lightmapstale, below, declined, CanAutoBake());
 		}
 
 		// Save's half of the auto-bake: only a save into a file, only a map that had a bake, once per stale episode or bake
@@ -2552,22 +2559,26 @@ namespace CodeImp.DoomBuilder
 			if(!autobakeaftersave) return false;
 			autobakeaftersave = false;
 			General.WriteLogLine("Stale lightmap on Save: auto-bake" + (lightmapstale ? "" : " (the saved lightmap is below the map's quality)"));
+			General.MainWindow.DisplayStatus(StatusType.Busy, "Baking lightmaps for the saved map...");
 			Cursor.Current = Cursors.Default;
-			if(ShowLightmapBakeForm(true, true)) return true;
+			bool ok = ShowLightmapBakeForm(true, true);
+			// One auto-bake per bake: a new bake still below the target (a baker that can't reach it) isn't rebaked again
+			autobakeheldfor = lightmapbake;
+			if(ok) return true;
 
 			General.WriteLogLine("The auto-bake failed or was cancelled; the map stays saved as it was.");
 			if(lightmapstale) lightmapstaleasked = true;
-			else autobakefailedfor = lightmapbake;
 			if(lightmapdropped) ReportLightmapDrop();
+			General.MainWindow.DisplayStatus(StatusType.Warning, "The lightmap auto-bake failed or was cancelled, so the map was saved without its lightmap.");
 			return false;
 		}
 
-		// The Normal save that writes an auto-bake; it can't start another
-		internal bool SaveAfterAutoBake(Func<bool> save)
+		// A save that can't start an auto-bake: the one writing an auto-bake, and the save on close
+		internal bool SaveWithoutAutoBake(Func<bool> save)
 		{
-			autobakeresave = true;
+			autobakeblocked = true;
 			try { return save(); }
-			finally { autobakeresave = false; }
+			finally { autobakeblocked = false; }
 		}
 
 		private void ResetLightmapCache(string reason)

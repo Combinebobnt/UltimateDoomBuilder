@@ -54,7 +54,7 @@ namespace CodeImp.DoomBuilder
 		private string tempwad;
 		private Dictionary<Process, string> processes; //mxd
 		private bool isdisposed;
-		private bool retestingafterbake; // The Test after an auto-bake never auto-bakes again
+		private bool retestingafterbake; // The Test after an auto-bake only warns if its save still misses the bake
 
 		private static Dictionary<int, string> additionalexceptiontext = new Dictionary<int, string>() {
 			{ 216,
@@ -393,7 +393,7 @@ namespace CodeImp.DoomBuilder
 				if (General.Map.Errors.Count == 0)
 				{
 					// The map had a bake this save could not write
-					StaleLightmapAction stalenotice = StaleLightmapNotice(General.Map.SavedWithLightmap, General.Map.LightmapStale, General.Map.LightmapStaleAsked, !retestingafterbake && General.Map.AutoBakesOnTest());
+					StaleLightmapAction stalenotice = StaleLightmapNotice(General.Map.SavedWithLightmap, General.Map.LightmapStale, General.Map.LightmapStaleAsked || retestingafterbake, General.Map.AutoBakesOnTest());
 					if (stalenotice == StaleLightmapAction.Rebake)
 					{
 						// Marked first, so a failed or cancelled auto-bake tests without it and only warns

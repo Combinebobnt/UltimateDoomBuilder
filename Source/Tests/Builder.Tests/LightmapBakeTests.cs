@@ -616,8 +616,36 @@ namespace Builder.Tests
 			Assert.Empty(wrong);
 		}
 
+		// Below the target is fewer rays or a coarser scale, never the texture size alone; unknown
+		// quality, no stored target or a save without the lightmap is never below
+		[Fact]
+		public void OnlyASavedCoarserBakeIsBelowTheMapsQuality()
+		{
+			LightmapBakeQuality final = LightmapBakeQuality.FromPreset(LightmapQualityPreset.Final, 1024);
+			LightmapBakeQuality quick = LightmapBakeQuality.Quick(1024);
+			Assert.True(MapManager.LightmapBelowTarget(true, quick, final));
+			Assert.False(MapManager.LightmapBelowTarget(false, quick, final));
+			Assert.False(MapManager.LightmapBelowTarget(true, final, final));
+			Assert.False(MapManager.LightmapBelowTarget(true, LightmapBakeQuality.FromPreset(LightmapQualityPreset.Final, 256), final));
+			Assert.False(MapManager.LightmapBelowTarget(true, final, quick));
+			Assert.False(MapManager.LightmapBelowTarget(true, null, final));
+			Assert.False(MapManager.LightmapBelowTarget(true, quick, null));
+		}
+
+		// A stale episode is declined once Test asked or an auto-bake failed in it; a bake that isn't
+		// stale once an auto-bake ran on it or produced it, so a target the baker can't reach rebakes once
+		[Fact]
+		public void AutoBakeIsDeclinedPerStaleEpisodeOrPerBake()
+		{
+			Assert.False(MapManager.AutoBakeDeclined(true, false, true));
+			Assert.True(MapManager.AutoBakeDeclined(true, true, false));
+			Assert.False(MapManager.AutoBakeDeclined(false, true, false));
+			Assert.True(MapManager.AutoBakeDeclined(false, false, true));
+		}
+
 		// Only a save into a file of an opted-in map that had a bake, once per stale episode or bake,
-		// with a baker that can run. Autosave, Test and close-time saves never auto-bake.
+		// with a baker that can run. Autosave and Test saves never auto-bake (the save on close is
+		// kept out by its caller, which SavePurpose can't express).
 		[Fact]
 		public void SaveAutoBakesOnlyWhenOptedInStaleAndNotDeclined()
 		{

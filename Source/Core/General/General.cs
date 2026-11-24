@@ -1587,7 +1587,7 @@ namespace CodeImp.DoomBuilder
 		// This saves the current map
 		// Returns tre when saved, false when cancelled or failed
 		[BeginAction("savemap")]
-		internal static void ActionSaveMap() { SaveMap(); }
+		internal static void ActionSaveMap() { SaveMap(); AutoBakeAfterSave(); }
 		internal static bool SaveMap()
 		{
 			if(map == null) return false;
@@ -1653,7 +1653,6 @@ namespace CodeImp.DoomBuilder
 					result = true;
 				}
 				plugins.OnMapSaveEnd(SavePurpose.Normal);
-				result = AutoBakeAfterSave(result);
 
 				// All done
 				mainwindow.UpdateInterface();
@@ -1686,7 +1685,7 @@ namespace CodeImp.DoomBuilder
 		// This saves the current map as a different file
 		// Returns tre when saved, false when cancelled or failed
 		[BeginAction("savemapas")]
-		internal static void ActionSaveMapAs() { SaveMapAs(); }
+		internal static void ActionSaveMapAs() { SaveMapAs(); AutoBakeAfterSave(); }
 		internal static bool SaveMapAs()
 		{
 			if(map == null) return false;
@@ -1744,7 +1743,6 @@ namespace CodeImp.DoomBuilder
 						result = true;
 					}
 					plugins.OnMapSaveEnd(SavePurpose.AsNewFile);
-					result = AutoBakeAfterSave(result);
 					
 					// All done
 					mainwindow.UpdateInterface();
@@ -1784,7 +1782,7 @@ namespace CodeImp.DoomBuilder
 		// This saves the current map as a different file
 		// Returns tre when saved, false when cancelled or failed
 		[BeginAction("savemapinto")]
-		internal static void ActionSaveMapInto() { SaveMapInto(); }
+		internal static void ActionSaveMapInto() { SaveMapInto(); AutoBakeAfterSave(); }
 		internal static bool SaveMapInto()
 		{
 			if(map == null) return false;
@@ -1837,7 +1835,6 @@ namespace CodeImp.DoomBuilder
 					result = true;
 				}
 				plugins.OnMapSaveEnd(SavePurpose.IntoFile);
-				result = AutoBakeAfterSave(result);
 
 				// All done
 				mainwindow.UpdateInterface();
@@ -1868,12 +1865,11 @@ namespace CodeImp.DoomBuilder
 			return result;
 		}
 		
-		// An opted-in map whose bake the save couldn't write rebakes now, after the save, then saves
-		// again into the file it now lives in. A failed bake leaves the first save as it is.
-		private static bool AutoBakeAfterSave(bool saved)
+		// After a save action has finished and reported: an opted-in map whose bake the save couldn't
+		// write rebakes, then saves again into the file it now lives in. A failed bake leaves the save as it is.
+		private static void AutoBakeAfterSave()
 		{
-			if(!saved || !map.RunAutoBakeAfterSave()) return saved;
-			return map.SaveAfterAutoBake(SaveMap);
+			if(map != null && map.RunAutoBakeAfterSave()) map.SaveWithoutAutoBake(SaveMap);
 		}
 
 		// Save As/Into naming the archive the map came from would overwrite the whole archive with a WAD
@@ -1900,8 +1896,8 @@ namespace CodeImp.DoomBuilder
 				DialogResult result = MessageBox.Show(mainwindow, "Do you want to save changes to " + map.DisplayTitle + " (" + map.Options.CurrentName + ")?", Application.ProductName, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
 				if (result == DialogResult.Yes)
 				{
-					// Save map
-					if (SaveMap())
+					// Save map; closing never auto-bakes
+					if (map.SaveWithoutAutoBake(SaveMap))
 					{
 						// Ask to save changes to scripts
 						returnvalue = map.AskSaveScriptChanges();
