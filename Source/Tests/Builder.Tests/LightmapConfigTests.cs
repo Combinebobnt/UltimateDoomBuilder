@@ -48,7 +48,6 @@ namespace Builder.Tests
 			Assert.Equal(0.0, cfg.ReadSetting("universalfields.thing.light_softshadowradius.default", -1.0));
 		}
 
-		// Thing types, across all categories, whose adduniversalfields lists the field
 		private static string[] ThingsWithField(Configuration cfg, string field)
 		{
 			var result = new List<string>();
