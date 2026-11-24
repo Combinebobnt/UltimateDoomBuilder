@@ -45,7 +45,7 @@ namespace Builder.Tests
 			foreach(string path in new[] { "sidedef.lm_lightdistance", "sector.lm_lightdistancefloor", "sector.lm_lightdistanceceiling" })
 				Assert.Equal(0.0, cfg.ReadSetting("universalfields." + path + ".default", -1.0));
 			Assert.Contains("lightfloor", Keys(cfg, "universalfields.sector"));
-			Assert.Equal(new[] { "lm_ao", "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_skycolor", "lm_skyintensity", "lm_skysamples", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
+			Assert.Equal(new[] { "lm_ao", "lm_bounce", "lm_falloff", "lm_gridsize", "lm_sampledistance", "lm_skycolor", "lm_skyintensity", "lm_skysamples", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("health", Keys(cfg, "universalfields.thing"));
 			Assert.Empty(Keys(cfg, "universalfields.linedef").Where(k => k.StartsWith("lm_")));
 
@@ -63,10 +63,12 @@ namespace Builder.Tests
 			Assert.Equal(0.0, cfg.ReadSetting("universalfields.thing.lm_skyintensity.default", -1.0));
 			Assert.Equal(2, cfg.ReadSetting("universalfields.thing.lm_skycolor.type", -1));
 
-			// Soft shadow source radius on both baked lights; the default must match the baker's absent = 0,
-			// since the fields grid drops a value equal to its default
-			Assert.Equal(new[] { "light_softshadowradius" }, Keys(cfg, "thingtypes.lightmaplights.9876.adduniversalfields"));
-			Assert.Equal(new[] { "light_softshadowradius" }, Keys(cfg, "thingtypes.lightmaplights.9881.adduniversalfields"));
+			// Soft shadow source radius and falloff mode on both baked lights; defaults must match the baker's
+			// absent values (0, linear), since the fields grid drops a value equal to its default
+			Assert.Equal(new[] { "light_softshadowradius", "lm_falloff" }, Keys(cfg, "thingtypes.lightmaplights.9876.adduniversalfields"));
+			Assert.Equal(new[] { "light_softshadowradius", "lm_falloff" }, Keys(cfg, "thingtypes.lightmaplights.9881.adduniversalfields"));
+			Assert.Equal(11, cfg.ReadSetting("universalfields.thing.lm_falloff.type", -1));
+			Assert.Equal(0, cfg.ReadSetting("universalfields.thing.lm_falloff.default", -1));
 			Assert.Equal(0.0, cfg.ReadSetting("universalfields.thing.light_softshadowradius.default", -1.0));
 		}
 
