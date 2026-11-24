@@ -142,6 +142,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private const float ZERO_SIZE_ADDITION = 20.0f;
 		private const byte RECTANGLE_ALPHA = 60;
 		private const byte EXTENSION_LINE_ALPHA = 150;
+		private const float PIVOT_GRIP_DEADZONE = 8.0f; // screen px around the 2D cursor before a grip turns
 		private readonly Cursor[] RESIZE_CURSORS = { Cursors.SizeNS, Cursors.SizeNWSE, Cursors.SizeWE, Cursors.SizeNESW };
 		
 		#endregion
@@ -207,6 +208,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private Vector2D grippivot;
 		private Vector2D gripstartoffset;
 		private double gripstartrotation;
+		private bool gripangleset;
 		private bool autopanning;
 		
 		// Rectangle components
@@ -391,9 +393,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void StartPivotGrip()
 		{
-			rotategripangle = (mousemappos - grippivot).GetAngle() - rotation;
 			gripstartoffset = offset;
 			gripstartrotation = rotation;
+			gripangleset = TrySetPivotGripAngle(mousemappos);
+		}
+
+		// The angle about a pivot under the mouse is undefined, so it is taken once the mouse leaves a small radius
+		private bool TrySetPivotGripAngle(Vector2D mousepos)
+		{
+			Vector2D delta = mousepos - grippivot;
+			if(delta.GetLength() * renderer.Scale < PIVOT_GRIP_DEADZONE) return false;
+			rotategripangle = delta.GetAngle() - gripstartrotation;
+			return true;
 		}
 
 		// After a pivot transform, a drag in progress continues from the new state instead of undoing it
@@ -702,6 +713,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 					// Rotating
 					case ModifyMode.Rotating:
+						if(gripaboutpivot && !gripangleset && !TrySetPivotGripAngle(snappedmappos)) break;
+						gripangleset = true;
+
 						// Get angle from mouse to center
 						Vector2D center = offset + size * 0.5f;
 						Vector2D delta = snappedmappos - (gripaboutpivot ? grippivot : center);
