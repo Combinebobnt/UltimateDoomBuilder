@@ -25,6 +25,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			PortalKind.LinePortal, PortalKind.LinkedLineEE, PortalKind.QuickPortal, PortalKind.AnchoredSector,
 			PortalKind.StackedSectors, PortalKind.Skybox, PortalKind.SkyPicker, PortalKind.PlaneHorizon, PortalKind.Copy,
+			PortalKind.Ignored,
 		};
 
 		private sealed class SectorList
@@ -171,7 +172,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			if(link.Origin != null) node.Nodes.Add(EndNode(link.Origin, data));
 			if(link.Destination != null) node.Nodes.Add(EndNode(link.Destination, data));
-			else if(link.Kind != PortalKind.PlaneHorizon && link.Kind != PortalKind.Copy) node.Nodes.Add(new TreeNode("Missing end", IMAGE_ELEMENT, IMAGE_ELEMENT));
+			else if(link.Kind != PortalKind.PlaneHorizon && link.Kind != PortalKind.Copy && link.Kind != PortalKind.Ignored) node.Nodes.Add(new TreeNode("Missing end", IMAGE_ELEMENT, IMAGE_ELEMENT));
 			foreach(PortalEnd dependent in link.Dependents) node.Nodes.Add(EndNode(dependent, data));
 			if(link.Sectors.Count > 0 && link.Kind != PortalKind.LinePortal && link.Kind != PortalKind.QuickPortal && link.Kind != PortalKind.LinkedLineEE)
 				node.Nodes.Add(new TreeNode(SectorsText(link.Sectors), IMAGE_ELEMENT, IMAGE_ELEMENT) { Tag = new SectorList(link.Sectors), ToolTipText = "Click to select these sectors" });
@@ -220,6 +221,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				case PortalKind.Skybox: return "Skybox portals";
 				case PortalKind.SkyPicker: return "Skybox pickers";
 				case PortalKind.PlaneHorizon: return "Plane and horizon portals";
+				case PortalKind.Ignored: return "Portal lines the engine ignores";
 				default: return "Portal copies without a source";
 			}
 		}
@@ -266,6 +268,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					parts.Add((link.Type == 3 ? "Plane " : "Horizon ") + PlaneName(link.Plane));
 					parts.Add(link.Origin.Element.ToString());
 					parts.Add("tag " + link.Id);
+					break;
+				case PortalKind.Ignored:
+					parts.Add(link.Origin.Role);
+					parts.Add(link.Origin.Element.ToString());
+					parts.Add("type " + link.Type);
 					break;
 				default:
 					parts.Add(link.Origin.Role);
