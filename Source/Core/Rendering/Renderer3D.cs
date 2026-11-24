@@ -815,7 +815,16 @@ namespace CodeImp.DoomBuilder.Rendering
             vb.Dispose();
 		}
 
-		private ResolvedMaterial BindMaterial(ImageData image, bool clamp, bool animate = false)
+		// Material layer images bind after the brightmap (2) and the seven custom shader textures (3-9)
+		private const int FirstLayerUnit = 10, LayerUnits = 4;
+
+		private static bool MaterialImageReady(ImageData image)
+		{
+			return image != null && image.IsImageLoaded && !image.LoadFailed;
+		}
+
+		// Layers are bound for geometry only: sprites get no dynamic lights and UZDoom gives them no world normal
+		private ResolvedMaterial BindMaterial(ImageData image, bool clamp, bool layers, bool animate = false)
 		{
 			ResolvedMaterial material = General.Settings.GZDrawMaterials && !General.Settings.ClassicRendering && !fullbrightness ? General.Map.Data.GetMaterial(image, animate) : null;
 			ImageData brightmap = material == null ? null : material.Brightmap;
@@ -833,21 +842,43 @@ namespace CodeImp.DoomBuilder.Rendering
 					General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest, MipmapFilter.Linear, General.Settings.FilterAnisotropy, unit);
 				graphics.SetSamplerState(clamp ? TextureAddress.Clamp : TextureAddress.Wrap, unit);
 			}
+			ImageData[] layerimages = layers && material != null ? material.Layers : new ImageData[0];
+			for(int unit = FirstLayerUnit; unit < FirstLayerUnit + LayerUnits; unit++)
+			{
+				ImageData layer = unit - FirstLayerUnit < layerimages.Length ? layerimages[unit - FirstLayerUnit] : null;
+				graphics.SetTexture(MaterialImageReady(layer) ? layer.Texture : null, unit);
+				graphics.SetSamplerFilter(General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest,
+					General.Settings.VisualBilinear ? TextureFilter.Linear : TextureFilter.Nearest, MipmapFilter.Linear, General.Settings.FilterAnisotropy, unit);
+				graphics.SetSamplerState(clamp ? TextureAddress.Clamp : TextureAddress.Wrap, unit);
+			}
+			if(layerimages.Length > 0)
+				graphics.SetUniform(UniformName.specularMaterial, new Vector2f(material.Definition.Glossiness ?? GldefsMaterial.DefaultGlossiness,
+					material.Definition.SpecularLevel ?? GldefsMaterial.DefaultSpecularLevel));
 			return material;
 		}
 
-		private ShaderName MaterialShader(ResolvedMaterial material, ShaderName builtin, bool fog, bool vertexcolor)
+		private ShaderName MaterialShader(ResolvedMaterial material, ShaderName builtin, bool fog, bool vertexcolor, bool layers)
 		{
-			if(material == null || material.Program == null || !material.Program.Usable) return builtin;
-			foreach(ImageData image in material.Textures) if(image == null || !image.IsImageLoaded || image.LoadFailed) return builtin;
+			if(material == null) return builtin;
+			UserShaderProgram program = material.Program;
+			if(material.Model != MaterialModel.Default)
+			{
+				// A layered program samples every layer, so it waits for them; a user shader of the model's type wins
+				if(!layers) return builtin;
+				foreach(ImageData image in material.Layers) if(!MaterialImageReady(image)) return builtin;
+				if(program == null || !program.Usable) program = material.LayeredProgram;
+			}
+			if(program == null || !program.Usable) return builtin;
+			if(program == material.Program)
+				foreach(ImageData image in material.Textures) if(!MaterialImageReady(image)) return builtin;
 			graphics.SetUniform(UniformName.fogEnabled, fog);
 			graphics.SetUniform(UniformName.useVertexColorUniform, vertexcolor);
 			graphics.SetUniform(UniformName.disableAlphaTest, material.Definition.DisableAlphaTest);
 			float speed = material.Definition.Speed;
 			// Preserve each program's last timer when Zandronum skips a nonpositive-speed update.
-			graphics.SetUniform(UniformName.timer, material.Program.IsWarp ? (float)(Clock.CurrentTime / 1000.0 * speed)
-				: material.Program.GetTimer(UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName), speed, Clock.CurrentTime / 1000.0));
-			return material.Program.Index;
+			graphics.SetUniform(UniformName.timer, program.IsWarp ? (float)(Clock.CurrentTime / 1000.0 * speed)
+				: program.GetTimer(UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName), speed, Clock.CurrentTime / 1000.0));
+			return program.Index;
 		}
 
 		private void UnbindMaterials()
@@ -899,7 +930,7 @@ namespace CodeImp.DoomBuilder.Rendering
         Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
         graphics.SetTexture(texture);
         graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-				ResolvedMaterial material = BindMaterial(bound, false, animatetextures);
+				ResolvedMaterial material = BindMaterial(bound, false, true, animatetextures);
 
 				//mxd. Sort geometry by sector index
 				group.Value.Sort((g1, g2) => g1.Sector.Sector.FixedIndex - g2.Sector.Sector.FixedIndex);
@@ -994,7 +1025,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						bool fogpass = FogPass(sector.Sector);
 						if(fogpass)
 							wantedshaderpass += 8;
-						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
+						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false, true);
 
 						// Switch shader pass?
 						if(currentshaderpass != wantedshaderpass)
@@ -1060,7 +1091,7 @@ namespace CodeImp.DoomBuilder.Rendering
           Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
           graphics.SetTexture(texture);
           graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-					ResolvedMaterial material = BindMaterial(curtexture, true);
+					ResolvedMaterial material = BindMaterial(curtexture, true, false);
 
 					// Render all things with this texture
 					foreach(VisualThing t in group.Value)
@@ -1120,7 +1151,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							}
 
 							// Switch shader pass?
-							wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, usevertexcolor);
+							wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, usevertexcolor, false);
 							if(currentshaderpass != wantedshaderpass) 
 							{
 								graphics.SetShader(wantedshaderpass);
@@ -1362,7 +1393,7 @@ namespace CodeImp.DoomBuilder.Rendering
 					Texture texture = UseIndexedTexture ? bound.IndexedTexture : bound.Texture;
 					graphics.SetTexture(texture);
 					graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-					material = BindMaterial(bound, false, animatetextures);
+					material = BindMaterial(bound, false, true, animatetextures);
 					
 				}
 
@@ -1397,7 +1428,7 @@ namespace CodeImp.DoomBuilder.Rendering
                     bool fogpass = FogPass(sector.Sector);
                     if (fogpass)
                         wantedshaderpass += 8;
-					wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
+					wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false, true);
 					if(!TranslucentGeometryProgram(g.GeometryType, fogpass, ref wantedshaderpass)) continue;
 
                     // Switch shader pass?
@@ -1505,7 +1536,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						Texture texture = UseIndexedTexture ? curtexture.IndexedTexture : curtexture.Texture;
 						graphics.SetTexture(texture);
 						graphics.SetUniform(UniformName.drawPaletted, texture.UserData == ImageData.TEXTURE_INDEXED);
-						material = BindMaterial(curtexture, true);
+						material = BindMaterial(curtexture, true, false);
 						
 					}
 
@@ -1552,7 +1583,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						}
 
 						// Switch shader pass?
-						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, usevertexcolor);
+						wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, usevertexcolor, false);
 						if(currentshaderpass != wantedshaderpass)
 						{
 							graphics.SetShader(wantedshaderpass);

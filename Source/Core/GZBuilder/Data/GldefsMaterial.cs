@@ -18,16 +18,19 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		internal UserShaderProgram LayeredProgram;
 		internal ImageData Normal, Specular, Metallic, Roughness, Ao;
 
-		// The layer images the model samples, in texture unit order after the brightmap
+		private ImageData[] layers;
+
+		// The layer images the model samples, in texture unit order; read once resolution is done
 		internal ImageData[] Layers
 		{
 			get
 			{
+				if(layers != null) return layers;
 				switch(Model)
 				{
-					case MaterialModel.Specular: return new[] { Normal, Specular };
-					case MaterialModel.Pbr: return new[] { Normal, Metallic, Roughness, Ao };
-					default: return new ImageData[0];
+					case MaterialModel.Specular: return layers = new[] { Normal, Specular };
+					case MaterialModel.Pbr: return layers = new[] { Normal, Metallic, Roughness, Ao };
+					default: return layers = new ImageData[0];
 				}
 			}
 		}
