@@ -113,16 +113,25 @@ namespace CodeImp.DoomBuilder.Editing
 				{
 					// Copy the marked geometry
 					// This links sidedefs that are not linked to a marked sector to a virtual sector
-					MapSet copyset = General.Map.Map.CloneMarked();
-					
-					// Convert flags and activations to UDMF fields, if needed
-					if(!(General.Map.FormatInterface is UniversalMapSetIO)) copyset.TranslateToUDMF(General.Map.FormatInterface.GetType());
-
-					// Write data to stream
+					bool oldmapischanged = General.Map.IsChanged;
 					MemoryStream memstream = new MemoryStream();
-					UniversalStreamWriter writer = new UniversalStreamWriter();
-					writer.RememberCustomTypes = false;
-					writer.Write(copyset, memstream, null);
+					try
+					{
+						MapSet copyset = General.Map.Map.CloneMarked();
+
+						// Convert flags and activations to UDMF fields, if needed
+						if(!(General.Map.FormatInterface is UniversalMapSetIO)) copyset.TranslateToUDMF(General.Map.FormatInterface.GetType());
+
+						// Write data to stream
+						UniversalStreamWriter writer = new UniversalStreamWriter();
+						writer.RememberCustomTypes = false;
+						writer.Write(copyset, memstream, null);
+					}
+					finally
+					{
+						// Cloning the selection must not dirty the source map.
+						if(!oldmapischanged) General.Map.ForceMapIsChangedFalse();
+					}
 
 					// Compress the stream
 					memstream.Seek(0, SeekOrigin.Begin);
