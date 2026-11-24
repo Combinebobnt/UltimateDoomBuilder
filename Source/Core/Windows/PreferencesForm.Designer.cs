@@ -355,7 +355,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// uithemelabel
 			// 
 			this.uithemelabel.AutoSize = true;
-			this.uithemelabel.Location = new System.Drawing.Point(35, 421);
+			this.uithemelabel.Location = new System.Drawing.Point(35, 417);
 			this.uithemelabel.Name = "uithemelabel";
 			this.uithemelabel.Size = new System.Drawing.Size(84, 13);
 			this.uithemelabel.TabIndex = 51;
@@ -368,20 +368,20 @@ namespace CodeImp.DoomBuilder.Windows
 			this.uitheme.Items.AddRange(new object[] {
             "Light",
             "Dark"});
-			this.uitheme.Location = new System.Drawing.Point(135, 418);
+			this.uitheme.Location = new System.Drawing.Point(135, 414);
 			this.uitheme.Name = "uitheme";
-			this.uitheme.Size = new System.Drawing.Size(145, 21);
+			this.uitheme.Size = new System.Drawing.Size(80, 21);
 			this.uitheme.TabIndex = 52;
 			// 
 			// uithemenote
 			// 
 			this.uithemenote.AutoSize = true;
 			this.uithemenote.ForeColor = System.Drawing.SystemColors.GrayText;
-			this.uithemenote.Location = new System.Drawing.Point(132, 442);
+			this.uithemenote.Location = new System.Drawing.Point(221, 417);
 			this.uithemenote.Name = "uithemenote";
-			this.uithemenote.Size = new System.Drawing.Size(131, 13);
+			this.uithemenote.Size = new System.Drawing.Size(76, 13);
 			this.uithemenote.TabIndex = 53;
-			this.uithemenote.Text = "Takes effect after restart";
+			this.uithemenote.Text = "(after restart)";
 			// 
 			// texturesizesbelow
 			// 

@@ -79,6 +79,8 @@ namespace Builder.Tests
 				double ratio = Contrast(UITheme.DarkWarningText, p[back]);
 				if(ratio < 4.5) failures.Add("DarkWarningText on " + back + ": " + ratio.ToString("0.00") + " < 4.5");
 			}
+			double accentratio = Contrast(p[KnownColor.HighlightText], UITheme.DarkAccent);
+			if(accentratio < 4.5) failures.Add("HighlightText on DarkAccent: " + accentratio.ToString("0.00") + " < 4.5");
 			Assert.Empty(failures);
 		}
 

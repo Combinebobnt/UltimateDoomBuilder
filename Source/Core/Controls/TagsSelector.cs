@@ -41,6 +41,8 @@ namespace CodeImp.DoomBuilder.Controls
 		public TagsSelector()
 		{
 			InitializeComponent();
+			// Mono's default link color is pure blue, unreadable on dark controls
+			if(Windows.UITheme.IsDark) tagslist.LinkColor = tagslist.VisitedLinkColor = System.Drawing.SystemColors.HotTrack;
             Reset();
 		}
 

@@ -42,6 +42,9 @@ namespace CodeImp.DoomBuilder.Windows
 		// Warning and error text (DarkRed, Red in the light theme) on dark controls and windows
 		public static readonly Color DarkWarningText = Color.FromArgb(0xF4, 0x87, 0x71);
 
+		// Accent fill under HighlightText (HotTrack is too light for that in the dark palette)
+		public static readonly Color DarkAccent = Color.FromArgb(0x00, 0x7A, 0xCC);
+
 		#endregion
 
 		#region ================== Properties

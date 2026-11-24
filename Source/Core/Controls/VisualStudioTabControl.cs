@@ -52,7 +52,7 @@ namespace CodeImp.DoomBuilder.Controls
 
         private Color textColor = SystemColors.WindowText;
         private Color selectedTextColor = SystemColors.HighlightText;
-        private Color activeColor = SystemColors.HotTrack;
+        private Color activeColor = Windows.UITheme.Pick(SystemColors.HotTrack, Windows.UITheme.DarkAccent);
         private Color highlightColor = SystemColors.Highlight;
         private Color backTabColor = SystemColors.Control;
         private Color borderColor = SystemColors.Control;
