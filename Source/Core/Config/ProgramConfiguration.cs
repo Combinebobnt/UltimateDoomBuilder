@@ -516,7 +516,7 @@ namespace CodeImp.DoomBuilder.Config
 			return false;
 		}
 
-		// Anything but "dark" reads as light, so an unknown value from a newer build is harmless
+		// Anything but "dark" reads as light, and is saved back as "light"
 		internal static UIThemeKind ReadUITheme(Configuration config)
 		{
 			string value = config.ReadSetting("uitheme", "light");

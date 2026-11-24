@@ -22,10 +22,12 @@ namespace CodeImp.DoomBuilder.Windows
 	// What UITheme needs from the toolkit, so tests can apply a theme without touching process-global state
 	internal interface IThemeBackend
 	{
-		// Remaps every given system color. All-or-nothing: throws before any write when it can't apply them all.
+		// Remaps every given system color. All-or-nothing: throws, with the table unchanged, when it can't apply them all.
 		// Returns the previous values of the remapped colors.
 		IDictionary<KnownColor, Color> ApplyPalette(IReadOnlyDictionary<KnownColor, Color> palette);
-		// Built before the palette is written, so nothing that can fail runs after it
+		// Puts back the values ApplyPalette returned, when a later step fails
+		void RestorePalette(IDictionary<KnownColor, Color> previous);
+		// Built before the palette is written, so a failure there leaves nothing to undo
 		ToolStripRenderer CreateToolStripRenderer();
 		void InstallToolStripRenderer(ToolStripRenderer renderer);
 	}
@@ -126,16 +128,24 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			if(kind == UIThemeKind.Light) return;
 
+			IDictionary<KnownColor, Color> previous = null;
 			try
 			{
 				ToolStripRenderer renderer = backend.CreateToolStripRenderer();
-				lightcolors = backend.ApplyPalette(darkpalette);
-				current = kind;
+				previous = backend.ApplyPalette(darkpalette);
 				backend.InstallToolStripRenderer(renderer);
+				lightcolors = previous;
+				current = kind;
 			}
 			catch(Exception e)
 			{
-				string message = "Unable to apply the dark interface theme: " + e.GetType().Name + ": " + e.Message;
+				if(previous != null)
+				{
+					try { backend.RestorePalette(previous); }
+					catch(Exception) { }
+				}
+				Exception cause = ((e is TargetInvocationException || e is TypeInitializationException) && e.InnerException != null) ? e.InnerException : e;
+				string message = "Unable to apply the dark interface theme: " + cause.GetType().Name + ": " + cause.Message;
 				if(General.ErrorLogger != null) General.ErrorLogger.Add(ErrorType.Warning, message);
 				else General.WriteLogLine(message);
 			}
@@ -179,25 +189,29 @@ namespace CodeImp.DoomBuilder.Windows
 			PropertyInfo currenttheme = themeengine.GetProperty("Current", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 			object theme = currenttheme != null ? currenttheme.GetValue(null, null) : null;
 
-			Type table = Resolve(typeof(Color).Assembly, "System.Drawing.KnownColorTable");
-			MethodInfo ensure = table.GetMethod("EnsureColorTable", BindingFlags.NonPublic | BindingFlags.Static);
-			FieldInfo field = table.GetField("s_colorTable", BindingFlags.NonPublic | BindingFlags.Static);
-			if(ensure == null || field == null || field.FieldType != typeof(int[]))
-				throw new MissingMemberException("System.Drawing.KnownColorTable has no usable color table");
-
-			ensure.Invoke(null, null);
-			int[] colors = (int[])field.GetValue(null);
-			foreach(KnownColor kc in palette.Keys)
-			{
-				if(colors == null || (int)kc < 0 || (int)kc >= colors.Length)
-					throw new IndexOutOfRangeException("System.Drawing.KnownColorTable has no entry for " + kc);
-			}
-
+			int[] colors = ColorTable(palette.Keys);
 			Dictionary<KnownColor, Color> previous = new Dictionary<KnownColor, Color>();
 			foreach(KeyValuePair<KnownColor, Color> entry in palette)
 			{
 				previous[entry.Key] = Color.FromArgb(colors[(int)entry.Key]);
 				colors[(int)entry.Key] = entry.Value.ToArgb();
+			}
+
+			// A Mono whose SystemColors reads another table would otherwise end up half dark
+			var readback = new[]
+			{
+				new KeyValuePair<KnownColor, Color>(KnownColor.Control, SystemColors.Control),
+				new KeyValuePair<KnownColor, Color>(KnownColor.Window, SystemColors.Window),
+				new KeyValuePair<KnownColor, Color>(KnownColor.ControlText, SystemColors.ControlText),
+			};
+			foreach(KeyValuePair<KnownColor, Color> seen in readback)
+			{
+				Color expected;
+				if(palette.TryGetValue(seen.Key, out expected) && seen.Value.ToArgb() != expected.ToArgb())
+				{
+					RestorePalette(previous);
+					throw new InvalidOperationException("SystemColors." + seen.Key + " does not read System.Drawing.KnownColorTable");
+				}
 			}
 
 			General.WriteLogLine("Interface theme: dark (" + (theme != null ? theme.GetType().Name : "no theme engine") + ")");
@@ -206,6 +220,32 @@ namespace CodeImp.DoomBuilder.Windows
 			catch(Exception e) { General.WriteLogLine("Interface theme: scrollbar track left dithered (" + e.GetType().Name + ": " + e.Message + ")"); }
 
 			return previous;
+		}
+
+		public void RestorePalette(IDictionary<KnownColor, Color> previous)
+		{
+			int[] colors = ColorTable(previous.Keys);
+			foreach(KeyValuePair<KnownColor, Color> entry in previous)
+				colors[(int)entry.Key] = entry.Value.ToArgb();
+		}
+
+		// The filled table, checked to hold every given entry before anything writes to it
+		private static int[] ColorTable(IEnumerable<KnownColor> keys)
+		{
+			Type table = Resolve(typeof(Color).Assembly, "System.Drawing.KnownColorTable");
+			MethodInfo ensure = table.GetMethod("EnsureColorTable", BindingFlags.NonPublic | BindingFlags.Static);
+			FieldInfo field = table.GetField("s_colorTable", BindingFlags.NonPublic | BindingFlags.Static);
+			if(ensure == null || field == null || field.FieldType != typeof(int[]))
+				throw new MissingMemberException("System.Drawing.KnownColorTable has no usable color table");
+
+			ensure.Invoke(null, null);
+			int[] colors = (int[])field.GetValue(null);
+			foreach(KnownColor kc in keys)
+			{
+				if(colors == null || (int)kc < 0 || (int)kc >= colors.Length)
+					throw new IndexOutOfRangeException("System.Drawing.KnownColorTable has no entry for " + kc);
+			}
+			return colors;
 		}
 
 		// Mono's classic scrollbar track is a 50% dither of ScrollBar and hardcoded white, fetched from the

@@ -17,18 +17,49 @@ namespace Builder.Tests
 			public int PaletteCalls;
 			public int RendererCalls;
 			public IReadOnlyDictionary<KnownColor, Color> Palette;
+			public IDictionary<KnownColor, Color> Previous;
+			public IDictionary<KnownColor, Color> Restored;
 			public bool Throw;
+			public bool ThrowOnCreate;
+			public bool ThrowOnInstall;
 
 			public IDictionary<KnownColor, Color> ApplyPalette(IReadOnlyDictionary<KnownColor, Color> palette)
 			{
 				PaletteCalls++;
 				if(Throw) throw new MissingMemberException("no color table");
 				Palette = palette;
-				return new Dictionary<KnownColor, Color> { { KnownColor.ControlDark, Color.FromArgb(1, 2, 3) } };
+				Previous = new Dictionary<KnownColor, Color> { { KnownColor.ControlDark, Color.FromArgb(1, 2, 3) } };
+				return Previous;
 			}
 
-			public ToolStripRenderer CreateToolStripRenderer() { return null; }
-			public void InstallToolStripRenderer(ToolStripRenderer renderer) { RendererCalls++; }
+			public void RestorePalette(IDictionary<KnownColor, Color> previous) { Restored = previous; }
+
+			public ToolStripRenderer CreateToolStripRenderer()
+			{
+				if(ThrowOnCreate) throw new InvalidOperationException("no renderer");
+				return null;
+			}
+
+			public void InstallToolStripRenderer(ToolStripRenderer renderer)
+			{
+				RendererCalls++;
+				if(ThrowOnInstall) throw new InvalidOperationException("no install");
+			}
+		}
+
+		// Runs a failing Apply with a fresh error logger and returns what it logged
+		private static List<ErrorItem> ApplyLoggingFailure(FakeBackend backend)
+		{
+			FieldInfo field = typeof(General).GetField("errorlogger", BindingFlags.NonPublic | BindingFlags.Static)!;
+			object previous = field.GetValue(null);
+			var logger = new ErrorLogger();
+			field.SetValue(null, logger);
+			try
+			{
+				UITheme.Apply(UIThemeKind.Dark, backend);
+				return new List<ErrorItem>(logger.GetErrors(0));
+			}
+			finally { field.SetValue(null, previous); }
 		}
 
 		private static double Luminance(Color c)
@@ -120,24 +151,56 @@ namespace Builder.Tests
 		[Fact]
 		public void BackendFailureIsLoggedNotThrown()
 		{
-			FieldInfo field = typeof(General).GetField("errorlogger", BindingFlags.NonPublic | BindingFlags.Static)!;
-			object previous = field.GetValue(null);
-			var logger = new ErrorLogger();
-			field.SetValue(null, logger);
 			try
 			{
 				var backend = new FakeBackend { Throw = true };
-				UITheme.Apply(UIThemeKind.Dark, backend);
+				ErrorItem item = Assert.Single(ApplyLoggingFailure(backend));
+				Assert.Equal(ErrorType.Warning, item.Type);
 				Assert.False(UITheme.IsDark);
 				Assert.Equal(0, backend.RendererCalls);
-				ErrorItem item = Assert.Single(logger.GetErrors(0));
-				Assert.Equal(ErrorType.Warning, item.Type);
+				Assert.Null(backend.Restored);
 			}
-			finally
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
+		public void RendererCreationFailureLeavesThePaletteAlone()
+		{
+			try
 			{
-				field.SetValue(null, previous);
-				UITheme.Reset();
+				var backend = new FakeBackend { ThrowOnCreate = true };
+				Assert.Single(ApplyLoggingFailure(backend));
+				Assert.Equal(0, backend.PaletteCalls);
+				Assert.False(UITheme.IsDark);
 			}
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
+		public void FailureAfterThePaletteRestoresIt()
+		{
+			try
+			{
+				var backend = new FakeBackend { ThrowOnInstall = true };
+				Assert.Single(ApplyLoggingFailure(backend));
+				Assert.Same(backend.Previous, backend.Restored);
+				Assert.False(UITheme.IsDark);
+				Assert.Equal(KnownColor.ControlDark.ToString(), UITheme.LightSystemColor(KnownColor.ControlDark).Name);
+			}
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
+		public void UnsupportedBuildIgnoresDark()
+		{
+			// Only meaningful where IsSupported is false (Windows): the Mono build would remap the real color table
+			if(UITheme.IsSupported) return;
+			try
+			{
+				UITheme.Apply(UIThemeKind.Dark);
+				Assert.False(UITheme.IsDark);
+			}
+			finally { UITheme.Reset(); }
 		}
 
 		[Fact]
