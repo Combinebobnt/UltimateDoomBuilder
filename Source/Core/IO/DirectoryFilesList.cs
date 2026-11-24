@@ -300,7 +300,7 @@ namespace CodeImp.DoomBuilder.IO
 		// This returns a list of all files that are in the given path and optionally in subdirectories
 		public List<string> GetAllFiles(string path, bool subdirectories)
 		{
-			path = CorrectPath(path);
+			path = CorrectPath(path).ToLowerInvariant();
 			if(subdirectories)
 			{
 				List<string> files = new List<string>(entries.Count);
@@ -472,9 +472,9 @@ namespace CodeImp.DoomBuilder.IO
 		{
 			if(path.Length > 0)
 			{
+				// Entry paths use the native separator, so "a/b" must become "a\b\" on Windows
+				path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				if(path[path.Length - 1] == Path.DirectorySeparatorChar) return path;
-				if(path[path.Length - 1] == Path.AltDirectorySeparatorChar)
-					path = path.Substring(0, path.Length - 1);
 				return path + Path.DirectorySeparatorChar;
 			}
 

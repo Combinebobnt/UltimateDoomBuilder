@@ -343,17 +343,38 @@ namespace CodeImp.DoomBuilder.Actions
             }
         }
 
-        // The full action names of a method's attributes of this type, each once. Mono repeats an
-        // inherited attribute of a virtual method reached through a subclass that doesn't override it.
+        // The full action names of a method's attributes of this type and those of every method it overrides, each once.
+        // Walked by hand: Mono's inherited lookup repeats attributes, and .NET's drops the base's when the override has its own.
         internal static List<string> GetActionNames(MethodInfo m, Type attributetype, Assembly asm)
         {
             List<string> names = new List<string>();
-            foreach (ActionAttribute a in m.GetCustomAttributes(attributetype, true))
-            {
-                string actionname = a.GetFullActionName(asm);
-                if (!names.Contains(actionname)) names.Add(actionname);
-            }
+            foreach (MethodInfo level in OverrideChain(m))
+                foreach (ActionAttribute a in level.GetCustomAttributes(attributetype, false))
+                {
+                    string actionname = a.GetFullActionName(asm);
+                    if (!names.Contains(actionname)) names.Add(actionname);
+                }
             return names;
+        }
+
+        // The method, then each base class method it overrides, up to the one that declared the virtual slot
+        private static IEnumerable<MethodInfo> OverrideChain(MethodInfo m)
+        {
+            yield return m;
+            if (!m.IsVirtual || m.DeclaringType == null) yield break;
+            MethodInfo root = m.GetBaseDefinition();
+            if (root.MethodHandle == m.MethodHandle) yield break;
+
+            Type[] parameters = Array.ConvertAll(m.GetParameters(), p => p.ParameterType);
+            BindingFlags flags = BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            for (Type t = m.DeclaringType.BaseType; t != null; t = t.BaseType)
+            {
+                MethodInfo b = t.GetMethod(m.Name, flags, null, parameters, null);
+                if (b == null) continue;
+                if (b.GetBaseDefinition().MethodHandle != root.MethodHandle) yield break;
+                yield return b;
+                if (b.MethodHandle == root.MethodHandle) yield break;
+            }
         }
 
         // This unbinds a delegate manually
