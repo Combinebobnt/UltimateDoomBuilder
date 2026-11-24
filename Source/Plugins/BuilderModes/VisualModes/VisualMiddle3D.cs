@@ -310,7 +310,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				if(polygons.Count > 0)
 				{
 					// The baker keys this wall on the side facing into the 3D floor's sector, its corners run along this side.
-					// It bakes Vavoom floors as the standard type (bottom and top swapped), so those get no lightmap.
+					// It bakes Vavoom floors as the standard type (top and bottom swapped), so those get no lightmap.
 					SectorData control = mode.GetSectorData(sourceside.Sector);
 					WallLightmapSpan lightmap = extrafloor.VavoomType ? null : GetWallLightmap(Sidedef.Other, LightmapWallPart.Middle, sourceside.Sector, vl, vr, control.Floor.plane, control.Ceiling.plane);
 					List<WorldVertex> verts = CreatePolygonVertices(polygons, tp, sd, lightvalue, lightabsolute, lightmap);
