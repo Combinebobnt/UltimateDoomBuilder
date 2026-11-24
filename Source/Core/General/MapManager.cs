@@ -2151,11 +2151,18 @@ namespace CodeImp.DoomBuilder
 			error = LightmapBakeUnavailable() ?? settings.BakerProblem();
 			if(error != null) return null;
 
+			// Creating and disposing the copy's sidedefs sets the changed flag (Sidedef.SetSectorP); the copy is no edit
+			changedbeforebake = changed;
 			MapSet outputset = CloneForOutput();
 			MemoryStream textmap = new MemoryStream();
 			new UniversalStreamWriter().Write(outputset, textmap, config.EngineName);
 			outputset.Dispose();
 			byte[] data = textmap.ToArray();
+			if(changed != changedbeforebake)
+			{
+				changed = changedbeforebake;
+				General.MainWindow.UpdateMapChangedStatus();
+			}
 
 			string fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)),
 				BakeFingerprint.ExcludedTypes(config.Start3DModeThingType));
@@ -2177,7 +2184,6 @@ namespace CodeImp.DoomBuilder
 				wad.WriteHeaders();
 			}
 
-			changedbeforebake = changed;
 			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint);
 			try { job.Baker.Start(settings, input, output); }
 			catch(Exception e)

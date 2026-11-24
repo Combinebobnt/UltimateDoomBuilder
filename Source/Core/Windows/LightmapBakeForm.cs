@@ -109,6 +109,8 @@ namespace CodeImp.DoomBuilder.Windows
 
 			Controls.Add(layout);
 			AcceptButton = bake;
+			CancelButton = close; // Escape cancels a running bake, else closes
+			close.DialogResult = DialogResult.None; // The CancelButton setter makes it close the form, even mid-bake
 
 			timer.Interval = 200;
 			timer.Tick += TimerTick;
