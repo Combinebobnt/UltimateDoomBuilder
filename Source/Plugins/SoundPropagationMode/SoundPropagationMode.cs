@@ -226,6 +226,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			UpdateData();
 
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.AddMenu(BuilderPlug.Me.MenusForm.ColorConfigurationItem, CodeImp.DoomBuilder.Windows.MenuSection.ToolsConfiguration);
 
 			CustomPresentation presentation = new CustomPresentation();
 			presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
@@ -273,6 +274,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 		{
 			base.OnDisengage();
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.RemoveMenu(BuilderPlug.Me.MenusForm.ColorConfigurationItem);
 
 			// Hide highlight info
 			General.Interface.HideInfo();

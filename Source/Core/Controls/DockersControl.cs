@@ -82,6 +82,8 @@ namespace CodeImp.DoomBuilder.Controls
 		#region ================== Properties
 		
 		public bool IsCollpased { get { return iscollapsed; } }
+		public IEnumerable<Docker> Dockers { get { foreach(TabPage page in tabs.TabPages) yield return page.Tag as Docker; } }
+		public Docker SelectedDocker { get { return (tabs.SelectedTab == null ? null : tabs.SelectedTab.Tag as Docker); } }
 		public string SelectedTabName { get { return (tabs.SelectedTab == null ? "None" : tabs.SelectedTab.Text); } } //mxd
 
 		// This returns true when the focus is here, but not in some special cases

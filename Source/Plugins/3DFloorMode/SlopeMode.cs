@@ -147,6 +147,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
             renderer.SetPresentation(Presentation.Things);
 
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.UpdateSlopes);
+			General.Interface.AddMenu(BuilderPlug.Me.MenusForm.SlopesMenu);
 
             // Convert geometry selection to sectors
             General.Map.Map.ConvertSelection(SelectionType.Sectors);
@@ -171,6 +172,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 			base.OnDisengage();
 
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.UpdateSlopes);
+			General.Interface.RemoveMenu(BuilderPlug.Me.MenusForm.SlopesMenu);
 			
 			// Hide highlight info
 			General.Interface.HideInfo();

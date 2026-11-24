@@ -590,6 +590,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.FloorSlope);
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.CeilingSlope);
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.FloorAndCeilingSlope);
+			General.Interface.AddMenu(BuilderPlug.Me.MenusForm.DrawSlopesMenu);
 
 			BuilderPlug.Me.MenusForm.FloorSlope.Checked = false;
 			BuilderPlug.Me.MenusForm.CeilingSlope.Checked = false;
@@ -619,6 +620,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.FloorSlope);
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.CeilingSlope);
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.FloorAndCeilingSlope);
+			General.Interface.RemoveMenu(BuilderPlug.Me.MenusForm.DrawSlopesMenu);
 
 			DisableAutoPanning();
 		}

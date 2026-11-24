@@ -15,10 +15,36 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 		public ToolStripButton UpdateSlopes { get { return updateslopes; } }
 		public ToolStripActionButton RelocateControlSectors { get { return relocatecontrolsectors; } }
 		public ContextMenuStrip AddSectorsContextMenu { get { return addsectorscontextmenu; } }
+		public ToolStripMenuItem FloorsMenu { get { return floorsmenu; } }
+		public ToolStripMenuItem DrawSlopesMenu { get { return drawslopesmenu; } }
+		public ToolStripMenuItem SlopesMenu { get { return slopesmenu; } }
+
+		private ToolStripMenuItem floorsmenu;
+		private ToolStripMenuItem drawslopesmenu;
+		private ToolStripMenuItem slopesmenu;
 
 		public MenusForm()
 		{
 			InitializeComponent();
+
+			// Top-level menus mirroring the mode buttons; each mode adds and removes its menu with its buttons
+			floorsmenu = new ToolStripMenuItem("&3D Floors");
+			floorsmenu.DropDownItems.Add(CreateMenuItem(relocatecontrolsectors, InvokeTaggedAction));
+			drawslopesmenu = new ToolStripMenuItem("&Slopes");
+			drawslopesmenu.DropDownItems.Add(CreateMenuItem(floorslope, floorslope_Click));
+			drawslopesmenu.DropDownItems.Add(CreateMenuItem(ceilingslope, ceilingslope_Click));
+			drawslopesmenu.DropDownItems.Add(CreateMenuItem(floorandceilingslope, floorandceilingslope_Click));
+			slopesmenu = new ToolStripMenuItem("&Slopes");
+			slopesmenu.DropDownItems.Add(CreateMenuItem(updateslopes, toolStripButton1_Click));
+		}
+
+		// A menu twin with the button's text, image, action Tag and check mark
+		private static ToolStripMenuItem CreateMenuItem(ToolStripButton button, EventHandler click)
+		{
+			ToolStripMenuItem item = new ToolStripMenuItem(button.Text, button.Image) { Tag = button.Tag, Checked = button.Checked };
+			button.CheckedChanged += delegate { item.Checked = button.Checked; };
+			item.Click += click;
+			return item;
 		}
 
 		public void UpdateToolTips()

@@ -2616,6 +2616,39 @@ namespace CodeImp.DoomBuilder.Windows
 			ApplyShortcutKeys(items);
 		}
 		
+		// Fills a menu-bar submenu with copies of a toolbar dropdown's items; a click is passed on to the toolbar item
+		private void MirrorDropDownItems(ToolStripDropDownItem source, ToolStripMenuItem target)
+		{
+			target.DropDownItems.Clear();
+			foreach(ToolStripItem src in source.DropDownItems)
+			{
+				if(src is ToolStripSeparator)
+				{
+					int count = target.DropDownItems.Count;
+					if(count > 0 && !(target.DropDownItems[count - 1] is ToolStripSeparator))
+						target.DropDownItems.Add(new ToolStripSeparator());
+				}
+				else if(src is ToolStripMenuItem srcitem)
+				{
+					ToolStripMenuItem item = new ToolStripMenuItem(srcitem.Text, srcitem.Image) { Checked = srcitem.Checked, Enabled = srcitem.Enabled, Tag = srcitem };
+					item.Click += mirroreditem_Click;
+					target.DropDownItems.Add(item);
+				}
+			}
+
+			// Skipped items (the test parameters box) can leave a trailing separator
+			int last = target.DropDownItems.Count - 1;
+			if(last >= 0 && target.DropDownItems[last] is ToolStripSeparator) target.DropDownItems.RemoveAt(last);
+			target.Visible = (target.DropDownItems.Count > 0);
+		}
+
+		private void mirroreditem_Click(object sender, EventArgs e)
+		{
+			ToolStripMenuItem src = (ToolStripMenuItem)((ToolStripItem)sender).Tag;
+			if(src.CheckOnClick) src.Checked = !src.Checked;
+			else src.PerformClick();
+		}
+
 		// Removes a menu
 		public void RemoveMenu(ToolStripItem menu)
 		{
@@ -3250,6 +3283,38 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== View Menu
 
+		// The mirrored toolbar dropdowns and the side panel list change while the menu is closed
+		private void menuview_DropDownOpening(object sender, EventArgs e)
+		{
+			MirrorDropDownItems(thingfilters, itemthingsfilterlist);
+			MirrorDropDownItems(linedefcolorpresets, itemlinedefcolorpresetlist);
+			RebuildSidePanelsMenu();
+		}
+
+		// Lists the side panel tabs in tab order, checking the one shown
+		private void RebuildSidePanelsMenu()
+		{
+			itemsidepanels.DropDownItems.Clear();
+			Docker selected = (dockerspanel.IsCollpased ? null : dockerspanel.SelectedDocker);
+			foreach(Docker d in dockerspanel.Dockers)
+			{
+				ToolStripMenuItem item = new ToolStripMenuItem(d.Title.Replace("&", "&&")) { Tag = d, Checked = (d == selected) };
+				item.Click += sidepanelitem_Click;
+				itemsidepanels.DropDownItems.Add(item);
+			}
+			itemsidepanels.Enabled = (dockerspanel.Visible && itemsidepanels.DropDownItems.Count > 0);
+		}
+
+		// With auto-hide on, the panel stays open until the cursor enters and leaves it
+		private void sidepanelitem_Click(object sender, EventArgs e)
+		{
+			Docker d = (Docker)((ToolStripItem)sender).Tag;
+			if(!dockerspanel.Contains(d)) return;
+			ReleaseAllKeys();
+			dockerspanel.Expand();
+			dockerspanel.SelectDocker(d);
+		}
+
 		// This sets up the View menu
 		private void UpdateViewMenu()
 		{
@@ -3633,6 +3698,12 @@ namespace CodeImp.DoomBuilder.Windows
 		#endregion
 		
 		#region ================== Tools Menu
+
+		private void menutools_DropDownOpening(object sender, EventArgs e)
+		{
+			MirrorDropDownItems(buttontest, itemtestoptions);
+			if(General.Map == null) itemtestoptions.Visible = false;
+		}
 
 		// This sets up the tools menu
 		private void UpdateToolsMenu()

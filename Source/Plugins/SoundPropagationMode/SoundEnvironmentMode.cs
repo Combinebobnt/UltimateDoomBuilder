@@ -170,6 +170,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			base.OnEngage();
 
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.AddMenu(BuilderPlug.Me.MenusForm.ColorConfigurationItem, CodeImp.DoomBuilder.Windows.MenuSection.ToolsConfiguration);
 
 			panel = new SoundEnvironmentPanel();
 			panel.OnShowWarningsOnlyChanged += PanelOnOnShowWarningsOnlyChanged;
@@ -307,6 +308,7 @@ namespace CodeImp.DoomBuilder.SoundPropagationMode
 			worker.CancelAsync();
 			worker.Dispose();
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.RemoveMenu(BuilderPlug.Me.MenusForm.ColorConfigurationItem);
 			General.Interface.RemoveDocker(docker);
 			panel.Dispose(); //mxd
 			panel = null; //mxd

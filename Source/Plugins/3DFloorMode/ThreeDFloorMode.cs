@@ -753,11 +753,13 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 			// so we can update the labels when the button is pressed
 			General.Interface.AddButton(BuilderModes.BuilderPlug.Me.MenusForm.ViewSelectionNumbers);
 			BuilderModes.BuilderPlug.Me.MenusForm.ViewSelectionNumbers.Click += ViewSelectionNumbers_Click;
+			BuilderModes.BuilderPlug.Me.MenusForm.ItemSelectionNumbers.Click += ViewSelectionNumbers_Click;
 
 			// Synchronize thing editing from BuilderModes
 			General.Interface.AddButton(BuilderModes.BuilderPlug.Me.MenusForm.SyncronizeThingEditButton);
 
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.RelocateControlSectors);
+			General.Interface.AddMenu(BuilderPlug.Me.MenusForm.FloorsMenu);
 
 			// Convert geometry selection to sectors only
 			General.Map.Map.ConvertSelection(SelectionType.Sectors);
@@ -819,10 +821,12 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 			// Remove the button and event handler for view selection numbers
 			General.Interface.RemoveButton(BuilderModes.BuilderPlug.Me.MenusForm.ViewSelectionNumbers);
 			BuilderModes.BuilderPlug.Me.MenusForm.ViewSelectionNumbers.Click -= ViewSelectionNumbers_Click;
+			BuilderModes.BuilderPlug.Me.MenusForm.ItemSelectionNumbers.Click -= ViewSelectionNumbers_Click;
 
 			General.Interface.RemoveButton(BuilderModes.BuilderPlug.Me.MenusForm.SyncronizeThingEditButton);
 
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.RelocateControlSectors);
+			General.Interface.RemoveMenu(BuilderPlug.Me.MenusForm.FloorsMenu);
 
 			// Keep only sectors selected
 			General.Map.Map.ClearSelectedLinedefs();

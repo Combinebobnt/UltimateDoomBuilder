@@ -15,6 +15,9 @@ namespace CodeImp.DoomBuilder.AutomapMode
 		public bool ShowSecretSectors { get { return showsecretsectors.Checked; } set { showsecretsectors.Checked = value; } }
 		public bool ShowLocks { get { return showlocks.Checked; } set { showlocks.Checked = value; } }
 		public bool ShowTextures { get { return showtextures.Checked; } set { showtextures.Checked = value; } }
+		private ToolStripMenuItem automapmenu;
+		private ToolStripMenuItem showlocksitem;
+
 		internal AutomapMode.ColorPreset ColorPreset { get { return (AutomapMode.ColorPreset)colorpreset.SelectedIndex; } set { colorpreset.SelectedIndex = (int)value; } }
 		
 		public MenusForm()
@@ -39,10 +42,24 @@ namespace CodeImp.DoomBuilder.AutomapMode
 			General.Interface.AddButton(colorpresetlabel);
 			General.Interface.AddButton(colorpreset);
 			General.Interface.EndToolbarUpdate(); //mxd
+
+			// Menu-bar twin of the toggles
+			if(automapmenu == null)
+			{
+				automapmenu = new ToolStripMenuItem("Auto&map");
+				automapmenu.DropDownItems.Add(CreateMenuItem(showhiddenlines));
+				automapmenu.DropDownItems.Add(CreateMenuItem(showsecretsectors));
+				showlocksitem = CreateMenuItem(showlocks);
+				automapmenu.DropDownItems.Add(showlocksitem);
+				automapmenu.DropDownItems.Add(CreateMenuItem(showtextures));
+			}
+			showlocksitem.Visible = !General.Map.DOOM;
+			General.Interface.AddMenu(automapmenu);
 		}
 
 		public void Unregister()
 		{
+			if(automapmenu != null) General.Interface.RemoveMenu(automapmenu);
 			General.Interface.BeginToolbarUpdate(); //mxd
 			General.Interface.RemoveButton(colorpreset);
 			General.Interface.RemoveButton(colorpresetlabel);
@@ -52,6 +69,15 @@ namespace CodeImp.DoomBuilder.AutomapMode
             General.Interface.RemoveButton(showsecretsectors);
 			General.Interface.RemoveButton(showhiddenlines);
 			General.Interface.EndToolbarUpdate(); //mxd
+		}
+
+		// The toggles act on CheckedChanged, so flipping the button is the whole click
+		private static ToolStripMenuItem CreateMenuItem(ToolStripButton button)
+		{
+			ToolStripMenuItem item = new ToolStripMenuItem(button.Text, button.Image) { Checked = button.Checked };
+			button.CheckedChanged += delegate { item.Checked = button.Checked; };
+			item.Click += delegate { button.Checked = !button.Checked; };
+			return item;
 		}
 
 		private void showhiddenlines_CheckedChanged(object sender, EventArgs e)

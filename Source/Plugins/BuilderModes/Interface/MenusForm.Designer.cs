@@ -123,6 +123,21 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.viewmenuitem = new System.Windows.Forms.ToolStripMenuItem();
             this.itemlightradii = new System.Windows.Forms.ToolStripMenuItem();
             this.itemsoundradii = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemselectionnumbers = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemselectioneffects = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemmarqueselecttouching = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemtextureoffsetlock = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemtextureoffset3dfloorlock = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemflipselectionh = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemflipselectionv = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemrotateselection90ccw = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemrotateselection90cw = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemgradientbrightnessl = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemgradientbrightnesss = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemgradientfloors = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemgradientceilings = new System.Windows.Forms.ToolStripMenuItem();
+            this.separatorgradientl = new System.Windows.Forms.ToolStripSeparator();
+            this.separatorgradients = new System.Windows.Forms.ToolStripSeparator();
             this.levelToIdStudioMapToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menustrip.SuspendLayout();
             this.manualstrip.SuspendLayout();
@@ -163,7 +178,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.updatelightfogitem,
             this.aligntexturesitem,
             this.toolStripSeparator5,
-            this.selectSimilarLinesItem});
+            this.selectSimilarLinesItem,
+            this.separatorgradientl,
+            this.itemgradientbrightnessl});
             this.linedefsmenu.Name = "linedefsmenu";
             this.linedefsmenu.Size = new System.Drawing.Size(63, 20);
             this.linedefsmenu.Text = "&Linedefs";
@@ -367,7 +384,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.makedooritem,
             this.changeSectorIndexToolStripMenuItem,
             this.toolStripSeparator4,
-            this.selectSimilarSectors});
+            this.selectSimilarSectors,
+            this.separatorgradients,
+            this.itemgradientbrightnesss,
+            this.itemgradientfloors,
+            this.itemgradientceilings});
             this.sectorsmenu.Name = "sectorsmenu";
             this.sectorsmenu.Size = new System.Drawing.Size(57, 20);
             this.sectorsmenu.Text = "&Sectors";
@@ -963,7 +984,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.separatorcopyprops,
             this.itemcopyprops,
             this.itempasteprops,
-            this.itempastepropsoptions});
+            this.itempastepropsoptions,
+            this.itemmarqueselecttouching,
+            this.itemtextureoffsetlock,
+            this.itemtextureoffset3dfloorlock,
+            this.itemflipselectionh,
+            this.itemflipselectionv,
+            this.itemrotateselection90ccw,
+            this.itemrotateselection90cw});
             this.editmenuitem.Name = "editmenuitem";
             this.editmenuitem.Size = new System.Drawing.Size(39, 20);
             this.editmenuitem.Text = "Edit";
@@ -1004,7 +1032,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
             // 
             this.viewmenuitem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.itemlightradii,
-            this.itemsoundradii});
+            this.itemsoundradii,
+            this.itemselectionnumbers,
+            this.itemselectioneffects});
             this.viewmenuitem.Name = "viewmenuitem";
             this.viewmenuitem.Size = new System.Drawing.Size(44, 20);
             this.viewmenuitem.Text = "View";
@@ -1026,6 +1056,128 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.itemsoundradii.Size = new System.Drawing.Size(218, 22);
             this.itemsoundradii.Text = "Show Ambient Sound Radii";
             this.itemsoundradii.Click += new System.EventHandler(this.buttonsoundradii_Click);
+            // 
+            // itemselectionnumbers
+            // 
+            this.itemselectionnumbers.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.ViewSelectionIndex;
+            this.itemselectionnumbers.Name = "itemselectionnumbers";
+            this.itemselectionnumbers.Size = new System.Drawing.Size(223, 22);
+            this.itemselectionnumbers.Text = "View Selection Numbering";
+            this.itemselectionnumbers.Click += new System.EventHandler(this.buttonselectionnumbers_Click);
+            // 
+            // itemselectioneffects
+            // 
+            this.itemselectioneffects.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.ViewSelectionEffects;
+            this.itemselectioneffects.Name = "itemselectioneffects";
+            this.itemselectioneffects.Size = new System.Drawing.Size(223, 22);
+            this.itemselectioneffects.Text = "View Tags and Effects";
+            this.itemselectioneffects.Click += new System.EventHandler(this.buttonselectioneffects_Click);
+            // 
+            // itemmarqueselecttouching
+            // 
+            this.itemmarqueselecttouching.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.SelectTouching;
+            this.itemmarqueselecttouching.Name = "itemmarqueselecttouching";
+            this.itemmarqueselecttouching.Size = new System.Drawing.Size(223, 22);
+            this.itemmarqueselecttouching.Text = "Select Touching (Marquee)";
+            this.itemmarqueselecttouching.Click += new System.EventHandler(this.buttonMarqueSelectTouching_Click);
+            // 
+            // itemtextureoffsetlock
+            // 
+            this.itemtextureoffsetlock.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.TextureLock;
+            this.itemtextureoffsetlock.Name = "itemtextureoffsetlock";
+            this.itemtextureoffsetlock.Size = new System.Drawing.Size(223, 22);
+            this.itemtextureoffsetlock.Text = "Pin Texture Offsets";
+            this.itemtextureoffsetlock.Click += new System.EventHandler(this.buttonTextureOffsetLock_Click);
+            // 
+            // itemtextureoffset3dfloorlock
+            // 
+            this.itemtextureoffset3dfloorlock.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.TextureLock3Dfloor;
+            this.itemtextureoffset3dfloorlock.Name = "itemtextureoffset3dfloorlock";
+            this.itemtextureoffset3dfloorlock.Size = new System.Drawing.Size(223, 22);
+            this.itemtextureoffset3dfloorlock.Text = "Pin 3D Floor Texture Offsets";
+            this.itemtextureoffset3dfloorlock.Click += new System.EventHandler(this.buttonTextureOffset3DFloorLock_Click);
+            // 
+            // itemflipselectionh
+            // 
+            this.itemflipselectionh.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.FlipSelectionH;
+            this.itemflipselectionh.Name = "itemflipselectionh";
+            this.itemflipselectionh.Size = new System.Drawing.Size(223, 22);
+            this.itemflipselectionh.Tag = "flipselectionh";
+            this.itemflipselectionh.Text = "Flip Selection Horizontally";
+            this.itemflipselectionh.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemflipselectionv
+            // 
+            this.itemflipselectionv.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.FlipSelectionV;
+            this.itemflipselectionv.Name = "itemflipselectionv";
+            this.itemflipselectionv.Size = new System.Drawing.Size(223, 22);
+            this.itemflipselectionv.Tag = "flipselectionv";
+            this.itemflipselectionv.Text = "Flip Selection Vertically";
+            this.itemflipselectionv.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemrotateselection90ccw
+            // 
+            this.itemrotateselection90ccw.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCCW;
+            this.itemrotateselection90ccw.Name = "itemrotateselection90ccw";
+            this.itemrotateselection90ccw.Size = new System.Drawing.Size(223, 22);
+            this.itemrotateselection90ccw.Tag = "rotateselection90ccw";
+            this.itemrotateselection90ccw.Text = "Rotate Selection 90 Degrees Counterclockwise";
+            this.itemrotateselection90ccw.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemrotateselection90cw
+            // 
+            this.itemrotateselection90cw.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.RotateSelectionCW;
+            this.itemrotateselection90cw.Name = "itemrotateselection90cw";
+            this.itemrotateselection90cw.Size = new System.Drawing.Size(223, 22);
+            this.itemrotateselection90cw.Tag = "rotateselection90cw";
+            this.itemrotateselection90cw.Text = "Rotate Selection 90 Degrees Clockwise";
+            this.itemrotateselection90cw.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemgradientbrightnessl
+            // 
+            this.itemgradientbrightnessl.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.BrightnessGradient;
+            this.itemgradientbrightnessl.Name = "itemgradientbrightnessl";
+            this.itemgradientbrightnessl.Size = new System.Drawing.Size(223, 22);
+            this.itemgradientbrightnessl.Tag = "gradientbrightness";
+            this.itemgradientbrightnessl.Text = "Make Brightness Gradient";
+            this.itemgradientbrightnessl.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemgradientbrightnesss
+            // 
+            this.itemgradientbrightnesss.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.BrightnessGradient;
+            this.itemgradientbrightnesss.Name = "itemgradientbrightnesss";
+            this.itemgradientbrightnesss.Size = new System.Drawing.Size(223, 22);
+            this.itemgradientbrightnesss.Tag = "gradientbrightness";
+            this.itemgradientbrightnesss.Text = "Make Brightness Gradient";
+            this.itemgradientbrightnesss.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemgradientfloors
+            // 
+            this.itemgradientfloors.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.FloorsGradient;
+            this.itemgradientfloors.Name = "itemgradientfloors";
+            this.itemgradientfloors.Size = new System.Drawing.Size(223, 22);
+            this.itemgradientfloors.Tag = "gradientfloors";
+            this.itemgradientfloors.Text = "Make Floor Heights Gradient";
+            this.itemgradientfloors.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // itemgradientceilings
+            // 
+            this.itemgradientceilings.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.CeilsGradient;
+            this.itemgradientceilings.Name = "itemgradientceilings";
+            this.itemgradientceilings.Size = new System.Drawing.Size(223, 22);
+            this.itemgradientceilings.Tag = "gradientceilings";
+            this.itemgradientceilings.Text = "Make Ceiling Heights Gradient";
+            this.itemgradientceilings.Click += new System.EventHandler(this.InvokeTaggedAction);
+            // 
+            // separatorgradientl
+            // 
+            this.separatorgradientl.Name = "separatorgradientl";
+            this.separatorgradientl.Size = new System.Drawing.Size(220, 6);
+            // 
+            // separatorgradients
+            // 
+            this.separatorgradients.Name = "separatorgradients";
+            this.separatorgradients.Size = new System.Drawing.Size(220, 6);
             // 
             // levelToIdStudioMapToolStripMenuItem
             // 
@@ -1153,6 +1305,21 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripMenuItem viewmenuitem;
 		private System.Windows.Forms.ToolStripMenuItem itemlightradii;
 		private System.Windows.Forms.ToolStripMenuItem itemsoundradii;
+		private System.Windows.Forms.ToolStripMenuItem itemselectionnumbers;
+		private System.Windows.Forms.ToolStripMenuItem itemselectioneffects;
+		private System.Windows.Forms.ToolStripMenuItem itemmarqueselecttouching;
+		private System.Windows.Forms.ToolStripMenuItem itemtextureoffsetlock;
+		private System.Windows.Forms.ToolStripMenuItem itemtextureoffset3dfloorlock;
+		private System.Windows.Forms.ToolStripMenuItem itemflipselectionh;
+		private System.Windows.Forms.ToolStripMenuItem itemflipselectionv;
+		private System.Windows.Forms.ToolStripMenuItem itemrotateselection90ccw;
+		private System.Windows.Forms.ToolStripMenuItem itemrotateselection90cw;
+		private System.Windows.Forms.ToolStripMenuItem itemgradientbrightnessl;
+		private System.Windows.Forms.ToolStripMenuItem itemgradientbrightnesss;
+		private System.Windows.Forms.ToolStripMenuItem itemgradientfloors;
+		private System.Windows.Forms.ToolStripMenuItem itemgradientceilings;
+		private System.Windows.Forms.ToolStripSeparator separatorgradientl;
+		private System.Windows.Forms.ToolStripSeparator separatorgradients;
 		private System.Windows.Forms.ToolStripButton buttonTextureOffset3DFloorLock;
 		private System.Windows.Forms.ToolStripMenuItem selectionToImageToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem changeLindefIndexToolStripMenuItem;

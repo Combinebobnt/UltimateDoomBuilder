@@ -236,6 +236,7 @@ namespace CodeImp.DoomBuilder.RejectExplorer
 			base.OnEngage();
 
 			General.Interface.AddButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.AddMenu(BuilderPlug.Me.MenusForm.ColorConfigurationItem, CodeImp.DoomBuilder.Windows.MenuSection.ToolsConfiguration);
 
 			CustomPresentation presentation = new CustomPresentation();
 			presentation.AddLayer(new PresentLayer(RendererLayer.Background, BlendingMode.Mask, General.Settings.BackgroundAlpha));
@@ -255,6 +256,7 @@ namespace CodeImp.DoomBuilder.RejectExplorer
 			base.OnDisengage();
 
 			General.Interface.RemoveButton(BuilderPlug.Me.MenusForm.ColorConfiguration);
+			General.Interface.RemoveMenu(BuilderPlug.Me.MenusForm.ColorConfigurationItem);
 
 			General.Interface.HideInfo();
 		}

@@ -99,6 +99,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public ToolStripMenuItem ItemSoundRadii { get { return itemsoundradii; } }
 		public ToolStripButton ButtonLightRadii { get { return buttonlightradii; } }
 		public ToolStripButton ButtonSoundRadii { get { return buttonsoundradii; } }
+		public ToolStripMenuItem ItemSelectionNumbers { get { return itemselectionnumbers; } }
 
 		#endregion
 
@@ -145,6 +146,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			manualstrip.Items.Clear();
 			editmenuitem.DropDownItems.Clear();
 #endif
+
+			// Menu-bar twins follow their toolbar buttons on and off the toolbar
+			PairWithMenu(buttonselectionnumbers, itemselectionnumbers, MenuSection.ViewHelpers);
+			PairWithMenu(buttonselectioneffects, itemselectioneffects, MenuSection.ViewHelpers);
+			PairWithMenu(buttonMarqueSelectTouching, itemmarqueselecttouching, MenuSection.EditGeometry);
+			PairWithMenu(buttonTextureOffsetLock, itemtextureoffsetlock, MenuSection.EditGeometry);
+			PairWithMenu(buttonTextureOffset3DFloorLock, itemtextureoffset3dfloorlock, MenuSection.EditGeometry);
+			PairWithMenu(buttonflipselectionh, itemflipselectionh, MenuSection.EditGeometry);
+			PairWithMenu(buttonflipselectionv, itemflipselectionv, MenuSection.EditGeometry);
+			PairWithMenu(buttonrotateselection90ccw, itemrotateselection90ccw, MenuSection.EditGeometry);
+			PairWithMenu(buttonrotateselection90cw, itemrotateselection90cw, MenuSection.EditGeometry);
 		}
 
 		#endregion
@@ -191,6 +203,62 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd. Copy-paste propserties items
 			foreach(ToolStripItem i in propsmenuitems)
 				General.Interface.RemoveMenu(i);
+		}
+
+		// The item is on the menu bar while the button is on a toolbar, and shows a toggle button's state
+		private static void PairWithMenu(ToolStripItem button, ToolStripMenuItem item, MenuSection section)
+		{
+			button.OwnerChanged += delegate
+			{
+				General.Interface.RemoveMenu(item);
+				if(button.Owner != null) General.Interface.AddMenu(item, section);
+			};
+
+			ToolStripButton toggle = button as ToolStripButton;
+			if(toggle != null && toggle.CheckOnClick)
+			{
+				item.Checked = toggle.Checked;
+				toggle.CheckedChanged += delegate { item.Checked = toggle.Checked; };
+				toggle.TextChanged += delegate { item.Text = toggle.Text; };
+			}
+		}
+
+		// A top-level menu mirroring an options panel's buttons; the panel adds and removes it with its buttons
+		internal static ToolStripMenuItem CreatePanelMenu(string title, params ToolStripItem[] buttons)
+		{
+			ToolStripMenuItem menu = new ToolStripMenuItem(title);
+			foreach(ToolStripItem b in buttons)
+			{
+				if(b is ToolStripSeparator)
+				{
+					menu.DropDownItems.Add(new ToolStripSeparator());
+					continue;
+				}
+
+				ToolStripButton button = (ToolStripButton)b;
+				ToolStripMenuItem item = new ToolStripMenuItem(button.Text, button.Image) { Enabled = button.Enabled };
+				button.EnabledChanged += delegate { item.Enabled = button.Enabled; };
+				if(button.CheckOnClick)
+				{
+					// The panels act on CheckedChanged, so flipping the state is the whole click
+					item.Checked = button.Checked;
+					button.CheckedChanged += delegate { item.Checked = button.Checked; };
+					item.Click += delegate { button.Checked = !button.Checked; };
+				}
+				else
+				{
+					// Panel buttons sit in the toolbar's custom section, which is never hidden, so PerformClick runs
+					item.Click += delegate { button.PerformClick(); };
+				}
+				menu.DropDownItems.Add(item);
+			}
+			return menu;
+		}
+
+		// A menu click doesn't toggle the button, so flip it before the shared handler reads it
+		private static void FlipFromMenu(object sender, ToolStripButton button)
+		{
+			if(sender != button) button.Checked = !button.Checked;
 		}
 
 		// This hides all menus
@@ -244,6 +312,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// View selection numbers clicked
 		private void buttonselectionnumbers_Click(object sender, EventArgs e)
 		{
+			FlipFromMenu(sender, buttonselectionnumbers);
 			BuilderPlug.Me.ViewSelectionNumbers = buttonselectionnumbers.Checked;
 
 			//mxd. Notify current mode
@@ -259,6 +328,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd
 		private void buttonselectioneffects_Click(object sender, EventArgs e) 
 		{
+			FlipFromMenu(sender, buttonselectioneffects);
 			BuilderPlug.Me.ViewSelectionEffects = buttonselectioneffects.Checked;
 
 			// Notify current mode
@@ -274,6 +344,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd
 		private void buttonMarqueSelectTouching_Click(object sender, EventArgs e) 
 		{
+			FlipFromMenu(sender, buttonMarqueSelectTouching);
 			BuilderPlug.Me.MarqueSelectTouching = buttonMarqueSelectTouching.Checked;
 			General.Interface.DisplayStatus(StatusType.Info, (buttonMarqueSelectTouching.Checked ? 
 				"Select map elements touching selection rectangle" :
@@ -283,6 +354,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd
 		private void buttonTextureOffsetLock_Click(object sender, EventArgs e) 
 		{
+			FlipFromMenu(sender, buttonTextureOffsetLock);
 			BuilderPlug.Me.LockSectorTextureOffsetsWhileDragging = buttonTextureOffsetLock.Checked;
 			General.Interface.DisplayStatus(StatusType.Info, (buttonTextureOffsetLock.Checked ? 
 				"Lock texture offsets when dragging sectors" : 
@@ -291,6 +363,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void buttonTextureOffset3DFloorLock_Click(object sender, EventArgs e)
 		{
+			FlipFromMenu(sender, buttonTextureOffset3DFloorLock);
 			BuilderPlug.Me.Lock3DFloorSectorTextureOffsetsWhileDragging = buttonTextureOffset3DFloorLock.Checked;
 			General.Interface.DisplayStatus(StatusType.Info, (buttonTextureOffset3DFloorLock.Checked ?
 				"Lock texture offsets of 3D floors when dragging tagged sectors" :
@@ -302,6 +375,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			aligntexturesitem.Enabled = General.Map.UDMF;
 			updatelightfogitem.Enabled = General.Map.UDMF;
+			itemgradientbrightnessl.Enabled = General.Map.UDMF;
 		}
 
 		//mxd

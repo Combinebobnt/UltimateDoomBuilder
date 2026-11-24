@@ -24,6 +24,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public bool RadialDrawing { get { return radialdrawing.Checked; } set { radialdrawing.Checked = value; } }
 		public bool PlaceThingsAtVertices { get { return placethingsatvertices.Checked; } set { placethingsatvertices.Checked = value; } }
 
+		private ToolStripMenuItem menu;
+
 		public DrawRectangleOptionsPanel() 
 		{
 			InitializeComponent();
@@ -52,10 +54,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(subdivs);
 			General.Interface.AddButton(reset);
 			General.Interface.EndToolbarUpdate();
+			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, showguidelines, radialdrawing, placethingsatvertices, toolStripSeparator1, reset);
+			General.Interface.AddMenu(menu);
 		}
 
 		public void Unregister() 
 		{
+			if(menu != null) General.Interface.RemoveMenu(menu);
 			General.Interface.BeginToolbarUpdate();
 			General.Interface.RemoveButton(reset);
 			General.Interface.RemoveButton(subdivs);

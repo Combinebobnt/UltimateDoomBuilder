@@ -30,6 +30,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 
 		#region ================== Constructor
 
+		private ToolStripMenuItem menu;
+
 		public ExtrudeLinedefsOptionsPanel()
 		{
 			InitializeComponent();
@@ -73,10 +75,13 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			General.Interface.AddButton(apply);
 			General.Interface.AddButton(cancel);
 			General.Interface.EndToolbarUpdate();
+			if(menu == null) menu = MenusForm.CreatePanelMenu("E&xtrude", flip, reset, separator2, apply, cancel);
+			General.Interface.AddMenu(menu);
 		}
 
 		public void Unregister()
 		{
+			if(menu != null) General.Interface.RemoveMenu(menu);
 			General.Interface.BeginToolbarUpdate();
 			General.Interface.RemoveButton(cancel);
 			General.Interface.RemoveButton(apply);

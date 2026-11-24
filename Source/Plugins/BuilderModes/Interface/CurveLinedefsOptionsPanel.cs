@@ -33,6 +33,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 		
 		#region ================== Constructor
 
+		private ToolStripMenuItem menu;
+
 		public CurveLinedefsOptionsPanel()
 		{
 			InitializeComponent();
@@ -78,10 +80,13 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 			General.Interface.AddButton(apply);
 			General.Interface.AddButton(cancel);
 			General.Interface.EndToolbarUpdate();
+			if(menu == null) menu = MenusForm.CreatePanelMenu("&Curve", flip, reset, separator1, fixedcurve, separator2, apply, cancel);
+			General.Interface.AddMenu(menu);
 		}
 
 		public void Unregister()
 		{
+			if(menu != null) General.Interface.RemoveMenu(menu);
 			General.Interface.BeginToolbarUpdate();
 			General.Interface.RemoveButton(cancel);
 			General.Interface.RemoveButton(apply);

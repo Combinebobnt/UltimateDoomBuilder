@@ -95,6 +95,10 @@ namespace CodeImp.DoomBuilder.Windows
 			this.menuview = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemthingsfilter = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemlinedefcolors = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemthingsfilterlist = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemlinedefcolorpresetlist = new System.Windows.Forms.ToolStripMenuItem();
+			this.separatorsidepanels = new System.Windows.Forms.ToolStripSeparator();
+			this.itemsidepanels = new System.Windows.Forms.ToolStripMenuItem();
 			this.seperatorviewthings = new System.Windows.Forms.ToolStripSeparator();
 			this.itemviewnormal = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemviewbrightness = new System.Windows.Forms.ToolStripMenuItem();
@@ -143,6 +147,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemsaveeditareascreenshot = new System.Windows.Forms.ToolStripMenuItem();
 			this.separatortoolsscreenshots = new System.Windows.Forms.ToolStripSeparator();
 			this.itemtestmap = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemtestoptions = new System.Windows.Forms.ToolStripMenuItem();
 			this.itembakelightmaps = new System.Windows.Forms.ToolStripMenuItem();
 			this.menuhelp = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemhelprefmanual = new System.Windows.Forms.ToolStripMenuItem();
@@ -807,7 +812,9 @@ namespace CodeImp.DoomBuilder.Windows
 			// 
 			this.menuview.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
 			this.itemthingsfilter,
+			this.itemthingsfilterlist,
 			this.itemlinedefcolors,
+			this.itemlinedefcolorpresetlist,
 			this.seperatorviewthings,
 			this.itemviewnormal,
 			this.itemviewbrightness,
@@ -835,10 +842,13 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemfittoscreen,
 			this.itemtoggleinfo,
 			this.seperatorviewzoom,
-			this.itemscripteditor});
+			this.itemscripteditor,
+			this.separatorsidepanels,
+			this.itemsidepanels});
 			this.menuview.Name = "menuview";
 			this.menuview.Size = new System.Drawing.Size(44, 20);
 			this.menuview.Text = "&View";
+			this.menuview.DropDownOpening += new System.EventHandler(this.menuview_DropDownOpening);
 			// 
 			// itemthingsfilter
 			// 
@@ -849,6 +859,12 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemthingsfilter.Text = "Configure &Things Filters...";
 			this.itemthingsfilter.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
+			// itemthingsfilterlist
+			// 
+			this.itemthingsfilterlist.Name = "itemthingsfilterlist";
+			this.itemthingsfilterlist.Size = new System.Drawing.Size(215, 22);
+			this.itemthingsfilterlist.Text = "Things &Filter";
+			// 
 			// itemlinedefcolors
 			// 
 			this.itemlinedefcolors.Image = global::CodeImp.DoomBuilder.Properties.Resources.LinedefColorPresets;
@@ -857,6 +873,12 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemlinedefcolors.Tag = "builder_linedefcolorssetup";
 			this.itemlinedefcolors.Text = "Configure &Linedef Colors...";
 			this.itemlinedefcolors.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemlinedefcolorpresetlist
+			// 
+			this.itemlinedefcolorpresetlist.Name = "itemlinedefcolorpresetlist";
+			this.itemlinedefcolorpresetlist.Size = new System.Drawing.Size(215, 22);
+			this.itemlinedefcolorpresetlist.Text = "Linedef Color &Presets";
 			// 
 			// seperatorviewthings
 			// 
@@ -1113,6 +1135,18 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemscripteditor.Text = "&Script Editor...";
 			this.itemscripteditor.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
+			// separatorsidepanels
+			// 
+			this.separatorsidepanels.Margin = new System.Windows.Forms.Padding(0, 3, 0, 3);
+			this.separatorsidepanels.Name = "separatorsidepanels";
+			this.separatorsidepanels.Size = new System.Drawing.Size(212, 6);
+			// 
+			// itemsidepanels
+			// 
+			this.itemsidepanels.Name = "itemsidepanels";
+			this.itemsidepanels.Size = new System.Drawing.Size(215, 22);
+			this.itemsidepanels.Text = "Side &Panels";
+			// 
 			// menumode
 			// 
 			this.menumode.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -1190,10 +1224,12 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemsaveeditareascreenshot,
 			this.separatortoolsscreenshots,
 			this.itembakelightmaps,
-			this.itemtestmap});
+			this.itemtestmap,
+			this.itemtestoptions});
 			this.menutools.Name = "menutools";
 			this.menutools.Size = new System.Drawing.Size(48, 20);
 			this.menutools.Text = "&Tools";
+			this.menutools.DropDownOpening += new System.EventHandler(this.menutools_DropDownOpening);
 			// 
 			// itemreloadresources
 			// 
@@ -1292,6 +1328,12 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemtestmap.Tag = "builder_testmap";
 			this.itemtestmap.Text = "&Test Map";
 			this.itemtestmap.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemtestoptions
+			// 
+			this.itemtestoptions.Name = "itemtestoptions";
+			this.itemtestoptions.Size = new System.Drawing.Size(215, 22);
+			this.itemtestoptions.Text = "Test Map &Options";
 			//
 			// itembakelightmaps
 			//
@@ -3278,6 +3320,11 @@ namespace CodeImp.DoomBuilder.Windows
 		private ToolStripButton buttontogglecomments;
 		private ToolStripButton buttontogglefixedthingsscale;
 		private ToolStripMenuItem itemlinedefcolors;
+		private ToolStripMenuItem itemthingsfilterlist;
+		private ToolStripMenuItem itemlinedefcolorpresetlist;
+		private ToolStripSeparator separatorsidepanels;
+		private ToolStripMenuItem itemsidepanels;
+		private ToolStripMenuItem itemtestoptions;
 		private ToolStripSeparator separatorlinecolors;
 		private ToolStripButton buttonlinededfcolors;
 		private ToolStripDropDownButton linedefcolorpresets;

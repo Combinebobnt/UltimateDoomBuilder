@@ -7,12 +7,15 @@ namespace CodeImp.DoomBuilder.TagRange
 	public partial class ToolsForm : Form
 	{
 		bool buttonontoolbar;
+		ToolStripMenuItem tagrangeitem;
 		
 		// Constructor
 		public ToolsForm()
 		{
 			InitializeComponent();
 			buttonontoolbar = false;
+			tagrangeitem = new ToolStripMenuItem(tagrangebutton.Text, tagrangebutton.Image) { Tag = tagrangebutton.Tag };
+			tagrangeitem.Click += InvokeTaggedAction;
 
 			// Mono fix
 #if MONO_WINFORMS
@@ -34,6 +37,7 @@ namespace CodeImp.DoomBuilder.TagRange
 				General.Interface.RemoveButton(seperator1);
 				General.Interface.RemoveButton(tagrangebutton);
 				General.Interface.RemoveButton(seperator2);
+				General.Interface.RemoveMenu(tagrangeitem);
 				buttonontoolbar = false;
 			}
 			
@@ -49,6 +53,7 @@ namespace CodeImp.DoomBuilder.TagRange
 				General.Interface.AddButton(seperator1);
 				General.Interface.AddButton(tagrangebutton);
 				General.Interface.AddButton(seperator2);
+				General.Interface.AddMenu(tagrangeitem, CodeImp.DoomBuilder.Windows.MenuSection.EditGeometry);
 				buttonontoolbar = true;
 			}
 		}

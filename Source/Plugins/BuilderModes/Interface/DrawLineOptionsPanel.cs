@@ -13,6 +13,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public bool AutoCloseDrawing { get { return autoclosedrawing.Checked; } set { autoclosedrawing.Checked = value; } }
 		public bool ShowGuidelines { get { return showguidelines.Checked; } set { showguidelines.Checked = value; } }
 		
+		private ToolStripMenuItem menu;
+
 		public DrawLineOptionsPanel()
 		{
 			InitializeComponent();
@@ -31,10 +33,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(autoclosedrawing);
 			General.Interface.AddButton(showguidelines);
 			General.Interface.EndToolbarUpdate();
+			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, showguidelines);
+			General.Interface.AddMenu(menu);
 		}
 
 		public void Unregister()
 		{
+			if(menu != null) General.Interface.RemoveMenu(menu);
 			General.Interface.BeginToolbarUpdate();
 			General.Interface.RemoveButton(showguidelines);
 			General.Interface.RemoveButton(autoclosedrawing);

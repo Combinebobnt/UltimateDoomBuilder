@@ -16,6 +16,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public bool AutoCloseDrawing { get { return autoclosedrawing.Checked; } set { autoclosedrawing.Checked = value; } }
 		public bool PlaceThingsAtVertices { get { return placethingsatvertices.Checked; } set { placethingsatvertices.Checked = value; } }
 
+		private ToolStripMenuItem menu;
+
 		public DrawCurveOptionsPanel(int minLength, int maxLength) 
 		{
 			InitializeComponent();
@@ -37,10 +39,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(seglen);
 			General.Interface.AddButton(reset);
 			General.Interface.EndToolbarUpdate();
+			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, placethingsatvertices, toolStripSeparator1, reset);
+			General.Interface.AddMenu(menu);
 		}
 
 		public void Unregister() 
 		{
+			if(menu != null) General.Interface.RemoveMenu(menu);
 			General.Interface.BeginToolbarUpdate();
 			General.Interface.RemoveButton(reset);
 			General.Interface.RemoveButton(seglen);
