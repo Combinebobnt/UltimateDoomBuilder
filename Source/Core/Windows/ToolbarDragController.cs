@@ -10,7 +10,7 @@ namespace CodeImp.DoomBuilder.Windows
 {
 	// Drags toolbar strips by their grip. Neither Mono nor a plain Panel parent gives a native toolstrip
 	// drag, so this runs the same on both platforms: moves only show an indicator, release commits.
-	internal sealed class ToolbarDragController
+	internal sealed class ToolbarDragController : IMessageFilter
 	{
 		#region ================== Variables
 
@@ -27,6 +27,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private Point pressclient; // Press point in form client coordinates
 		private int grab; // Press point along the strip from its start
 		private bool dragging;
+		private bool cancelled; // Escape ended the drag; the press lasts until the button is released
 		private bool ending;
 		private bool swallowescapeup;
 		private ToolbarDropTarget target;
@@ -49,12 +50,12 @@ namespace CodeImp.DoomBuilder.Windows
 			poll = new Timer();
 			poll.Interval = 50;
 			poll.Tick += poll_Tick;
+			Application.AddMessageFilter(this);
 
 			foreach(ToolStrip strip in dock.Strips)
 			{
 				strip.MouseDown += strip_MouseDown;
 				strip.MouseMove += strip_MouseMove;
-				strip.MouseUp += strip_MouseUp;
 				strip.MouseCaptureChanged += strip_MouseCaptureChanged;
 				strip.MouseLeave += strip_MouseLeave;
 			}
@@ -64,7 +65,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Mouse
 
-		// The leading band before the items, wider than Mono's 3 px grip rectangle
+		// The painted grip band before the items
 		private static bool InGripBand(ToolStrip strip, Point p)
 		{
 			Rectangle d = strip.DisplayRectangle;
@@ -74,7 +75,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void strip_MouseDown(object sender, MouseEventArgs e)
 		{
 			ToolStrip strip = (ToolStrip)sender;
-			if(e.Button != MouseButtons.Left || dock.Locked || dragging || !InGripBand(strip, e.Location)) return;
+			if(e.Button != MouseButtons.Left || dock.Locked || pressed != null || !InGripBand(strip, e.Location)) return;
 			pressed = strip;
 			pressedid = dock.IdOf(strip);
 			if(pressedid == null) { pressed = null; return; }
@@ -108,6 +109,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// p is in form client coordinates
 		private void Track(Point p)
 		{
+			if(cancelled) return;
 			if(!dragging)
 			{
 				Size threshold = SystemInformation.DragSize;
@@ -119,10 +121,13 @@ namespace CodeImp.DoomBuilder.Windows
 			UpdateTarget(p);
 		}
 
-		private void strip_MouseUp(object sender, MouseEventArgs e)
+		// The release ends the press and reaches no control: Mono clicks a strip item on any mouse-up over it
+		public bool PreFilterMessage(ref Message m)
 		{
-			if(pressed == null || sender != pressed || e.Button != MouseButtons.Left) return;
+			const int WM_LBUTTONUP = 0x0202;
+			if(pressed == null || m.Msg != WM_LBUTTONUP) return false;
 			End(dragging);
+			return true;
 		}
 
 		// Losing capture to something else cancels
@@ -145,7 +150,11 @@ namespace CodeImp.DoomBuilder.Windows
 		public bool HandleKeyDown(KeyEventArgs e)
 		{
 			if(!dragging || e.KeyCode != Keys.Escape) return false;
-			End(false);
+			dragging = false;
+			cancelled = true;
+			target = new ToolbarDropTarget();
+			indicator.Visible = false;
+			pressed.Cursor = Cursors.Default;
 			swallowescapeup = true;
 			e.Handled = true;
 			e.SuppressKeyPress = true;
@@ -200,6 +209,7 @@ namespace CodeImp.DoomBuilder.Windows
 			pressed = null;
 			pressedid = null;
 			dragging = false;
+			cancelled = false;
 			target = new ToolbarDropTarget();
 			indicator.Visible = false;
 			if(strip != null)

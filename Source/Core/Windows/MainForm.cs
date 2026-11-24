@@ -2206,12 +2206,17 @@ namespace CodeImp.DoomBuilder.Windows
 		private void UpdateSeparators(bool relayout)
 		{
 			if(toolbardock == null) return;
+			// A trailing separator is shown, then hidden again: a layout in between makes Mono overflow the
+			// strip's last items and leave them painted over the first ones
 			foreach(ToolStrip strip in toolbardock.Strips)
-				if(strip != modestoolbar) UpdateToolStripSeparators(strip.Items, false);
+			{
+				strip.SuspendLayout();
+				UpdateToolStripSeparators(strip.Items, strip == modestoolbar);
+				strip.ResumeLayout(true);
+			}
 			UpdateToolStripSeparators(menumode.DropDownItems, true);
 
 			//mxd
-			UpdateToolStripSeparators(modestoolbar.Items, true);
 			UpdateToolStripSeparators(modecontrolsloolbar.Items, true);
 
 			// Strips show and hide with their items
