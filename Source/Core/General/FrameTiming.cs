@@ -15,6 +15,7 @@ namespace CodeImp.DoomBuilder
 		Input,
 		Move,
 		Cull,
+		Start,
 		Gather,
 		Lights,
 		Geometry,
@@ -70,7 +71,7 @@ namespace CodeImp.DoomBuilder
 			if(intick) timer.NoteChained();
 		}
 
-		// Counted between ticks too, into the window the next tick belongs to
+		// Counted between ticks too; passes during a pause are dropped when the next tick starts a new window
 		internal static void NoteChainIdle(ChainIdle result, bool windowactive)
 		{
 			if(timer != null && InteractionLog.Enabled) timer.NoteChainIdle(result, windowactive);
@@ -139,6 +140,7 @@ namespace CodeImp.DoomBuilder
 			// Measured from the previous tick's end, so one long tick is a stall in the data, not a pause
 			bool broken = prevtickend < 0 || now - prevtickend > BREAK_MS;
 			if(tickmode != mode) hascamera = false;
+			if(broken) idlepasses = blockpaints = blockinactive = blockother = 0;
 			if(count > 0 && (broken || tickmode != mode)) Flush(prevtickend);
 			if(count == 0)
 			{
@@ -156,7 +158,6 @@ namespace CodeImp.DoomBuilder
 				gaps[count] = double.NaN;
 				idles[count] = double.NaN;
 				hascamera = false;
-				idlepasses = blockpaints = blockinactive = blockother = 0;
 			}
 			tickstart = now;
 			lastlap = now;

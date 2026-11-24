@@ -16,9 +16,8 @@ namespace CodeImp.DoomBuilder
 		Paints,
 	}
 
-	// Runs processor ticks from the message pump's idle pass instead of the WinForms timer.
-	// Mono's timer fires at most every 15 ms and makes a tick that ends early wait a full 15 ms more,
-	// so Visual mode on Mono uses this to run one tick per pump pass, paced by vsync and a minimum frame time.
+	// Runs processor ticks from the message pump's idle pass: Mono's WinForms timer fires at most every 15 ms
+	// and makes a tick that ends early wait a full 15 ms more. Paced by vsync and a minimum frame time.
 	internal sealed class FrameChain
 	{
 		internal const int DEFAULT_MIN_FRAME_MS = 4;
@@ -32,15 +31,15 @@ namespace CodeImp.DoomBuilder
 		private readonly Action tick;
 
 		private bool pending;
+		private bool running;
 		private int frames;
 		private int timerseen;
 		private long lastframe = -1;
 
 		internal int MinFrameMs { get; set; }
-		internal int Frames { get { return frames; } }
 		internal bool Pending { get { return pending; } }
 
-		// pendingpaints returns the paints waiting in the pump, or -1 when unknown (which keeps the chain off); post returns false when it couldn't post
+		// pendingpaints counts the windows waiting to paint; post returns false when it couldn't post
 		internal FrameChain(Func<bool> wanted, Func<int> pendingpaints, Func<Action, bool> post, Func<long> clock, Action<int> sleep, Action tick)
 		{
 			this.wanted = wanted;
@@ -56,7 +55,7 @@ namespace CodeImp.DoomBuilder
 		// and skips both while paints wait, so only one frame is posted per pass and none while paints wait.
 		internal ChainIdle OnIdle()
 		{
-			if(pending) return ChainIdle.Pending;
+			if(pending || running) return ChainIdle.Pending;
 			if(!wanted()) return ChainIdle.Unwanted;
 			if(pendingpaints() != 0) return ChainIdle.Paints;
 			if(lastframe >= 0)
@@ -76,12 +75,22 @@ namespace CodeImp.DoomBuilder
 			if(!wanted()) return;
 			frames++;
 			lastframe = clock();
-			tick();
+			running = true;
+			try { tick(); }
+			finally { running = false; }
 		}
 
-		// The timer is the fallback: it ticks only when no chained frame ran since its own previous tick
-		internal bool TimerShouldTick()
+		// The timer is the fallback: it ticks only when no chained frame ran or waits since its own previous tick,
+		// and never inside a chained frame (a dialog or DoEvents under it pumps the timer)
+		internal bool TimerShouldTick(bool chainwanted)
 		{
+			if(running) return false;
+			if(!chainwanted)
+			{
+				timerseen = frames;
+				return true;
+			}
+			if(pending) return false;
 			if(frames == timerseen) return true;
 			timerseen = frames;
 			return false;

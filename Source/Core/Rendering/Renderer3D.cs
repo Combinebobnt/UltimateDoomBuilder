@@ -430,6 +430,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		// This begins rendering world geometry
 		public void StartGeometry()
 		{
+			FrameTiming.Lap(FrameBucket.Start);
 			// Make collections
 			solidgeo = new Dictionary<ImageData, List<VisualGeometry>>(); //mxd
 			maskedgeo = new Dictionary<ImageData, List<VisualGeometry>>(); //mxd

@@ -5019,7 +5019,16 @@ namespace CodeImp.DoomBuilder.Windows
 		private void RunChainedFrame()
 		{
 #if DEBUG
-			ProcessorTick(true);
+			// Mono drops an exception escaping a BeginInvoke callback without a trace
+			try
+			{
+				ProcessorTick(true);
+			}
+			catch(Exception ex)
+			{
+				General.WriteLogLine("Exception in a chained frame: " + ex);
+				if(Debugger.IsAttached) Debugger.Break();
+			}
 #else
 			try
 			{
@@ -5035,7 +5044,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// Processor event
 		private void processor_Tick(object sender, EventArgs e)
 		{
-			if(framechain != null && FrameChainWanted() && !framechain.TimerShouldTick()) return;
+			if(framechain != null && !framechain.TimerShouldTick(FrameChainWanted())) return;
 			ProcessorTick(false);
 		}
 

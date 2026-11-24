@@ -472,7 +472,7 @@ namespace CodeImp.DoomBuilder.Config
 				checkforupdates = cfg.ReadSetting("checkforupdates", true); //mxd
 				nativefiledialogs = cfg.ReadSetting("nativefiledialogs", true);
 				visualframechain = cfg.ReadSetting("visualframechain", true);
-				visualminframetime = General.Clamp(cfg.ReadSetting("visualminframetime", FrameChain.DEFAULT_MIN_FRAME_MS), 0, FrameChain.MAX_MIN_FRAME_MS);
+				visualminframetime = General.Clamp(cfg.ReadSetting("visualminframetime", FrameChain.DEFAULT_MIN_FRAME_MS), 1, FrameChain.MAX_MIN_FRAME_MS);
 				lightmapbake.BakerPath = cfg.ReadSetting("lightmapbaker.path", "");
 				lightmapbake.TextureSize = cfg.ReadSetting("lightmapbaker.texturesize", LightmapBakeSettings.DEFAULT_TEXTURE_SIZE);
 				if(Array.IndexOf(LightmapBakeSettings.TEXTURE_SIZES, lightmapbake.TextureSize) < 0) lightmapbake.TextureSize = LightmapBakeSettings.DEFAULT_TEXTURE_SIZE;

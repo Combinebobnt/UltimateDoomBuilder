@@ -47,8 +47,6 @@ namespace Builder.Tests
 
 			r.Paints = 1;
 			Assert.Equal(ChainIdle.Paints, r.Chain.OnIdle());
-			r.Paints = -1;
-			Assert.Equal(ChainIdle.Paints, r.Chain.OnIdle());
 			r.Paints = 0;
 			r.Wanted = false;
 			Assert.Equal(ChainIdle.Unwanted, r.Chain.OnIdle());
@@ -90,12 +88,36 @@ namespace Builder.Tests
 		public void TimerTicksOnlyWhenNoChainedFrameRanSinceItsLastTick()
 		{
 			Rig r = new Rig();
-			Assert.True(r.Chain.TimerShouldTick(), "no chained frames yet");
+			Assert.True(r.Chain.TimerShouldTick(true), "no chained frames yet");
 			r.Chain.OnIdle(); r.Dispatch();
 			r.Time += 10;
 			r.Chain.OnIdle(); r.Dispatch();
-			Assert.False(r.Chain.TimerShouldTick(), "chained frames ran since the last timer tick");
-			Assert.True(r.Chain.TimerShouldTick(), "chain stalled for a whole timer period");
+			Assert.False(r.Chain.TimerShouldTick(true), "chained frames ran since the last timer tick");
+			Assert.True(r.Chain.TimerShouldTick(true), "chain stalled for a whole timer period");
+
+			r.Time += 10;
+			r.Chain.OnIdle();
+			Assert.False(r.Chain.TimerShouldTick(true), "a frame posted in this pump pass is about to run");
+			r.Dispatch();
+			Assert.False(r.Chain.TimerShouldTick(true), "that frame ran");
+		}
+
+		[Fact]
+		public void LeavingTheChainResyncsTheTimerAndAFrameBlocksTimerAndIdleUnderIt()
+		{
+			Rig r = new Rig();
+			r.Chain.OnIdle(); r.Dispatch();
+			Assert.True(r.Chain.TimerShouldTick(false), "chain unwanted: the timer ticks");
+			Assert.True(r.Chain.TimerShouldTick(true), "no frame since the unwanted tick");
+
+			bool timerinside = true;
+			ChainIdle idleinside = ChainIdle.Posted;
+			FrameChain chain = null;
+			chain = new FrameChain(() => true, () => 0, f => { f(); return true; }, () => 0, ms => { },
+				() => { timerinside = chain.TimerShouldTick(false); idleinside = chain.OnIdle(); });
+			chain.OnIdle();
+			Assert.False(timerinside, "timer ticked inside a chained frame");
+			Assert.Equal(ChainIdle.Pending, idleinside);
 		}
 
 		[Fact]
