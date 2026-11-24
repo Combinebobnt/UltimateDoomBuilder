@@ -24,6 +24,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Actions;
 using CodeImp.DoomBuilder.Compilers;
@@ -72,6 +73,9 @@ namespace CodeImp.DoomBuilder
 		private bool savedwithlightmap; // The last save wrote a LIGHTMAP
 		private bool lightmapstale; // The map had a bake that saves can no longer write; only a match, a bake or a map switch clears it
 		private bool lightmapstaleasked; // Test already offered a rebake for this stale episode
+		private long lightmapsourceversion; // Moves when the bake is replaced or discarded
+		private LightmapPreviewState lightmappreview;
+		private LightmapPreviewCheck lightmapcheck; // Null unless a fingerprint is being computed for the preview
 		private string restoredbackup; // Deleted only once the load that restored it is done
 
 		// Map information
@@ -133,6 +137,14 @@ namespace CodeImp.DoomBuilder
 		internal TextureFavorites Favorites { get { return favorites; } }
 		public bool IsChanged { get { return changed | archivecommitpending | CheckScriptChanged(); } set { changed |= value; if(!maploading) General.MainWindow.UpdateMapChangedStatus(); } }
 		public bool IsDisposed { get { return isdisposed; } }
+
+		// The bake Visual mode draws, or null: no bake, the preview is off, or the map changed since the last check
+		public LightmapPreview LightmapPreview { get { return undoredo == null ? null : lightmappreview.Shown(undoredo.ChangeVersion, lightmapsourceversion, General.Settings.LightmapPreview); } }
+		// Why LightmapPreview was null at the last check, else null
+		public string LightmapPreviewReason { get { return lightmappreview.Reason; } }
+		// Raised after every check that shows a preview (geometry built while the check was pending has
+		// none) and whenever the reason nothing is shown changes
+		public event EventHandler LightmapPreviewChanged;
 		// changed, not IsChanged: the backup holds no scripts, and an unchanged map must not raise a restore prompt
 		internal bool ShouldBackupOnCrash { get { return changed && !maploading && !isdisposed; } }
 		internal bool IsSaving { get { return issaving; } }
@@ -199,6 +211,8 @@ namespace CodeImp.DoomBuilder
 			cursor2d = new Cursor2D();
 			cursor2d.Changed += OnCursor2DChanged;
 			undoredo = new UndoManager();
+			lightmappreview = new LightmapPreviewState();
+			lightmappreview.Timer.Tick += OnLightmapPreviewTick;
 			copypaste = new CopyPasteManager();
 			launcher = new Launcher(this);
 			thingsfilter = new NullThingsFilter();
@@ -240,6 +254,8 @@ namespace CodeImp.DoomBuilder
 				if(launcher != null) launcher.Dispose();
 				if(copypaste != null) copypaste.Dispose();
 				if(undoredo != null) undoredo.Dispose();
+				CancelLightmapPreviewCheck();
+				if(lightmappreview != null) lightmappreview.Dispose();
 				General.WriteLogLine("Unloading data resources...");
 				if(data != null) data.Dispose();
 				General.WriteLogLine("Closing temporary file...");
@@ -2410,6 +2426,7 @@ namespace CodeImp.DoomBuilder
 
 		private void ResetLightmapCache(string reason)
 		{
+			lightmapsourceversion++;
 			if(lightmapbake == null) return;
 			General.WriteLogLine("Discarded the lightmap bake: " + reason + ".");
 			try { File.Delete(lightmapbake.WadPath); }
@@ -2535,6 +2552,7 @@ namespace CodeImp.DoomBuilder
 			}
 
 			lightmapbake = new LightmapBakeCache(path, fingerprint, lightmap.ToString() + ", as opened");
+			lightmapsourceversion++;
 			lightmapbakemissed = false;
 			General.WriteLogLine("Lightmap bake seeded from the opened map (" + lightmapbake.Summary + ") in " + timer.ElapsedMilliseconds + " ms.");
 		}
@@ -2611,6 +2629,7 @@ namespace CodeImp.DoomBuilder
 
 			ResetLightmapCache("a new bake replaces it");
 			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString());
+			lightmapsourceversion++;
 			ClearLightmapStale();
 			double seconds = job.Baker.Elapsed.TotalSeconds;
 			job.Dispose();
@@ -2636,6 +2655,124 @@ namespace CodeImp.DoomBuilder
 				form.ShowDialog(General.MainWindow);
 				return form.BakeSucceeded;
 			}
+		}
+
+		#endregion
+
+		#region ================== Lightmap preview
+
+		// Null when the bake can be drawn on the map as it is now, else why not
+		internal static string LightmapPreviewUnavailable(bool hasbake, string bakefingerprint, string mapfingerprint)
+		{
+			if(!hasbake) return "there is no lightmap bake";
+			if(mapfingerprint == null) return "the map's TEXTMAP could not be parsed back";
+			if(mapfingerprint != bakefingerprint) return "the map changed since the bake";
+			return null;
+		}
+
+		// A fingerprint being computed for the preview: the map's copy is made and disposed on this
+		// thread, only its UDMF write and hash run on the worker
+		private sealed class LightmapPreviewCheck
+		{
+			public LightmapBakeCache Bake;
+			public MapSet Copy;
+			public Task<string> Fingerprint;
+			public long ChangeVersion, SourceVersion;
+			public Stopwatch Timer;
+			public long CopyTime;
+		}
+
+		// Checks the bake against the map now if either changed since the last check. One already
+		// running is finished first, and checked again if the map moved on while it ran.
+		public void RefreshLightmapPreview()
+		{
+			for(int i = 0; i < 2 && BeginLightmapPreviewCheck(); i++) FinishLightmapPreviewCheck();
+		}
+
+		// Re-checks once the map has held still for the debounce, only in Visual mode with the preview on
+		private void OnLightmapPreviewTick(object sender, EventArgs e)
+		{
+			if(lightmapcheck != null)
+			{
+				if(lightmapcheck.Fingerprint.IsCompleted) FinishLightmapPreviewCheck();
+				return;
+			}
+			if(isdisposed || maploading || undoredo == null || !General.Settings.LightmapPreview || !(General.Editing.Mode is VisualMode)) return;
+			if(lightmappreview.Settled(undoredo.ChangeVersion, lightmapsourceversion)) BeginLightmapPreviewCheck();
+		}
+
+		// Returns true while a fingerprint is being computed; otherwise the check is done
+		private bool BeginLightmapPreviewCheck()
+		{
+			if(lightmapcheck != null) return true;
+			if(isdisposed || maploading || map == null || undoredo == null || !General.Settings.LightmapPreview) return false;
+			if(!lightmappreview.Stale(undoredo.ChangeVersion, lightmapsourceversion)) return false;
+			lightmappreview.MarkChecked(undoredo.ChangeVersion, lightmapsourceversion);
+			if(lightmapbake == null)
+			{
+				ApplyLightmapPreviewCheck(null, null, null);
+				return false;
+			}
+
+			LightmapPreviewCheck check = new LightmapPreviewCheck { Bake = lightmapbake, ChangeVersion = undoredo.ChangeVersion,
+				SourceVersion = lightmapsourceversion, Timer = Stopwatch.StartNew() };
+			bool waschanged = changed;
+			try { check.Copy = CloneForOutput(); }
+			finally { if(!waschanged) ForceMapIsChangedFalse(); }
+			check.CopyTime = check.Timer.ElapsedMilliseconds;
+
+			MapSet copy = check.Copy;
+			UniversalStreamWriter writer = new UniversalStreamWriter();
+			string engine = config.EngineName;
+			check.Fingerprint = Task.Run(() =>
+			{
+				MemoryStream textmap = new MemoryStream();
+				writer.Write(copy, textmap, engine);
+				return BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(textmap.ToArray())));
+			});
+			lightmapcheck = check;
+			return true;
+		}
+
+		private void FinishLightmapPreviewCheck()
+		{
+			LightmapPreviewCheck check = lightmapcheck;
+			lightmapcheck = null;
+			string fingerprint = null;
+			try { fingerprint = check.Fingerprint.Result; }
+			catch(AggregateException e) { General.WriteLogLine("Lightmap preview fingerprint failed: " + e.InnerException.GetType().Name + ": " + e.InnerException.Message); }
+
+			// Disposing the copy's sidedefs sets the changed flag (Sidedef.SetSectorP); the copy is no edit
+			bool waschanged = changed;
+			check.Copy.Dispose();
+			if(!waschanged) ForceMapIsChangedFalse();
+
+			// The map or the bake moved on while the worker ran: its answer is for neither, check again
+			if(isdisposed || undoredo == null || check.ChangeVersion != undoredo.ChangeVersion || check.SourceVersion != lightmapsourceversion) return;
+			ApplyLightmapPreviewCheck(check.Bake, fingerprint, check);
+		}
+
+		private void ApplyLightmapPreviewCheck(LightmapBakeCache bake, string fingerprint, LightmapPreviewCheck check)
+		{
+			string reason = LightmapPreviewUnavailable(bake != null, bake != null ? bake.Fingerprint : null, fingerprint);
+			if(reason == null) reason = lightmappreview.Build(bake, map);
+
+			string previousreason = lightmappreview.Reason;
+			lightmappreview.SetResult(reason);
+			if(check != null)
+				General.WriteLogLine("Lightmap preview check: " + (reason == null ? "on (" + bake.Summary + ")" : "off, " + reason) +
+					" in " + check.Timer.ElapsedMilliseconds + " ms (" + check.CopyTime + " ms of it copying the map on the UI thread).");
+			if((reason == null || reason != previousreason) && LightmapPreviewChanged != null) LightmapPreviewChanged(this, EventArgs.Empty);
+		}
+
+		// A check still running when the map closes: its copy is disposed here, not left to the worker
+		private void CancelLightmapPreviewCheck()
+		{
+			if(lightmapcheck == null) return;
+			try { lightmapcheck.Fingerprint.Wait(); }
+			catch(AggregateException) { }
+			lightmapcheck.Copy.Dispose();
+			lightmapcheck = null;
 		}
 
 		#endregion

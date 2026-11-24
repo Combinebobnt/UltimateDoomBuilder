@@ -130,6 +130,7 @@ namespace CodeImp.DoomBuilder.Config
 		private ModelRenderMode gzDrawModelsMode;
 		private LightRenderMode gzDrawLightsMode;
 		private bool gzDrawFog;
+		private bool lightmapPreview;
 		private bool gzAnimateTextures = true;
 		private bool gzDrawMaterials = true;
 		private bool gzDrawSky;
@@ -293,6 +294,7 @@ namespace CodeImp.DoomBuilder.Config
 		public ModelRenderMode GZDrawModelsMode { get { return gzDrawModelsMode; } internal set { gzDrawModelsMode = value; } }
 		public LightRenderMode GZDrawLightsMode { get { return gzDrawLightsMode; } internal set { gzDrawLightsMode = value; } }
 		public bool GZDrawFog { get { return gzDrawFog; } internal set { gzDrawFog = value; } }
+		public bool LightmapPreview { get { return lightmapPreview; } internal set { lightmapPreview = value; } }
 		public bool GZAnimateTextures { get { return gzAnimateTextures; } internal set { gzAnimateTextures = value; } }
 		public bool GZDrawMaterials { get { return gzDrawMaterials; } internal set { gzDrawMaterials = value; } }
 		public bool GZDrawSky { get { return gzDrawSky; } internal set { gzDrawSky = value; } }
@@ -451,6 +453,7 @@ namespace CodeImp.DoomBuilder.Config
 				gzDrawModelsMode = (ModelRenderMode)cfg.ReadSetting("gzdrawmodels", (int)ModelRenderMode.ALL);
 				gzDrawLightsMode = (LightRenderMode)cfg.ReadSetting("gzdrawlights", (int)LightRenderMode.ALL);
 				gzDrawFog = cfg.ReadSetting("gzdrawfog", true);
+				lightmapPreview = cfg.ReadSetting("lightmappreview", true);
 				gzAnimateTextures = cfg.ReadSetting("gzanimatetextures", true);
 				gzDrawMaterials = cfg.ReadSetting("gzdrawmaterials", true);
 				gzDrawSky = cfg.ReadSetting("gzdrawsky", true);
@@ -634,6 +637,7 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("gzdrawmodels", (int)gzDrawModelsMode);
 			cfg.WriteSetting("gzdrawlights", (int)gzDrawLightsMode);
 			cfg.WriteSetting("gzdrawfog", gzDrawFog);
+			cfg.WriteSetting("lightmappreview", lightmapPreview);
 			cfg.WriteSetting("gzanimatetextures", gzAnimateTextures);
 			cfg.WriteSetting("gzdrawmaterials", gzDrawMaterials);
 			cfg.WriteSetting("gzdrawsky", gzDrawSky);

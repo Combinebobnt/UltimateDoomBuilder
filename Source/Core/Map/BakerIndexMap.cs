@@ -96,6 +96,23 @@ namespace CodeImp.DoomBuilder.Map
 			return result;
 		}
 
+		// Same positions, references and counts, element for element
+		public bool SameAs(MapTopology other)
+		{
+			if(other == null || SectorCount != other.SectorCount || Vertices.Length != other.Vertices.Length) return false;
+			for(int i = 0; i < Vertices.Length; i++)
+				if(Vertices[i].x != other.Vertices[i].x || Vertices[i].y != other.Vertices[i].y) return false;
+			return Equal(LineStart, other.LineStart) && Equal(LineEnd, other.LineEnd) && Equal(LineFront, other.LineFront)
+				&& Equal(LineBack, other.LineBack) && Equal(SideSector, other.SideSector);
+		}
+
+		private static bool Equal(int[] a, int[] b)
+		{
+			if(a.Length != b.Length) return false;
+			for(int i = 0; i < a.Length; i++) if(a[i] != b[i]) return false;
+			return true;
+		}
+
 		// Null when every index is in range
 		public string Check()
 		{

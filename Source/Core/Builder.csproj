@@ -674,6 +674,7 @@
     <Compile Include="Map\LightmapLump.cs" />
     <Compile Include="Map\LightmapData.cs" />
     <Compile Include="Map\LightmapPreview.cs" />
+    <Compile Include="Map\LightmapPreviewState.cs" />
     <Compile Include="Map\GlSubsectors.cs" />
     <Compile Include="Map\BakerIndexMap.cs" />
     <Compile Include="Map\MapSet.cs" />
