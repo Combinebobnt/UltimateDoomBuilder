@@ -9,11 +9,11 @@ namespace Builder.Tests
 	{
 		private const int SETPORTAL = 156, SECTORPORTAL = 57, UPPER = 9077, LOWER = 9078;
 
-		private static PortalCapabilities Caps()
+		private static PortalCapabilities Caps(bool hexen = false)
 		{
 			Dictionary<string, int> actions = new Dictionary<string, int> { { "Line_SetPortal", SETPORTAL }, { "Sector_SetPortal", SECTORPORTAL } };
 			Dictionary<string, int> things = new Dictionary<string, int> { { "UpperStackLookOnly", UPPER }, { "LowerStackLookOnly", LOWER } };
-			return PortalCapabilities.Create(id => actions.TryGetValue(id, out int n) ? n : 0, cls => things.TryGetValue(cls, out int n) ? n : 0, false, true);
+			return PortalCapabilities.Create(id => actions.TryGetValue(id, out int n) ? n : 0, cls => things.TryGetValue(cls, out int n) ? n : 0, hexen, true);
 		}
 
 		// Builds snapshot lines whose vertices are numbered by position, as a map shares them
@@ -114,6 +114,18 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void IslandMove_IsRefusedWhenASectorlessLineTouchesTheIsland()
+		{
+			Builder b = Layout();
+			b.Line(0, null, null, 1536, 0, 1600, -64, -1, -1);
+			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps());
+			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(), r, Find(r, PortalKind.LinePortal));
+
+			Assert.Equal(PortalAlignHandle.None, t.Handle);
+			Assert.Contains("line " + (b.D.Lines.Count - 1), t.Refusal);
+		}
+
+		[Fact]
 		public void IslandMove_CountsOutsideLinesItsBoundsNewlyMeet()
 		{
 			Builder b = Layout();
@@ -169,16 +181,24 @@ namespace Builder.Tests
 			Assert.Contains("one portal group", t.Refusal);
 		}
 
-		[Fact]
-		public void AnchoredPortal_InOneGroup_RepicksTheReferenceLine()
+		// One sector tagged 7: line 4 anchors a Sector_SetPortal of the given type, line 5 is its arg3 = 1 reference,
+		// line 6 is free and line 7 has an action
+		private static Builder Anchored(int type = 0)
 		{
 			Builder b = new Builder();
 			b.D.AddSector(7);
 			b.Walls(0, 0, 0, 512, 0, 512, 512, 0, 512);
-			b.Line(SECTORPORTAL, new[] { 7, 0, 0, 0, 128 }, null, 64, 64, 64, 128, 0, 0);
-			b.Line(SECTORPORTAL, new[] { 7, 0, 0, 1, 128 }, null, 256, 64, 256, 128, 0, 0);
+			b.Line(SECTORPORTAL, new[] { 7, type, 0, 0, 128 }, null, 64, 64, 64, 128, 0, 0);
+			b.Line(SECTORPORTAL, new[] { 7, type, 0, 1, 128 }, null, 256, 64, 256, 128, 0, 0);
 			b.Line(0, null, null, 384, 64, 384, 192, 0, 0);
 			b.Line(1, null, null, 448, 64, 448, 192, 0, 0);
+			return b;
+		}
+
+		[Fact]
+		public void AnchoredPortal_InOneGroup_RepicksTheReferenceLine()
+		{
+			Builder b = Anchored();
 			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps());
 			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(), r, Find(r, PortalKind.AnchoredSector));
 			Assert.Equal(PortalAlignHandle.Repick, t.Handle);
@@ -200,6 +220,81 @@ namespace Builder.Tests
 			Assert.Equal(32, check.Link.Displacement.y);
 			Assert.Empty(check.NewErrors);
 			Assert.Empty(check.NewWarnings);
+		}
+
+		// The engine disables a linked anchored portal in one group either way, so the moved issue is not new
+		[Fact]
+		public void Repick_CarriesAnIssueNamingTheOldReferenceLineAlong()
+		{
+			Builder b = Anchored(6);
+			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps());
+			Assert.True(r.Issues.Exists(i => i.Code == PortalIssueCode.SameGroup));
+			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(), r, Find(r, PortalKind.AnchoredSector));
+
+			string refusal;
+			PortalAlignCheck check = PortalAlign.Check(b.D, Caps(), r, t, PortalAlign.Repick(b.D, t, 6, out refusal));
+			Assert.Equal(6, check.Link.Destination.Element.Index);
+			Assert.Empty(check.NewErrors);
+		}
+
+		[Fact]
+		public void Repick_InHexenFormat_ReassignsIdsAndFindsTheMovedLink()
+		{
+			Builder b = Anchored();
+			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps(true));
+			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(true), r, Find(r, PortalKind.AnchoredSector));
+			Assert.Equal(PortalAlignHandle.Repick, t.Handle);
+
+			string refusal;
+			PortalAlignEdit edit = PortalAlign.Repick(b.D, t, 6, out refusal);
+			PortalMapData moved = PortalAlign.Apply(b.D, Caps(true), edit);
+			Assert.Equal(SECTORPORTAL, moved.Lines[6].Action);
+			Assert.Equal(0, moved.Lines[5].Action);
+
+			PortalAlignCheck check = PortalAlign.Check(b.D, Caps(true), r, t, edit);
+			Assert.Equal(6, check.Link.Destination.Element.Index);
+			Assert.Equal(320, check.Link.Displacement.x);
+			Assert.Empty(check.NewErrors);
+		}
+
+		[Fact]
+		public void AnchoredPortal_WithASectorlessReferenceLine_RepicksIt()
+		{
+			Builder b = Anchored();
+			b.D.Lines[5].Front = b.D.Lines[5].Back = -1;
+			PortalReport r = PortalAnalyzer.Analyze(b.D, Caps());
+			PortalAlignTarget t = PortalAlign.Target(b.D, Caps(), r, Find(r, PortalKind.AnchoredSector));
+			Assert.Equal(PortalAlignHandle.Repick, t.Handle);
+
+			string refusal;
+			PortalAlignCheck check = PortalAlign.Check(b.D, Caps(), r, t, PortalAlign.Repick(b.D, t, 6, out refusal));
+			Assert.Null(refusal);
+			Assert.Equal(6, check.Link.Destination.Element.Index);
+		}
+
+		[Fact]
+		public void MakeExact_IsRefusedWhenTheExitLineSharesAVertexOutsideItsGroup()
+		{
+			Builder inside = Layout(200);
+			inside.Line(0, null, null, 1152, 64, 1100, 64, 1, -1);
+			PortalReport ir = PortalAnalyzer.Analyze(inside.D, Caps());
+			Assert.True(PortalAlign.Target(inside.D, Caps(), ir, Find(ir, PortalKind.LinePortal)).CanMakeExact);
+
+			Builder outside = Layout(200);
+			outside.D.AddSector();
+			outside.Line(0, null, null, 1152, 64, 2000, 64, 3, -1);
+			PortalReport outr = PortalAnalyzer.Analyze(outside.D, Caps());
+			PortalAlignTarget t = PortalAlign.Target(outside.D, Caps(), outr, Find(outr, PortalKind.LinePortal));
+			Assert.False(t.CanMakeExact);
+			Assert.Contains("line " + (outside.D.Lines.Count - 1), t.MakeExactRefusal);
+			Assert.Null(PortalAlign.MakeExact(outside.D, t));
+
+			Builder origin = Layout(200);
+			origin.D.Lines[1].V2Index = origin.D.Lines[0].V1Index;
+			PortalReport orr = PortalAnalyzer.Analyze(origin.D, Caps());
+			PortalAlignTarget o = PortalAlign.Target(origin.D, Caps(), orr, Find(orr, PortalKind.LinePortal));
+			Assert.False(o.CanMakeExact);
+			Assert.Contains("share a vertex", o.MakeExactRefusal);
 		}
 
 		[Fact]

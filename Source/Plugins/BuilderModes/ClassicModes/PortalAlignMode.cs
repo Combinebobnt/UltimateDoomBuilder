@@ -4,13 +4,11 @@ using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Controls;
-using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.Geometry;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Portals;
 using CodeImp.DoomBuilder.Rendering;
-using CodeImp.DoomBuilder.Types;
 using CodeImp.DoomBuilder.Windows;
 
 namespace CodeImp.DoomBuilder.BuilderModes
@@ -203,8 +201,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		}
 
 		// Sloped planes keep their heights over the moved floor, and flats keep their look when the drag lock is on
-		private static readonly string[] PLANES = { "floor", "ceiling" };
-
 		private void MoveIslandSectors(Vector2D offset)
 		{
 			if(!General.Map.UDMF) return;
@@ -212,46 +208,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			foreach(int index in target.IslandSectors)
 			{
 				Sector s = General.Map.Map.GetSectorByIndex(index);
-				if(s == null) continue;
-				Vector2D center = new Vector2D(s.BBox.X + s.BBox.Width / 2, s.BBox.Y + s.BBox.Height / 2);
-				if(lockoffsets)
-				{
-					s.Fields.BeforeFieldsChange();
-					foreach(string plane in PLANES) ShiftFlat(s, plane, offset);
-				}
-				if(s.FloorSlope.GetLengthSq() > 0 && !double.IsNaN(s.FloorSlopeOffset / s.FloorSlope.z))
-				{
-					Plane floor = new Plane(s.FloorSlope, s.FloorSlopeOffset);
-					s.FloorSlopeOffset = -Vector3D.DotProduct(s.FloorSlope, new Vector3D(center + offset, floor.GetZ(center)));
-				}
-				if(s.CeilSlope.GetLengthSq() > 0 && !double.IsNaN(s.CeilSlopeOffset / s.CeilSlope.z))
-				{
-					Plane ceiling = new Plane(s.CeilSlope, s.CeilSlopeOffset);
-					s.CeilSlopeOffset = -Vector3D.DotProduct(s.CeilSlope, new Vector3D(center + offset, ceiling.GetZ(center)));
-				}
+				if(s != null) DragGeometryMode.ShiftSectorPlanes(s, offset, lockoffsets, true);
 			}
-		}
-
-		// The same panning shift as dragging sectors with locked texture offsets
-		private static void ShiftFlat(Sector s, string plane, Vector2D offset)
-		{
-			bool floor = plane == "floor";
-			if((floor ? s.LongFloorTexture : s.LongCeilTexture) == MapSet.EmptyLongName) return;
-			ImageData texture = General.Map.Data.GetFlatImage(floor ? s.FloorTexture : s.CeilTexture);
-			if(texture == null) return;
-			double scalex = s.Fields.GetValue("xscale" + plane, 1.0), scaley = s.Fields.GetValue("yscale" + plane, 1.0);
-			if(scalex == 0 || scaley == 0) return;
-
-			Vector2D shift = new Vector2D(-offset.x, offset.y).GetRotated(-Angle2D.DegToRad((int)s.Fields.GetValue("rotation" + plane, 0.0)));
-			int width = (int)Math.Round(texture.Width / scalex), height = (int)Math.Round(texture.Height / scaley);
-			SetFloat(s, "xpanning" + plane, (shift.x + s.Fields.GetValue("xpanning" + plane, 0.0)) % width);
-			SetFloat(s, "ypanning" + plane, (shift.y + s.Fields.GetValue("ypanning" + plane, 0.0)) % height);
-		}
-
-		private static void SetFloat(Sector s, string key, double value)
-		{
-			if(!s.Fields.ContainsKey(key)) s.Fields.Add(key, new UniValue(UniversalType.Float, value));
-			else s.Fields[key].Value = value;
 		}
 
 		#endregion

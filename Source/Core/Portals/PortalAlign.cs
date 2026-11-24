@@ -83,9 +83,9 @@ namespace CodeImp.DoomBuilder.Portals
 			t.HandlePosition = dl.Middle;
 			if(link.Kind == PortalKind.AnchoredSector) t.OriginSectors.AddRange(link.Sectors);
 			else if(SideSector(ol) >= 0) t.OriginSectors.Add(SideSector(ol));
-			CheckMakeExact(t, link, ol, dl);
-
 			int[] group = report.SectorGroup;
+			CheckMakeExact(t, data, group, link, ol, dl);
+
 			int og = SideSector(ol) >= 0 ? group[SideSector(ol)] : -1;
 			int dg = SideSector(dl) >= 0 ? group[SideSector(dl)] : -1;
 			if(dg < 0)
@@ -228,8 +228,15 @@ namespace CodeImp.DoomBuilder.Portals
 				check.Changed.Add(new PortalAlignChange { Before = l, After = a });
 			}
 
+			// A re-pick moves an issue naming the old reference line onto the new one, which is not a new issue
+			PortalElement from = target.Link.Destination.Element;
 			HashSet<string> old = new HashSet<string>();
-			foreach(PortalIssue i in before.Issues) old.Add(PortalCreation.IssueKey(i));
+			foreach(PortalIssue i in before.Issues)
+			{
+				if(edit.RepickLine < 0 || !i.Elements.Contains(from)) { old.Add(PortalCreation.IssueKey(i)); continue; }
+				PortalElement[] renamed = i.Elements.ConvertAll(e => e.Equals(from) ? destination : e).ToArray();
+				old.Add(PortalCreation.IssueKey(new PortalIssue(i.Severity, i.Code, i.Message, renamed)));
+			}
 			foreach(PortalIssue i in after.Issues)
 				if(!old.Contains(PortalCreation.IssueKey(i))) (i.Severity == PortalSeverity.Error ? check.NewErrors : check.NewWarnings).Add(i);
 
@@ -239,8 +246,8 @@ namespace CodeImp.DoomBuilder.Portals
 
 		#region ================== Helpers
 
-		// Only linked line pairs must be exact; a pair sharing a vertex would move its own origin
-		private static void CheckMakeExact(PortalAlignTarget t, PortalLink link, PortalLine o, PortalLine d)
+		// Only linked line pairs must be exact; moving a vertex shared with the origin or outside geometry would drag it too
+		private static void CheckMakeExact(PortalAlignTarget t, PortalMapData data, int[] group, PortalLink link, PortalLine o, PortalLine d)
 		{
 			bool linked = link.Kind == PortalKind.LinkedLineEE || ((link.Kind == PortalKind.LinePortal || link.Kind == PortalKind.QuickPortal) && link.Type == 3);
 			if(!linked) return;
@@ -249,6 +256,16 @@ namespace CodeImp.DoomBuilder.Portals
 			if(d.V1Index == o.V1Index || d.V1Index == o.V2Index || d.V2Index == o.V1Index || d.V2Index == o.V2Index)
 			{
 				t.MakeExactRefusal = "Lines " + o.Index + " and " + d.Index + " share a vertex.";
+				return;
+			}
+			int dg = SideSector(d) >= 0 ? group[SideSector(d)] : -1;
+			foreach(PortalLine l in data.Lines)
+			{
+				if(l.Index == d.Index || !(l.V1Index == d.V1Index || l.V1Index == d.V2Index || l.V2Index == d.V1Index || l.V2Index == d.V2Index)) continue;
+				if(dg >= 0 && ((l.Front >= 0 && group[l.Front] == dg) || (l.Back >= 0 && group[l.Back] == dg))) continue;
+				int v = (l.V1Index == d.V1Index || l.V1Index == d.V2Index) ? l.V1Index : l.V2Index;
+				t.MakeExactRefusal = "Vertex " + v + " of line " + d.Index + " is also used by line " + l.Index
+					+ ", which is outside the exit side's portal group, so moving it would drag other geometry.";
 				return;
 			}
 			t.CanMakeExact = true;

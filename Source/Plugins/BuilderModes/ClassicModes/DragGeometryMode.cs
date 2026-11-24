@@ -475,85 +475,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						bool updateoffsets = (draggedsectors.Contains(s) && BuilderPlug.Me.LockSectorTextureOffsetsWhileDragging) || (!draggedsectors.Contains(s) && BuilderPlug.Me.Lock3DFloorSectorTextureOffsetsWhileDragging);
 						bool updateslopes = !((controlsectors.Contains(s) ^ addcontrolsectors.Contains(s)) && draggedsectors.Contains(s));
 
-						// Update texture offsets
-						if (updateoffsets)
-						{
-							s.Fields.BeforeFieldsChange();
-
-							// Update ceiling offset
-							if (s.LongCeilTexture != MapSet.EmptyLongName)
-							{
-								ImageData texture = General.Map.Data.GetFlatImage(s.CeilTexture);
-
-								if (texture != null)
-								{
-									double scalex = s.Fields.GetValue("xscaleceiling", 1.0);
-									double scaley = s.Fields.GetValue("yscaleceiling", 1.0);
-
-									if (scalex != 0 && scaley != 0)
-									{
-										Vector2D ceiloffset = new Vector2D(-offset.x, offset.y).GetRotated(-Angle2D.DegToRad((int)s.Fields.GetValue("rotationceiling", 0.0)));
-										ceiloffset.x += s.Fields.GetValue("xpanningceiling", 0.0);
-										ceiloffset.y += s.Fields.GetValue("ypanningceiling", 0.0);
-
-										int texturewidth = (int)Math.Round(texture.Width / scalex);
-										int textureheight = (int)Math.Round(texture.Height / scaley);
-
-										if (!s.Fields.ContainsKey("xpanningceiling")) s.Fields.Add("xpanningceiling", new UniValue(UniversalType.Float, ceiloffset.x % texturewidth));
-										else s.Fields["xpanningceiling"].Value = ceiloffset.x % texturewidth;
-
-										if (!s.Fields.ContainsKey("ypanningceiling")) s.Fields.Add("ypanningceiling", new UniValue(UniversalType.Float, ceiloffset.y % textureheight));
-										else s.Fields["ypanningceiling"].Value = ceiloffset.y % textureheight;
-									}
-								}
-							}
-
-							// Update floor offset
-							if (s.LongFloorTexture != MapSet.EmptyLongName)
-							{
-								ImageData texture = General.Map.Data.GetFlatImage(s.FloorTexture);
-								if (texture != null)
-								{
-									double scalex = s.Fields.GetValue("xscalefloor", 1.0);
-									double scaley = s.Fields.GetValue("yscalefloor", 1.0);
-
-									if (scalex != 0 && scaley != 0)
-									{
-										Vector2D flooroffset = new Vector2D(-offset.x, offset.y).GetRotated(-Angle2D.DegToRad((int)s.Fields.GetValue("rotationfloor", 0.0)));
-										flooroffset.x += s.Fields.GetValue("xpanningfloor", 0.0);
-										flooroffset.y += s.Fields.GetValue("ypanningfloor", 0.0);
-
-										int texturewidth = (int)Math.Round(texture.Width / scalex);
-										int textureheight = (int)Math.Round(texture.Height / scaley);
-
-										if (!s.Fields.ContainsKey("xpanningfloor")) s.Fields.Add("xpanningfloor", new UniValue(UniversalType.Float, flooroffset.x % texturewidth));
-										else s.Fields["xpanningfloor"].Value = flooroffset.x % texturewidth;
-
-										if (!s.Fields.ContainsKey("ypanningfloor")) s.Fields.Add("ypanningfloor", new UniValue(UniversalType.Float, flooroffset.y % textureheight));
-										else s.Fields["ypanningfloor"].Value = flooroffset.y % textureheight;
-									}
-								}
-							}
-						}
-
-						if (updateslopes)
-						{
-							// Update floor slope?
-							if (s.FloorSlope.GetLengthSq() > 0 && !double.IsNaN(s.FloorSlopeOffset / s.FloorSlope.z))
-							{
-								Plane floor = new Plane(s.FloorSlope, s.FloorSlopeOffset);
-								Vector2D center = new Vector2D(s.BBox.X + s.BBox.Width / 2, s.BBox.Y + s.BBox.Height / 2);
-								s.FloorSlopeOffset = -Vector3D.DotProduct(s.FloorSlope, new Vector3D(center + offset, floor.GetZ(center)));
-							}
-
-							// Update ceiling slope?
-							if (s.CeilSlope.GetLengthSq() > 0 && !double.IsNaN(s.CeilSlopeOffset / s.CeilSlope.z))
-							{
-								Plane ceiling = new Plane(s.CeilSlope, s.CeilSlopeOffset);
-								Vector2D center = new Vector2D(s.BBox.X + s.BBox.Width / 2, s.BBox.Y + s.BBox.Height / 2);
-								s.CeilSlopeOffset = -Vector3D.DotProduct(s.CeilSlope, new Vector3D(center + offset, ceiling.GetZ(center)));
-							}
-						}
+						ShiftSectorPlanes(s, offset, updateoffsets, updateslopes);
 					}
 				}
 
@@ -654,6 +576,90 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			   (snaptocardinaldirection != (General.Interface.AltState && General.Interface.ShiftState))) Update();
 		}
 		
+		// Shifts a moved sector's flat panning (when updateoffsets) and slope planes (when updateslopes) by offset
+		internal static void ShiftSectorPlanes(Sector s, Vector2D offset, bool updateoffsets, bool updateslopes)
+		{
+			// Update texture offsets
+			if (updateoffsets)
+			{
+				s.Fields.BeforeFieldsChange();
+
+				// Update ceiling offset
+				if (s.LongCeilTexture != MapSet.EmptyLongName)
+				{
+					ImageData texture = General.Map.Data.GetFlatImage(s.CeilTexture);
+
+					if (texture != null)
+					{
+						double scalex = s.Fields.GetValue("xscaleceiling", 1.0);
+						double scaley = s.Fields.GetValue("yscaleceiling", 1.0);
+
+						if (scalex != 0 && scaley != 0)
+						{
+							Vector2D ceiloffset = new Vector2D(-offset.x, offset.y).GetRotated(-Angle2D.DegToRad((int)s.Fields.GetValue("rotationceiling", 0.0)));
+							ceiloffset.x += s.Fields.GetValue("xpanningceiling", 0.0);
+							ceiloffset.y += s.Fields.GetValue("ypanningceiling", 0.0);
+
+							int texturewidth = (int)Math.Round(texture.Width / scalex);
+							int textureheight = (int)Math.Round(texture.Height / scaley);
+
+							if (!s.Fields.ContainsKey("xpanningceiling")) s.Fields.Add("xpanningceiling", new UniValue(UniversalType.Float, ceiloffset.x % texturewidth));
+							else s.Fields["xpanningceiling"].Value = ceiloffset.x % texturewidth;
+
+							if (!s.Fields.ContainsKey("ypanningceiling")) s.Fields.Add("ypanningceiling", new UniValue(UniversalType.Float, ceiloffset.y % textureheight));
+							else s.Fields["ypanningceiling"].Value = ceiloffset.y % textureheight;
+						}
+					}
+				}
+
+				// Update floor offset
+				if (s.LongFloorTexture != MapSet.EmptyLongName)
+				{
+					ImageData texture = General.Map.Data.GetFlatImage(s.FloorTexture);
+					if (texture != null)
+					{
+						double scalex = s.Fields.GetValue("xscalefloor", 1.0);
+						double scaley = s.Fields.GetValue("yscalefloor", 1.0);
+
+						if (scalex != 0 && scaley != 0)
+						{
+							Vector2D flooroffset = new Vector2D(-offset.x, offset.y).GetRotated(-Angle2D.DegToRad((int)s.Fields.GetValue("rotationfloor", 0.0)));
+							flooroffset.x += s.Fields.GetValue("xpanningfloor", 0.0);
+							flooroffset.y += s.Fields.GetValue("ypanningfloor", 0.0);
+
+							int texturewidth = (int)Math.Round(texture.Width / scalex);
+							int textureheight = (int)Math.Round(texture.Height / scaley);
+
+							if (!s.Fields.ContainsKey("xpanningfloor")) s.Fields.Add("xpanningfloor", new UniValue(UniversalType.Float, flooroffset.x % texturewidth));
+							else s.Fields["xpanningfloor"].Value = flooroffset.x % texturewidth;
+
+							if (!s.Fields.ContainsKey("ypanningfloor")) s.Fields.Add("ypanningfloor", new UniValue(UniversalType.Float, flooroffset.y % textureheight));
+							else s.Fields["ypanningfloor"].Value = flooroffset.y % textureheight;
+						}
+					}
+				}
+			}
+
+			if (updateslopes)
+			{
+				// Update floor slope?
+				if (s.FloorSlope.GetLengthSq() > 0 && !double.IsNaN(s.FloorSlopeOffset / s.FloorSlope.z))
+				{
+					Plane floor = new Plane(s.FloorSlope, s.FloorSlopeOffset);
+					Vector2D center = new Vector2D(s.BBox.X + s.BBox.Width / 2, s.BBox.Y + s.BBox.Height / 2);
+					s.FloorSlopeOffset = -Vector3D.DotProduct(s.FloorSlope, new Vector3D(center + offset, floor.GetZ(center)));
+				}
+
+				// Update ceiling slope?
+				if (s.CeilSlope.GetLengthSq() > 0 && !double.IsNaN(s.CeilSlopeOffset / s.CeilSlope.z))
+				{
+					Plane ceiling = new Plane(s.CeilSlope, s.CeilSlopeOffset);
+					Vector2D center = new Vector2D(s.BBox.X + s.BBox.Width / 2, s.BBox.Y + s.BBox.Height / 2);
+					s.CeilSlopeOffset = -Vector3D.DotProduct(s.CeilSlope, new Vector3D(center + offset, ceiling.GetZ(center)));
+				}
+			}
+		}
+
 		#endregion
 	}
 }
