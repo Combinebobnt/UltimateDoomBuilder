@@ -425,6 +425,7 @@ namespace CodeImp.DoomBuilder.Windows
 			// Apply control keys to actions
 			foreach(ListViewItem item in allactionitems) //mxd
 				General.Actions[item.Name].SetShortcutKeys((int)item.SubItems[1].Tag, (int)item.SubItems[2].Tag);
+			if(General.Hints != null) General.Hints.Refresh();
 
 			// Apply the colors
 			// TODO: Make this automated by using the collection

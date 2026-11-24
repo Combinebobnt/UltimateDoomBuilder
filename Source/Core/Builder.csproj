@@ -977,6 +977,7 @@
     <None Include="Resources\Cut.png" />
     <None Include="Resources\Close.png" />
     <Compile Include="Actions\HintsManager.cs" />
+    <Compile Include="Actions\ModifierHintTracker.cs" />
     <Compile Include="Config\AllTexturesSet.cs" />
     <Compile Include="Config\FlagTranslation.cs" />
     <Compile Include="Controls\ImageBrowserCategoryItem.cs" />

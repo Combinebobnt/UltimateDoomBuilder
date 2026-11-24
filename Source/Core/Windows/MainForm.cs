@@ -157,6 +157,9 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd. Hints
 		private Docker hintsDocker;
 		private HintsPanel hintsPanel;
+		private ModifierHintTracker modifierhints;
+		private Timer modifierhintstimer;
+		private Timer modifierhintspoll;
 
 		//mxd
 		private System.Timers.Timer blinkTimer; 
@@ -303,6 +306,15 @@ namespace CodeImp.DoomBuilder.Windows
 			//mxd. Hints
 			hintsPanel = new HintsPanel();
 			hintsDocker = new Docker("hints", "Help", hintsPanel);
+			modifierhintstimer = new GuardedTimer { Interval = 500 };
+			modifierhintstimer.Tick += (s, e) => modifierhints.TimerFired();
+			modifierhintspoll = new GuardedTimer { Interval = 250 };
+			modifierhintspoll.Tick += (s, e) => modifierhints.Poll(ModifierKeys);
+			modifierhints = new ModifierHintTracker(
+				() => { modifierhintstimer.Stop(); modifierhintstimer.Start(); },
+				() => modifierhintstimer.Stop(),
+				SetModifierHintsOverlay,
+				CanShowModifierHints);
 
 			KeyPreview = true;
 			PreviewKeyDown += new PreviewKeyDownEventHandler(MainForm_PreviewKeyDown);
@@ -1451,6 +1463,7 @@ namespace CodeImp.DoomBuilder.Windows
 		internal void ReleaseAllKeys()
 		{
 			General.Actions.ReleaseAllKeys();
+			if(modifierhints != null) modifierhints.Release();
 			mousebuttons = MouseButtons.None;
 			shift = false;
 			ctrl = false;
@@ -1523,6 +1536,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void MainForm_KeyDown(object sender, KeyEventArgs e)
 		{
 			if(toolbardrag != null && toolbardrag.HandleKeyDown(e)) return;
+			modifierhints.KeyDown(e.KeyData);
 			int mod = 0;
 			
 			// Keep key modifiers
@@ -1588,6 +1602,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void MainForm_KeyUp(object sender, KeyEventArgs e)
 		{
 			if(toolbardrag != null && toolbardrag.HandleKeyUp(e)) return;
+			modifierhints.KeyUp(e.KeyData);
 			int mod = 0;
 
 			// Keep key modifiers
@@ -4260,6 +4275,20 @@ namespace CodeImp.DoomBuilder.Windows
 			{
 				ClearHints();
 			}
+		}
+
+		private void SetModifierHintsOverlay(int mask)
+		{
+			modifierhintspoll.Enabled = (mask != 0);
+			if(General.Hints != null) General.Hints.SetModifierOverlay(mask);
+		}
+
+		// Checked when the delay runs out, never when clearing
+		private bool CanShowModifierHints()
+		{
+			return General.Settings.HintsModifierOverlay && (General.Map != null) && (General.Editing.Mode != null)
+				&& ((ActiveControl == null) || (ActiveControl == display)) && (ActiveDockerTabName == "Help")
+				&& windowactive && CanFocus;
 		}
 
 		//mxd

@@ -94,6 +94,7 @@ namespace CodeImp.DoomBuilder.Config
 		private float filteranisotropy;
 		private int antialiasingsamples; //mxd
 		private bool showtexturesizes;
+		private bool hintsmodifieroverlay;
         private bool texturesizesbelow; // [ZZ]
 		private bool locatetexturegroup; //mxd
 		private SplitLineBehavior splitlinebehavior; //mxd
@@ -246,6 +247,7 @@ namespace CodeImp.DoomBuilder.Config
 		public float FilterAnisotropy { get { return filteranisotropy; } internal set { filteranisotropy = value; } }
 		public int AntiAliasingSamples { get { return antialiasingsamples; } internal set { antialiasingsamples = value; } } //mxd
 		public bool ShowTextureSizes { get { return showtexturesizes; } internal set { showtexturesizes = value; } }
+		public bool HintsModifierOverlay { get { return hintsmodifieroverlay; } internal set { hintsmodifieroverlay = value; } }
         public bool TextureSizesBelow { get { return texturesizesbelow; } internal set { texturesizesbelow = value; } }
 		public bool LocateTextureGroup { get { return locatetexturegroup; } internal set { locatetexturegroup = value; } } //mxd
 		public SplitLineBehavior SplitLineBehavior { get { return splitlinebehavior; } set { splitlinebehavior = value; } } //mxd
@@ -418,6 +420,7 @@ namespace CodeImp.DoomBuilder.Config
 				filteranisotropy = General.Clamp(cfg.ReadSetting("filteranisotropy", 16.0f), 1.0f, 16.0f);
 				antialiasingsamples = General.Clamp(cfg.ReadSetting("antialiasingsamples", 4), 0, 8) / 2 * 2; //mxd
 				showtexturesizes = cfg.ReadSetting("showtexturesizes", true);
+				hintsmodifieroverlay = cfg.ReadSetting("hintsmodifieroverlay", true);
                 texturesizesbelow = cfg.ReadSetting("texturesizesbelow", false); // [ZZ]
                 locatetexturegroup = cfg.ReadSetting("locatetexturegroup", true); //mxd
 				splitlinebehavior = (SplitLineBehavior)General.Clamp(cfg.ReadSetting("splitlinebehavior", 0), 0, Enum.GetValues(typeof(SplitLineBehavior)).Length - 1); //mxd
@@ -604,6 +607,7 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("filteranisotropy", filteranisotropy);
 			cfg.WriteSetting("antialiasingsamples", antialiasingsamples); //mxd
 			cfg.WriteSetting("showtexturesizes", showtexturesizes);
+			cfg.WriteSetting("hintsmodifieroverlay", hintsmodifieroverlay);
             cfg.WriteSetting("texturesizesbelow", texturesizesbelow); // [ZZ]
             cfg.WriteSetting("locatetexturegroup", locatetexturegroup); //mxd
 			cfg.WriteSetting("splitlinebehavior", (int)splitlinebehavior); //mxd

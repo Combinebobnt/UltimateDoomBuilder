@@ -253,6 +253,11 @@ namespace CodeImp.DoomBuilder.Actions
 			begindelegates.Add(method);
 		}
 
+		internal bool IsBeginBoundTo(object target)
+		{
+			return target != null && begindelegates.Exists(d => ReferenceEquals(d.Target, target));
+		}
+
 		// This removes a delegate from this action
 		internal void UnbindBegin(ActionDelegate method)
 		{
