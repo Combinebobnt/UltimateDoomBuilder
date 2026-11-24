@@ -52,7 +52,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private const long PICK_INTERVAL_PAINT_SELECT = 10; // biwa
 
 		// Gravity
-		private const float GRAVITY = -0.06f;
 		
 		#endregion
 		
@@ -1682,11 +1681,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				else
 				{
 					// Fall down
-					gravity.z += GRAVITY * General.Map.VisualCamera.Gravity * deltatime;
+					gravity.z = CameraFall.Accelerate(gravity.z, General.Map.VisualCamera.Gravity, deltatime);
 					if(gravity.z > 3.0) gravity.z = 3.0;
+					double fall = CameraFall.Distance(gravity.z, deltatime);
 
 					// Test if we don't go through a floor
-					if((General.Map.VisualCamera.Position.z + gravity.z) < (floorheight + cameraflooroffset + 0.1))
+					if((General.Map.VisualCamera.Position.z + fall) < (floorheight + cameraflooroffset + 0.1))
 					{
 						// Stay above floor
 						gravity = new Vector3D(0.0, 0.0, 0.0);
@@ -1697,7 +1697,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					else
 					{
 						// Apply gravity vector
-						General.Map.VisualCamera.Position += gravity;
+						General.Map.VisualCamera.Position += new Vector3D(0.0, 0.0, fall);
 					}
 				}
 

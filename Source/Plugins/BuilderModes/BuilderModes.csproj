@@ -424,6 +424,7 @@
     <Compile Include="General\HintLabel.cs" />
     <Compile Include="General\BuilderModesTools.cs" />
     <Compile Include="General\ExtrudePath.cs" />
+    <Compile Include="General\CameraFall.cs" />
     <Compile Include="General\SelectionLabel.cs" />
     <Compile Include="General\UndoGroup.cs" />
     <Compile Include="Interface\BridgeModeForm.cs">
