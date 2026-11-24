@@ -1,0 +1,98 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+
+	<title>Macros</title>
+
+	<meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+	<link rel="stylesheet" type="text/css" href="../../../default.css" media="screen" title="Default" />
+</head>
+<body>
+
+	<object type="application/x-oleobject" classid="clsid:1e2a7bd0-dab9-11d0-b93a-00c04fc99f9e">
+	<param name="keyword" value="Macros">
+	</object>
+
+	<div id="gz_title"><h1>Macros</h1></div>
+
+	<div id="contents">
+	<p>
+		<b>Menu path:</b> Tools -&gt; Macros<br>
+		<b>Toolbar:</b> the Macros strip (a record button and a run button with a list of macros)<br>
+		<b>Actions:</b> "Record Macro", "Run Last Macro", "Manage Macros" and "Run Macro Slot 1" to "Run Macro Slot 10" (Macros category). None has a default key; you can bind them in Preferences -&gt; Controls.<br>
+		<br>
+		A macro is a recorded list of editor actions that you can play back later with one click or key. Each run is a single undo step, and a run that fails part way leaves the map as it was.
+	</p>
+
+	<h2>Recording a macro</h2>
+	<ol>
+		<li>Open a map and switch to the mode the macro should work in.</li>
+		<li>Choose <b>Tools -&gt; Macros -&gt; Record Macro</b>, or click the record button on the Macros toolbar.</li>
+		<li>Use the actions you want to repeat, with their keys, the menus, the toolbar or the command palette. The status bar counts the recorded steps and names the last one.</li>
+		<li>Choose <b>Stop Recording</b> (the same menu item and button). A window shows the recorded steps: give the macro a name, optionally pick a key slot, and click <b>Save</b>, or <b>Discard</b> to drop it.</li>
+	</ol>
+	<p>
+		The same action used several times in a row is stored as one step with a count (for example <i>Raise floor by 8 x3</i>). Saved macros are kept in the program settings, so they are available in every map and survive a restart.
+	</p>
+
+	<h2>What is recorded</h2>
+	<p>
+		A macro records <b>which actions</b> you used, not where you clicked. It does not store mouse positions, element numbers or values typed into dialogs. These are not recorded, and the status bar says so when you use one while recording:
+	</p>
+	<ul>
+		<li>actions started with a mouse button (selecting, dragging, drawing). Mouse wheel actions are recorded;</li>
+		<li>actions that start or end a drawing, pasting or selection editing mode, and anything done inside such a mode;</li>
+		<li>actions that do nothing in the current mode;</li>
+		<li>view navigation (scrolling, zooming, centering, moving the 3D camera), opening, saving and testing maps, Undo and Redo, Preferences and other settings windows, screenshots, exports and the macro actions themselves.</li>
+	</ul>
+	<p>
+		Changes made by dragging with the mouse or by editing values in a dialog are not part of the macro. When such a change happens while recording, the status bar shows <i>Not recorded: &lt;what changed&gt;</i>. An action that opens an edit dialog (for example Edit Sector) can still be recorded: when the macro runs, the dialog opens for you to fill in.
+	</p>
+
+	<h2>Running a macro</h2>
+	<ul>
+		<li><b>Tools -&gt; Macros</b> lists every saved macro; click one to run it.</li>
+		<li><b>Run Last Macro</b> (menu, or a click on the toolbar run button) runs the macro you ran or saved most recently in this session. The arrow beside the toolbar button lists all macros.</li>
+		<li>A macro with a key slot runs from the key bound to that slot's "Run Macro Slot" action.</li>
+	</ul>
+	<p>
+		A macro works on what is selected or highlighted <b>when it runs</b>. Actions that act on the highlighted element or on the mouse position use the current mouse position, so run such a macro from its slot key with the mouse over the map rather than from a menu. Modifier keys held with the slot key (for example Ctrl or Shift) stay held while the macro runs, so actions that behave differently with a modifier held will do so.
+	</p>
+	<p>
+		<b>Undo:</b> each run is one undo step named <i>Macro: &lt;name&gt;</i>, and it never merges with the edit you made before it. A macro that only changes the selection leaves the undo history and the redo history as they were.
+	</p>
+
+	<h2>When a run stops</h2>
+	<p>
+		A run is all or nothing. If a step fails, every change the run made so far is undone and the status bar shows <i>Macro 'name' stopped at step N (action): reason; changes rolled back.</i> A run stops when:
+	</p>
+	<ul>
+		<li>you cancel an edit dialog that a step opened;</li>
+		<li>a step's action does nothing in the current mode;</li>
+		<li>a step leaves a drawing or editing mode open;</li>
+		<li>a step fails with an error (it is also listed in the Errors and Warnings window).</li>
+	</ul>
+	<p>
+		A step that refuses to run because there is nothing for it to do (for example snapping geometry that is already on the grid) does not stop the run: the following steps still run.
+	</p>
+
+	<h2>Modes</h2>
+	<p>
+		A macro remembers the editing mode it was recorded in and only runs in that mode; in other modes its menu entry is disabled and its slot key shows why it can't run. Check <b>Run in any mode</b> in the macro's settings to allow it everywhere, for example for a macro whose first step switches to the mode it needs.
+	</p>
+
+	<h2>Managing macros</h2>
+	<p>
+		<b>Tools -&gt; Macros -&gt; Manage Macros...</b> lists every macro with its slot key, steps and mode. From there you can run, edit, duplicate or delete a macro. Editing changes the name, the key slot (giving a macro a slot another macro has moves the slot to it), <b>Run in any mode</b>, and the steps: remove steps, move them up or down, or change how many times each one repeats.
+	</p>
+	<p>
+		A macro that uses an action from a plugin that is not loaded is kept but marked unavailable, and it does not run until the plugin is back.
+	</p>
+
+	<h2>Toolbar</h2>
+	<p>
+		The Macros toolbar strip can be hidden with a right-click on the toolbar (the <b>Macros</b> item) or in Preferences, beside the other toolbar options. Recording and running are disabled while no map is open, and running is disabled while recording.
+	</p>
+	</div>
+</body>
+</html>

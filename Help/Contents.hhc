@@ -255,6 +255,10 @@
 					<param name="Name" value="Baking lightmaps">
 					<param name="Local" value="gzdb\features\general\lightmap_baking.html">
 					</OBJECT>
+				<LI> <OBJECT type="text/sitemap">
+					<param name="Name" value="Macros">
+					<param name="Local" value="gzdb\features\general\macros.html">
+					</OBJECT>
 			</UL>
 			<LI> <OBJECT type="text/sitemap">
 				<param name="Name" value="Scripting">
