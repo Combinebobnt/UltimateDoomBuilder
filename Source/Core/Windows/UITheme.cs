@@ -134,7 +134,7 @@ namespace CodeImp.DoomBuilder.Windows
 				General.WriteLogLine("Interface theme: light (environment unreadable: " + e.GetType().Name + ": " + e.Message + ")");
 				return;
 			}
-			Apply(kind, CreateBackend(env), env);
+			Apply(kind, () => CreateBackend(env), env);
 		}
 
 		private static IThemeBackend CreateBackend(UIThemeEnvironment env)
@@ -145,6 +145,12 @@ namespace CodeImp.DoomBuilder.Windows
 
 		// Tests pass their own environment: platform, Windows build, High Contrast and the desktop preference sources
 		internal static void Apply(UIThemeKind kind, IThemeBackend backend, UIThemeEnvironment env)
+		{
+			Apply(kind, () => backend, env);
+		}
+
+		// The backend is built only once dark is decided
+		private static void Apply(UIThemeKind kind, Func<IThemeBackend> backend, UIThemeEnvironment env)
 		{
 			if(kind == UIThemeKind.Light) return;
 			if(env.IsWindows && !WindowsDarkSupport.For(env.Build).Supported)
@@ -168,12 +174,19 @@ namespace CodeImp.DoomBuilder.Windows
 
 		internal static void Apply(UIThemeKind kind, IThemeBackend backend)
 		{
+			Apply(kind, () => backend);
+		}
+
+		private static void Apply(UIThemeKind kind, Func<IThemeBackend> createbackend)
+		{
 			if(kind != UIThemeKind.Dark) return;
 
+			IThemeBackend backend = null;
 			IDictionary<KnownColor, Color> previous = null;
 			bool formtheming = false;
 			try
 			{
+				backend = createbackend();
 				ToolStripRenderer renderer = backend.CreateToolStripRenderer();
 				previous = backend.ApplyPalette(darkpalette);
 				backend.InstallFormTheming();
@@ -307,11 +320,13 @@ namespace CodeImp.DoomBuilder.Windows
 	{
 		private static readonly string[] FIELD_NAMES = { "s_colorTable", "colorTable" };
 
-		// Resolves and fills the table without changing it, and returns the field's name. Fork Build's Windows job calls it by reflection.
-		internal static string Probe()
+		// Resolves and fills the table and returns the field's name. With write, also writes the dark palette, checks that
+		// SystemColors reads it back and restores it. Fork Build's Windows job calls it by reflection in a throwaway process.
+		internal static string Probe(bool write)
 		{
 			string field;
-			Table(UITheme.DarkPalette.Keys, out field);
+			if(write) Restore(Write(UITheme.DarkPalette, out field));
+			else Table(UITheme.DarkPalette.Keys, out field);
 			return field;
 		}
 

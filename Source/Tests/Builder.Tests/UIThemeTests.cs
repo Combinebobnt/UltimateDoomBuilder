@@ -272,7 +272,7 @@ namespace Builder.Tests
 		{
 			// .NET has no such table; Fork Build probes the .NET Framework one separately
 			if(Type.GetType("Mono.Runtime") == null) return;
-			Assert.Equal("s_colorTable", KnownColorTableWriter.Probe());
+			Assert.Equal("s_colorTable", KnownColorTableWriter.Probe(false));
 		}
 
 		[Fact]

@@ -145,15 +145,26 @@ namespace Builder.Tests
 					var list = new ListView { View = View.Details };
 					var tree = new TreeView();
 					var tabs = new TabControl();
-					tabs.TabPages.Add("one");
-					tabs.TabPages.Add("two");
+					// As the designer makes them
+					var page = new TabPage("one") { UseVisualStyleBackColor = true };
+					tabs.TabPages.Add(page);
+					tabs.TabPages.Add(new TabPage("two") { UseVisualStyleBackColor = true });
 					var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
 					var grid = new DataGridView();
 					var named = new Label { BackColor = Color.Red };
 					var hosted = new TextBox();
 					var strip = new ToolStrip();
 					strip.Items.Add(new ToolStripControlHost(hosted));
-					form.Controls.AddRange(new Control[] { button, text, single, list, tree, tabs, combo, grid, named, strip });
+					var numeric = new NumericUpDown();
+					var scroll = new VScrollBar();
+					var rich = new RichTextBox();
+					var listbox = new ListBox();
+					var toggle = new CheckBox { Appearance = Appearance.Button, Text = "t" };
+					var systemlabel = new Label { FlatStyle = FlatStyle.System, Text = "s" };
+					var panel = new Panel { AutoScroll = true };
+					var readonlybox = new TextBox { ReadOnly = true };
+					form.Controls.AddRange(new Control[] { button, text, single, list, tree, tabs, combo, grid, named, strip,
+						numeric, scroll, rich, listbox, toggle, systemlabel, panel, readonlybox });
 
 					walker.Theme(form, IntPtr.Zero);
 					form.Show();
@@ -169,8 +180,13 @@ namespace Builder.Tests
 					AssertDark(grid.BackgroundColor, KnownColor.AppWorkspace, "grid");
 					Assert.False(grid.EnableHeadersVisualStyles);
 					Assert.Equal(TabDrawMode.OwnerDrawFixed, tabs.DrawMode);
-					Assert.False(tabs.TabPages[0].UseVisualStyleBackColor);
+					Assert.False(page.UseVisualStyleBackColor);
+					AssertDark(page.BackColor, KnownColor.Control, "tab page");
 					Assert.Equal(Color.Red, named.BackColor);
+					Assert.Equal(FlatStyle.Flat, toggle.FlatStyle);
+					Assert.Equal(FlatStyle.Standard, systemlabel.FlatStyle);
+					AssertDark(systemlabel.ForeColor, KnownColor.ControlText, "system label");
+					AssertDark(readonlybox.BackColor, KnownColor.Control, "read-only textbox");
 
 					string explorer = "theme " + DarkControlRules.EXPLORER_THEME;
 					Assert.Contains((form.Handle, "titlebar 20"), native.Calls);
@@ -180,10 +196,18 @@ namespace Builder.Tests
 					Assert.Contains((tree.Handle, explorer), native.Calls);
 					Assert.Contains((combo.Handle, "theme " + DarkControlRules.COMBOBOX_THEME), native.Calls);
 					Assert.DoesNotContain((single.Handle, explorer), native.Calls);
+					Assert.Contains((scroll.Handle, explorer), native.Calls);
+					Assert.Contains((rich.Handle, explorer), native.Calls);
+					Assert.Contains((listbox.Handle, explorer), native.Calls);
+					Assert.Contains((panel.Handle, explorer), native.Calls);
+					Control spinner = numeric.Controls.Cast<Control>().Single(c => c.GetType().Name == "UpDownButtons");
+					Assert.Contains((spinner.Handle, explorer), native.Calls);
 
-					// Code that sets a system color later, and a control added later
+					// Code that sets a system color later, a read-only box made editable, and a control added later
 					single.BackColor = SystemColors.Window;
 					AssertDark(single.BackColor, KnownColor.Window, "reassigned textbox");
+					readonlybox.ReadOnly = false;
+					AssertDark(readonlybox.BackColor, KnownColor.Window, "editable textbox");
 					var late = new Button { Text = "late" };
 					form.Controls.Add(late);
 					AssertDark(late.BackColor, KnownColor.Control, "late button");
@@ -212,6 +236,9 @@ namespace Builder.Tests
 						Control counted = c;
 						c.HandleCreated += (s, e) => created[counted]++;
 					}
+					// Whether the first tab handle missed owner drawing, i.e. the walk ran while it was being created
+					bool? firstownerdrawn = null;
+					tabs.HandleCreated += (s, e) => { if(firstownerdrawn == null) firstownerdrawn = (GetWindowLong(tabs.Handle, GWL_STYLE) & TCS_OWNERDRAWFIXED) != 0; };
 					form.Controls.AddRange(tabsfirst ? new Control[] { tabs, button } : new Control[] { button, tabs });
 
 					form.Show();
@@ -225,7 +252,10 @@ namespace Builder.Tests
 					Assert.Contains((form.Handle, "titlebar 20"), native.Calls);
 					Assert.Equal(1, created[form]);
 					Assert.Equal(1, created[button]);
-					if(!tabsfirst) Assert.Equal(1, created[tabs]);
+					Assert.NotNull(firstownerdrawn);
+					// Only a tab control created without owner drawing gets its second handle
+					Assert.Equal(firstownerdrawn == true ? 1 : 2, created[tabs]);
+					if(!tabsfirst) Assert.True(firstownerdrawn == true, "the walk ran late for a tab control created second");
 				}
 			}
 			finally { backend.UninstallFormTheming(); }

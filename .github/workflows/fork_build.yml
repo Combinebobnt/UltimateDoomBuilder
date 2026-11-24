@@ -79,7 +79,7 @@ jobs:
           $writer = $exe.GetType('CodeImp.DoomBuilder.Windows.KnownColorTableWriter', $true)
           $probe = $writer.GetMethod('Probe', [Reflection.BindingFlags]'NonPublic, Static')
           if (-not $probe) { throw 'KnownColorTableWriter.Probe not found' }
-          try { $field = $probe.Invoke($null, $null) }
+          try { $field = $probe.Invoke($null, [object[]]@($true)) }
           catch { throw "No usable KnownColorTable on CLR $([Environment]::Version): $($_.Exception.InnerException)" }
           "KnownColorTable field on CLR $([Environment]::Version): $field"
       - name: Package portable zip before test builds

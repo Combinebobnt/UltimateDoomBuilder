@@ -26,7 +26,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private const int ALLOW_DARK_MODE_FOR_WINDOW = 133;
 
 		[UnmanagedFunctionPointer(CallingConvention.Winapi)]
-		private delegate bool AllowDarkModeForWindowProc(IntPtr hwnd, bool allow);
+		[return: MarshalAs(UnmanagedType.U1)]
+		private delegate bool AllowDarkModeForWindowProc(IntPtr hwnd, [MarshalAs(UnmanagedType.U1)] bool allow);
 
 		private readonly AllowDarkModeForWindowProc allowdarkforwindow;
 
@@ -35,8 +36,6 @@ namespace CodeImp.DoomBuilder.Windows
 			IntPtr proc = UxthemeOrdinal(ALLOW_DARK_MODE_FOR_WINDOW);
 			if(proc != IntPtr.Zero) allowdarkforwindow = (AllowDarkModeForWindowProc)Marshal.GetDelegateForFunctionPointer(proc, typeof(AllowDarkModeForWindowProc));
 		}
-
-		public bool HasAllowDarkForWindow { get { return allowdarkforwindow != null; } }
 
 		public void SetWindowTheme(IntPtr hwnd, string subappname)
 		{

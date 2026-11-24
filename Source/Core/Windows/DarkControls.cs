@@ -179,6 +179,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private sealed class Walked { }
 
 		private static readonly MethodInfo recreatehandle = typeof(Control).GetMethod("RecreateHandle", BindingFlags.NonPublic | BindingFlags.Instance);
+		// A UserPaint tab control (the script editor's) paints its own tabs
+		private static readonly MethodInfo getstyle = typeof(Control).GetMethod("GetStyle", BindingFlags.NonPublic | BindingFlags.Instance);
 
 		private readonly INativeTheming native;
 		private readonly int titlebarattribute;
@@ -219,7 +221,10 @@ namespace CodeImp.DoomBuilder.Windows
 			{
 				if(c is ButtonBase) ((ButtonBase)c).UseVisualStyleBackColor = false;
 				else if(c is TabPage) ((TabPage)c).UseVisualStyleBackColor = false;
+				// A visual-style TabPage read Transparent; now it reads its TabControl's system color, with no change event
+				OnBackColorChanged(c, EventArgs.Empty);
 			}
+			if(c is TextBoxBase) ((TextBoxBase)c).ReadOnlyChanged += OnReadOnlyChanged;
 			if(ch.FlatBorder.HasValue && c is ButtonBase) ((ButtonBase)c).FlatAppearance.BorderColor = ch.FlatBorder.Value;
 			if(ch.OwnerDrawTabs)
 			{
@@ -289,7 +294,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(c is ListView) info.OwnerDraw = ((ListView)c).OwnerDraw;
 			else if(c is ListBox) info.OwnerDraw = ((ListBox)c).DrawMode != DrawMode.Normal;
 			else if(c is TreeView) info.OwnerDraw = ((TreeView)c).DrawMode != TreeViewDrawMode.Normal;
-			else if(c is TabControl) info.OwnerDraw = ((TabControl)c).DrawMode != TabDrawMode.Normal;
+			else if(c is TabControl) info.OwnerDraw = ((TabControl)c).DrawMode != TabDrawMode.Normal || (bool)getstyle.Invoke(c, new object[] { ControlStyles.UserPaint });
 			return info;
 		}
 
@@ -361,6 +366,15 @@ namespace CodeImp.DoomBuilder.Windows
 			Control c = (Control)sender;
 			Color? dark = DarkControlRules.Convert(c.ForeColor);
 			if(dark.HasValue) c.ForeColor = dark.Value;
+		}
+
+		// A text box's default background follows ReadOnly (Control or Window), so the converted one must follow too
+		private static void OnReadOnlyChanged(object sender, EventArgs e)
+		{
+			TextBoxBase box = (TextBoxBase)sender;
+			int back = box.BackColor.ToArgb();
+			if(back == UITheme.DarkPalette[KnownColor.Control].ToArgb() || back == UITheme.DarkPalette[KnownColor.Window].ToArgb())
+				box.ResetBackColor();
 		}
 
 		private void OnControlAdded(object sender, ControlEventArgs e)
