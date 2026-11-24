@@ -8,6 +8,7 @@ using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 #endregion
 
@@ -31,6 +32,9 @@ namespace CodeImp.DoomBuilder.Windows
 		void RestorePalette(IDictionary<KnownColor, Color> previous);
 		// Built before the palette is written, so a failure there leaves nothing to undo
 		ToolStripRenderer CreateToolStripRenderer();
+		// Themes forms as they are created. All-or-nothing: undoes its own partial work before throwing.
+		void InstallFormTheming();
+		void UninstallFormTheming();
 		void InstallToolStripRenderer(ToolStripRenderer renderer);
 	}
 
@@ -56,7 +60,7 @@ namespace CodeImp.DoomBuilder.Windows
 		public static UIThemeKind Current { get { return current; } }
 		public static bool IsDark { get { return current == UIThemeKind.Dark; } }
 
-		// The system-color remap only reaches native controls on Mono WinForms
+		// The system-color remap only reaches native controls on Mono WinForms; Windows needs its own backend first
 		public static bool IsSupported
 		{
 			get
@@ -123,15 +127,40 @@ namespace CodeImp.DoomBuilder.Windows
 		public static void Apply(UIThemeKind kind)
 		{
 			if(kind == UIThemeKind.Light || !IsSupported) return;
-			Apply(kind, new MonoThemeBackend(), Environment.GetEnvironmentVariable, new ProcessCommandRunner());
+			UIThemeEnvironment env;
+			try { env = UIThemeEnvironment.Current(); }
+			catch(Exception e)
+			{
+				General.WriteLogLine("Interface theme: light (environment unreadable: " + e.GetType().Name + ": " + e.Message + ")");
+				return;
+			}
+			IThemeBackend backend = CreateBackend(env);
+			if(backend != null) Apply(kind, backend, env);
 		}
 
-		// Tests pass the desktop detector's environment and command runner
-		internal static void Apply(UIThemeKind kind, IThemeBackend backend, Func<string, string> getenv, ICommandRunner runner)
+		// Windows has no backend yet (IsSupported keeps it from getting here)
+		private static IThemeBackend CreateBackend(UIThemeEnvironment env)
 		{
+			return env.IsWindows ? null : new MonoThemeBackend();
+		}
+
+		// Tests pass their own environment: platform, Windows build, High Contrast and the desktop preference sources
+		internal static void Apply(UIThemeKind kind, IThemeBackend backend, UIThemeEnvironment env)
+		{
+			if(kind == UIThemeKind.Light) return;
+			if(env.IsWindows && !WindowsDarkSupport.For(env.Build).Supported)
+			{
+				General.WriteLogLine("Interface theme: light (Windows build " + env.Build + " is older than " + WindowsDarkSupport.MINIMUM_BUILD + ")");
+				return;
+			}
+			if(env.HighContrast)
+			{
+				General.WriteLogLine("Interface theme: light (High Contrast is on)");
+				return;
+			}
 			if(kind == UIThemeKind.System)
 			{
-				DesktopThemeResult desktop = DesktopTheme.Detect(getenv, runner);
+				DesktopThemeResult desktop = DesktopTheme.Detect(env);
 				kind = desktop.Kind;
 				General.WriteLogLine("Interface theme: system -> " + (kind == UIThemeKind.Dark ? "dark" : "light") + " (" + desktop.Source + ")");
 			}
@@ -143,16 +172,24 @@ namespace CodeImp.DoomBuilder.Windows
 			if(kind != UIThemeKind.Dark) return;
 
 			IDictionary<KnownColor, Color> previous = null;
+			bool formtheming = false;
 			try
 			{
 				ToolStripRenderer renderer = backend.CreateToolStripRenderer();
 				previous = backend.ApplyPalette(darkpalette);
+				backend.InstallFormTheming();
+				formtheming = true;
 				backend.InstallToolStripRenderer(renderer);
 				lightcolors = previous;
 				current = kind;
 			}
 			catch(Exception e)
 			{
+				if(formtheming)
+				{
+					try { backend.UninstallFormTheming(); }
+					catch(Exception) { }
+				}
 				if(previous != null)
 				{
 					try { backend.RestorePalette(previous); }
@@ -203,30 +240,8 @@ namespace CodeImp.DoomBuilder.Windows
 			PropertyInfo currenttheme = themeengine.GetProperty("Current", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 			object theme = currenttheme != null ? currenttheme.GetValue(null, null) : null;
 
-			int[] colors = ColorTable(palette.Keys);
-			Dictionary<KnownColor, Color> previous = new Dictionary<KnownColor, Color>();
-			foreach(KeyValuePair<KnownColor, Color> entry in palette)
-			{
-				previous[entry.Key] = Color.FromArgb(colors[(int)entry.Key]);
-				colors[(int)entry.Key] = entry.Value.ToArgb();
-			}
-
-			// A Mono whose SystemColors reads another table would otherwise end up half dark
-			var readback = new[]
-			{
-				new KeyValuePair<KnownColor, Color>(KnownColor.Control, SystemColors.Control),
-				new KeyValuePair<KnownColor, Color>(KnownColor.Window, SystemColors.Window),
-				new KeyValuePair<KnownColor, Color>(KnownColor.ControlText, SystemColors.ControlText),
-			};
-			foreach(KeyValuePair<KnownColor, Color> seen in readback)
-			{
-				Color expected;
-				if(palette.TryGetValue(seen.Key, out expected) && seen.Value.ToArgb() != expected.ToArgb())
-				{
-					RestorePalette(previous);
-					throw new InvalidOperationException("SystemColors." + seen.Key + " does not read System.Drawing.KnownColorTable");
-				}
-			}
+			string field;
+			IDictionary<KnownColor, Color> previous = KnownColorTableWriter.Write(palette, out field);
 
 			General.WriteLogLine("Interface theme: dark (" + (theme != null ? theme.GetType().Name : "no theme engine") + ")");
 
@@ -238,29 +253,12 @@ namespace CodeImp.DoomBuilder.Windows
 
 		public void RestorePalette(IDictionary<KnownColor, Color> previous)
 		{
-			int[] colors = ColorTable(previous.Keys);
-			foreach(KeyValuePair<KnownColor, Color> entry in previous)
-				colors[(int)entry.Key] = entry.Value.ToArgb();
+			KnownColorTableWriter.Restore(previous);
 		}
 
-		// The filled table, checked to hold every given entry before anything writes to it
-		private static int[] ColorTable(IEnumerable<KnownColor> keys)
-		{
-			Type table = Resolve(typeof(Color).Assembly, "System.Drawing.KnownColorTable");
-			MethodInfo ensure = table.GetMethod("EnsureColorTable", BindingFlags.NonPublic | BindingFlags.Static);
-			FieldInfo field = table.GetField("s_colorTable", BindingFlags.NonPublic | BindingFlags.Static);
-			if(ensure == null || field == null || field.FieldType != typeof(int[]))
-				throw new MissingMemberException("System.Drawing.KnownColorTable has no usable color table");
-
-			ensure.Invoke(null, null);
-			int[] colors = (int[])field.GetValue(null);
-			foreach(KnownColor kc in keys)
-			{
-				if(colors == null || (int)kc < 0 || (int)kc >= colors.Length)
-					throw new IndexOutOfRangeException("System.Drawing.KnownColorTable has no entry for " + kc);
-			}
-			return colors;
-		}
+		// Mono WinForms paints native controls from the remapped table itself
+		public void InstallFormTheming() { }
+		public void UninstallFormTheming() { }
 
 		// Mono's classic scrollbar track is a 50% dither of ScrollBar and hardcoded white, fetched from the
 		// theme's brush cache by a key built from its arguments. Seeding that key gives a solid dark track.
@@ -292,6 +290,128 @@ namespace CodeImp.DoomBuilder.Windows
 			Type t = assembly.GetType(name, false);
 			if(t == null) throw new TypeLoadException(name + " not found in " + assembly.GetName().Name);
 			return t;
+		}
+	}
+
+	// SystemColors and SystemBrushes resolve through System.Drawing.KnownColorTable's int[] table, which Mono names
+	// s_colorTable and .NET Framework colorTable. .NET (Core) has no such table.
+	internal static class KnownColorTableWriter
+	{
+		private static readonly string[] FIELD_NAMES = { "s_colorTable", "colorTable" };
+
+		// Resolves and fills the table without changing it, and returns the field's name. Fork Build's Windows job calls it by reflection.
+		internal static string Probe()
+		{
+			string field;
+			Table(UITheme.DarkPalette.Keys, out field);
+			return field;
+		}
+
+		// All-or-nothing: returns the previous values, or throws with the table unchanged
+		internal static IDictionary<KnownColor, Color> Write(IReadOnlyDictionary<KnownColor, Color> palette, out string field)
+		{
+			int[] colors = Table(palette.Keys, out field);
+			Dictionary<KnownColor, Color> previous = new Dictionary<KnownColor, Color>();
+			foreach(KeyValuePair<KnownColor, Color> entry in palette)
+			{
+				previous[entry.Key] = Color.FromArgb(colors[(int)entry.Key]);
+				colors[(int)entry.Key] = entry.Value.ToArgb();
+			}
+
+			// A runtime whose SystemColors reads another table would otherwise end up half dark
+			var readback = new[]
+			{
+				new KeyValuePair<KnownColor, Color>(KnownColor.Control, SystemColors.Control),
+				new KeyValuePair<KnownColor, Color>(KnownColor.Window, SystemColors.Window),
+				new KeyValuePair<KnownColor, Color>(KnownColor.ControlText, SystemColors.ControlText),
+			};
+			foreach(KeyValuePair<KnownColor, Color> seen in readback)
+			{
+				Color expected;
+				if(palette.TryGetValue(seen.Key, out expected) && seen.Value.ToArgb() != expected.ToArgb())
+				{
+					Restore(previous);
+					throw new InvalidOperationException("SystemColors." + seen.Key + " does not read System.Drawing.KnownColorTable." + field);
+				}
+			}
+			return previous;
+		}
+
+		internal static void Restore(IDictionary<KnownColor, Color> previous)
+		{
+			string field;
+			int[] colors = Table(previous.Keys, out field);
+			foreach(KeyValuePair<KnownColor, Color> entry in previous)
+				colors[(int)entry.Key] = entry.Value.ToArgb();
+		}
+
+		// The filled table, checked to hold every given entry before anything writes to it
+		private static int[] Table(IEnumerable<KnownColor> keys, out string fieldname)
+		{
+			Type table = typeof(Color).Assembly.GetType("System.Drawing.KnownColorTable", false);
+			if(table == null) throw new TypeLoadException("System.Drawing.KnownColorTable not found");
+			MethodInfo ensure = table.GetMethod("EnsureColorTable", BindingFlags.NonPublic | BindingFlags.Static);
+			FieldInfo field = null;
+			foreach(string name in FIELD_NAMES)
+			{
+				FieldInfo f = table.GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
+				if(f != null && f.FieldType == typeof(int[])) { field = f; break; }
+			}
+			if(ensure == null || field == null)
+				throw new MissingMemberException("System.Drawing.KnownColorTable has no usable color table");
+
+			ensure.Invoke(null, null);
+			int[] colors = (int[])field.GetValue(null);
+			foreach(KnownColor kc in keys)
+			{
+				if(colors == null || (int)kc < 0 || (int)kc >= colors.Length)
+					throw new IndexOutOfRangeException("System.Drawing.KnownColorTable has no entry for " + kc);
+			}
+			fieldname = field.Name;
+			return colors;
+		}
+	}
+
+	// What theme resolution reads from the machine. Tests build their own.
+	internal sealed class UIThemeEnvironment
+	{
+		public Func<string, string> GetEnv = name => null;
+		public ICommandRunner Runner;
+		public bool IsWindows;
+		public bool HighContrast;
+		// HKCU ...\Themes\Personalize AppsUseLightTheme, null when missing (Windows only)
+		public int? AppsUseLightTheme;
+		// From RtlGetVersion, 0 off Windows
+		public int Build;
+
+		public static UIThemeEnvironment Current()
+		{
+			UIThemeEnvironment env = new UIThemeEnvironment
+			{
+				GetEnv = Environment.GetEnvironmentVariable,
+				Runner = new ProcessCommandRunner(),
+				IsWindows = Environment.OSVersion.Platform == PlatformID.Win32NT,
+			};
+			if(env.IsWindows)
+			{
+				env.Build = WindowsDarkSupport.CurrentBuild();
+				env.HighContrast = SystemInformation.HighContrast;
+				env.AppsUseLightTheme = ReadAppsUseLightTheme();
+			}
+			return env;
+		}
+
+		private static int? ReadAppsUseLightTheme()
+		{
+			try
+			{
+				using(RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+				{
+					object value = key != null ? key.GetValue("AppsUseLightTheme") : null;
+					return value is int ? (int?)(int)value : null;
+				}
+			}
+			catch(Exception) { return null; }
 		}
 	}
 }

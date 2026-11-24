@@ -71,6 +71,17 @@ jobs:
           "MSBUILD=$msbuild" >> $env:GITHUB_ENV
           & $msbuild BuilderRelease.slnf '-property:Configuration=Release' "-property:Platform=$env:BUILD_PLATFORM" "-property:UdbVersionLabel=$env:VERSION_LABEL" "-property:UdbUpdateRepository=$env:UPDATE_REPOSITORY" -maxcpucount -verbosity:minimal
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Probe the .NET Framework system color table
+        if: matrix.platform == 'x64'
+        shell: powershell
+        run: |
+          $exe = [Reflection.Assembly]::LoadFrom((Resolve-Path 'Build\Builder.exe').Path)
+          $writer = $exe.GetType('CodeImp.DoomBuilder.Windows.KnownColorTableWriter', $true)
+          $probe = $writer.GetMethod('Probe', [Reflection.BindingFlags]'NonPublic, Static')
+          if (-not $probe) { throw 'KnownColorTableWriter.Probe not found' }
+          try { $field = $probe.Invoke($null, $null) }
+          catch { throw "No usable KnownColorTable on CLR $([Environment]::Version): $($_.Exception.InnerException)" }
+          "KnownColorTable field on CLR $([Environment]::Version): $field"
       - name: Package portable zip before test builds
         if: github.event_name == 'workflow_dispatch'
         shell: pwsh

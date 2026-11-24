@@ -22,29 +22,51 @@ namespace Builder.Tests
 			public bool Throw;
 			public bool ThrowOnCreate;
 			public bool ThrowOnInstall;
+			public bool ThrowOnFormTheming;
+			public readonly List<string> Calls = new List<string>();
 
 			public IDictionary<KnownColor, Color> ApplyPalette(IReadOnlyDictionary<KnownColor, Color> palette)
 			{
 				PaletteCalls++;
+				Calls.Add("palette");
 				if(Throw) throw new MissingMemberException("no color table");
 				Palette = palette;
 				Previous = new Dictionary<KnownColor, Color> { { KnownColor.ControlDark, Color.FromArgb(1, 2, 3) } };
 				return Previous;
 			}
 
-			public void RestorePalette(IDictionary<KnownColor, Color> previous) { Restored = previous; }
+			public void RestorePalette(IDictionary<KnownColor, Color> previous)
+			{
+				Calls.Add("restore");
+				Restored = previous;
+			}
 
 			public ToolStripRenderer CreateToolStripRenderer()
 			{
+				Calls.Add("create");
 				if(ThrowOnCreate) throw new InvalidOperationException("no renderer");
 				return null;
 			}
 
+			public void InstallFormTheming()
+			{
+				Calls.Add("forms");
+				if(ThrowOnFormTheming) throw new InvalidOperationException("no hook");
+			}
+
+			public void UninstallFormTheming() { Calls.Add("unforms"); }
+
 			public void InstallToolStripRenderer(ToolStripRenderer renderer)
 			{
 				RendererCalls++;
+				Calls.Add("renderer");
 				if(ThrowOnInstall) throw new InvalidOperationException("no install");
 			}
+		}
+
+		private static UIThemeEnvironment Windows(int build, int? appsuselighttheme = null, bool highcontrast = false)
+		{
+			return new UIThemeEnvironment { IsWindows = true, Build = build, AppsUseLightTheme = appsuselighttheme, HighContrast = highcontrast };
 		}
 
 		// Runs a failing Apply with a fresh error logger and returns what it logged
@@ -122,8 +144,8 @@ namespace Builder.Tests
 			try
 			{
 				UITheme.Apply(UIThemeKind.Light, backend);
-				Assert.Equal(0, backend.PaletteCalls);
-				Assert.Equal(0, backend.RendererCalls);
+				UITheme.Apply(UIThemeKind.Light, backend, Windows(22000, appsuselighttheme: 0));
+				Assert.Empty(backend.Calls);
 				Assert.False(UITheme.IsDark);
 			}
 			finally { UITheme.Reset(); }
@@ -136,8 +158,7 @@ namespace Builder.Tests
 			try
 			{
 				UITheme.Apply(UIThemeKind.Dark, backend);
-				Assert.Equal(1, backend.PaletteCalls);
-				Assert.Equal(1, backend.RendererCalls);
+				Assert.Equal("create palette forms renderer", string.Join(" ", backend.Calls));
 				Assert.Same(UITheme.DarkPalette, backend.Palette);
 				Assert.True(UITheme.IsDark);
 				Assert.Equal(Color.Red, UITheme.Pick(Color.Black, Color.Red));
@@ -184,6 +205,7 @@ namespace Builder.Tests
 				var backend = new FakeBackend { ThrowOnInstall = true };
 				Assert.Single(ApplyLoggingFailure(backend));
 				Assert.Same(backend.Previous, backend.Restored);
+				Assert.Equal("create palette forms renderer unforms restore", string.Join(" ", backend.Calls));
 				Assert.False(UITheme.IsDark);
 				Assert.Equal(KnownColor.ControlDark.ToString(), UITheme.LightSystemColor(KnownColor.ControlDark).Name);
 			}
@@ -191,16 +213,106 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void UnsupportedBuildIgnoresDark()
+		public void FormThemingFailureRestoresThePaletteAndInstallsNoRenderer()
 		{
-			// Only meaningful where IsSupported is false (Windows): the Mono build would remap the real color table
-			if(UITheme.IsSupported) return;
 			try
 			{
-				UITheme.Apply(UIThemeKind.Dark);
+				var backend = new FakeBackend { ThrowOnFormTheming = true };
+				Assert.Single(ApplyLoggingFailure(backend));
+				Assert.Equal("create palette forms restore", string.Join(" ", backend.Calls));
+				Assert.Same(backend.Previous, backend.Restored);
 				Assert.False(UITheme.IsDark);
-				UITheme.Apply(UIThemeKind.System);
+			}
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
+		public void WindowsBuildDecidesTheDarkModeCalls()
+		{
+			var cases = new (int build, bool supported, int titlebar, DarkAppModeCall appmode)[]
+			{
+				(0, false, 0, DarkAppModeCall.None),
+				(17134, false, 0, DarkAppModeCall.None),
+				(17763, true, 19, DarkAppModeCall.AllowDarkModeForApp),
+				(18362, true, 19, DarkAppModeCall.SetPreferredAppMode),
+				(18985, true, 20, DarkAppModeCall.SetPreferredAppMode),
+				(22000, true, 20, DarkAppModeCall.SetPreferredAppMode),
+			};
+			var failures = new List<string>();
+			foreach(var (build, supported, titlebar, appmode) in cases)
+			{
+				WindowsDarkFeatures f = WindowsDarkSupport.For(build);
+				if(f.Supported != supported || f.TitlebarAttribute != titlebar || f.AppModeCall != appmode)
+					failures.Add(build + ": " + f.Supported + " " + f.TitlebarAttribute + " " + f.AppModeCall);
+			}
+			Assert.Empty(failures);
+		}
+
+		[Fact]
+		public void ColorTableProbeFindsMonosTable()
+		{
+			// .NET has no such table; Fork Build probes the .NET Framework one separately
+			if(Type.GetType("Mono.Runtime") == null) return;
+			Assert.Equal("s_colorTable", KnownColorTableWriter.Probe());
+		}
+
+		[Fact]
+		public void UnsupportedWindowsBuildIgnoresDarkAndSystem()
+		{
+			try
+			{
+				var backend = new FakeBackend();
+				UITheme.Apply(UIThemeKind.Dark, backend, Windows(17134, appsuselighttheme: 0));
+				UITheme.Apply(UIThemeKind.System, backend, Windows(17134, appsuselighttheme: 0));
+				Assert.Empty(backend.Calls);
 				Assert.Equal(UIThemeKind.Light, UITheme.Current);
+			}
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
+		public void HighContrastTurnsDarkAndSystemLight()
+		{
+			try
+			{
+				var backend = new FakeBackend();
+				UITheme.Apply(UIThemeKind.Dark, backend, Windows(22000, appsuselighttheme: 0, highcontrast: true));
+				UITheme.Apply(UIThemeKind.System, backend, Windows(22000, appsuselighttheme: 0, highcontrast: true));
+				Assert.Empty(backend.Calls);
+				Assert.Equal(UIThemeKind.Light, UITheme.Current);
+			}
+			finally { UITheme.Reset(); }
+		}
+
+		[Fact]
+		public void WindowsSystemFollowsAppsUseLightTheme()
+		{
+			var runner = new FakeRunner();
+			runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
+			var cases = new (int? value, UIThemeKind kind, string source)[]
+			{
+				(0, UIThemeKind.Dark, "Windows AppsUseLightTheme = 0"),
+				(1, UIThemeKind.Light, "Windows AppsUseLightTheme = 1"),
+				(null, UIThemeKind.Light, "no desktop preference found"),
+			};
+			foreach(var (value, kind, source) in cases)
+			{
+				UIThemeEnvironment env = Windows(22000, value);
+				env.GetEnv = Env("GTK_THEME", "Adwaita:dark");
+				env.Runner = runner;
+				DesktopThemeResult r = DesktopTheme.Detect(env);
+				Assert.Equal(kind, r.Kind);
+				Assert.Equal(source, r.Source);
+			}
+			// The Linux sources are never asked on Windows
+			Assert.Empty(runner.Calls);
+
+			try
+			{
+				var backend = new FakeBackend();
+				UITheme.Apply(UIThemeKind.System, backend, Windows(18362, appsuselighttheme: 0));
+				Assert.Equal(UIThemeKind.Dark, UITheme.Current);
+				Assert.Equal(1, backend.PaletteCalls);
 			}
 			finally { UITheme.Reset(); }
 		}
@@ -259,17 +371,22 @@ namespace Builder.Tests
 			return name => env.TryGetValue(name, out string value) ? value : null;
 		}
 
+		private static DesktopThemeResult Detect(Func<string, string> getenv, ICommandRunner runner)
+		{
+			return DesktopTheme.Detect(new UIThemeEnvironment { GetEnv = getenv, Runner = runner });
+		}
+
 		[Fact]
 		public void DetectorReadsGtkThemeFirst()
 		{
 			var runner = new FakeRunner();
 			runner.Replies[PORTAL] = "(<<uint32 2>>,)\n";
-			DesktopThemeResult r = DesktopTheme.Detect(Env("GTK_THEME", "Adwaita:dark", "XDG_CURRENT_DESKTOP", "MATE"), runner);
+			DesktopThemeResult r = Detect(Env("GTK_THEME", "Adwaita:dark", "XDG_CURRENT_DESKTOP", "MATE"), runner);
 			Assert.Equal(UIThemeKind.Dark, r.Kind);
 			Assert.Contains("GTK_THEME", r.Source);
 			Assert.Empty(runner.Calls);
 
-			r = DesktopTheme.Detect(Env("GTK_THEME", "Adwaita"), runner);
+			r = Detect(Env("GTK_THEME", "Adwaita"), runner);
 			Assert.Equal(UIThemeKind.Light, r.Kind);
 		}
 
@@ -279,18 +396,18 @@ namespace Builder.Tests
 			var runner = new FakeRunner();
 			runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
 			runner.Replies[MATE_THEME] = "'Yaru-dark'\n";
-			DesktopThemeResult r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
+			DesktopThemeResult r = Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
 			Assert.Equal(UIThemeKind.Dark, r.Kind);
 			Assert.Equal("MATE gtk-theme 'Yaru-dark'", r.Source);
 
 			// The portal answers dark from GNOME's key, which MATE's Appearance dialog doesn't change
 			runner.Replies[MATE_THEME] = "'Yaru-red'\n";
-			r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
+			r = Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
 			Assert.Equal(UIThemeKind.Light, r.Kind);
 			Assert.Equal("MATE gtk-theme 'Yaru-red'", r.Source);
 
 			// Outside MATE the MATE key isn't asked
-			r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "GNOME"), runner);
+			r = Detect(Env("XDG_CURRENT_DESKTOP", "GNOME"), runner);
 			Assert.Equal(UIThemeKind.Dark, r.Kind);
 			Assert.Contains("portal", r.Source);
 		}
@@ -301,25 +418,25 @@ namespace Builder.Tests
 			var runner = new FakeRunner();
 			runner.Replies[GNOME_SCHEME] = "'prefer-dark'\n";
 			runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
-			DesktopThemeResult r = DesktopTheme.Detect(Env(), runner);
+			DesktopThemeResult r = Detect(Env(), runner);
 			Assert.Equal(UIThemeKind.Dark, r.Kind);
 			Assert.Contains("portal", r.Source);
 
 			runner.Replies[PORTAL] = "(<<uint32 2>>,)\n";
-			r = DesktopTheme.Detect(Env(), runner);
+			r = Detect(Env(), runner);
 			Assert.Equal(UIThemeKind.Light, r.Kind);
 			Assert.Contains("portal", r.Source);
 
 			// 0 is "no preference": falls through to GNOME's key
 			runner.Replies[PORTAL] = "(<<uint32 0>>,)\n";
-			r = DesktopTheme.Detect(Env(), runner);
+			r = Detect(Env(), runner);
 			Assert.Equal(UIThemeKind.Dark, r.Kind);
 			Assert.Equal("GNOME color-scheme 'prefer-dark'", r.Source);
 
 			// GNOME's 'default' scheme falls back to its theme name
 			runner.Replies[GNOME_SCHEME] = "'default'\n";
 			runner.Replies[GNOME_THEME] = "'Yaru-Red-light'\n";
-			r = DesktopTheme.Detect(Env(), runner);
+			r = Detect(Env(), runner);
 			Assert.Equal(UIThemeKind.Light, r.Kind);
 			Assert.Equal("GNOME gtk-theme 'Yaru-Red-light'", r.Source);
 		}
@@ -328,7 +445,7 @@ namespace Builder.Tests
 		public void DetectorWithNoAnswerIsLight()
 		{
 			var runner = new FakeRunner();
-			DesktopThemeResult r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
+			DesktopThemeResult r = Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
 			Assert.Equal(UIThemeKind.Light, r.Kind);
 			Assert.Equal("no desktop preference found", r.Source);
 			Assert.Equal(4, runner.Calls.Count);
@@ -342,7 +459,7 @@ namespace Builder.Tests
 				var runner = new FakeRunner();
 				runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
 				var backend = new FakeBackend();
-				UITheme.Apply(UIThemeKind.System, backend, Env(), runner);
+				UITheme.Apply(UIThemeKind.System, backend, new UIThemeEnvironment { GetEnv = Env(), Runner = runner });
 				Assert.Equal(1, backend.PaletteCalls);
 				Assert.Equal(1, backend.RendererCalls);
 				Assert.Equal(UIThemeKind.Dark, UITheme.Current);
@@ -350,7 +467,7 @@ namespace Builder.Tests
 
 				runner.Replies[PORTAL] = "(<<uint32 2>>,)\n";
 				backend = new FakeBackend();
-				UITheme.Apply(UIThemeKind.System, backend, Env(), runner);
+				UITheme.Apply(UIThemeKind.System, backend, new UIThemeEnvironment { GetEnv = Env(), Runner = runner });
 				Assert.Equal(0, backend.PaletteCalls);
 				Assert.Equal(0, backend.RendererCalls);
 				Assert.Equal(UIThemeKind.Light, UITheme.Current);

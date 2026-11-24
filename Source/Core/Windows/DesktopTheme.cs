@@ -45,9 +45,19 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Methods
 
-		// First answer wins: GTK_THEME, MATE's theme name, the settings portal, GNOME's keys. Never throws.
-		public static DesktopThemeResult Detect(Func<string, string> getenv, ICommandRunner runner)
+		// Windows: the app mode. Elsewhere the first answer wins: GTK_THEME, MATE's theme name, the settings portal,
+		// GNOME's keys. Never throws.
+		public static DesktopThemeResult Detect(UIThemeEnvironment env)
 		{
+			if(env.IsWindows)
+			{
+				if(env.AppsUseLightTheme == 0) return new DesktopThemeResult(UIThemeKind.Dark, "Windows AppsUseLightTheme = 0");
+				if(env.AppsUseLightTheme.HasValue) return new DesktopThemeResult(UIThemeKind.Light, "Windows AppsUseLightTheme = " + env.AppsUseLightTheme.Value);
+				return new DesktopThemeResult(UIThemeKind.Light, FALLBACK_SOURCE);
+			}
+
+			Func<string, string> getenv = env.GetEnv;
+			ICommandRunner runner = env.Runner;
 			try
 			{
 				Stopwatch elapsed = Stopwatch.StartNew();
