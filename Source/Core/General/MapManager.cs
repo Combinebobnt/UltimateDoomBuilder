@@ -65,6 +65,7 @@ namespace CodeImp.DoomBuilder
 		private bool scriptschanged;
 		private bool maploading; //mxd
 		private volatile bool issaving;
+		private bool lightmapdropped; // A rewrite removed the baked LIGHTMAP; the next real save reports it
 		private string restoredbackup; // Deleted only once the load that restored it is done
 
 		// Map information
@@ -539,6 +540,7 @@ namespace CodeImp.DoomBuilder
 #endif
 			
 			this.changed = false;
+			this.lightmapdropped = false;
 			this.maploading = true;
 			this.options = options;
 
@@ -835,6 +837,14 @@ namespace CodeImp.DoomBuilder
 			int index = Math.Max(0, tempwadreader.WadFile.FindLumpIndex(TEMP_MAP_HEADER));
 			io.Write(outputset, TEMP_MAP_HEADER, index);
 			outputset.Dispose();
+
+			// A baked lightmap indexes the nodes of the TEXTMAP it was baked from
+			string droppedlightmap = RemoveStaleLightmap(tempwadreader.WadFile, TEMP_MAP_HEADER, config.MapLumps);
+			if(droppedlightmap != null)
+			{
+				General.WriteLogLine("Removed the baked LIGHTMAP (" + droppedlightmap + ") because the map data was rewritten.");
+				lightmapdropped = true;
+			}
 
 			General.MainWindow.DisplayStatus(oldstatus);
 			return true;
@@ -1212,6 +1222,13 @@ namespace CodeImp.DoomBuilder
 				// Changes saved
 				changed = false;
 				scriptschanged = false;
+			}
+
+			// Once per real save; an autosave stays quiet since the next save reports it
+			if(lightmapdropped && purpose != SavePurpose.Autosave)
+			{
+				General.ErrorLogger.Add(ErrorType.Warning, LIGHTMAP_DROPPED_WARNING);
+				lightmapdropped = false;
 			}
 
 			// Success!
@@ -1910,6 +1927,24 @@ namespace CodeImp.DoomBuilder
 
 			// Return result
 			return lumpindex;
+		}
+
+		internal const string LIGHTMAP_DROPPED_WARNING = "Lightmap dropped: the map changed since it was baked.";
+
+		// Removes the map's LIGHTMAP lump. Returns its header summary, or null when the map had none.
+		internal static string RemoveStaleLightmap(WAD wad, string mapheader, Dictionary<string, MapLumpInfo> maplumps)
+		{
+			int headerindex = wad.FindLumpIndex(mapheader);
+			if(headerindex < 0) return null;
+			int lumpindex = FindSpecificLump(wad, LightmapLump.LUMP_NAME, headerindex, mapheader, maplumps);
+			if(lumpindex < 0) return null;
+
+			Lump lump = wad.Lumps[lumpindex];
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			string error;
+			LightmapLump header = LightmapLump.Read(lump.Stream, false, out error);
+			wad.RemoveAt(lumpindex);
+			return (header != null ? header.ToString() : "unreadable: " + error);
 		}
 
 		#endregion
