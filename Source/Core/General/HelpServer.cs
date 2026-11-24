@@ -37,7 +37,7 @@ namespace CodeImp.DoomBuilder
 		{
 			lock(lockobj)
 			{
-				if(listener != null && servedir == helpdir) return baseurl;
+				if(listener != null && servedir == helpdir && thread.IsAlive) return baseurl;
 				StopLocked();
 
 				Exception last = null;
