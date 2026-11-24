@@ -79,58 +79,8 @@ namespace CodeImp.DoomBuilder.Windows
 			//mxd. Get Proper configuration
 			ConfigurationInfo ci = General.GetConfigurationInfo(options.ConfigFile);
 
-			// Get the map lump names
-			IDictionary maplumpnames = ci.Configuration.ReadSetting("maplumpnames", new Hashtable());
-
-			// Count how many required lumps we have to find
-			int lumpsrequired = 0;
-			foreach(DictionaryEntry ml in maplumpnames) 
-			{
-				// Ignore the map header (it will not be found because the name is different)
-				if(ml.Key.ToString() != MapManager.CONFIG_MAP_HEADER) 
-				{
-					// Read lump setting and count it
-					if(ci.Configuration.ReadSetting("maplumpnames." + ml.Key + ".required", false))
-						lumpsrequired++;
-				}
-			}
-
-			// Go for all the lumps in the wad
-			for(int scanindex = 0; scanindex < (wadfile.Lumps.Count - 1); scanindex++) 
-			{
-				// Make sure this lump is not part of the map
-				if(!maplumpnames.Contains(wadfile.Lumps[scanindex].Name)) 
-				{
-					// Reset check
-					int lumpsfound = 0;
-					int checkoffset = 1;
-
-					// Continue while still within bounds and lumps are still recognized
-					while(((scanindex + checkoffset) < wadfile.Lumps.Count) &&
-						  maplumpnames.Contains(wadfile.Lumps[scanindex + checkoffset].Name)) 
-					{
-						// Count the lump when it is marked as required
-						string lumpname = wadfile.Lumps[scanindex + checkoffset].Name;
-
-						// Lump cannot be present in current map format, fail this check
-						if (ci.Configuration.ReadSetting("maplumpnames." + lumpname + ".forbidden", false))
-						{
-							lumpsfound = -1;
-							break;
-						}
-
-						if (ci.Configuration.ReadSetting("maplumpnames." + lumpname + ".required", false))
-							lumpsfound++;
-
-						// Check the next lump
-						checkoffset++;
-					}
-
-					// Map found? Then add it to the list
-					if(lumpsfound >= lumpsrequired)
-						mapnames.Add(new ListViewItem(wadfile.Lumps[scanindex].Name));
-				}
-			}
+			foreach(string mapname in MapLumpScanner.FindMaps(ci.Configuration, wadfile, false))
+				mapnames.Add(new ListViewItem(mapname));
 
 			wadfile.Dispose();
 
