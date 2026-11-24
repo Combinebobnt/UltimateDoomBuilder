@@ -470,6 +470,18 @@ namespace Builder.Tests
 			Assert.Equal(expected, string.Join(";", r.Links.Select(IssueText).Where(s => s.Length > 0)));
 		}
 
+		// The one-sided end second: line 0 is updated first, still sees a linked return and stays linked
+		[Fact]
+		public void LinePortal_DemotionsChainOnlyInCreationOrder()
+		{
+			PortalMapData d = Sectors(2);
+			Line(d, SETPORTAL, new[] { 2, 0, 3 }, new[] { 1 }, 0, 0, 0, 128, 0, 0);
+			Line(d, SETPORTAL, new[] { 1, 0, 3 }, new[] { 2 }, 512, 128, 512, 0, 1, -1);
+			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
+
+			Assert.Equal("OneSidedTraversable 1", IssueText(Assert.Single(r.Links)));
+		}
+
 		[Fact]
 		public void AmbiguousExit_WarnsWhenSeveralLinesCarryTheExitId_AndNamesTheEnginesPick()
 		{
@@ -545,6 +557,22 @@ namespace Builder.Tests
 			Assert.Equal(new[] { "", expected }, r.Links.Select(IssueText).ToArray());
 		}
 
+		// Two linked line pairs between sector 1's group and sector 2's: the second pair turns teleport both ways when its offset disagrees
+		[Theory]
+		[InlineData(512, "")]
+		[InlineData(600, "DisplacementConflict 2,3")]
+		public void DisplacementConflict_LinkedLinePairsBetweenTheSameGroupsShareOneOffset(double secondx, string expected)
+		{
+			PortalMapData d = Sectors(3);
+			Line(d, SETPORTAL, new[] { 2, 0, 3 }, new[] { 1 }, 0, 0, 0, 128, 1, 1);
+			Line(d, SETPORTAL, new[] { 1, 0, 3 }, new[] { 2 }, 512, 128, 512, 0, 2, 2);
+			Line(d, SETPORTAL, new[] { 4, 0, 3 }, new[] { 3 }, 10, 0, 10, 128, 1, 1);
+			Line(d, SETPORTAL, new[] { 3, 0, 3 }, new[] { 4 }, 10 + secondx, 128, 10 + secondx, 0, 2, 2);
+			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
+
+			Assert.Equal(new[] { "", expected }, r.Links.Select(IssueText).ToArray());
+		}
+
 		// A portal from sector 1's group to sector 2's, and one back: the way back must be the exact reverse
 		[Theory]
 		[InlineData(-256, "")]
@@ -574,6 +602,19 @@ namespace Builder.Tests
 				Links(PortalAnalyzer.Analyze(d, Caps()), PortalKind.Ignored).Select(IssueText).ToArray());
 			Assert.Equal(new[] { "UnknownType 2", "TypeUnsupported 3" },
 				Links(PortalAnalyzer.Analyze(d, Zandronum()), PortalKind.Ignored).Select(IssueText).ToArray());
+		}
+
+		[Theory]
+		[InlineData(2, "UnknownType 0", 0)]
+		[InlineData(1, "", 1)]
+		public void AnchoredPortal_Arg3OtherThanZeroOrOneIsIgnored(int arg3, string expected, int anchored)
+		{
+			PortalMapData d = Sectors(1, new[] { 5 });
+			Line(d, SECTORPORTAL, new[] { 5, 6, 1, arg3 }, null);
+			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
+
+			Assert.Equal(expected, string.Join(";", Links(r, PortalKind.Ignored).Select(IssueText)));
+			Assert.Equal(anchored, Links(r, PortalKind.AnchoredSector).Count);
 		}
 
 		[Fact]
@@ -606,7 +647,7 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void DuplicateAnchors_UZDoomKeepsTheFirstPortalOnASector_ZandronumTheLast()
+		public void DuplicateAnchors_BothEnginesKeepTheFirstPortalOnASector()
 		{
 			PortalMapData d = Sectors(1, new[] { 5 });
 			Line(d, SECTORPORTAL, new[] { 5, 0, 1, 0 }, null);
@@ -614,7 +655,7 @@ namespace Builder.Tests
 			Line(d, SECTORPORTAL, new[] { 5, 0, 1, 1 }, null);
 
 			Assert.Equal(new[] { "", "DuplicateAnchor 1,0" }, Links(PortalAnalyzer.Analyze(d, Caps()), PortalKind.AnchoredSector).Select(IssueText).ToArray());
-			Assert.Equal(new[] { "DuplicateAnchor 0,1", "" }, Links(PortalAnalyzer.Analyze(d, Zandronum()), PortalKind.AnchoredSector).Select(IssueText).ToArray());
+			Assert.Equal(new[] { "", "DuplicateAnchor 1,0" }, Links(PortalAnalyzer.Analyze(d, Zandronum()), PortalKind.AnchoredSector).Select(IssueText).ToArray());
 		}
 
 		// Sector 1, tagged 5 with sector 0, has a sloped ceiling and a flat floor

@@ -365,12 +365,12 @@
     <Compile Include="ErrorChecks\CheckUnusedTextures.cs" />
     <Compile Include="ErrorChecks\CheckUnusedThings.cs" />
     <Compile Include="ErrorChecks\ResultInvalidPolyobjectLines.cs" />
-    <Compile Include="ErrorChecks\ResultPortalIssues.cs" />
     <Compile Include="ErrorChecks\ResultInvalidPolyobjectThings.cs" />
     <Compile Include="ErrorChecks\ResultMapTooBig.cs" />
     <Compile Include="ErrorChecks\ResultMissingFlat.cs" />
     <Compile Include="ErrorChecks\ResultNoErrors.cs" />
     <Compile Include="ErrorChecks\ResultObsoleteThing.cs" />
+    <Compile Include="ErrorChecks\ResultPortalIssues.cs" />
     <Compile Include="ErrorChecks\ResultSectorInvalid.cs" />
     <Compile Include="ErrorChecks\ResultShortLinedef.cs" />
     <Compile Include="ErrorChecks\ResultStrayVertex.cs" />

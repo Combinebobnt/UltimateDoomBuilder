@@ -38,9 +38,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				this.hidden &= e.IgnoredErrorChecks.Contains(this.GetType());
 			}
 
-			text = (issue.Severity == PortalSeverity.Error ? "Portal error: " : "Portal warning: ") + issue.Message;
 			List<string> names = new List<string>(elements.Count);
 			foreach(MapElement e in elements) names.Add(ElementName(e));
+			// The element leads the list text, since several results can share one message
+			text = (issue.Severity == PortalSeverity.Error ? "Portal error" : "Portal warning") + (names.Count > 0 ? " on " + names[0] : "") + ": " + issue.Message;
 			description = issue.Message + ". Elements: " + string.Join(", ", names.ToArray()) + ".";
 		}
 

@@ -669,6 +669,8 @@ namespace CodeImp.DoomBuilder.Portals
 					AddIgnored(c, l, type, PortalIssueCode.UnknownType, "Sector_SetPortal type " + type + " is not 0 to 6, so the engine ignores this line");
 				else if(type >= SECTOR_PLANE && !modern)
 					AddIgnored(c, l, type, PortalIssueCode.TypeUnsupported, "This engine supports Sector_SetPortal types 0 to 2 only, so it ignores this type " + type + " line");
+				else if(IsAnchoredType(type) && l.Args[3] != 0 && l.Args[3] != 1)
+					AddIgnored(c, l, type, PortalIssueCode.UnknownType, "Sector_SetPortal arg3 " + l.Args[3] + " is neither 0 (anchor) nor 1 (reference), so the engine ignores this line");
 				else
 					continue;
 				ignored.Add(l);
@@ -844,7 +846,7 @@ namespace CodeImp.DoomBuilder.Portals
 		}
 
 		// Several anchors or references of one tag, type and plane: the engine takes the first reference, and the sectors
-		// keep the first portal applied on UZDoom (SetPortal skips a plane that has one) but the last on Zandronum
+		// keep the first portal applied (SetPortal skips a plane that already has one, on both engines)
 		private static void CheckDuplicateAnchors(Context c, PortalLink link, PortalLine anchor, List<PortalLine> anchors, List<PortalLine> refs)
 		{
 			if(refs.Count > 1)
@@ -854,13 +856,11 @@ namespace CodeImp.DoomBuilder.Portals
 				AddIssue(c, link, new PortalIssue(PortalSeverity.Warning, PortalIssueCode.DuplicateAnchor,
 					refs.Count + " arg3 = 1 lines share this tag, type and plane; the engine uses line " + refs[0].Index + ", the lowest index", elements.ToArray()));
 			}
-			if(anchors.Count > 1)
+			if(anchors.Count > 1 && anchors[0] != anchor)
 			{
-				PortalLine kept = c.Caps.ModernSectorPortals ? anchors[0] : anchors[anchors.Count - 1];
-				if(kept != anchor)
-					AddIssue(c, link, new PortalIssue(PortalSeverity.Warning, PortalIssueCode.DuplicateAnchor,
-						"Line " + kept.Index + " applies a portal with the same tag, type and plane, and the sectors keep the "
-						+ (c.Caps.ModernSectorPortals ? "first" : "last") + " one applied, so this one shows nowhere", Line(anchor), Line(kept)));
+				AddIssue(c, link, new PortalIssue(PortalSeverity.Warning, PortalIssueCode.DuplicateAnchor,
+					"Line " + anchors[0].Index + " applies a portal with the same tag, type and plane first, and the sectors keep the first one applied, so this one shows nowhere",
+					Line(anchor), Line(anchors[0])));
 			}
 		}
 
