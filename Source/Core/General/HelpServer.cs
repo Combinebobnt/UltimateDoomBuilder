@@ -50,11 +50,12 @@ namespace CodeImp.DoomBuilder
 					{
 						candidate.Start();
 					}
-					catch(Win32Exception ex)
+					catch(Exception ex)
 					{
-						// Another process took the port between probe and bind
-						last = ex;
+						// Retry only when another process took the port between probe and bind
 						candidate.Close();
+						if(!(ex is Win32Exception)) throw;
+						last = ex;
 						continue;
 					}
 
@@ -113,7 +114,10 @@ namespace CodeImp.DoomBuilder
 				}
 				catch(Exception ex)
 				{
-					if(server.IsListening) General.WriteLogLine("Help server stopped: " + ex.Message);
+					// Mono's Close leaves IsListening true, so tell our own Stop apart by ownership
+					bool stopped;
+					lock(lockobj) stopped = (listener != server);
+					if(!stopped) General.WriteLogLine("Help server stopped: " + ex.Message);
 					return;
 				}
 

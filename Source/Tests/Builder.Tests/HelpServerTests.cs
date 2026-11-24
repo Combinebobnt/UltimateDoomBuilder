@@ -30,7 +30,7 @@ namespace Builder.Tests
 			Directory.Delete(parent, true);
 		}
 
-		// The sandbox and some desktops set http_proxy, which must not see loopback requests
+		// http_proxy may be set in the environment and must not see loopback requests
 		private static WebClient Client()
 		{
 			return new WebClient { Proxy = null };
@@ -157,6 +157,25 @@ namespace Builder.Tests
 
 			string restarted = HelpServer.Start(root);
 			using(WebClient client = Client()) Assert.Equal("<p>a</p>", client.DownloadString(restarted + "a.html"));
+		}
+
+		[Fact]
+		public void AnotherHelpFolderRestartsTheServer()
+		{
+			if(!Unix) return;
+			string other = Path.Combine(parent, "Other");
+			Directory.CreateDirectory(other);
+			File.WriteAllText(Path.Combine(other, "x.html"), "<p>x</p>");
+
+			string first = HelpServer.Start(root);
+			string second = HelpServer.Start(other);
+			Assert.NotEqual(first, second);
+			using(WebClient client = Client()) Assert.Equal("<p>x</p>", client.DownloadString(second + "x.html"));
+			using(WebClient client = Client())
+			{
+				WebException ex = Assert.Throws<WebException>(() => client.DownloadString(first + "a.html"));
+				Assert.Equal(WebExceptionStatus.ConnectFailure, ex.Status);
+			}
 		}
 
 		[Fact]
