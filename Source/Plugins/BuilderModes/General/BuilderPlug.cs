@@ -709,6 +709,80 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(portalspanel != null) portalspanel.UpdateSoon();
 		}
 
+		// Shows the Portals docker with a link's row selected, such as one just aligned
+		public void ShowPortalLink(string key)
+		{
+			if(portalspanel == null) return;
+			General.Interface.SelectDocker(portalsdocker);
+			portalspanel.ShowLink(key);
+		}
+
+		// The portal of the selected linedef or thing, else the Portals docker's selected row
+		[BeginAction("alignportal")]
+		private void AlignPortalAction()
+		{
+			AlignPortal(portalspanel != null ? portalspanel.SelectedLinkKey : null, true);
+		}
+
+		public void AlignPortal(string key)
+		{
+			AlignPortal(key, false);
+		}
+
+		private void AlignPortal(string key, bool fromselection)
+		{
+			if(General.Map == null) return;
+			if(!(General.Editing.Mode is ClassicMode) || General.Editing.Mode.Attributes.Volatile)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Portal alignment starts from a classic editing mode.");
+				return;
+			}
+			PortalCapabilities caps = PortalMapSource.Capabilities(General.Map.Config, General.Map.FormatInterface);
+			if(!caps.Any)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Aligning portals needs a ZDoom-family game configuration.");
+				return;
+			}
+
+			PortalMapData data = PortalMapSource.FromMap(General.Map.Map, caps);
+			PortalReport report = PortalAnalyzer.Analyze(data, caps);
+			PortalLink link = null;
+			if(fromselection)
+			{
+				HashSet<PortalElement> selected = new HashSet<PortalElement>();
+				foreach(Linedef l in General.Map.Map.GetSelectedLinedefs(true)) selected.Add(new PortalElement(PortalElementType.Linedef, l.Index));
+				foreach(Thing t in General.Map.Map.GetSelectedThings(true)) selected.Add(new PortalElement(PortalElementType.Thing, t.Index));
+				List<PortalLink> candidates = new List<PortalLink>();
+				foreach(PortalLink l in report.Links)
+				{
+					if(!l.HasDisplacement) continue;
+					foreach(PortalEnd e in l.Ends)
+						if(selected.Contains(e.Element)) { candidates.Add(l); break; }
+				}
+				link = candidates.Find(l => l.Key == key);
+				if(link == null && candidates.Count == 1) link = candidates[0];
+				if(link == null && candidates.Count > 1)
+				{
+					General.Interface.DisplayStatus(StatusType.Warning, "The selection belongs to " + candidates.Count + " portals. Click one in the Portals panel and use its Align button.");
+					return;
+				}
+			}
+			if(link == null && key != null) link = report.Links.Find(l => l.Key == key);
+			if(link == null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Select a portal line or stack thing, or click a row in the Portals panel.");
+				return;
+			}
+
+			PortalAlignTarget target = PortalAlign.Target(data, caps, report, link);
+			if(!target.CanAlign)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, target.Refusal);
+				return;
+			}
+			General.Editing.ChangeMode(new PortalAlignMode(data, caps, report, target));
+		}
+
 		// Builds a two-ended portal from two selected lines or sectors; the form plans and checks it, this applies it
 		[BeginAction("createportal")]
 		private void CreatePortal()

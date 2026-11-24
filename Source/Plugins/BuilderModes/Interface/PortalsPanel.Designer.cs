@@ -9,6 +9,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.CheckBox centeronclick;
 		private System.Windows.Forms.CheckBox problemsonly;
 		private System.Windows.Forms.Button create;
+		private System.Windows.Forms.Button align;
 		private System.Windows.Forms.Label summary;
 		private System.Windows.Forms.ToolTip tooltip;
 		private System.Windows.Forms.ImageList images;
@@ -35,6 +36,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.centeronclick = new System.Windows.Forms.CheckBox();
 			this.problemsonly = new System.Windows.Forms.CheckBox();
 			this.create = new System.Windows.Forms.Button();
+			this.align = new System.Windows.Forms.Button();
 			this.summary = new System.Windows.Forms.Label();
 			this.tooltip = new System.Windows.Forms.ToolTip(this.components);
 			this.images = new System.Windows.Forms.ImageList(this.components);
@@ -49,6 +51,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.options.Controls.Add(this.centeronclick);
 			this.options.Controls.Add(this.problemsonly);
 			this.options.Controls.Add(this.create);
+			this.options.Controls.Add(this.align);
 			this.options.Dock = System.Windows.Forms.DockStyle.Top;
 			this.options.Name = "options";
 			this.options.Size = new System.Drawing.Size(300, 46);
@@ -81,6 +84,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.create.UseVisualStyleBackColor = true;
 			this.create.Click += this.create_Click;
 			this.tooltip.SetToolTip(this.create, "Create a portal pair from two selected linedefs, or stacked sectors from two selected sectors");
+			this.align.AutoSize = true;
+			this.align.Name = "align";
+			this.align.TabIndex = 4;
+			this.align.Text = "Align...";
+			this.align.UseVisualStyleBackColor = true;
+			this.align.Click += this.align_Click;
+			this.tooltip.SetToolTip(this.align, "Align the selected row's portal: move its exit side or other stack thing, or re-pick its reference line");
 			this.tree.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.tree.HideSelection = false;
 			this.tree.ImageList = this.images;

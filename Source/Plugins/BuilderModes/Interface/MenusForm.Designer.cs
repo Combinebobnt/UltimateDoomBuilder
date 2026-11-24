@@ -67,6 +67,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.toolStripSeparator8 = new System.Windows.Forms.ToolStripSeparator();
             this.makedooritem = new System.Windows.Forms.ToolStripMenuItem();
             this.createportalsectorsitem = new System.Windows.Forms.ToolStripMenuItem();
+            this.alignportallinesitem = new System.Windows.Forms.ToolStripMenuItem();
+            this.alignportalthingsitem = new System.Windows.Forms.ToolStripMenuItem();
             this.changeSectorIndexToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.selectSimilarSectors = new System.Windows.Forms.ToolStripMenuItem();
@@ -180,6 +182,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.updatelightfogitem,
             this.aligntexturesitem,
             this.createportallinesitem,
+            this.alignportallinesitem,
             this.toolStripSeparator5,
             this.selectSimilarLinesItem,
             this.separatorgradientl,
@@ -334,6 +337,24 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.createportallinesitem.Text = "Create P&ortal...";
             this.createportallinesitem.ToolTipText = "Create a line or anchored sector portal from the two selected linedefs";
             this.createportallinesitem.Click += new System.EventHandler(this.InvokeTaggedAction);
+            //
+            // alignportallinesitem
+            //
+            this.alignportallinesitem.Name = "alignportallinesitem";
+            this.alignportallinesitem.Size = new System.Drawing.Size(223, 22);
+            this.alignportallinesitem.Tag = "alignportal";
+            this.alignportallinesitem.Text = "Align Portal...";
+            this.alignportallinesitem.ToolTipText = "Move the exit side of the portal the selected linedef belongs to, or re-pick its reference line";
+            this.alignportallinesitem.Click += new System.EventHandler(this.InvokeTaggedAction);
+            //
+            // alignportalthingsitem
+            //
+            this.alignportalthingsitem.Name = "alignportalthingsitem";
+            this.alignportalthingsitem.Size = new System.Drawing.Size(223, 22);
+            this.alignportalthingsitem.Tag = "alignportal";
+            this.alignportalthingsitem.Text = "Align Portal...";
+            this.alignportalthingsitem.ToolTipText = "Move the other thing of the stacked sectors the selected thing belongs to";
+            this.alignportalthingsitem.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 
             // alignFloorToFrontItem
             // 
@@ -528,6 +549,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.alignToWallItem,
             this.pointAtCursorItem,
             this.changeThingIndexToolStripMenuItem,
+            this.alignportalthingsitem,
             this.toolStripSeparator6,
             this.selectSimilarThingsItem});
             this.thingsmenu.Name = "thingsmenu";
@@ -1280,6 +1302,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.ToolStripMenuItem selectInSectorsItem;
 		private System.Windows.Forms.ToolStripMenuItem aligntexturesitem;
 		private System.Windows.Forms.ToolStripMenuItem createportallinesitem;
+		private System.Windows.Forms.ToolStripMenuItem alignportallinesitem;
+		private System.Windows.Forms.ToolStripMenuItem alignportalthingsitem;
 		private System.Windows.Forms.ToolStripMenuItem alignFloorToFrontItem;
 		private System.Windows.Forms.ToolStripMenuItem alignFloorToBackItem;
 		private System.Windows.Forms.ToolStripMenuItem alignCeilingToFrontItem;

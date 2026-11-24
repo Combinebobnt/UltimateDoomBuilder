@@ -42,6 +42,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private bool loading;
 
 		public PortalCapabilities Capabilities { get { return caps; } set { caps = value ?? PortalCapabilities.None; } }
+		public string SelectedLinkKey { get { return selectedkey; } }
 
 		public PortalsPanel()
 		{
@@ -233,7 +234,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
-		private static string LinkText(PortalLink link)
+		internal static string LinkText(PortalLink link)
 		{
 			List<string> parts = new List<string>();
 			switch(link.Kind)
@@ -522,6 +523,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private void create_Click(object sender, EventArgs e)
 		{
 			General.Actions.InvokeAction("buildermodes_createportal");
+		}
+
+		private void align_Click(object sender, EventArgs e)
+		{
+			if(selectedkey == null) General.Interface.DisplayStatus(StatusType.Warning, "Click a portal row first.");
+			else BuilderPlug.Me.AlignPortal(selectedkey);
 		}
 
 		private void problemsonly_CheckedChanged(object sender, EventArgs e)
