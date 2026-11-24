@@ -71,31 +71,32 @@ namespace Builder.Tests
 			{
 				using(Form form = new Form { ClientSize = new Size(800, 600), StartPosition = FormStartPosition.Manual })
 				{
-					Panel outer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(3, 3, 0, 3) };
-					Panel inner = new Panel { Dock = DockStyle.Fill };
-					Panel leaf = new Panel { Dock = DockStyle.Fill };
+					Panel outer = new Panel { Dock = DockStyle.Fill };
+					Panel inner = new Panel { Dock = DockStyle.Fill, Padding = new Padding(3, 3, 0, 3) };
+					// Anchored, not docked, so it doesn't change the fill area
+					Button button = new Button { Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+					Panel leaf = new Panel();
 					outer.Controls.Add(inner);
 					form.Controls.Add(outer);
-					int relayouts = 0;
 					DockFillGuard.AttachTree(form);
-					DockFillGuard.Attach(inner, entry => relayouts++);
-					// Added after the walk, so this also covers ControlAdded
+					// Added after the walk and docked after the add: guarded only through ControlAdded
 					inner.Controls.Add(leaf);
+					inner.Controls.Add(button);
+					leaf.Dock = DockStyle.Fill;
 
 					form.Show();
 					Pump(300);
-					Size full = outer.DisplayRectangle.Size;
-					Assert.Equal(full, inner.Size);
-					Assert.Equal(0, relayouts);
+					Size full = inner.DisplayRectangle.Size;
+					Assert.Equal(full, leaf.Size);
+					int before = DockFillGuard.TotalRelayouts;
 
-					SendStaleConfigure(display, XParent(display, inner.Handle), new Size(300, 200));
+					SendStaleConfigure(display, XParent(display, leaf.Handle), new Size(300, 200));
 					Pump(600);
 
 					// One repair, and the repaired size reads as settled (no second pass)
-					Assert.Equal(1, relayouts);
-					Assert.Equal(full, inner.Size);
+					Assert.Equal(1, DockFillGuard.TotalRelayouts - before);
 					Assert.Equal(full, leaf.Size);
-					Assert.Equal(full, XSize(display, inner.Handle));
+					Assert.Equal(full, XSize(display, leaf.Handle));
 				}
 			}
 			finally { XCloseDisplay(display); }

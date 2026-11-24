@@ -16,7 +16,10 @@ namespace CodeImp.DoomBuilder.Controls
 	{
 		internal static readonly bool Enabled = Type.GetType("Mono.Runtime") != null;
 
+		// Per burst: a mismatch layout can't fix (MinimumSize, MaximumSize) stops after this many
 		private const int MAX_RELAYOUTS = 20;
+
+		internal static int TotalRelayouts { get; private set; }
 
 		private sealed class Guard
 		{
@@ -27,7 +30,7 @@ namespace CodeImp.DoomBuilder.Controls
 
 		private static readonly ConditionalWeakTable<Control, Guard> guards = new ConditionalWeakTable<Control, Guard>();
 
-		// Guards one control; a log callback replaces any earlier one
+		// A log callback replaces any earlier one
 		public static void Attach(Control control, Action<string> log = null)
 		{
 			if(!Enabled || control == null) return;
@@ -37,28 +40,31 @@ namespace CodeImp.DoomBuilder.Controls
 				if(log != null) guard.Log = log;
 				return;
 			}
-			guards.Add(control, new Guard { Log = log });
+			guard = new Guard { Log = log };
+			guards.Add(control, guard);
 			control.SizeChanged += OnSizeChanged;
+			control.HandleDestroyed += delegate { guard.Pending = false; };
 		}
 
-		// Guards every Dock=Fill control under root, now and for controls added later
+		// Every control, since Dock is often set after the control is added; covers later additions too
 		public static void AttachTree(Control root)
 		{
 			if(!Enabled || root == null) return;
-			if(root.Dock == DockStyle.Fill) Attach(root);
+			Attach(root);
 			root.ControlAdded -= OnControlAdded;
 			root.ControlAdded += OnControlAdded;
 			foreach(Control child in root.Controls) AttachTree(child);
 		}
 
-		// Mono's DisplayRectangle already excludes the parent's Padding
+		// Mono's dock layout gives a Fill child the parent's DisplayRectangle, less docked siblings
 		internal static Size DockFillSize(Control control) { return control.Parent.DisplayRectangle.Size; }
 
-		// Only a sole child has a fill size that doesn't depend on its siblings' docking
 		internal static bool NeedsRelayout(Control control)
 		{
-			return control.Dock == DockStyle.Fill && control.Parent != null && control.Parent.Controls.Count == 1
-				   && !control.IsDisposed && control.Size != DockFillSize(control);
+			if(control.Dock != DockStyle.Fill || control.Parent == null || control.IsDisposed) return false;
+			foreach(Control sibling in control.Parent.Controls)
+				if(sibling != control && sibling.Visible && sibling.Dock != DockStyle.None) return false;
+			return control.Size != DockFillSize(control);
 		}
 
 		private static void OnControlAdded(object sender, ControlEventArgs e) { AttachTree(e.Control); }
@@ -76,10 +82,12 @@ namespace CodeImp.DoomBuilder.Controls
 				guard.Pending = false;
 				if(!NeedsRelayout(control)) return;
 				guard.Count++;
+				TotalRelayouts++;
 				Size fill = DockFillSize(control);
 				if(guard.Log != null) guard.Log("relayout size=" + control.Width + "x" + control.Height + " parent=" + fill.Width + "x" + fill.Height);
 				control.Parent.PerformLayout();
 				control.Invalidate();
+				if(!NeedsRelayout(control)) guard.Count = 0;
 			});
 		}
 	}
