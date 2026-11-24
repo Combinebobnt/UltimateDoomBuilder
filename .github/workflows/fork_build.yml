@@ -297,8 +297,10 @@ jobs:
           body: |
             Based on upstream R${{ needs.version.outputs.upstream }}.
 
+            Changes since the previous fork release:
+
             <details>
-            <summary>Changes since the previous fork release</summary>
+            <summary><b>Full changelog</b> (click to expand)</summary>
 
             ${{ needs.version.outputs.notes }}
 
