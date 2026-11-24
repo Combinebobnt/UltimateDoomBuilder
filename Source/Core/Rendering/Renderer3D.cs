@@ -1083,7 +1083,7 @@ namespace CodeImp.DoomBuilder.Rendering
 							// Determine the shader pass we want to use for this object
 							ShaderName wantedshaderpass = (((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass;
 
-							//mxd. If fog is enagled, switch to shader, which calculates it
+							// Coloured fog (and every fog under the Editor model) uses the fog programs
 							bool fogpass = FogPass(t.Thing.Sector);
 							if(fogpass)
 								wantedshaderpass += 8;
@@ -1252,7 +1252,6 @@ namespace CodeImp.DoomBuilder.Rendering
 			VisualSector sector = null;
 			RenderPass currentpass = RenderPass.Solid;
 			ResolvedMaterial material = null;
-			float fogfactor = -1;
 
 			// Begin rendering with this shader
 			graphics.SetShader(shaderpass);
@@ -1407,7 +1406,6 @@ namespace CodeImp.DoomBuilder.Rendering
 
                     // The sector light needs the camera in every pass
                     graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
-                    fogfactor = g.FogFactor;
                     SetSectorLightParams(sector.Sector);
 
                     //
@@ -1453,7 +1451,6 @@ namespace CodeImp.DoomBuilder.Rendering
 				curtexture = null;
 				material = null;
 				Color4 vertexcolor = new Color4();
-				fogfactor = -1;
 
 				// Render things collected
 				foreach(VisualThing t in thingspass)
@@ -1509,7 +1506,7 @@ namespace CodeImp.DoomBuilder.Rendering
 						// Determine the shader pass we want to use for this object
 						ShaderName wantedshaderpass = (((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass;
 
-						//mxd. if fog is enagled, switch to shader, which calculates it
+						// Coloured fog (and every fog under the Editor model) uses the fog programs
 						bool fogpass = FogPass(t.Thing.Sector);
 						if(fogpass)
 							wantedshaderpass += 8;
@@ -1556,7 +1553,6 @@ namespace CodeImp.DoomBuilder.Rendering
 						if(fogpass || General.Settings.ClassicRendering || material != null)
 							graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
 						graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
-						fogfactor = t.FogFactor;
 						SetSectorLightParams(t.Thing.Sector);
 
                         // Set the colors to use
@@ -1721,7 +1717,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				// Determine the shader pass we want to use for this object
 				ShaderName wantedshaderpass = ((((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass);
 
-				// If fog is enagled, switch to shader, which calculates it
+				// Coloured fog (and every fog under the Editor model) uses the fog programs
 				if (FogPass(t.Thing.Sector))
 					wantedshaderpass += 8;
 
@@ -1748,13 +1744,10 @@ namespace CodeImp.DoomBuilder.Rendering
 					world = General.Map.Data.ModeldefEntries[t.Thing.Type].Transform * modelscale * modelrotation  * t.Position;
                 graphics.SetUniform(UniformName.world, world);
 
-                // Set variables for fog rendering
-                if (wantedshaderpass > ShaderName.world3d_p7)
-				{
-                    // this is not right...
-                    graphics.SetUniform(UniformName.modelnormal, General.Map.Data.ModeldefEntries[t.Thing.Type].TransformRotation * modelrotation);
-                    if (t.Thing.Sector != null) graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
-				}
+                // Normals for dynamic lights in every pass; fog colour for the fog programs
+                graphics.SetUniform(UniformName.modelnormal, General.Map.Data.ModeldefEntries[t.Thing.Type].TransformRotation * modelrotation);
+                if (wantedshaderpass > ShaderName.world3d_p7 && t.Thing.Sector != null)
+                    graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
                 graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, t.FogFactor));
                 SetSectorLightParams(t.Thing.Sector);
 

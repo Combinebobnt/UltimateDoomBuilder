@@ -188,6 +188,19 @@ namespace Builder.Tests
 			}
 		}
 
+		// GetFogDensity: light mode 4 (Legacy) takes the level's density before the sector's own, under a keyed configuration
+		[Fact]
+		public void LegacyLightModeUsesTheLevelDensityForColouredFog()
+		{
+			using(new SndInfoParserTests.FakeMap("doom"))
+			{
+				Set(General.Map.Config, "defaultlightmode", 8);
+				AssertDensity(CreateSector(Parse("lightmode = 4 fogdensity = 64"), color: 0xff0000, density: 200), 32);
+				Set(General.Map.Config, "defaultlightmode", -1);
+				AssertDensity(CreateSector(Parse("lightmode = 4 fogdensity = 64"), color: 0xff0000, density: 200), 100);
+			}
+		}
+
 		[Theory]
 		[InlineData(null)]
 		[InlineData(0x0000ff)]

@@ -512,6 +512,7 @@ shader world3d_main_vertexcolor extends world3d_main
 		v2f.PosW = (world * vec4(in.Position, 1.0)).xyz;
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
+		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.Light = lightoverride;
 	}
 }
@@ -541,6 +542,7 @@ shader world3d_highlight_vertexcolor extends world3d_main_highlight
 		v2f.PosW = (world * vec4(in.Position, 1.0)).xyz;
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
+		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.Light = lightoverride;
 	}
 }

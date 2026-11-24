@@ -237,10 +237,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 			boundingBox = BoundingBoxTools.CalculateBoundingPlane(bbs);
 		}
 
-		//mxd. Calculate fogdistance
-		//TODO: this doesn't match any GZDoom light mode...
-		//GZDoom: gl_renderstate.h, SetFog();
-		//GZDoom: gl_lightlevel.cpp gl_SetFog();
+		// Coloured fog factor by the engine's GetFogDensity (hw_lighting.cpp); CLASSIC is the Editor model's black fog
 		protected float CalculateFogFactor(int brightness) { return CalculateFogFactor(Sector.Sector, brightness); }
 
 		// The sector's own UDMF fog density, halved as the engine stores it; 0 when unset
