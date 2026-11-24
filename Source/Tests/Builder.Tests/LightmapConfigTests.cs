@@ -27,7 +27,7 @@ namespace Builder.Tests
 			Configuration cfg = Load(name);
 			string[] types = Keys(cfg, "thingtypes.lightmaplights").Where(k => k.All(char.IsDigit)).ToArray();
 			Assert.Equal(new[] { "9876", "9881", "9890" }, types);
-			Assert.Equal(new[] { "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "thingtypes.lightmaplights.9890.adduniversalfields"));
+			Assert.Equal(new[] { "lm_ao", "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "thingtypes.lightmaplights.9890.adduniversalfields"));
 
 			// Merged into the standard UDMF fields, not replacing them
 			Assert.Equal(new[] { "lm_lightcolor", "lm_lightdistance", "lm_lightintensity", "lm_sampledist", "lm_sampledist_bot", "lm_sampledist_mid", "lm_sampledist_top" },
@@ -45,7 +45,7 @@ namespace Builder.Tests
 			foreach(string path in new[] { "sidedef.lm_lightdistance", "sector.lm_lightdistancefloor", "sector.lm_lightdistanceceiling" })
 				Assert.Equal(0.0, cfg.ReadSetting("universalfields." + path + ".default", -1.0));
 			Assert.Contains("lightfloor", Keys(cfg, "universalfields.sector"));
-			Assert.Equal(new[] { "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
+			Assert.Equal(new[] { "lm_ao", "lm_bounce", "lm_gridsize", "lm_sampledistance", "lm_suncolor", "lm_sunintensity" }, Keys(cfg, "universalfields.thing").Where(k => k.StartsWith("lm_")).ToArray());
 			Assert.Contains("health", Keys(cfg, "universalfields.thing"));
 			Assert.Empty(Keys(cfg, "universalfields.linedef").Where(k => k.StartsWith("lm_")));
 
@@ -54,6 +54,10 @@ namespace Builder.Tests
 
 			// The baker reads a bounce count; UDB's old VkDoom-era field was a bool
 			Assert.Equal(0, cfg.ReadSetting("universalfields.thing.lm_bounce.type", -1));
+
+			// The baker reads an absent lm_ao as on, so only an explicit false may reach the map
+			Assert.Equal(3, cfg.ReadSetting("universalfields.thing.lm_ao.type", -1));
+			Assert.True(cfg.ReadSetting("universalfields.thing.lm_ao.default", false));
 
 			// Soft shadow source radius on both baked lights; the default must match the baker's absent = 0,
 			// since the fields grid drops a value equal to its default

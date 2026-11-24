@@ -55,7 +55,7 @@
 		<tr>
 			<td>ZDRayInfo</td>
 			<td>9890</td>
-			<td>Place one per map. Its custom fields: <b>lm_suncolor</b> (sun color as hex text, for example ffcc88), <b>lm_sunintensity</b> (sun brightness multiplier, 1.0 when absent, 0 to 16; upstream ZDRay ignores it and bakes at 1.0), <b>lm_sampledistance</b> (default sample distance in map units, 8 to 128, rounded to a power of two), <b>lm_gridsize</b> (light probe grid spacing, 32 when absent) and <b>lm_bounce</b> (light bounces for indirect light, 0 when absent, 0 to 8; each bounce adds a lot of bake time, one bounce can make a bake ten or more times longer; upstream ZDRay ignores it, and it has only been checked with <b>CPU ray tracing only</b> on, while the baker uses its GPU tracer when it finds one). Its angle and pitch set the sun direction.</td>
+			<td>Place one per map. Its custom fields: <b>lm_suncolor</b> (sun color as hex text, for example ffcc88), <b>lm_sunintensity</b> (sun brightness multiplier, 1.0 when absent, 0 to 16; upstream ZDRay ignores it and bakes at 1.0), <b>lm_sampledistance</b> (default sample distance in map units, 8 to 128, rounded to a power of two), <b>lm_gridsize</b> (light probe grid spacing, 32 when absent), <b>lm_bounce</b> (light bounces for indirect light, 0 when absent, 0 to 8; each bounce adds a lot of bake time, one bounce can make a bake ten or more times longer; upstream ZDRay ignores it, and it has only been checked with <b>CPU ray tracing only</b> on, while the baker uses its GPU tracer when it finds one) and <b>lm_ao</b> (ambient occlusion, on unless set to false; it darkens corners and creases of the baked light only, the sector light is unchanged; upstream ZDRay's CPU tracer ignores it). Its angle and pitch set the sun direction.</td>
 		</tr>
 	</table>
 	<p>
@@ -85,7 +85,7 @@
 	<ul>
 		<li>Sunlight only reaches surfaces that can trace a ray to a sky surface.</li>
 		<li>Ordinary dynamic lights (the <b>Dynamic Lights</b> category) are not baked.</li>
-		<li>UZDoom's other lightmap fields (lm_ao, lm_dynamic) are not read by ZDRay, so the editor does not offer them.</li>
+		<li>UZDoom's lm_dynamic field is not read by ZDRay, so the editor does not offer it.</li>
 	</ul>
 
 	<h2>Baking</h2>
