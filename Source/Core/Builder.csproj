@@ -449,6 +449,7 @@
     <Compile Include="Controls\CheckboxArrayControl.Designer.cs">
       <DependentUpon>CheckboxArrayControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="Controls\DockFillGuard.cs" />
     <Compile Include="Controls\MixedCheckGlyph.cs" />
     <Compile Include="Controls\ButtonsNumericTextbox.cs">
       <SubType>UserControl</SubType>

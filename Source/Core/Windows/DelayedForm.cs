@@ -276,6 +276,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(this.DesignMode) return;
 
 			MixedCheckGlyph.AttachTree(this);
+			DockFillGuard.AttachTree(this);
 
 			GeomDebug("OnLoad:entry");
 			if(GeomDebugEnabled)
