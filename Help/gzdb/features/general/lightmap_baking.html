@@ -55,7 +55,7 @@
 		<tr>
 			<td>ZDRayInfo</td>
 			<td>9890</td>
-			<td>Place one per map. Its custom fields: <b>lm_suncolor</b> (sun color as hex text, for example ffcc88), <b>lm_sampledistance</b> (default sample distance in map units, 8 to 128, rounded to a power of two) and <b>lm_gridsize</b> (light probe grid spacing, 32 when absent). Its angle and pitch set the sun direction.</td>
+			<td>Place one per map. Its custom fields: <b>lm_suncolor</b> (sun color as hex text, for example ffcc88), <b>lm_sunintensity</b> (sun brightness multiplier, 1.0 when absent, 0 to 16; upstream ZDRay ignores it and bakes at 1.0), <b>lm_sampledistance</b> (default sample distance in map units, 8 to 128, rounded to a power of two) and <b>lm_gridsize</b> (light probe grid spacing, 32 when absent). Its angle and pitch set the sun direction.</td>
 		</tr>
 	</table>
 	<p>
@@ -73,7 +73,7 @@
 	<ul>
 		<li>Sunlight only reaches surfaces that can trace a ray to a sky surface.</li>
 		<li>Ordinary dynamic lights (the <b>Dynamic Lights</b> category) are not baked.</li>
-		<li>UZDoom's other lightmap fields (lm_sunintensity, lm_ao, lm_bounce, lm_dynamic) are not read by ZDRay, so the editor does not offer them.</li>
+		<li>UZDoom's other lightmap fields (lm_ao, lm_bounce, lm_dynamic) are not read by ZDRay, so the editor does not offer them.</li>
 	</ul>
 
 	<h2>Baking</h2>
