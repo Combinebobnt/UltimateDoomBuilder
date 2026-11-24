@@ -47,6 +47,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		};
 		private const int ML2_RESERVEDLINEFLAG = 0x2;
 		private const int BTF_BADEDITORCHECK = 0x100;
+		private const string DROPACTORS = "dropactors"; // UDMF sector flag for SECF_FLOORDROP
 
 		private static readonly string[] doomthingdefaults = { "single", "coop", "dm", "class1", "class2", "class3" };
 
@@ -81,6 +82,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			if(source.Format == target.Format) return map.Clone();
 
 			CheckMap(map, source, target, report);
+			CheckDropActors(map, source, target, report);
 
 			List<LineState> lines = new List<LineState>(map.Lines.Count);
 			for(int i = 0; i < map.Lines.Count; i++) lines.Add(ReadLine(map.Lines[i], i, source, report));
@@ -149,6 +151,23 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 			if(map.HasScripts && target.Format == MapFormat.Doom)
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "the Doom format has no SCRIPTS or BEHAVIOR lump; the map's scripts are dropped");
+		}
+
+		private static void CheckDropActors(MapRecords map, FormatProfile source, FormatProfile target, ConversionReport report)
+		{
+			// The engine sets SECF_FLOORDROP on every Doom-format sector (maploader.cpp LoadSectors), never on a Hexen one (it has BEHAVIOR)
+			const string effect = "actors on a floor lowering 9 or more units a tic ";
+			if(target.Format == MapFormat.Doom)
+			{
+				int without = 0;
+				foreach(SectorRecord s in map.Sectors) if(!IsSet(s.Flags, DROPACTORS)) without++;
+				if(without > 0)
+					report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, without + " sectors without " + DROPACTORS + " get the Doom format's: " + effect + "stay on it instead of falling");
+			}
+			else if(source.Format == MapFormat.Doom && target.Format == MapFormat.Hexen && map.Sectors.Count > 0)
+			{
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "the Hexen format has no " + DROPACTORS + ": on all " + map.Sectors.Count + " sectors, " + effect + "fall instead of staying on it");
+			}
 		}
 
 		private static void Block(ConversionReport report, int count, int max, string what)
@@ -429,12 +448,14 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				s.Tags = tags;
 				s.Flags = new Dictionary<string, bool>(r.Flags);
 				s.Fields = new List<string>(r.Fields);
+				if(source.Format == MapFormat.Doom) s.Flags[DROPACTORS] = true;
 				if(special != 0) report.SectorsTranslated++;
 				return s;
 			}
 
 			for(int i = 1; i < tags.Count; i++) report.Drop(ConversionElement.Sector, index, "extra tag " + tags[i]);
-			foreach(KeyValuePair<string, bool> f in r.Flags) if(f.Value) report.Drop(ConversionElement.Sector, index, "flag " + f.Key);
+			foreach(KeyValuePair<string, bool> f in r.Flags)
+				if(f.Value && !(f.Key == DROPACTORS && target.Format == MapFormat.Doom)) report.Drop(ConversionElement.Sector, index, "flag " + f.Key);
 			foreach(string f in r.Fields) report.Drop(ConversionElement.Sector, index, "field " + f);
 			s.Tags = new List<int> { ToShort(tags[0], ConversionElement.Sector, index, "tag", report) };
 

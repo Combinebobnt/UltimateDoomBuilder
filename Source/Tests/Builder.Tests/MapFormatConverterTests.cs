@@ -239,6 +239,36 @@ namespace Builder.Tests
 			Assert.DoesNotContain("SCRIPTS", report.ToString()); // Hexen keeps them
 		}
 
+		// The engine gives every Doom-format sector SECF_FLOORDROP and no Hexen one; UDMF spells it dropactors
+		[Fact]
+		public void DropActors_FollowsTheDoomFormatsFloorDrop()
+		{
+			MapRecords doom = new MapRecords();
+			doom.Sectors.Add(new SectorRecord());
+			doom.Sectors.Add(new SectorRecord { Special = 9 });
+
+			ConversionReport report;
+			MapRecords udmf = Convert(doom, "GZDoom_DoomDoom", "GZDoom_DoomUDMF", out report);
+			Assert.True(udmf.Sectors.All(s => s.Flags.ContainsKey("dropactors") && s.Flags["dropactors"]), "Doom -> UDMF sets dropactors");
+			Assert.DoesNotContain("dropactors", report.ToString());
+
+			Convert(udmf, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
+			Assert.DoesNotContain("dropactors", report.ToString());
+
+			udmf.Sectors[1].Flags.Remove("dropactors");
+			Convert(udmf, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
+			Assert.Contains(report.Issues, i => i.Element == ConversionElement.Map && i.Message.StartsWith("1 sectors without dropactors"));
+			Assert.False(report.Dropped.ContainsKey("Sector flag dropactors"));
+
+			Convert(udmf, "GZDoom_DoomUDMF", "GZDoom_DoomHexen", out report);
+			Assert.True(report.Dropped.ContainsKey("Sector flag dropactors"), "UDMF -> Hexen drops the flag");
+
+			MapRecords hexen = Convert(doom, "GZDoom_DoomDoom", "GZDoom_DoomHexen", out report);
+			Assert.Contains(report.Issues, i => i.Element == ConversionElement.Map && i.Message.Contains("no dropactors: on all 2 sectors"));
+			Convert(hexen, "GZDoom_DoomHexen", "GZDoom_DoomDoom", out report);
+			Assert.Contains(report.Issues, i => i.Element == ConversionElement.Map && i.Message.StartsWith("2 sectors without dropactors"));
+		}
+
 		// Every combination of a binary format's thing flags survives UDMF, and Doom <-> Hexen keeps the shared ones
 		[Fact]
 		public void ThingFlags_RoundTripThroughUdmfAndBetweenBinaryFormats()
