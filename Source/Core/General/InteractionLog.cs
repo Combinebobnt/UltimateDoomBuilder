@@ -260,6 +260,20 @@ namespace CodeImp.DoomBuilder
 			return InteractionActionTracker.Ms(ms);
 		}
 
+		// The native device's tab-separated vendor, renderer, version and swap interval, as "gl" fields
+		internal static string[] GLFields(string info)
+		{
+			string[] parts = (info ?? "").Split('\t');
+			string[] keys = { "vendor", "renderer", "version", "swap_interval" };
+			string[] f = new string[keys.Length * 2];
+			for(int i = 0; i < keys.Length; i++)
+			{
+				f[i * 2] = keys[i];
+				f[i * 2 + 1] = i < parts.Length && parts[i].Length > 0 ? parts[i] : "?";
+			}
+			return f;
+		}
+
 		private static string Num(int n)
 		{
 			return n.ToString(CultureInfo.InvariantCulture);

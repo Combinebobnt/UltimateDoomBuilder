@@ -93,6 +93,7 @@ public:
 	virtual bool StartRendering(bool clear, int backcolor, Texture* target, bool usedepthbuffer) = 0;
 	virtual bool FinishRendering() = 0;
 	virtual bool Present() = 0;
+	virtual void GetInfo(char* out, int len) = 0;
 	virtual bool ClearTexture(int backcolor, Texture* texture) = 0;
 	virtual bool CopyTexture(Texture* dst, CubeMapFace face) = 0;
 	virtual bool SetVertexBufferData(VertexBuffer* buffer, void* data, int64_t size, VertexFormat format) = 0;

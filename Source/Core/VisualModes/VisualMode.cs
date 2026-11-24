@@ -1340,13 +1340,18 @@ namespace CodeImp.DoomBuilder.VisualModes
 
 			// Apply new camera matrices
 			renderer.PositionAndLookAt(General.Map.VisualCamera.Position, General.Map.VisualCamera.Target);
-			
+			FrameTiming.NoteCamera(General.Map.VisualCamera.Position, General.Map.VisualCamera.AngleXY, General.Map.VisualCamera.AngleZ);
+			FrameTiming.Lap(FrameBucket.Move);
+
 			// Visibility culling
 			DoCulling();
-			
+			FrameTiming.NoteVisible(visiblegeometry.Count, visiblethings.Count);
+			FrameTiming.Lap(FrameBucket.Cull);
+
 			// Update labels in main window
 			General.MainWindow.UpdateCoordinates(General.Map.VisualCamera.Position);
-			
+			FrameTiming.Lap(FrameBucket.Ui);
+
 			// Now redraw
 			General.Interface.RedrawDisplay();
 		}

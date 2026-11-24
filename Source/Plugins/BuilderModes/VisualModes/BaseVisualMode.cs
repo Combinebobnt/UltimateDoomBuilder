@@ -1730,7 +1730,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// Time to pick a new target?
 			if(Clock.CurrentTime > (lastpicktime + pickinterval))
 			{
+				FrameTiming.Lap(FrameBucket.Post);
 				PickTargetUnlocked();
+				FrameTiming.Lap(FrameBucket.Pick);
 				lastpicktime = Clock.CurrentTime;
 			}
 			

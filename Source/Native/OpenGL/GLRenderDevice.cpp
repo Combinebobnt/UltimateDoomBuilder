@@ -505,6 +505,22 @@ bool GLRenderDevice::Present()
 	return CheckGLError();
 }
 
+// Tab-separated vendor, renderer, version and swap interval (-1 when it can't be queried)
+void GLRenderDevice::GetInfo(char* out, int len)
+{
+	if (!out || len <= 0) return;
+	std::string info;
+	if (Context)
+	{
+		Context->MakeCurrent();
+		info = std::string(GLLogCheckNull(glGetString(GL_VENDOR))) + "\t" + GLLogCheckNull(glGetString(GL_RENDERER)) + "\t" +
+			GLLogCheckNull(glGetString(GL_VERSION)) + "\t" + std::to_string(Context->GetSwapInterval());
+	}
+	int n = std::min(len - 1, (int)info.size());
+	std::copy(info.begin(), info.begin() + n, out);
+	out[n] = 0;
+}
+
 bool GLRenderDevice::ClearTexture(int backcolor, Texture* texture)
 {
 	if (!StartRendering(true, backcolor, texture, false)) return false;

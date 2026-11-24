@@ -160,6 +160,13 @@ namespace CodeImp.DoomBuilder.Rendering
                 BuilderNative_GetError(sb, sb.Capacity);
                 throw new RenderDeviceException(string.Format("Could not create render device: {0}", sb));
             }
+
+            if (InteractionLog.Enabled)
+            {
+                StringBuilder info = new StringBuilder(1024);
+                RenderDevice_GetInfo(Handle, info, info.Capacity);
+                InteractionLog.Write("gl", InteractionLog.GLFields(info.ToString()));
+            }
         }
 
         public bool Disposed { get { return Handle == IntPtr.Zero; } }
@@ -462,7 +469,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
         public void Present()
         {
+            FrameTiming.Lap(FrameBucket.Draw);
             ThrowIfFailed(RenderDevice_Present(Handle));
+            FrameTiming.Lap(FrameBucket.Present);
         }
 
         public void ClearTexture(Color4 backcolor, Texture texture)
@@ -694,6 +703,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
         static extern bool RenderDevice_Present(IntPtr handle);
+
+        [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        static extern void RenderDevice_GetInfo(IntPtr handle, StringBuilder str, int length);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
         static extern bool RenderDevice_ClearTexture(IntPtr handle, int backcolor, IntPtr texture);

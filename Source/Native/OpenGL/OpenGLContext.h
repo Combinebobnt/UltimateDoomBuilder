@@ -32,7 +32,8 @@ public:
 	virtual void ClearCurrent() = 0;
 	virtual void SwapBuffers() = 0;
 	virtual bool IsCurrent() = 0;
-	
+	virtual int GetSwapInterval() = 0; // -1 when the driver can't report it
+
 	virtual int GetWidth() const = 0;
 	virtual int GetHeight() const = 0;
 	

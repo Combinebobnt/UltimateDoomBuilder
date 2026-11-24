@@ -214,6 +214,11 @@ extern "C"
 		return device->Present();
 	}
 
+	void RenderDevice_GetInfo(RenderDevice* device, char* out, int len)
+	{
+		device->GetInfo(out, len);
+	}
+
 	bool RenderDevice_ClearTexture(RenderDevice* device, int backcolor, Texture* texture)
 	{
 		return device->ClearTexture(backcolor, texture);

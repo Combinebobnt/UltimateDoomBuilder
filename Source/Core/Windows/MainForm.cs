@@ -1075,7 +1075,9 @@ namespace CodeImp.DoomBuilder.Windows
 				General.Plugins.OnEditRedrawDisplayBegin();
 				General.Editing.Mode.OnRedrawDisplay();
 				General.Plugins.OnEditRedrawDisplayEnd();
+				FrameTiming.Lap(FrameBucket.Draw);
 				statistics.UpdateStatistics(); //mxd
+				FrameTiming.Lap(FrameBucket.Ui);
 			}
 			else
 			{
@@ -4986,16 +4988,22 @@ namespace CodeImp.DoomBuilder.Windows
 			
 			if((General.Map != null) && (General.Editing.Mode != null))
 			{
-				// In exclusive mouse mode?
-				if(mouseinput != null)
+				FrameTiming.TickBegin(General.Editing.Mode.GetType().Name);
+				try
 				{
-					Vector2D deltamouse = mouseinput.Process();
-					General.Plugins.OnEditMouseInput(deltamouse);
-					General.Editing.Mode.OnMouseInput(deltamouse);
-				}
+					// In exclusive mouse mode?
+					if(mouseinput != null)
+					{
+						Vector2D deltamouse = mouseinput.Process();
+						General.Plugins.OnEditMouseInput(deltamouse);
+						General.Editing.Mode.OnMouseInput(deltamouse);
+					}
+					FrameTiming.Lap(FrameBucket.Input);
 
-				// Process signal
-				General.Editing.Mode.OnProcess(deltatime);
+					// Process signal
+					General.Editing.Mode.OnProcess(deltatime);
+				}
+				finally { FrameTiming.TickEnd(); }
 			}
 		}
 

@@ -67,6 +67,7 @@ public:
 	bool StartRendering(bool clear, int backcolor, Texture* target, bool usedepthbuffer) override;
 	bool FinishRendering() override;
 	bool Present() override;
+	void GetInfo(char* out, int len) override;
 	bool ClearTexture(int backcolor, Texture* texture) override;
 	bool CopyTexture(Texture* dst, CubeMapFace face) override;
 

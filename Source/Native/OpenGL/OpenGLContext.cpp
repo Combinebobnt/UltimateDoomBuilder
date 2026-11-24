@@ -102,6 +102,7 @@ public:
 	void ClearCurrent() override;
 	void SwapBuffers() override;
 	bool IsCurrent() override;
+	int GetSwapInterval() override;
 
 	int GetWidth() const override;
 	int GetHeight() const override;
@@ -174,6 +175,14 @@ void OpenGLContext::SwapBuffers()
 {
 	wglMakeCurrent(dc, context);
 	::SwapBuffers(dc);
+}
+
+int OpenGLContext::GetSwapInterval()
+{
+	typedef int(WINAPI* ptr_wglGetSwapIntervalEXT)();
+	MakeCurrent();
+	ptr_wglGetSwapIntervalEXT getinterval = (ptr_wglGetSwapIntervalEXT)wglGetProcAddress("wglGetSwapIntervalEXT");
+	return getinterval ? getinterval() : -1;
 }
 
 int OpenGLContext::GetWidth() const
@@ -366,6 +375,7 @@ public:
 	void ClearCurrent() override { }
 	void SwapBuffers() override { }
 	bool IsCurrent() override { return false; }
+	int GetSwapInterval() override { return -1; }
 
 	int GetWidth() const override { return 320; }
 	int GetHeight() const override { return 200; }
@@ -490,6 +500,7 @@ public:
 	void ClearCurrent() override;
 	void SwapBuffers() override;
 	bool IsCurrent() override;
+	int GetSwapInterval() override;
 
 	int GetWidth() const override;
 	int GetHeight() const override;
@@ -597,6 +608,24 @@ void OpenGLContext::ClearCurrent()
 void OpenGLContext::SwapBuffers()
 {
 	glx.glXSwapBuffers(disp, window);
+}
+
+int OpenGLContext::GetSwapInterval()
+{
+	if (is_glx_extension_supported("GLX_EXT_swap_control") && glx.glXQueryDrawable)
+	{
+		unsigned int interval = 0;
+		glx.glXQueryDrawable(disp, window, 0x20F1 /* GLX_SWAP_INTERVAL_EXT */, &interval);
+		return (int)interval;
+	}
+	if (is_glx_extension_supported("GLX_MESA_swap_control"))
+	{
+		typedef int (*ptr_glXGetSwapIntervalMESA)(void);
+		MakeCurrent();
+		ptr_glXGetSwapIntervalMESA getinterval = (ptr_glXGetSwapIntervalMESA)get_proc_address("glXGetSwapIntervalMESA");
+		if (getinterval) return getinterval();
+	}
+	return -1;
 }
 
 int OpenGLContext::GetWidth() const
