@@ -48,23 +48,31 @@ namespace Builder.Tests
 			float[] probes = Probes(new[] { 16f, -8f, 40f }, new[] { 100f, 200f, 0.5f });
 			LightmapData data = Read(probes);
 			Assert.Null(data.ProbeError);
-			Assert.Equal(probes, data.Probes);
+			Assert.Equal(2, data.Probes.Count);
+			Assert.Equal(1, Find(data.Probes, 16, -8, 40));
+			Assert.Equal(2, Find(data.Probes, 100, 200, 0.5f));
+			Vector3f c;
+			Assert.True(data.Probes.TryFind(100, 200, 0.5f, out c));
+			Assert.Equal(0.25f, c.Y);
 			Assert.Equal(2, data.Surfaces.Length);
+			Assert.Null(Read(new float[0]).Probes);
 			Assert.Null(LightmapData.ReadLayout(LightmapPreviewDataTests.Lump(4, 1, SURFACES, Coords(), probeValues: probes), out string error).Probes);
 		}
 
 		[Fact]
 		public void BadProbesAreDroppedWhileTheSurfacesLoad()
 		{
+			float[] inf = Probes(new[] { 0f, 0f, 0f }, new[] { 1f, 1f, 1f });
+			inf[10] = float.PositiveInfinity;
 			float[] nan = Probes(new[] { 0f, 0f, 0f }, new[] { 1f, 1f, 1f });
-			nan[10] = float.PositiveInfinity;
+			nan[7] = float.NaN;
 			float[] far = Probes(new[] { 0f, 0f, 0f }, new[] { 1f, -LightmapData.MAX_PROBE_COORD * 2, 1f });
-			foreach(float[] bad in new[] { nan, far })
+			foreach(float[] bad in new[] { inf, nan, far })
 			{
 				LightmapData data = Read(bad);
 				Assert.NotNull(data.ProbeError);
 				Assert.Contains("probe 1", data.ProbeError);
-				Assert.Empty(data.Probes);
+				Assert.Null(data.Probes);
 				Assert.Equal(2, data.Surfaces.Length);
 			}
 		}
@@ -94,7 +102,7 @@ namespace Builder.Tests
 			LightmapData data = LightmapData.Read(output.ToArray(), out string error);
 			Assert.True(data != null, error);
 			Assert.Contains("more than", data.ProbeError);
-			Assert.Empty(data.Probes);
+			Assert.Null(data.Probes);
 			Assert.Equal(2, data.Surfaces.Length);
 		}
 
@@ -137,6 +145,22 @@ namespace Builder.Tests
 			Assert.Equal(0, Find(grid, 0f, 32f, 0f));
 			Assert.Equal(0, Find(grid, 32f, 0f, 0f));
 			Assert.Equal(2, Find(grid, -64f, 0f, 0f)); // both in reach, 2 nearer
+		}
+
+		[Fact]
+		public void ProbesOfOneCellNeedNotBeAdjacentInTheLump()
+		{
+			// The baker writes grid rows, then 9875 probes last, so one cell's probes can be apart
+			var grid = new LightmapProbeGrid(Probes(
+				new[] { 4f, 4f, 0f },    // 1: cell (0, 0)
+				new[] { 100f, 4f, 0f },  // 2: cell (3, 0)
+				new[] { 20f, 20f, 0f },  // 3: cell (0, 0) again, nearest to (21, 21)
+				new[] { 200f, 4f, 0f },  // 4: cell (6, 0)
+				new[] { 30f, 4f, 0f })); // 5: cell (0, 0), a trailing 9875-style probe
+			Assert.Equal(3, Find(grid, 21, 21, 0));
+			Assert.Equal(5, Find(grid, 31, 4, 0));
+			Assert.Equal(2, Find(grid, 101, 4, 0));
+			Assert.Equal(4, Find(grid, 199, 4, 0));
 		}
 
 		[Fact]

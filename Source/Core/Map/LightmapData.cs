@@ -59,7 +59,7 @@ namespace CodeImp.DoomBuilder.Map
 		public LightmapSurface[] Surfaces { get; private set; }
 		public float[] TexCoords { get; private set; } // u, v pairs
 		public ushort[] Texels { get; private set; } // RGB half floats, layer after layer, row after row
-		public float[] Probes { get; private set; } // x, y, z, r, g, b per probe; empty when dropped, null for a layout read
+		public LightmapProbeGrid Probes { get; private set; } // null without probes, when dropped and for a layout read
 		public string ProbeError { get; private set; } // why the probes were dropped, null when kept
 
 		#endregion
@@ -232,7 +232,6 @@ namespace CodeImp.DoomBuilder.Map
 		// Keeps the probes when they are sane, else drops them with a reason; the surfaces load either way
 		private void ReadProbes(BinaryReader reader, long count)
 		{
-			Probes = new float[0];
 			if(count > MAX_PROBES)
 			{
 				Skip(reader, count * 24L);
@@ -255,7 +254,7 @@ namespace CodeImp.DoomBuilder.Map
 					return;
 				}
 			}
-			Probes = probes;
+			if(count > 0) Probes = new LightmapProbeGrid(probes);
 		}
 
 		// Checks the surface indices against the map the lump belongs to
