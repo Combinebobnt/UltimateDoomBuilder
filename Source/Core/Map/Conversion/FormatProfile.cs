@@ -50,6 +50,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public List<KeyValuePair<int, int>> GeneralizedLineRanges { get; private set; } // offset, length
 		public HashSet<int> SectorTypes { get; private set; }
 		public bool GeneralizedSectors { get; private set; }
+		public bool BadEditorCheck { get; private set; } // thing bit 0x100 voids bits 5-7 (maploader.cpp LoadThings, all but Strife)
 
 		public bool IsBinary { get { return Format != MapFormat.Udmf; } }
 		public int MaxElements { get { return IsBinary ? ushort.MaxValue : int.MaxValue; } }
@@ -85,6 +86,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				XlatTable xlat = XlatTable.LoadFromFolder(xlatfolder, table);
 				p.Lines = new LineXlat(xlat);
 				p.Sectors = new SectorXlat(xlat);
+				p.BadEditorCheck = !string.Equals(table, "strife.txt", StringComparison.OrdinalIgnoreCase);
 
 				p.ReadsWholeTable = xlatengines.Contains(p.Engine);
 				foreach(DictionaryEntry de in cfg.ReadSetting("linedefflags", new Hashtable()))

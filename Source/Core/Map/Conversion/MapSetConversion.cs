@@ -267,7 +267,14 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			if(binary && fromudmf)
 			{
 				index = 0;
-				foreach(Sidedef sd in map.Sidedefs) sd.TranslateFromUDMF(foldedparts[index++]);
+				foreach(Sidedef sd in map.Sidedefs)
+				{
+					sd.TranslateFromUDMF(foldedparts[index++]);
+					// The binary writers store whatever length they get, which corrupts SIDEDEFS and SECTORS
+					if(sd.HighTexture.Length > 8) sd.SetTextureHigh(MapFormatConverter.ShortTextureName(sd.HighTexture));
+					if(sd.MiddleTexture.Length > 8) sd.SetTextureMid(MapFormatConverter.ShortTextureName(sd.MiddleTexture));
+					if(sd.LowTexture.Length > 8) sd.SetTextureLow(MapFormatConverter.ShortTextureName(sd.LowTexture));
+				}
 
 				foreach(Vertex v in map.Vertices)
 				{
@@ -281,7 +288,12 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			foreach(Sector s in map.Sectors)
 			{
 				SectorRecord r = result.Sectors[index++];
-				if(binary && fromudmf) s.TranslateFromUDMF();
+				if(binary && fromudmf)
+				{
+					s.TranslateFromUDMF();
+					if(s.FloorTexture.Length > 8) s.SetFloorTexture(MapFormatConverter.ShortTextureName(s.FloorTexture));
+					if(s.CeilTexture.Length > 8) s.SetCeilTexture(MapFormatConverter.ShortTextureName(s.CeilTexture));
+				}
 				s.Effect = r.Special;
 				s.Tags = new List<int>(r.Tags);
 				if(!binary)

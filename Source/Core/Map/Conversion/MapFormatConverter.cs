@@ -46,6 +46,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			new KeyValuePair<string, int>("transparent", -3), // alpha 0.25
 		};
 		private const int ML2_RESERVEDLINEFLAG = 0x2;
+		private const int BTF_BADEDITORCHECK = 0x100;
 
 		private static readonly string[] doomthingdefaults = { "single", "coop", "dm", "class1", "class2", "class3" };
 
@@ -96,6 +97,20 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return result;
 		}
 
+		public static string ShortTextureName(string name)
+		{
+			// A binary map stores 8 bytes; a pk3 texture's short name is its file name without extension (the engine's lump name rule)
+			if(name == null || name.Length <= 8) return name;
+			int slash = name.LastIndexOf('/');
+			if(slash >= 0)
+			{
+				name = name.Substring(slash + 1);
+				int dot = name.LastIndexOf('.');
+				if(dot > 0) name = name.Substring(0, dot);
+			}
+			return name.Length > 8 ? name.Substring(0, 8) : name;
+		}
+
 		private static void CheckMap(MapRecords map, FormatProfile source, FormatProfile target, ConversionReport report)
 		{
 			if(!target.IsBinary) return;
@@ -122,9 +137,11 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				// The names list is capped so the message box and the panel stay readable
 				int shown = Math.Min(map.LongTextureNames.Count, MAX_LISTED_NAMES);
-				string names = string.Join(", ", map.LongTextureNames.GetRange(0, shown));
-				if(shown < map.LongTextureNames.Count) names += " (and " + (map.LongTextureNames.Count - shown) + " more)";
-				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "texture names over 8 characters can't be stored: " + names);
+				List<string> names = new List<string>();
+				foreach(string n in map.LongTextureNames.GetRange(0, shown)) names.Add(n + " -> " + ShortTextureName(n));
+				string list = string.Join(", ", names);
+				if(shown < map.LongTextureNames.Count) list += " (and " + (map.LongTextureNames.Count - shown) + " more)";
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "texture names over 8 characters are cut to the engine's short name: " + list);
 			}
 			if(map.HasScripts && target.Format == MapFormat.Doom)
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, "the Doom format has no SCRIPTS or BEHAVIOR lump; the map's scripts are dropped");
@@ -438,8 +455,13 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			ThingState s = new ThingState { Record = r.Clone() };
 			if(p.IsBinary)
 			{
-				int left;
-				s.Flags = ThingNames(r.Bits, p, out left);
+				int left, bits = r.Bits;
+				if(p.BadEditorCheck && (bits & BTF_BADEDITORCHECK) != 0)
+				{
+					bits &= 0x1f;
+					report.Drop(ConversionElement.Thing, index, "flag bits 0x" + (r.Bits & ~0x1f).ToString("x") + " (the engine ignores them with bit 0x100 set)");
+				}
+				s.Flags = ThingNames(bits, p, out left);
 				if(left != 0) report.Drop(ConversionElement.Thing, index, "flag bits 0x" + left.ToString("x") + " (no UDMF name in the config)");
 				if(p.Format == MapFormat.Hexen) s.Record.Tag = (short)r.Tag; // mapthinghexen_t's tid is int16
 			}

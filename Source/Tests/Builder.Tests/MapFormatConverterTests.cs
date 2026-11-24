@@ -1,8 +1,10 @@
 using System.Reflection;
 using CodeImp.DoomBuilder;
 using CodeImp.DoomBuilder.Config;
+using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Map.Conversion;
+using CodeImp.DoomBuilder.Windows;
 
 namespace Builder.Tests
 {
@@ -461,6 +463,82 @@ namespace Builder.Tests
 			Assert.Contains(apply, m => m.Name == "SetConvertedProperties");
 			Assert.DoesNotContain(apply, m => m.DeclaringType == typeof(Thing) && (m.Name == "Update" || m.Name == "UpdateCache"));
 			Assert.Contains(apply, m => m.Name == "TranslateFromUDMF" && m.DeclaringType == typeof(Sidedef) && m.GetParameters().Length == 1);
+			// The binary writers store a long name whole, which shifts every later SIDEDEFS record
+			foreach(string setter in new[] { "SetTextureHigh", "SetTextureMid", "SetTextureLow", "SetFloorTexture", "SetCeilTexture" })
+				Assert.Contains(apply, m => m.Name == setter);
+		}
+
+		// A binary map keeps 8 bytes: a pk3 path keeps the engine's short name (filesystem.cpp), anything else its first 8 characters
+		[Fact]
+		public void LongTextureNames_CutToTheEnginesShortName()
+		{
+			Assert.Equal("brick01", MapFormatConverter.ShortTextureName("textures/walls/brick01.png"));
+			Assert.Equal("abcdefgh", MapFormatConverter.ShortTextureName("textures/abcdefghijk.png"));
+			Assert.Equal("VERYLONG", MapFormatConverter.ShortTextureName("VERYLONGNAME1"));
+			Assert.Equal("STARTAN2", MapFormatConverter.ShortTextureName("STARTAN2"));
+
+			MapRecords map = new MapRecords();
+			map.LongTextureNames.Add("textures/walls/brick01.png");
+			ConversionReport report;
+			Convert(map, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report);
+			Assert.Contains("textures/walls/brick01.png -> brick01", report.ToString());
+		}
+
+		// The engine ignores Doom thing bits 5-7 when bit 8 is set (maploader.cpp LoadThings), except in Strife, where bit 8 is a flag
+		[Fact]
+		public void BadEditorBit_VoidsTheBoomAndMbfThingBits()
+		{
+			MapRecords map = new MapRecords();
+			map.Things.Add(new ThingRecord { Type = 3004, Bits = 0x100 | 0x80 | 0x40 | 0x20 | 0x8 | 0x7 });
+			ConversionReport report;
+			Dictionary<string, bool> f = Convert(map, "GZDoom_DoomDoom", "GZDoom_DoomUDMF", out report).Things[0].Flags;
+			string keys = string.Join(", ", f.Where(k => k.Value).Select(k => k.Key));
+			Assert.True(f["dm"] && f["coop"] && f["ambush"] && f["skill1"] && !(f.ContainsKey("friend") && f["friend"]), keys);
+			Assert.True(report.HasDropped(ConversionElement.Thing, "flag bits 0x1e0 (the engine ignores them with bit 0x100 set)"), report.ToString());
+
+			map.Things[0].Bits = 0x100 | 0x7;
+			Assert.True(Profile("GZDoom_StrifeDoom").ThingFlagTable.Any(t => t.Flag == 0x100), "Strife names bit 8");
+			Convert(map, "GZDoom_StrifeDoom", "GZDoom_StrifeUDMF", out report);
+			Assert.Empty(report.Dropped);
+		}
+
+		// The conversion dialog preselects the source's own port, whatever the configs' engine keys say
+		[Fact]
+		public void ConvertDialog_PreselectsTheSamePort()
+		{
+			var configs = new List<Tuple<string, Configuration>>();
+			foreach(string path in Directory.GetFiles(ConfigFolder, "*.cfg").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+			{
+				var cfg = new Configuration(path, true);
+				if(!cfg.ErrorResult && FormatProfile.Covers(cfg)) configs.Add(Tuple.Create(Path.GetFileName(path), cfg));
+			}
+			Func<Configuration, string> game = c => c.ReadSetting("basegame", "").ToLowerInvariant();
+			Func<string, string> port = n => n.Substring(0, n.IndexOf('_')).ToLowerInvariant().Replace("uzdoom", "gzdoom");
+
+			List<string> failures = new List<string>();
+			int checkedpairs = 0;
+			foreach(var source in configs)
+			{
+				foreach(MapFormat format in new[] { MapFormat.Doom, MapFormat.Hexen, MapFormat.Udmf })
+				{
+					if(FormatProfile.FormatOf(source.Item2) == format) continue;
+					var candidates = configs.Where(c => FormatProfile.FormatOf(c.Item2) == format && game(c.Item2) == game(source.Item2)).ToList();
+					if(candidates.Count == 0) continue;
+					int pick = ConvertMapFormatForm.PickConfig(candidates.Select(c => c.Item1).ToList(), candidates.Select(c => c.Item2.ReadSetting("engine", "")).ToList(),
+					                                           source.Item1, source.Item2.ReadSetting("engine", ""));
+					bool samePortExists = candidates.Any(c => port(c.Item1) == port(source.Item1));
+					if(pick < 0) failures.Add(source.Item1 + " -> " + format + ": nothing picked");
+					else if(samePortExists && port(candidates[pick].Item1) != port(source.Item1)) failures.Add(source.Item1 + " -> " + format + ": picked " + candidates[pick].Item1);
+					else checkedpairs++;
+				}
+			}
+			Assert.True(failures.Count == 0, string.Join("\n", failures));
+			Assert.True(checkedpairs >= 20, checkedpairs + " pairs checked");
+
+			var gz = configs.Where(c => FormatProfile.FormatOf(c.Item2) == MapFormat.Udmf && game(c.Item2) == "doom").ToList();
+			Assert.Contains(gz, c => c.Item1 == "DnD_UDMF.cfg"); // the row the old engine-key match fell back to
+			int gzpick = ConvertMapFormatForm.PickConfig(gz.Select(c => c.Item1).ToList(), gz.Select(c => c.Item2.ReadSetting("engine", "")).ToList(), "GZDoom_DoomDoom.cfg", "gzdoom");
+			Assert.StartsWith("GZDoom_", gz[gzpick].Item1);
 		}
 	}
 }

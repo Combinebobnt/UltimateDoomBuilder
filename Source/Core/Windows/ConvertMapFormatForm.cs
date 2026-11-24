@@ -190,24 +190,37 @@ namespace CodeImp.DoomBuilder.Windows
 			return prefix == "uzdoom" ? "gzdoom" : prefix; // UZDoom ships only UDMF configs; GZDoom's are its other formats
 		}
 
+		internal static int PickConfig(IList<string> filenames, IList<string> engines, string sourcefile, string sourceengine)
+		{
+			// The first candidate with the best score, or -1 for none
+			int select = -1, best = -1;
+			for(int i = 0; i < filenames.Count; i++)
+			{
+				int score = (PortPrefix(filenames[i]) == PortPrefix(sourcefile) ? 2 : 0)
+				            + (string.Equals(engines[i], sourceengine, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+				if(score > best)
+				{
+					best = score;
+					select = i;
+				}
+			}
+			return select;
+		}
+
 		private void FillConfigs(MapFormat format)
 		{
 			// The same port comes preselected: by file name prefix (GZDoom_, Zandronum_), since every ZDoom-family UDMF
 			// config's engine key is its namespace "zdoom"; the engine key only breaks ties between other configs
 			configs.BeginUpdate();
 			configs.Items.Clear();
-			int select = 0, best = -1;
+			List<string> files = new List<string>(), engines = new List<string>();
 			foreach(ConfigurationInfo info in EligibleConfigs(format))
 			{
-				int index = configs.Items.Add(info);
-				int score = (PortPrefix(info.Filename) == PortPrefix(sourcefile) ? 2 : 0)
-				            + (string.Equals(info.Configuration.ReadSetting("engine", ""), engine, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
-				if(score > best)
-				{
-					best = score;
-					select = index;
-				}
+				configs.Items.Add(info);
+				files.Add(info.Filename);
+				engines.Add(info.Configuration.ReadSetting("engine", ""));
 			}
+			int select = Math.Max(0, PickConfig(files, engines, sourcefile, engine));
 			configs.EndUpdate();
 			note.Text = format == MapFormat.Hexen
 				? "Hexen has one line ID per line and one activation, so line IDs on lines with another special and combined activations may be lost. UDMF keeps both."
