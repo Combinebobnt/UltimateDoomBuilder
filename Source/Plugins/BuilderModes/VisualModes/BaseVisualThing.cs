@@ -95,6 +95,75 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			GC.SuppressFinalize(this);
 		}
 		
+		// The thing's rendered position: hanging, absolute and floor-standing rules, and the 9500/9501 specials
+		private Vector3D GetRenderPosition()
+		{
+			Vector3D pos = Thing.Position;
+			if(Thing.Type == 9501)
+			{
+				if(Thing.Sector != null) //mxd
+				{ 
+					// This is a special thing that needs special positioning
+					SectorData sd = mode.GetSectorData(Thing.Sector);
+					pos.z = sd.Ceiling.sector.CeilHeight + Thing.Position.z;
+				}
+			}
+			else if(Thing.Type == 9500)
+			{
+				if(Thing.Sector != null) //mxd
+				{ 
+					// This is a special thing that needs special positioning
+					SectorData sd = mode.GetSectorData(Thing.Sector);
+					pos.z = sd.Floor.sector.FloorHeight + Thing.Position.z;
+				}
+			}
+			else if(info.AbsoluteZ)
+			{
+				// Absolute Z position
+				pos.z = Thing.Position.z;
+			}
+			else if(info.Hangs)
+			{
+				// Hang from ceiling
+				if(Thing.Sector != null)
+				{
+					SectorData sd = mode.GetSectorData(Thing.Sector);
+					double maxz = sd.Ceiling.plane.GetZ(Thing.Position) - info.Height;
+					pos.z = maxz;
+
+					if(Thing.Position.z > 0 || nointeraction) pos.z -= Thing.Position.z;
+
+					// Check if below floor
+					if(!nointeraction)
+					{
+						double minz = sd.Floor.plane.GetZ(Thing.Position);
+						if(pos.z < minz) pos.z = Math.Min(minz, maxz);
+					}
+				}
+			}
+			else
+			{
+				// Stand on floor
+				if(Thing.Sector != null)
+				{
+					SectorData sd = mode.GetSectorData(Thing.Sector);
+					double minz = sd.Floor.plane.GetZ(Thing.Position);
+					pos.z = minz;
+
+					if(Thing.Position.z > 0 || nointeraction) pos.z += Thing.Position.z;
+
+					// Check if above ceiling
+					if(!nointeraction)
+					{
+						double maxz = sd.Ceiling.plane.GetZ(Thing.Position) - info.Height;
+						if(pos.z > maxz) pos.z = Math.Max(minz, maxz);
+					}
+				}
+			}
+
+			return pos;
+		}
+
 		// This builds the thing geometry. Returns false when nothing was created.
 		public bool Setup()
 		{
@@ -212,6 +281,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				sizeless = false;
 			}
 
+			// UZDoom lights a thing at its real position (CheckSpriteGlow, the light slice)
+			Vector3D pos = GetRenderPosition();
+
 			if(Thing.Sector != null)
 			{
 				SectorData sd = mode.GetSectorData(Thing.Sector);
@@ -219,7 +291,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				if(!info.Bright)
 				{
-					Vector3D thingpos = new Vector3D(Thing.Position.x, Thing.Position.y, Thing.Position.z + sd.Floor.plane.GetZ(Thing.Position));
+					Vector3D thingpos = pos;
 
 					// If is thing's height is flush to a 3D floor top it's not rendered at the brightness of the 3D floor, so take the level above that.
 					// It's actually a bit more intricate, since GZDoom can render multiple vertical brightness levels for each thing, which UDB can't,
@@ -231,9 +303,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					//mxd. Let's use point on floor plane instead of Thing.Sector.FloorHeight;
 					if (nointeraction && level == null && sd.LightLevels.Count > 0) level = sd.LightLevels[sd.LightLevels.Count - 1];
 
-					// Glow levels only clip; the light comes from the next real level above
+					// Glow levels only clip; the light comes from the next real level above (the ceiling past the top one)
+					SectorLevel startlevel = level;
 					while(level != null && level.type == SectorLevelType.Glow)
 						level = sd.GetLevelAbove(new Vector3D(thingpos, level.plane.GetZ(thingpos)));
+					if(level == null && startlevel != null) level = sd.Ceiling;
 
 					//mxd. Use the light level of the highest surface when a thing is above highest sector level.
 					if(level != null)
@@ -252,23 +326,25 @@ namespace CodeImp.DoomBuilder.BuilderModes
 								brightness += UniFields.GetInteger(sd.Sector.Fields, "lightfloor");
 						}*/
 
-						// CheckSpriteGlow: only the thing's own sector floor glows on it, measured from the real floor; black fog follows the glowed light
+						// CheckSpriteGlow: only the thing's own sector floor glows on it, measured from the real floor
+						int glowed = brightness;
 						if(sd.FloorGlow != null)
-							brightness = LightModel.SpriteGlowLight(brightness, thingpos.z - floor.GetZ(thingpos), sd.FloorGlow.Height);
+							glowed = LightModel.SpriteGlowLight(brightness, thingpos.z - floor.GetZ(thingpos), sd.FloorGlow.Height);
 
-						sectorlight = mode.CalculateLight(brightness);
+						// Black fog follows the glowed light, except in a sector with 3D floors, where UZDoom fogs each light slice by its unglowed light
+						sectorlight = LightModel.PackLight(glowed, glowed, sd.ExtraFloors.Count > 0 ? brightness : glowed);
 
                         // [ZZ] if sector is using Doom64 lighting, apply thing color here.
                         sectorcolor = PixelColor.Modulate(sd.ColorSprites, level.colorbelow).WithAlpha(alpha).ToInt();
 
-						//mxd. Calculate fogfactor (UZDoom: coloured fog takes the sector's own light level)
-						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, Thing.Sector.Brightness);
+						//mxd. Calculate fogfactor (UZDoom: the unglowed light, the sector's or the 3D-floor slice's)
+						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, brightness);
 					}
 				}
 				//TECH: even Bright Thing frames are affected by custom fade...
 				else
 				{
-					Vector3D thingpos = new Vector3D(Thing.Position.x, Thing.Position.y, Thing.Position.z + sd.Floor.plane.GetZ(Thing.Position));
+					Vector3D thingpos = pos;
 					SectorLevel level = sd.GetLevelAboveOrAt(thingpos);
 
 					if(level != null && level.sector.FogMode > SectorFogMode.CLASSIC)
@@ -371,69 +447,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd
 			SetVertices(allverts, alloffsets/*, floor, ceiling*/);
 			
-			// Determine position
-			Vector3D pos = Thing.Position;
-			if(Thing.Type == 9501)
-			{
-				if(Thing.Sector != null) //mxd
-				{ 
-					// This is a special thing that needs special positioning
-					SectorData sd = mode.GetSectorData(Thing.Sector);
-					pos.z = sd.Ceiling.sector.CeilHeight + Thing.Position.z;
-				}
-			}
-			else if(Thing.Type == 9500)
-			{
-				if(Thing.Sector != null) //mxd
-				{ 
-					// This is a special thing that needs special positioning
-					SectorData sd = mode.GetSectorData(Thing.Sector);
-					pos.z = sd.Floor.sector.FloorHeight + Thing.Position.z;
-				}
-			}
-			else if(info.AbsoluteZ)
-			{
-				// Absolute Z position
-				pos.z = Thing.Position.z;
-			}
-			else if(info.Hangs)
-			{
-				// Hang from ceiling
-				if(Thing.Sector != null)
-				{
-					SectorData sd = mode.GetSectorData(Thing.Sector);
-					double maxz = sd.Ceiling.plane.GetZ(Thing.Position) - info.Height;
-					pos.z = maxz;
-
-					if(Thing.Position.z > 0 || nointeraction) pos.z -= Thing.Position.z;
-
-					// Check if below floor
-					if(!nointeraction)
-					{
-						double minz = sd.Floor.plane.GetZ(Thing.Position);
-						if(pos.z < minz) pos.z = Math.Min(minz, maxz);
-					}
-				}
-			}
-			else
-			{
-				// Stand on floor
-				if(Thing.Sector != null)
-				{
-					SectorData sd = mode.GetSectorData(Thing.Sector);
-					double minz = sd.Floor.plane.GetZ(Thing.Position);
-					pos.z = minz;
-
-					if(Thing.Position.z > 0 || nointeraction) pos.z += Thing.Position.z;
-
-					// Check if above ceiling
-					if(!nointeraction)
-					{
-						double maxz = sd.Ceiling.plane.GetZ(Thing.Position) - info.Height;
-						if(pos.z > maxz) pos.z = Math.Max(minz, maxz);
-					}
-				}
-			}
 			
 			// Apply settings
 			SetPosition(pos);

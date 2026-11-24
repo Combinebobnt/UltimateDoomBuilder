@@ -2242,7 +2242,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.buttontogglefog.Name = "buttontogglefog";
 			this.buttontogglefog.Size = new System.Drawing.Size(23, 20);
 			this.buttontogglefog.Tag = "builder_gztogglefog";
-			this.buttontogglefog.Text = "Render Fog (Visual mode)";
+			this.buttontogglefog.Text = "Render fog and distance lighting (Visual mode)";
 			this.buttontogglefog.Click += new System.EventHandler(this.InvokeTaggedAction);
 			this.buttontoggleanimatedtextures.CheckOnClick = true;
 			this.buttontoggleanimatedtextures.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;

@@ -97,6 +97,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 							Brightness = (c.r + c.g + c.b) / 3,
 						};
 					}
+
+					// UZDoom: a set colour uses the plane's height, so height 0 is no glow rather than the GLDEFS one
+					return null;
 				}
 			}
 
