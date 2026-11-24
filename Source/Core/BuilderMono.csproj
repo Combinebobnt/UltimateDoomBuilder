@@ -660,6 +660,10 @@
     <Compile Include="Map\MapOptions.cs" />
     <Compile Include="Map\BakeFingerprint.cs" />
     <Compile Include="Map\LightmapLump.cs" />
+    <Compile Include="Map\LightmapData.cs" />
+    <Compile Include="Map\LightmapPreview.cs" />
+    <Compile Include="Map\GlSubsectors.cs" />
+    <Compile Include="Map\BakerIndexMap.cs" />
     <Compile Include="Map\MapSet.cs" />
     <Compile Include="Data\DataLocation.cs" />
     <Compile Include="Map\Sector.cs" />
