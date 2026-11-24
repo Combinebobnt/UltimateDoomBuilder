@@ -40,6 +40,9 @@ namespace CodeImp.DoomBuilder.Macros
 			"buildermodes_drawpoint", "buildermodes_removepoint", "buildermodes_removefirstpoint",
 			"buildermodes_finishdraw", "buildermodes_lookthroughthing",
 
+			// Cancel and accept only end a drawing or editing mode, which is never recorded either
+			"builder_cancelmode", "builder_acceptmode",
+
 			// Map and session lifecycle
 			"builder_newmap", "builder_openmap", "builder_openmapincurrentwad", "builder_closemap",
 			"builder_savemap", "builder_savemapas", "builder_savemapinto", "builder_mapoptions",

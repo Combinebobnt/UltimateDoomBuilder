@@ -316,6 +316,7 @@
     <Compile Include="Editing\UndoBranchStash.cs" />
     <Compile Include="Editing\UndoCompound.cs" />
     <Compile Include="Macros\Macro.cs" />
+    <Compile Include="Windows\DialogCancelWatch.cs" />
     <Compile Include="Macros\MacroManager.cs" />
     <Compile Include="Macros\MacroRecording.cs" />
     <Compile Include="Macros\MacroStore.cs" />

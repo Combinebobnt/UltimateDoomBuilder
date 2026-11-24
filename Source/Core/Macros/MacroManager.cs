@@ -351,7 +351,7 @@ namespace CodeImp.DoomBuilder.Macros
 			string ilogprevious = InteractionLog.BeginAmbient("macro");
 			bool dialogcancelled = false;
 			EventHandler oncancel = (s, e) => dialogcancelled = true;
-			DelayedForm.ModalCancelled += oncancel;
+			DialogCancelWatch.Cancelled += oncancel;
 			try
 			{
 				undo.BeginCompound("Macro: " + m.Name);
@@ -388,7 +388,7 @@ namespace CodeImp.DoomBuilder.Macros
 			}
 			finally
 			{
-				DelayedForm.ModalCancelled -= oncancel;
+				DialogCancelWatch.Cancelled -= oncancel;
 				InteractionLog.EndAmbient(ilogprevious);
 			}
 

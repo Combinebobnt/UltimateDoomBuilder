@@ -41,10 +41,6 @@ namespace CodeImp.DoomBuilder.Windows
 		internal UITiming.Timing UITimingState;
 		private EventHandler uitimingidle;
 		private InteractionLog.DialogState ilogstate;
-		private bool shownmodal;
-
-		// A modal dialog closed with Cancel; a macro run treats it as the user stopping the run
-		internal static event EventHandler ModalCancelled;
 
 		//mxd. Stored window size and location. Tracks location and size of FormWindowState.Normal window
 		private Size windowsize = Size.Empty;
@@ -361,7 +357,7 @@ namespace CodeImp.DoomBuilder.Windows
 		protected override void OnShown(EventArgs e)
 		{
 			if(UITiming.Enabled) UITiming.Mark(this, "shown");
-			shownmodal = Modal;
+			DialogCancelWatch.Attach(this);
 			base.OnShown(e);
 			if(ilogstate != null) InteractionLog.DialogShown(ilogstate, this, false);
 			if(UITiming.Enabled && UITimingState != null && !UITimingState.Complete)
@@ -425,7 +421,6 @@ namespace CodeImp.DoomBuilder.Windows
 		protected override void OnFormClosed(FormClosedEventArgs e)
 		{
 			if(ilogstate != null) InteractionLog.DialogHidden(ilogstate, this);
-			if(shownmodal && (DialogResult == DialogResult.Cancel) && (ModalCancelled != null)) ModalCancelled(this, EventArgs.Empty);
 			base.OnFormClosed(e);
 		}
 
