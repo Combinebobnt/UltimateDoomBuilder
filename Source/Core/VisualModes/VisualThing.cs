@@ -69,6 +69,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 		private Color4 cagecolor;
 		protected bool sizeless; //mxd. Used to render visual things with 0 width and height
 		protected float fogfactor; //mxd
+		protected int classiclight; // The level before sprite glow, plus one, for classic rendering; 0 reads the vertex light
 
 		// Selected?
 		protected bool selected;
@@ -129,6 +130,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 		internal int VertexLight { get { return vertices.Length > 0 && vertices[0].Length > 0 ? vertices[0][0].PackedLight : 0; } }
 		public double CameraDistance { get { return cameradistance; } }
 		public float FogFactor { get { return fogfactor; } }
+		internal int ClassicLight { get { return classiclight; } }
 		public Vector3f Center
 		{ 
 			get

@@ -1252,8 +1252,10 @@ namespace CodeImp.DoomBuilder.Rendering
 								graphics.SetUniform(UniformName.sectorLightLevel, t.Thing.Sector.Brightness);
 								graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
 							}
+							else graphics.SetUniform(UniformName.sectorfogcolor, new Color4());
                             graphics.SetUniform(UniformName.vertexColor, vertexcolor);
                             graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(vertexlight));
+                            SetClassicThingLight(t);
                             graphics.SetUniform(UniformName.vertexColorAdd, vertexadd);
                             SetThingProbe(t, false);
                             graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((t == highlighted) && showhighlight, (t.Selected && showselection)));
@@ -1332,6 +1334,13 @@ namespace CodeImp.DoomBuilder.Rendering
 			graphics.SetUniform(UniformName.lightoverride, new Vector4f());
 			graphics.SetUniform(UniformName.vertexColorAdd, new Color4());
 			graphics.SetUniform(UniformName.thingprobe, new Vector4f());
+			graphics.SetUniform(UniformName.classicLightOverride, 0);
+		}
+
+		// Classic rendering lights a sprite at its unglowed level, as the software renderer has no sprite glow
+		private void SetClassicThingLight(VisualThing t)
+		{
+			graphics.SetUniform(UniformName.classicLightOverride, General.Settings.ClassicRendering ? t.ClassicLight : 0);
 		}
 
 		// The baked probe light of a thing (the engine skips fullbright sprites, never models), or none
@@ -1652,6 +1661,7 @@ namespace CodeImp.DoomBuilder.Rendering
                         graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
                         graphics.SetUniform(UniformName.vertexColor, vertexcolor);
                         graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(vertexlight));
+                        SetClassicThingLight(t);
                         graphics.SetUniform(UniformName.vertexColorAdd, vertexadd);
                         SetThingProbe(t, false);
                         graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((t == highlighted) && showhighlight, (t.Selected && showselection)));

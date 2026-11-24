@@ -265,6 +265,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			int sectorcolor = new PixelColor(alpha, 255, 255, 255).ToInt();
 			int sectorlight = mode.CalculateLight(255); // Bright things (and things with no level above): full light, still under black fog as in UZDoom
 			fogfactor = 0f; //mxd
+			classiclight = 0;
 			
 			//mxd. Check thing size 
 			float thingradius = Thing.Size; // Thing.Size has ThingRadius arg override applied
@@ -333,6 +334,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 						// Black fog follows the glowed light, except in a sector with 3D floors, where UZDoom fogs each light slice by its unglowed light
 						sectorlight = LightModel.PackLight(glowed, glowed, sd.ExtraFloors.Count > 0 ? brightness : glowed);
+						classiclight = brightness + 1;
 
                         // [ZZ] if sector is using Doom64 lighting, apply thing color here.
                         sectorcolor = PixelColor.Modulate(sd.ColorSprites, level.colorbelow).WithAlpha(alpha).ToInt();

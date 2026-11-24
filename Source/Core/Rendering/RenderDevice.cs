@@ -78,6 +78,7 @@ namespace CodeImp.DoomBuilder.Rendering
             DeclareUniform(UniformName.colormapSize, "colormapSize", UniformType.Vec2i);
             DeclareUniform(UniformName.doomlightlevels, "doomlightlevels", UniformType.Int);
             DeclareUniform(UniformName.sectorLightLevel, "sectorLightLevel", UniformType.Int);
+            DeclareUniform(UniformName.classicLightOverride, "classicLightOverride", UniformType.Int);
 
             DeclareUniform(UniformName.skew, "skew", UniformType.Vec2f);
 			DeclareUniform(UniformName.brightmapEnabled, "brightmapEnabled", UniformType.Float);
@@ -932,7 +933,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		lightparams,
 		specularMaterial,
 		lightmapinfo,
-		thingprobe
+		thingprobe,
+		classicLightOverride
     }
 
     public enum VertexFormat : int { Flat, World }

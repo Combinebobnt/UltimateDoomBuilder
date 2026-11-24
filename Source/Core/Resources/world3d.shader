@@ -46,6 +46,8 @@ uniforms
 	ivec2 colormapSize;
 	int doomlightlevels;
 	int sectorLightLevel;
+	// A thing's classic level plus one, 0 to read the Light attribute
+	int classicLightOverride;
 
 	// dynamic light related
 	vec4 lightPosAndRadius[64];
@@ -206,9 +208,19 @@ functions
         return int(result);
     }
 
+	// A thing's unglowed level when set (the software renderer has no sprite glow), else the Light attribute
 	int classicLightLevel(vec3 color, vec4 light)
 	{
+		if (classicLightOverride > 0) return classicLightOverride - 1;
 		return light.a < 0.5 ? lightLevelFromVertexColor(color) : int(attrLightLevel(light));
+	}
+
+	// The software renderer's sector colormap (r_swcolormaps.cpp BuildLights) over the COLORMAP pick: desaturated, faded by row, times the light colour
+	vec4 classicColor(int entry, float alpha, vec4 color, vec4 light, int row)
+	{
+		vec3 c = desaturate(getColorMappedColor(entry, row)).rgb + sectorfogcolor.rgb * (float(row) / 32.0);
+		vec3 lightcolor = light.a < 0.5 ? vec3(1.0) : color.rgb;
+		return vec4(c * lightcolor, alpha);
 	}
         
     int classicLightLevelToColorMapOffset(int lightLevel, vec3 position, vec3 normal, bool hvmod)
@@ -716,8 +728,7 @@ shader world3d_classic extends world3d_main
 		    float alpha = color.a;
 		    int lightLevel = classicLightLevel(v2f.flatColor.rgb, v2f.Light);
             int colorMapOffset = classicLightLevelToColorMapOffset(lightLevel, v2f.PosW, v2f.flatNormal, false);
-            pcolor = getColorMappedColor(entry, colorMapOffset);
-            pcolor.a = alpha;
+            pcolor = classicColor(entry, alpha, v2f.Color, v2f.Light, colorMapOffset);
 		}
 		else
 		{
@@ -746,8 +757,7 @@ shader world3d_classic_highlight extends world3d_main
             int lightLevel = classicLightLevel(v2f.flatColor.rgb, v2f.Light);
             int modifiedLightLevel = max(lightLevel, 128);	 
             int colorMapOffset = classicLightLevelToColorMapOffset(modifiedLightLevel, v2f.PosW, v2f.flatNormal, false);
-            pcolor = getColorMappedColor(entry, colorMapOffset);
-            pcolor.a = alpha;
+            pcolor = classicColor(entry, alpha, v2f.Color, v2f.Light, colorMapOffset);
         }
         else
         {
