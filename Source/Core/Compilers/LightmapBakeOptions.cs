@@ -377,17 +377,18 @@ namespace CodeImp.DoomBuilder.Compilers
 		public static LightmapBakerFeatures Probe(string path)
 		{
 			if(string.IsNullOrEmpty(path) || !File.Exists(path)) return None;
-			FileInfo info = new FileInfo(path);
-			string key = info.FullName + "|" + info.Length + "|" + info.LastWriteTimeUtc.Ticks;
-			lock(cachelock)
-			{
-				LightmapBakerFeatures cached;
-				if(cache.TryGetValue(key, out cached)) return cached;
-			}
-
 			LightmapBakerFeatures result = None;
+			string key;
 			try
 			{
+				FileInfo info = new FileInfo(path);
+				key = info.FullName + "|" + info.Length + "|" + info.LastWriteTimeUtc.Ticks;
+				lock(cachelock)
+				{
+					LightmapBakerFeatures cached;
+					if(cache.TryGetValue(key, out cached)) return cached;
+				}
+
 				ProcessStartInfo start = new ProcessStartInfo
 				{
 					FileName = path,

@@ -293,7 +293,7 @@ namespace Builder.Tests
 		{
 			// 4095 bytes: a 4096-byte read of the lump stream returns one byte of whatever follows
 			byte[] lightmap = new byte[4095];
-			new Random(168).NextBytes(lightmap);
+			new Random(4095).NextBytes(lightmap);
 			string expected;
 			using(var sha = System.Security.Cryptography.SHA256.Create())
 				expected = BitConverter.ToString(sha.ComputeHash(lightmap)).Replace("-", "").ToLowerInvariant();

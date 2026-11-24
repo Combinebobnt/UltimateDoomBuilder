@@ -33,6 +33,16 @@ namespace Builder.Tests
 			Assert.False(LightmapBakerFeatures.Parse("zdray-features 1\nnot a token\n").Has("not a token"));
 		}
 
+		[Fact]
+		public void GpuSampleSkipIsNoticed()
+		{
+			var progress = new LightmapBakeProgress();
+			progress.Feed("Thing lights: 3\nRay tracing in progress...\n", false);
+			Assert.False(progress.GpuIgnoredSamples);
+			progress.Feed("GPU ray tracing ignores --samples and --bounce-samples\n", false);
+			Assert.True(progress.GpuIgnoredSamples);
+		}
+
 		#endregion
 
 		#region Arguments

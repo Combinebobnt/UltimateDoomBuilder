@@ -2734,7 +2734,14 @@ namespace CodeImp.DoomBuilder
 			}
 
 			ResetLightmapCache("a new bake replaces it");
-			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString(), job.Quality, lumpsha);
+			LightmapBakeQuality quality = job.Quality;
+			if(quality != null && job.Baker.GpuIgnoredSamples)
+			{
+				quality = quality.Clone();
+				quality.Samples = 256;
+				quality.BounceSamples = 2048;
+			}
+			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString(), quality, lumpsha);
 			lightmapsourceversion++;
 			ClearLightmapStale();
 			double seconds = job.Baker.Elapsed.TotalSeconds;
@@ -2744,7 +2751,7 @@ namespace CodeImp.DoomBuilder
 			IsChanged = true;
 			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + "." +
 				(job.EmissiveSummary != null ? " " + job.EmissiveSummary + "." : "") + " Save or Test to use it.";
-			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary + (job.Quality != null ? ", quality " + job.Quality.Describe() : ""));
+			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary + (quality != null ? ", quality " + quality.Describe() : ""));
 			return true;
 		}
 

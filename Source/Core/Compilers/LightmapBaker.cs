@@ -128,6 +128,7 @@ namespace CodeImp.DoomBuilder.Compilers
 		private readonly Dictionary<bool, string> partial = new Dictionary<bool, string> { { false, "" }, { true, "" } };
 
 		public string Stage { get; private set; }
+		public bool GpuIgnoredSamples { get; private set; } // the GPU tracer ran at its own sample counts
 		public double Fraction { get; private set; } // -1 when unknown
 
 		public LightmapBakeProgress()
@@ -179,6 +180,7 @@ namespace CodeImp.DoomBuilder.Compilers
 			else
 			{
 				if(s == "Ray tracing in progress...") { Stage = "Ray tracing"; Fraction = 0; }
+				else if(s.StartsWith("GPU ray tracing ignores --samples", StringComparison.Ordinal)) GpuIgnoredSamples = true;
 				else if(s == "Ray tracing complete") { Stage = "Writing output"; Fraction = -1; }
 				lines.Enqueue(s);
 				while(lines.Count > MAX_LINES) lines.Dequeue();
@@ -211,6 +213,7 @@ namespace CodeImp.DoomBuilder.Compilers
 
 		public bool Cancelled { get { return cancelled; } }
 		public TimeSpan Elapsed { get { return timer.Elapsed; } }
+		public bool GpuIgnoredSamples { get { lock(sync) return progress.GpuIgnoredSamples; } }
 
 		// Arguments in zdbsp style: GL nodes in XGLN form, as UDB's zdbsp profiles write them
 		public static string BuildArguments(LightmapBakeSettings settings, int processorcount, string mapname, string inputfile, string outputfile, string emissivefile = null)
