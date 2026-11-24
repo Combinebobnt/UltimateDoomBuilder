@@ -158,6 +158,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			PairWithMenu(buttonflipselectionv, itemflipselectionv, MenuSection.EditGeometry);
 			PairWithMenu(buttonrotateselection90ccw, itemrotateselection90ccw, MenuSection.EditGeometry);
 			PairWithMenu(buttonrotateselection90cw, itemrotateselection90cw, MenuSection.EditGeometry);
+
+			AddActionMenuItems();
 		}
 
 		#endregion
@@ -222,6 +224,83 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				toggle.CheckedChanged += delegate { item.Checked = toggle.Checked; };
 				toggle.TextChanged += delegate { item.Text = toggle.Text; };
 			}
+		}
+
+		// Entries for classic-mode actions that otherwise only had a key
+		private void AddActionMenuItems()
+		{
+			ToolStripMenuItem heights = new ToolStripMenuItem("Heights and &Brightness");
+			heights.DropDownItems.AddRange(new ToolStripItem[] {
+				ActionItem("Raise Floor by 8", "raisefloor8"),
+				ActionItem("Lower Floor by 8", "lowerfloor8"),
+				ActionItem("Raise Ceiling by 8", "raiseceiling8"),
+				ActionItem("Lower Ceiling by 8", "lowerceiling8"),
+				new ToolStripSeparator(),
+				ActionItem("Increase Brightness by 8", "raisebrightness8"),
+				ActionItem("Decrease Brightness by 8", "lowerbrightness8") });
+			ToolStripItem[] sectoritems = { heights, ActionItem("Rotate Flats Clockwise", "rotateclockwise"),
+				ActionItem("Rotate Flats Counterclockwise", "rotatecounterclockwise") };
+			sectorsmenu.DropDownItems.Add(new ToolStripSeparator());
+			sectorsmenu.DropDownItems.AddRange(sectoritems);
+			EnableInMode(sectorsmenu, typeof(SectorsMode), sectoritems);
+
+			int index = thingsmenu.DropDownItems.IndexOf(pointAtCursorItem) + 1;
+			ToolStripItem[] thingitems = { ActionItem("Rotate Clockwise", "rotateclockwise"),
+				ActionItem("Rotate Counterclockwise", "rotatecounterclockwise") };
+			thingsmenu.DropDownItems.Insert(index, thingitems[0]);
+			thingsmenu.DropDownItems.Insert(index + 1, thingitems[1]);
+			EnableInMode(thingsmenu, typeof(ThingsMode), thingitems);
+
+			// Edit Selection mode: on the Edit menu while its rotate button is on the toolbar
+			ToolStripMenuItem pivot = ActionItem("Pivot at 2D Cursor", "toggle2dcursorpivot");
+			ToolStripMenuItem transform = new ToolStripMenuItem("&Move and Rotate Selection");
+			transform.DropDownItems.AddRange(new ToolStripItem[] {
+				ActionItem("Move Up by Grid Size", "moveselectionup"),
+				ActionItem("Move Down by Grid Size", "moveselectiondown"),
+				ActionItem("Move Left by Grid Size", "moveselectionleft"),
+				ActionItem("Move Right by Grid Size", "moveselectionright"),
+				new ToolStripSeparator(),
+				ActionItem("Rotate Clockwise", "rotateclockwise"),
+				ActionItem("Rotate Counterclockwise", "rotatecounterclockwise"),
+				new ToolStripSeparator(),
+				pivot });
+			transform.DropDownOpening += delegate
+			{
+				EditSelectionMode mode = General.Editing.Mode as EditSelectionMode;
+				pivot.Checked = (mode != null) && mode.PivotAt2DCursor;
+			};
+			PairWithMenu(buttonrotateselection90cw, transform, MenuSection.EditGeometry);
+		}
+
+		// A menu item that runs an action by its tag; AddMenu prefixes the tag with the plugin name
+		internal static ToolStripMenuItem ActionItem(string text, string action)
+		{
+			ToolStripMenuItem item = new ToolStripMenuItem(text) { Tag = action };
+			item.Click += General.Interface.InvokeTaggedAction;
+			return item;
+		}
+
+		// Finish and vertex-removal entries for a drawing mode's menu
+		internal static void AddDrawingItems(ToolStripMenuItem menu, bool rotate)
+		{
+			if(menu.DropDownItems.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
+			menu.DropDownItems.Add(ActionItem("&Finish Drawing", "finishdraw"));
+			menu.DropDownItems.Add(ActionItem("Remove &Last Vertex", "removepoint"));
+			menu.DropDownItems.Add(ActionItem("Remove F&irst Vertex", "removefirstpoint"));
+			if(!rotate) return;
+			menu.DropDownItems.Add(new ToolStripSeparator());
+			menu.DropDownItems.Add(ActionItem("Rotate Clockwise", "rotateclockwise"));
+			menu.DropDownItems.Add(ActionItem("Rotate Counterclockwise", "rotatecounterclockwise"));
+		}
+
+		// The menu stays up in volatile modes started from its mode, which bind these actions differently or not at all
+		private static void EnableInMode(ToolStripMenuItem menu, Type modetype, ToolStripItem[] items)
+		{
+			menu.DropDownOpening += delegate
+			{
+				bool enabled = (General.Editing.Mode != null) && (General.Editing.Mode.GetType() == modetype);
+				foreach(ToolStripItem item in items) item.Enabled = enabled;
+			};
 		}
 
 		// A top-level menu mirroring an options panel's buttons; the panel adds and removes it with its buttons

@@ -236,6 +236,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			SetupMacroInterface();
+			SetupActionMenus();
 			SetupToolbarDock();
 
 			pluginbuttons = new List<PluginToolbarButton>();

@@ -48,7 +48,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(radialcopieslabel);
 			General.Interface.AddButton(radialcopies);
 			General.Interface.EndToolbarUpdate();
-			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, showguidelines, mirrorx, mirrory, radialsymmetry);
+			if(menu == null)
+			{
+				menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, showguidelines, mirrorx, mirrory, radialsymmetry);
+				MenusForm.AddDrawingItems(menu, false);
+			}
 			MenusForm.ShowPanelMenu(menu);
 		}
 

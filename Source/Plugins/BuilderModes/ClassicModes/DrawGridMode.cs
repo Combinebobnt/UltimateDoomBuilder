@@ -64,6 +64,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Interface
 		private DrawGridOptionsPanel panel;
 		private Docker docker;
+		private ToolStripMenuItem drawmenu;
 
 		#endregion
 
@@ -590,6 +591,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			docker = new Docker("drawgrid", "Draw Grid", panel);
 			General.Interface.AddDocker(docker, true);
 			General.Interface.SelectDocker(docker);
+
+			// The options live in a docker, so the drawing actions get a menu of their own
+			if(drawmenu == null)
+			{
+				drawmenu = new ToolStripMenuItem("&Draw");
+				MenusForm.AddDrawingItems(drawmenu, false);
+			}
+			MenusForm.ShowPanelMenu(drawmenu);
 		}
 
 		protected override void RemoveInterface()
@@ -606,6 +615,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Settings.WritePluginSetting("drawgridmode.showguidelines", panel.ShowGuidelines);
 
 			// Remove docker
+			General.Interface.RemoveMenu(drawmenu);
 			General.Interface.RemoveDocker(docker);
 			panel.Dispose();
 			panel = null;

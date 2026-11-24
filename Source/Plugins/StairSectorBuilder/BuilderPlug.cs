@@ -20,6 +20,8 @@ using System.Collections.Generic;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Plugins;
 using CodeImp.DoomBuilder.Actions;
+using CodeImp.DoomBuilder.Windows;
+using System.Windows.Forms;
 
 #endregion
 
@@ -102,6 +104,8 @@ namespace CodeImp.DoomBuilder.StairSectorBuilderMode
 
         public List<Prefab> Prefabs { get { return prefabs; } }
 
+		private ToolStripMenuItem outlineitem;
+
 		// This plugin relies on some functionality that wasn't there in older versions
 		public override int MinimumRevision { get { return 1310; } }
 
@@ -127,6 +131,13 @@ namespace CodeImp.DoomBuilder.StairSectorBuilderMode
 
 			// Register toasts
 			General.ToastManager.RegisterToast(ToastMessages.ENGAGEFAILED, "Stair Sector Builder Mode starting failed", "When no linedefs or sectors are selected when entering Stair Sector Builder Mode");
+
+			// Edit menu entry; the action needs selected sectors
+			outlineitem = new ToolStripMenuItem("Select Sectors &Outline") { Tag = "selectsectorsoutline" };
+			outlineitem.Click += General.Interface.InvokeTaggedAction;
+			General.Interface.AddMenu(outlineitem, MenuSection.EditGeometry);
+			ToolStripMenuItem editmenu = outlineitem.OwnerItem as ToolStripMenuItem;
+			if(editmenu != null) editmenu.DropDownOpening += delegate { outlineitem.Enabled = (General.Map != null) && (General.Map.Map.SelectedSectorsCount > 0); };
 		}
 
 		// This is called when the plugin is terminated
@@ -136,6 +147,7 @@ namespace CodeImp.DoomBuilder.StairSectorBuilderMode
 
 			// This must be called to remove bound methods for actions.
             General.Actions.UnbindMethods(this);
+			if(outlineitem != null) General.Interface.RemoveMenu(outlineitem);
         }
 
         #region ================== Actions

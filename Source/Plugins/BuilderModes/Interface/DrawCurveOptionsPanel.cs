@@ -39,7 +39,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(seglen);
 			General.Interface.AddButton(reset);
 			General.Interface.EndToolbarUpdate();
-			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, placethingsatvertices, toolStripSeparator1, reset);
+			if(menu == null)
+			{
+				menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, placethingsatvertices, toolStripSeparator1, reset);
+				MenusForm.AddDrawingItems(menu, false);
+			}
 			MenusForm.ShowPanelMenu(menu);
 		}
 
