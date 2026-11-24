@@ -63,6 +63,24 @@ static void CheckUnitBounds()
 	device.SetTexture(GLRenderDevice::MaxTextureUnits - 1, nullptr);
 }
 
+// A partial array upload that grows back must re-upload even when its new tail is zeros, since the GPU kept the old tail
+static void CheckUniformResize()
+{
+	GLRenderDevice device(nullptr, nullptr, false);
+	const UniformName name = 0;
+	device.DeclareUniform(name, "lightOrientation", UniformType::Vec4fArray);
+	float spots[8] = { 1, 0, 0, 1, 0, 1, 0, 1 }, zeros[8] = {};
+	device.SetUniform(name, spots, 2, sizeof(spots));
+	int before = device.mUniformInfo[name].LastUpdate;
+	device.SetUniform(name, spots, 2, sizeof(spots));
+	Require(device.mUniformInfo[name].LastUpdate == before, "identical data counted as a change");
+	device.SetUniform(name, zeros, 1, 4 * sizeof(float));
+	before = device.mUniformInfo[name].LastUpdate;
+	device.SetUniform(name, zeros, 2, sizeof(zeros));
+	Require(device.mUniformInfo[name].LastUpdate != before, "a grown array with a zero tail was not re-uploaded");
+	Require(device.mUniformInfo[name].Count == 2, "grown array kept its old count");
+}
+
 int main()
 {
 	try
@@ -70,7 +88,8 @@ int main()
 		CheckDeletion(false);
 		CheckDeletion(true);
 		CheckUnitBounds();
-		std::puts("passed 3 failed 0: worker enqueue, render-thread delete and finalize, unit bounds");
+		CheckUniformResize();
+		std::puts("passed 4 failed 0: worker enqueue, render-thread delete and finalize, unit bounds, uniform resize");
 		return 0;
 	}
 	catch (const std::exception& e)

@@ -1562,11 +1562,6 @@ namespace CodeImp.DoomBuilder.Rendering
 			}
 		}
 
-        private float CosDeg(float angle)
-        {
-            return (float)Math.Cos(Angle2D.DegToRad(angle));
-        }
-
         //mxd. Render models
         private void RenderModels(bool trans, List<VisualThing> lights) 
 		{
@@ -1804,7 +1799,7 @@ namespace CodeImp.DoomBuilder.Rendering
                         Vector3f lookAt = lt.VectorLookAt;
                         L.Normalize();
                         float cosDir = Vector3f.Dot(-L, lookAt);
-                        scaler *= (float)Smoothstep(CosDeg(lt.LightSpotRadius2), CosDeg(lt.LightSpotRadius1), cosDir);
+                        scaler *= (float)Smoothstep(SurfaceLights.CosDeg(lt.LightSpotRadius2), SurfaceLights.CosDeg(lt.LightSpotRadius1), cosDir);
                     }
 
                     if (scaler > 0)

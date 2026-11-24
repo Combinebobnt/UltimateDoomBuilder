@@ -89,10 +89,15 @@ namespace Builder.Tests
 		public void PackOrdersSelectedLightsAndTerminatesColours()
 		{
 			SurfaceLights s = WithLights(new[] { Box(0, 0, 0, 100), Box(5000, 0, 0, 10), Box(50, 0, 0, 100) });
+			s.Select(Box(2500, 0, 0, 2500));
+			Assert.Equal(3, s.SelectedCount);
+			Assert.Equal(4, s.Pack());
+			float[] c = s.PackedColors;
+			Assert.Equal(0.5f, c[11]); // slot 2's alpha before the next pack terminates there
+
 			s.Select(Box(0, 0, 0, 10));
 			Assert.Equal(2, s.SelectedCount);
 			Assert.Equal(3, s.Pack());
-			float[] c = s.PackedColors;
 			Assert.Equal(0f, c[0]);
 			Assert.Equal(2f, c[4]);
 			Assert.Equal(0f, c[11]); // terminator alpha
@@ -101,7 +106,7 @@ namespace Builder.Tests
 
 			s.Select(Box(5000, 5000, 0, 1));
 			Assert.Equal(1, s.Pack());
-			Assert.Equal(0f, s.PackedColors[3]);
+			Assert.Equal(0f, c[3]);
 		}
 
 		[Fact]

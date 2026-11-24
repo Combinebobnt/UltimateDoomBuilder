@@ -36,7 +36,6 @@ namespace CodeImp.DoomBuilder.Rendering
 		private readonly float[] upspotradius = new float[MAX_PER_SURFACE * 2];
 		private readonly float[] upstrength = new float[MAX_PER_SURFACE * 2];
 
-		internal int Count { get { return count; } }
 		internal int SelectedCount { get { return selectedcount; } }
 		internal int Selected(int index) { return selected[index]; }
 
@@ -146,8 +145,6 @@ namespace CodeImp.DoomBuilder.Rendering
 		// Packed arrays as the last Pack left them
 		internal float[] PackedColors { get { return upcolor; } }
 		internal float[] PackedPositions { get { return upposition; } }
-		internal float[] PackedOrientations { get { return uporientation; } }
-		internal float[] PackedSpotRadii { get { return upspotradius; } }
 		internal float[] PackedStrengths { get { return upstrength; } }
 
 		private static void Put4(float[] dest, int index, Vector4f v)
@@ -155,7 +152,7 @@ namespace CodeImp.DoomBuilder.Rendering
 			dest[index * 4] = v.X; dest[index * 4 + 1] = v.Y; dest[index * 4 + 2] = v.Z; dest[index * 4 + 3] = v.W;
 		}
 
-		private static float CosDeg(float angle)
+		internal static float CosDeg(float angle)
 		{
 			return (float)Math.Cos(Angle2D.DegToRad(angle));
 		}

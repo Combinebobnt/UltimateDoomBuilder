@@ -295,9 +295,11 @@ namespace CodeImp.DoomBuilder.Rendering
             RenderDevice_SetUniform(Handle, uniform, v, 1, sizeof(float) * 4);
         }
 
-        // The first elements of a packed float array uniform; elements past them keep their previous values
+        // The first elements of a packed float array uniform; the shader's elements past them keep older values
         public void SetUniformArray(UniformName uniform, float[] data, int elements, int floatsperelement)
         {
+            if(elements < 0 || floatsperelement < 1 || elements * floatsperelement > data.Length)
+                throw new ArgumentOutOfRangeException("elements");
             RenderDevice_SetUniform(Handle, uniform, data, elements, sizeof(float) * floatsperelement * elements);
         }
 

@@ -791,10 +791,12 @@ void GLRenderDevice::SetUniform(UniformName name, const void* values, int count,
 {
 	// "count" should be in bytes now
 	UniformInfo& info = mUniformInfo[(int)name];
+	// A partial array upload leaves the GPU's tail as it was, so a resize is a change even when the bytes match
+	bool resized = info.Data.size() != (size_t)bytesize;
 	info.Count = count;
 	info.Data.resize(bytesize);
 	uint8_t* dest = info.Data.data();
-	if (memcmp(dest, values, bytesize) != 0)
+	if (resized || memcmp(dest, values, bytesize) != 0)
 	{
 		memcpy(dest, values, bytesize);
 		mUniformInfo[(int)name].LastUpdate++;
