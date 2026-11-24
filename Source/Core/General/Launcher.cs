@@ -45,7 +45,7 @@ namespace CodeImp.DoomBuilder
 		#region ================== Enums
 
 		// What Test does about a bake its save could not write
-		internal enum StaleLightmapAction { None, Warn, Ask }
+		internal enum StaleLightmapAction { None, Warn, Ask, Rebake }
 
 		#endregion
 
@@ -54,6 +54,7 @@ namespace CodeImp.DoomBuilder
 		private string tempwad;
 		private Dictionary<Process, string> processes; //mxd
 		private bool isdisposed;
+		private bool retestingafterbake; // The Test after an auto-bake never auto-bakes again
 
 		private static Dictionary<int, string> additionalexceptiontext = new Dictionary<int, string>() {
 			{ 216,
@@ -152,11 +153,12 @@ namespace CodeImp.DoomBuilder
 			return (string.IsNullOrEmpty(args) ? parameter.Trim() : args + " " + parameter.Trim());
 		}
 
-		// Asks once per stale episode, then only warns; a save that wrote a lightmap needs neither
-		internal static StaleLightmapAction StaleLightmapNotice(bool savedwithlightmap, bool stale, bool asked)
+		// Asks (or, opted in, rebakes) once per stale episode, then only warns; a save that wrote a lightmap needs neither
+		internal static StaleLightmapAction StaleLightmapNotice(bool savedwithlightmap, bool stale, bool asked, bool autobake)
 		{
 			if(savedwithlightmap || !stale) return StaleLightmapAction.None;
-			return (asked ? StaleLightmapAction.Warn : StaleLightmapAction.Ask);
+			if(asked) return StaleLightmapAction.Warn;
+			return (autobake ? StaleLightmapAction.Rebake : StaleLightmapAction.Ask);
 		}
 
 		// The stale-lightmap question offers a rebake only when the map can be baked; testing without is the default
@@ -381,7 +383,7 @@ namespace CodeImp.DoomBuilder
 			
 			// Save map to temporary file
 			Cursor.Current = Cursors.WaitCursor;
-			bool rebake = false;
+			bool rebake = false, autorebake = false;
 			General.Plugins.OnMapSaveBegin(SavePurpose.Testing);
 			if(General.Map.SaveMap(tempwad, SavePurpose.Testing))
 			{
@@ -391,8 +393,16 @@ namespace CodeImp.DoomBuilder
 				if (General.Map.Errors.Count == 0)
 				{
 					// The map had a bake this save could not write
-					StaleLightmapAction stalenotice = StaleLightmapNotice(General.Map.SavedWithLightmap, General.Map.LightmapStale, General.Map.LightmapStaleAsked);
-					if (stalenotice == StaleLightmapAction.Ask)
+					StaleLightmapAction stalenotice = StaleLightmapNotice(General.Map.SavedWithLightmap, General.Map.LightmapStale, General.Map.LightmapStaleAsked, !retestingafterbake && General.Map.AutoBakesOnTest());
+					if (stalenotice == StaleLightmapAction.Rebake)
+					{
+						// Marked first, so a failed or cancelled auto-bake tests without it and only warns
+						General.Map.MarkLightmapStaleAsked();
+						General.WriteLogLine("Stale lightmap on Test: auto-bake");
+						rebake = autorebake = canceled = true;
+						Cursor.Current = oldcursor;
+					}
+					else if (stalenotice == StaleLightmapAction.Ask)
 					{
 						General.Map.MarkLightmapStaleAsked();
 						MessageBoxButtons buttons;
@@ -508,7 +518,13 @@ namespace CodeImp.DoomBuilder
 			General.Editing.Mode.OnMapTestEnd(testfromcurrentposition); //mxd
 
 			// Only once the aborted test has unwound, so a moved player start is back before the bake copies the map
-			if(rebake && General.Map.ShowLightmapBakeForm(true)) TestAtSkill(skill, testfromcurrentposition);
+			// An auto-bake tests either way: after a failure the stale episode only warns, so F9 still launches
+			if(rebake && (General.Map.ShowLightmapBakeForm(true, autorebake) || autorebake))
+			{
+				retestingafterbake = autorebake;
+				try { TestAtSkill(skill, testfromcurrentposition); }
+				finally { retestingafterbake = false; }
+			}
 		}
 
 		//mxd

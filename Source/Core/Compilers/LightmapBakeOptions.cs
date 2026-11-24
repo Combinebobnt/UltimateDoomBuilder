@@ -289,6 +289,7 @@ namespace CodeImp.DoomBuilder.Compilers
 	{
 		private const string PREFIX = "lightmapbake.";
 		private static readonly string[] AUTOBAKE_NAMES = { "off", "test", "saveandtest" };
+		public static readonly string[] AUTOBAKE_LABELS = { "Off", "On Test", "On Save and Test" }; // in LightmapAutoBake order
 
 		public LightmapBakeQuality Quality; // null: the program-wide values apply
 		public LightmapAutoBake AutoBake = LightmapAutoBake.Off;

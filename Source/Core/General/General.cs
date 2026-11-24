@@ -1653,6 +1653,7 @@ namespace CodeImp.DoomBuilder
 					result = true;
 				}
 				plugins.OnMapSaveEnd(SavePurpose.Normal);
+				result = AutoBakeAfterSave(result);
 
 				// All done
 				mainwindow.UpdateInterface();
@@ -1743,6 +1744,7 @@ namespace CodeImp.DoomBuilder
 						result = true;
 					}
 					plugins.OnMapSaveEnd(SavePurpose.AsNewFile);
+					result = AutoBakeAfterSave(result);
 					
 					// All done
 					mainwindow.UpdateInterface();
@@ -1835,6 +1837,7 @@ namespace CodeImp.DoomBuilder
 					result = true;
 				}
 				plugins.OnMapSaveEnd(SavePurpose.IntoFile);
+				result = AutoBakeAfterSave(result);
 
 				// All done
 				mainwindow.UpdateInterface();
@@ -1865,6 +1868,14 @@ namespace CodeImp.DoomBuilder
 			return result;
 		}
 		
+		// An opted-in map whose bake the save couldn't write rebakes now, after the save, then saves
+		// again into the file it now lives in. A failed bake leaves the first save as it is.
+		private static bool AutoBakeAfterSave(bool saved)
+		{
+			if(!saved || !map.RunAutoBakeAfterSave()) return saved;
+			return map.SaveAfterAutoBake(SaveMap);
+		}
+
 		// Save As/Into naming the archive the map came from would overwrite the whole archive with a WAD
 		private static bool IsSourceArchive(string savefilename)
 		{

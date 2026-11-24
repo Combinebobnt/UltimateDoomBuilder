@@ -63,6 +63,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private LightmapBakeJob job;
 		private bool showingresult;
 		private readonly bool autostart;
+		private readonly bool closeonsuccess;
 		private bool bakesucceeded;
 		private Task<LightmapBakerFeatures> probe; // --features of the baker at probepath
 		private string probepath;
@@ -84,12 +85,14 @@ namespace CodeImp.DoomBuilder.Windows
 
 		#region ================== Constructor
 
-		public LightmapBakeForm() : this(false) { }
+		public LightmapBakeForm() : this(false, false) { }
 
-		// With autostart, Bake is pressed as the form shows, when nothing stops a bake
-		public LightmapBakeForm(bool autostart)
+		// With autostart, Bake is pressed as the form shows, when nothing stops a bake. An auto-bake
+		// also closes the form once its bake succeeds; a failure stays open to show why.
+		public LightmapBakeForm(bool autostart, bool closeonsuccess)
 		{
 			this.autostart = autostart;
+			this.closeonsuccess = closeonsuccess;
 			Text = "Bake Lightmaps";
 			FormBorderStyle = FormBorderStyle.Sizable;
 			MaximizeBox = false;
@@ -197,7 +200,6 @@ namespace CodeImp.DoomBuilder.Windows
 
 			foreach(LightmapBakeOption o in LightmapBakeOptions.OnTab(tab))
 			{
-				if(o.Id == "autobake") continue; // a row the form doesn't offer yet
 				Row r = new Row { Option = o };
 				r.Note = new Label { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = SystemColors.GrayText, Visible = false };
 				int row = table.RowCount++;
@@ -288,6 +290,12 @@ namespace CodeImp.DoomBuilder.Windows
 					ComboBox combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160, Anchor = AnchorStyles.Left };
 					if(o.Id == "preset") foreach(LightmapQualityPreset p in Enum.GetValues(typeof(LightmapQualityPreset))) combo.Items.Add(p);
 					else if(o.Id == "texturesize") foreach(int size in LightmapBakeSettings.TEXTURE_SIZES) combo.Items.Add(size);
+					else if(o.Id == "autobake")
+					{
+						combo.Items.AddRange(LightmapBakeMapSettings.AUTOBAKE_LABELS);
+						tips.SetToolTip(combo, "Rebakes a map that has a bake when a save can no longer write it, or (On Save) when the saved bake is below the map's quality, " +
+							"then saves or tests. A failed or cancelled auto-bake isn't retried until the next bake.");
+					}
 					combo.SelectedIndexChanged += delegate { if(combo.SelectedItem != null) Changed(o, combo.SelectedItem); };
 					return combo;
 				}
@@ -452,6 +460,7 @@ namespace CodeImp.DoomBuilder.Windows
 					return quality.Value(o.Id);
 				case LightmapOptionKind.MapSetting:
 					if(o.Id == "preset") return quality.Preset;
+					if(o.Id == "autobake") return LightmapBakeMapSettings.AUTOBAKE_LABELS[(int)General.Map.Options.LightmapBake.AutoBake];
 					return quality.TextureSize;
 				case LightmapOptionKind.ProgramSetting:
 					if(o.Id == "bakerpath") return Settings.BakerPath;
@@ -493,6 +502,12 @@ namespace CodeImp.DoomBuilder.Windows
 					break;
 
 				case LightmapOptionKind.MapSetting:
+					if(o.Id == "autobake")
+					{
+						// Saved with the map's .dbs on its next Save
+						General.Map.Options.LightmapBake.AutoBake = (LightmapAutoBake)Array.IndexOf(LightmapBakeMapSettings.AUTOBAKE_LABELS, (string)value);
+						break;
+					}
 					if(o.Id == "preset")
 					{
 						LightmapQualityPreset preset = (LightmapQualityPreset)value;
@@ -820,7 +835,11 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			int exitcode;
-			if(job.Baker.Poll(out exitcode)) Finish(exitcode);
+			if(job.Baker.Poll(out exitcode))
+			{
+				Finish(exitcode);
+				if(bakesucceeded && closeonsuccess) Close();
+			}
 		}
 
 		private void Finish(int exitcode)

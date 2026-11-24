@@ -595,17 +595,46 @@ namespace Builder.Tests
 			Assert.Equal(expected, Launcher.AddLightmapParameter(args, haslightmap, parameter));
 		}
 
-		[Theory]
-		[InlineData(true, false, false, "None")]
-		[InlineData(true, true, false, "None")]
-		[InlineData(true, true, true, "None")]
-		[InlineData(false, false, false, "None")]
-		[InlineData(false, false, true, "None")]
-		[InlineData(false, true, false, "Ask")]
-		[InlineData(false, true, true, "Warn")]
-		public void TestAsksOncePerStaleBakeThenWarns(bool savedwithlightmap, bool stale, bool asked, string expected)
+		// Every input combination: a lightmap that was written needs nothing; a stale episode asks (or,
+		// opted in, auto-bakes) once, and after that, including after a failed auto-bake, only warns
+		[Fact]
+		public void TestAsksOrAutoBakesOncePerStaleBakeThenWarns()
 		{
-			Assert.Equal(expected, Launcher.StaleLightmapNotice(savedwithlightmap, stale, asked).ToString());
+			List<string> wrong = new List<string>();
+			foreach(bool savedwithlightmap in new[] { false, true })
+			foreach(bool stale in new[] { false, true })
+			foreach(bool asked in new[] { false, true })
+			foreach(bool autobake in new[] { false, true })
+			{
+				Launcher.StaleLightmapAction expected;
+				if(savedwithlightmap || !stale) expected = Launcher.StaleLightmapAction.None;
+				else if(asked) expected = Launcher.StaleLightmapAction.Warn;
+				else expected = (autobake ? Launcher.StaleLightmapAction.Rebake : Launcher.StaleLightmapAction.Ask);
+				Launcher.StaleLightmapAction got = Launcher.StaleLightmapNotice(savedwithlightmap, stale, asked, autobake);
+				if(got != expected) wrong.Add(string.Format("saved={0} stale={1} asked={2} autobake={3}: {4}, expected {5}", savedwithlightmap, stale, asked, autobake, got, expected));
+			}
+			Assert.Empty(wrong);
+		}
+
+		// Only a save into a file of an opted-in map that had a bake, once per stale episode or bake,
+		// with a baker that can run. Autosave, Test and close-time saves never auto-bake.
+		[Fact]
+		public void SaveAutoBakesOnlyWhenOptedInStaleAndNotDeclined()
+		{
+			List<string> wrong = new List<string>();
+			foreach(SavePurpose purpose in Enum.GetValues(typeof(SavePurpose)))
+			foreach(LightmapAutoBake optin in Enum.GetValues(typeof(LightmapAutoBake)))
+			foreach(bool stale in new[] { false, true })
+			foreach(bool below in new[] { false, true })
+			foreach(bool declined in new[] { false, true })
+			foreach(bool canbake in new[] { false, true })
+			{
+				bool intofile = (purpose == SavePurpose.Normal || purpose == SavePurpose.AsNewFile || purpose == SavePurpose.IntoFile);
+				bool expected = intofile && optin == LightmapAutoBake.OnSaveAndTest && (stale || below) && !declined && canbake;
+				if(MapManager.AutoBakeAfterSave(purpose, optin, stale, below, declined, canbake) != expected)
+					wrong.Add(string.Format("{0} {1} stale={2} below={3} declined={4} canbake={5}: expected {6}", purpose, optin, stale, below, declined, canbake, expected));
+			}
+			Assert.Empty(wrong);
 		}
 
 		[Fact]
