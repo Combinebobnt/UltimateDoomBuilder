@@ -62,6 +62,7 @@ namespace Builder.Tests
 			File.WriteAllText(outside, "");
 			try
 			{
+				// The absolute path only escapes on Windows; on Unix its leading slash is trimmed like any page's
 				foreach(string page in new[] { "../" + Path.GetFileName(outside), "gzdb/../../" + Path.GetFileName(outside), outside })
 				{
 					bool missing;

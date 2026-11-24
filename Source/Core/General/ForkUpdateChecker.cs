@@ -431,10 +431,18 @@ namespace CodeImp.DoomBuilder
 		}
 
 		// A child of the AppImage must not inherit the image's library and Mono paths
-		internal static void CleanAppImageEnvironment(ProcessStartInfo info)
+		private static void CleanAppImageEnvironment(ProcessStartInfo info)
 		{
 			if(string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPDIR"))) return;
 			foreach(string name in appimageenv) info.EnvironmentVariables.Remove(name);
+		}
+
+		// Opens a URL with the desktop's default handler; throws when xdg-open can't start
+		internal static void StartXdgOpen(string url)
+		{
+			ProcessStartInfo info = new ProcessStartInfo("xdg-open", "\"" + url.Replace("\"", "%22") + "\"") { UseShellExecute = false };
+			CleanAppImageEnvironment(info);
+			Process.Start(info);
 		}
 
 		internal static void OpenReleasePage(string url)
@@ -444,9 +452,7 @@ namespace CodeImp.DoomBuilder
 			{
 				if(Environment.OSVersion.Platform == PlatformID.Unix)
 				{
-					ProcessStartInfo info = new ProcessStartInfo("xdg-open", "\"" + url.Replace("\"", "%22") + "\"") { UseShellExecute = false };
-					CleanAppImageEnvironment(info);
-					Process.Start(info);
+					StartXdgOpen(url);
 				}
 				else
 				{

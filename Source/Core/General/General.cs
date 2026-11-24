@@ -2116,7 +2116,7 @@ namespace CodeImp.DoomBuilder
 		// This shows the reference manual
 		public static void ShowHelp(string pagefile, string chmfile)
 		{
-			if(OpenHtmlHelp(pagefile)) return;
+			if(string.Equals(chmfile, HELP_FILE, StringComparison.OrdinalIgnoreCase) && OpenHtmlHelp(pagefile)) return;
 
 			// Check if the file can be found in the root
 			string filepathname = Path.Combine(apppath, chmfile);
@@ -2152,13 +2152,10 @@ namespace CodeImp.DoomBuilder
 			WriteLogLine("Opening help: " + path);
 			try
 			{
-				ProcessStartInfo info = new ProcessStartInfo("xdg-open", "\"" + HelpPaths.ToUri(path) + "\"") { UseShellExecute = false };
-				ForkUpdateChecker.CleanAppImageEnvironment(info);
-				Process.Start(info);
+				ForkUpdateChecker.StartXdgOpen(HelpPaths.ToUri(path));
 			}
 			catch(Exception ex)
 			{
-				WriteLogLine("ERROR: Could not open the help page: " + ex.Message);
 				ShowWarningMessage("Could not open the help page in a browser: " + ex.Message + "\n\n" + path, MessageBoxButtons.OK);
 			}
 			return true;
