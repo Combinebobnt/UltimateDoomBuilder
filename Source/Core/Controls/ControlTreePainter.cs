@@ -15,14 +15,17 @@ namespace CodeImp.DoomBuilder.Controls
 	{
 		private Dictionary<Control, Rectangle> painted = new Dictionary<Control, Rectangle>();
 		private Dictionary<Control, Rectangle> next = new Dictionary<Control, Rectangle>();
+		private readonly HashSet<Control> watched = new HashSet<Control>();
 		private readonly Action<Control> invalidate;
+		private readonly Action<Control, Rectangle> invalidaterect;
 		private readonly Action<Control> update;
 
-		public ControlTreePainter() : this(c => c.Invalidate(), c => c.Update()) { }
+		public ControlTreePainter() : this(c => c.Invalidate(), (c, r) => c.Invalidate(r), c => c.Update()) { }
 
-		internal ControlTreePainter(Action<Control> invalidate, Action<Control> update)
+		internal ControlTreePainter(Action<Control> invalidate, Action<Control, Rectangle> invalidaterect, Action<Control> update)
 		{
 			this.invalidate = invalidate;
+			this.invalidaterect = invalidaterect;
 			this.update = update;
 		}
 
@@ -46,10 +49,32 @@ namespace CodeImp.DoomBuilder.Controls
 			Rectangle bounds = c.Bounds;
 			Rectangle old;
 			if(!painted.TryGetValue(c, out old) || old != bounds) invalidate(c);
+
+			// Mono doesn't invalidate the parent area a child moved or shrank off
+			foreach(Control child in c.Controls)
+			{
+				Rectangle oldchild;
+				if(child.Visible && painted.TryGetValue(child, out oldchild) && oldchild != child.Bounds)
+					invalidaterect(c, oldchild);
+			}
+
 			update(c);
 			next[c] = bounds;
+			if(watched.Add(c)) c.VisibleChanged += OnVisibleChanged;
 			foreach(Control child in c.Controls)
 				if(child.Visible) Walk(child);
+		}
+
+		// A control hidden and shown again between passes must count as new, as Mono doesn't invalidate it on show
+		private void OnVisibleChanged(object sender, EventArgs e)
+		{
+			Forget((Control)sender);
+		}
+
+		private void Forget(Control c)
+		{
+			painted.Remove(c);
+			foreach(Control child in c.Controls) Forget(child);
 		}
 	}
 }
