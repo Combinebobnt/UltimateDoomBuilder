@@ -36,6 +36,7 @@ using CodeImp.DoomBuilder.Geometry;
 using CodeImp.DoomBuilder.GZBuilder.Data; //mxd
 using CodeImp.DoomBuilder.IO;
 using CodeImp.DoomBuilder.Map;
+using CodeImp.DoomBuilder.Map.Conversion;
 using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.VisualModes;
 using CodeImp.DoomBuilder.Windows;
@@ -3981,134 +3982,172 @@ namespace CodeImp.DoomBuilder
 			string oldconfigfile = options.ConfigFile;
 			string oldscriptcompiler = options.ScriptCompiler;
 			MapOptionsForm optionsform = new MapOptionsForm(options, false);
-			if(optionsform.ShowDialog(General.MainWindow) == DialogResult.OK) 
+			if(optionsform.ShowDialog(General.MainWindow) == DialogResult.OK)
 			{
-				// Update interface
-				//General.MainWindow.UpdateInterface();
-
-				// Stop data manager
-				data.Dispose();
-
-				//mxd. Clear errors
-				General.ErrorLogger.Clear();
-
 				// Apply new options
 				this.options = optionsform.Options;
-				if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase))
-				{
-					// The bake (this session's or the opened file's) is discarded: Test warns unless the saved map kept its LIGHTMAP
-					if(lightmapbake != null) lightmapstale = true;
-					ResetLightmapCache("the game configuration changed");
-				}
-
-				// Load new game configuration
-				General.WriteLogLine("Loading game configuration \"" + options.ConfigFile + "\"...");
-				configinfo = General.GetConfigurationInfo(options.ConfigFile);
-				Type oldiotype = io.GetType(); //mxd
-
-				//mxd. Step 1 of hackish way to translate SP/MP thing flags to Hexen / UDMF formats...
-				//TODO: add proper Doom -> Hexen thing flags translation to the configs?
-				if(oldiotype == typeof(DoomMapSetIO) && configinfo.FormatInterface != "doommapsetio")
-				{
-					// Translate to UDMF using Doom things flags translation table
-					foreach(Thing t in General.Map.Map.Things) t.TranslateToUDMF();
-				}
-
-				// Make sure the raw flags are up to date
-				if (oldiotype == typeof(DoomMapSetIO) || oldiotype == typeof(HexenMapSetIO))
-				{
-					foreach (Thing t in General.Map.map.Things)
-						t.UpdateRawFlagsFromFlags();
-
-					foreach (Linedef ld in General.Map.Map.Linedefs)
-						ld.UpdateRawFlagsFromFlags();
-				}
-
-				config = new GameConfiguration(configinfo.Configuration); //mxd
-				configinfo.ApplyDefaults(config);
-				General.Editing.UpdateCurrentEditModes();
-
-				// Setup new map format IO
-				General.WriteLogLine("Initializing map format interface " + config.FormatInterface + "...");
-				io = MapSetIO.Create(config.FormatInterface, tempwadreader.WadFile, this);
-
-				//mxd. Some lumps may've become unneeded during map format conversion. 
-				if(oldiotype != io.GetType())
-					RemoveUnneededLumps(tempwadreader.WadFile, TEMP_MAP_HEADER, false);
-
-				// Create required lumps if they don't exist yet
-				CreateRequiredLumps(tempwadreader.WadFile, TEMP_MAP_HEADER);
-
-				// A different script compiler must rebuild BEHAVIOR on the next Save Map, when the map has a script lump to rebuild
-				if(ScriptCompilerChangeNeedsRebuild(oldscriptcompiler, options.ScriptCompiler, config.MapLumps.Values, tempwadreader.WadFile)) scriptschanged = true;
-
-				// Let the plugins know
-				General.Plugins.MapReconfigure();
-
-				//mxd. Update linedef color presets and flags if required
-				if(oldiotype == typeof(UniversalMapSetIO) && !(io is UniversalMapSetIO)) 
-				{
-					foreach(Linedef l in General.Map.Map.Linedefs) l.TranslateFromUDMF();
-					foreach(Thing t in General.Map.Map.Things) t.TranslateFromUDMF();
-				} 
-				else if(oldiotype == typeof(DoomMapSetIO))
-				{
-					if(io is UniversalMapSetIO)
-					{
-						//Thing flags were already translated in Setp 1...
-						//TODO: linedef actions will require the same handling...
-						foreach(Linedef l in General.Map.Map.Linedefs) l.TranslateToUDMF(oldiotype);
-					}
-					else if(io is HexenMapSetIO)
-					{
-						// Step 2 of hackish way to translate SP/MP thing flags to Hexen map format...
-						foreach(Thing t in General.Map.Map.Things) t.TranslateFromUDMF();
-					}
-				}
-				else if(oldiotype != typeof(UniversalMapSetIO) && io is UniversalMapSetIO)
-				{
-					foreach(Linedef l in General.Map.Map.Linedefs) l.TranslateToUDMF(oldiotype);
-					foreach(Thing t in General.Map.Map.Things) t.TranslateToUDMF();
-				}
-
-				// Drop all arguments
-				if(oldiotype != typeof(DoomMapSetIO) && io is DoomMapSetIO)
-				{
-					
-					foreach(Linedef l in General.Map.Map.Linedefs)
-						for(int i = 0; i < l.Args.Length; i++) l.Args[i] = 0;
-					foreach(Thing t in General.Map.Map.Things)
-						for(int i = 0; i < t.Args.Length; i++) t.Args[i] = 0;
-				}
-
-				// Make sure the flags dictionary is up to date with flags that did not exist in the old game configuration
-				if ((oldiotype == typeof(DoomMapSetIO) || oldiotype == typeof(HexenMapSetIO)) && (io is DoomMapSetIO || io is HexenMapSetIO))
-				{
-					foreach (Thing t in General.Map.Map.Things)
-						t.UpdateFlagsFromRawFlags();
-
-					foreach (Linedef ld in General.Map.Map.Linedefs)
-						ld.UpdateFlagsFromRawFlags();
-				}
-
-				map.UpdateCustomLinedefColors();
-
-				// Reload resources
-				ReloadResources(false, false);
-
-				// Update interface
-				General.MainWindow.SetupInterface();
-				General.MainWindow.UpdateThingsFilters();
-				General.MainWindow.UpdateLinedefColorPresets(); //mxd
-				General.MainWindow.UpdateInterface();
-
-				// Done
-				General.MainWindow.DisplayReady();
-				General.MainWindow.RedrawDisplay(); //mxd
+				ApplyConfiguration(oldconfigfile, oldscriptcompiler, optionsform.Conversion);
 			}
 
 			// Done
 			optionsform.Dispose();
+		}
+
+		// Plans converting the map to the target configuration's format; null when the converter doesn't cover either config
+		internal MapSetConversion PlanFormatConversion(ConfigurationInfo target)
+		{
+			WAD wad = tempwadreader.WadFile;
+			bool hasscripts = wad.FindLumpIndex("SCRIPTS") != -1 || wad.FindLumpIndex("BEHAVIOR") != -1;
+			return MapSetConversion.Plan(map, config, configinfo, target, hasscripts);
+		}
+
+		// Switches to options.ConfigFile after the options changed: the conversion (if any) is applied after the new format interface is in place
+		internal void ApplyConfiguration(string oldconfigfile, string oldscriptcompiler, MapSetConversion conversion)
+		{
+			// Stop data manager
+			data.Dispose();
+
+			//mxd. Clear errors
+			General.ErrorLogger.Clear();
+
+			if(!string.Equals(options.ConfigFile, oldconfigfile, StringComparison.OrdinalIgnoreCase))
+			{
+				// The bake (this session's or the opened file's) is discarded: Test warns unless the saved map kept its LIGHTMAP
+				if(lightmapbake != null) lightmapstale = true;
+				ResetLightmapCache("the game configuration changed");
+			}
+
+			// Load new game configuration
+			General.WriteLogLine("Loading game configuration \"" + options.ConfigFile + "\"...");
+			configinfo = General.GetConfigurationInfo(options.ConfigFile);
+			Type oldiotype = io.GetType(); //mxd
+
+			if(conversion == null) LegacyTranslateBeforeSwitch(oldiotype);
+
+			config = new GameConfiguration(configinfo.Configuration); //mxd
+			configinfo.ApplyDefaults(config);
+			General.Editing.UpdateCurrentEditModes();
+
+			// Setup new map format IO
+			General.WriteLogLine("Initializing map format interface " + config.FormatInterface + "...");
+			io = MapSetIO.Create(config.FormatInterface, tempwadreader.WadFile, this);
+
+			//mxd. Some lumps may've become unneeded during map format conversion.
+			if(oldiotype != io.GetType())
+				RemoveUnneededLumps(tempwadreader.WadFile, TEMP_MAP_HEADER, false);
+
+			// Create required lumps if they don't exist yet
+			CreateRequiredLumps(tempwadreader.WadFile, TEMP_MAP_HEADER);
+
+			// A different script compiler must rebuild BEHAVIOR on the next Save Map, when the map has a script lump to rebuild
+			if(ScriptCompilerChangeNeedsRebuild(oldscriptcompiler, options.ScriptCompiler, config.MapLumps.Values, tempwadreader.WadFile)) scriptschanged = true;
+
+			// Let the plugins know
+			General.Plugins.MapReconfigure();
+
+			if(conversion != null)
+			{
+				General.WriteLogLine("Converting map from " + conversion.Source.Format + " to " + conversion.Target.Format + ": " + conversion.Report.Summary());
+				conversion.Apply(map, config);
+				conversion.LogReport(map);
+			}
+			else
+			{
+				LegacyTranslateAfterSwitch(oldiotype);
+			}
+
+			map.UpdateCustomLinedefColors();
+
+			// Reload resources
+			ReloadResources(false, false);
+
+			// Undo levels hold the old format's data, so history ends here (after the reload: clearing refreshes the window, which reads the data manager)
+			if(conversion != null)
+			{
+				undoredo.ClearAllUndos();
+				undoredo.ClearAllRedosAndBranch();
+			}
+
+			// Update interface
+			General.MainWindow.SetupInterface();
+			General.MainWindow.UpdateThingsFilters();
+			General.MainWindow.UpdateLinedefColorPresets(); //mxd
+			General.MainWindow.UpdateInterface();
+
+			// Done
+			General.MainWindow.DisplayReady();
+			General.MainWindow.RedrawDisplay(); //mxd
+		}
+
+		// The partial translation for config changes the converter doesn't cover (same format, or a config with no conversion profile)
+		private void LegacyTranslateBeforeSwitch(Type oldiotype)
+		{
+			//mxd. Step 1 of hackish way to translate SP/MP thing flags to Hexen / UDMF formats...
+			//TODO: add proper Doom -> Hexen thing flags translation to the configs?
+			if(oldiotype == typeof(DoomMapSetIO) && configinfo.FormatInterface != "doommapsetio")
+			{
+				// Translate to UDMF using Doom things flags translation table
+				foreach(Thing t in General.Map.Map.Things) t.TranslateToUDMF();
+			}
+
+			// Make sure the raw flags are up to date
+			if (oldiotype == typeof(DoomMapSetIO) || oldiotype == typeof(HexenMapSetIO))
+			{
+				foreach (Thing t in General.Map.map.Things)
+					t.UpdateRawFlagsFromFlags();
+
+				foreach (Linedef ld in General.Map.Map.Linedefs)
+					ld.UpdateRawFlagsFromFlags();
+			}
+		}
+
+		private void LegacyTranslateAfterSwitch(Type oldiotype)
+		{
+			//mxd. Update linedef color presets and flags if required
+			if(oldiotype == typeof(UniversalMapSetIO) && !(io is UniversalMapSetIO))
+			{
+				foreach(Linedef l in General.Map.Map.Linedefs) l.TranslateFromUDMF();
+				foreach(Thing t in General.Map.Map.Things) t.TranslateFromUDMF();
+			}
+			else if(oldiotype == typeof(DoomMapSetIO))
+			{
+				if(io is UniversalMapSetIO)
+				{
+					//Thing flags were already translated in Setp 1...
+					//TODO: linedef actions will require the same handling...
+					foreach(Linedef l in General.Map.Map.Linedefs) l.TranslateToUDMF(oldiotype);
+				}
+				else if(io is HexenMapSetIO)
+				{
+					// Step 2 of hackish way to translate SP/MP thing flags to Hexen map format...
+					foreach(Thing t in General.Map.Map.Things) t.TranslateFromUDMF();
+				}
+			}
+			else if(oldiotype != typeof(UniversalMapSetIO) && io is UniversalMapSetIO)
+			{
+				foreach(Linedef l in General.Map.Map.Linedefs) l.TranslateToUDMF(oldiotype);
+				foreach(Thing t in General.Map.Map.Things) t.TranslateToUDMF();
+			}
+
+			// Drop all arguments
+			if(oldiotype != typeof(DoomMapSetIO) && io is DoomMapSetIO)
+			{
+
+				foreach(Linedef l in General.Map.Map.Linedefs)
+					for(int i = 0; i < l.Args.Length; i++) l.Args[i] = 0;
+				foreach(Thing t in General.Map.Map.Things)
+					for(int i = 0; i < t.Args.Length; i++) t.Args[i] = 0;
+			}
+
+			// Make sure the flags dictionary is up to date with flags that did not exist in the old game configuration
+			if ((oldiotype == typeof(DoomMapSetIO) || oldiotype == typeof(HexenMapSetIO)) && (io is DoomMapSetIO || io is HexenMapSetIO))
+			{
+				foreach (Thing t in General.Map.Map.Things)
+					t.UpdateFlagsFromRawFlags();
+
+				foreach (Linedef ld in General.Map.Map.Linedefs)
+					ld.UpdateFlagsFromRawFlags();
+			}
 		}
 
 		// This shows the things filters setup

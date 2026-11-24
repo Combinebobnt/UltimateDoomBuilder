@@ -678,6 +678,7 @@
     <Compile Include="Map\Conversion\LineCodecs.cs" />
     <Compile Include="Map\Conversion\MapFormatConverter.cs" />
     <Compile Include="Map\Conversion\MapRecords.cs" />
+    <Compile Include="Map\Conversion\MapSetConversion.cs" />
     <Compile Include="Map\Conversion\SectorXlat.cs" />
     <Compile Include="Geometry\LinedefSide.cs" />
     <Compile Include="Map\MapOptions.cs" />

@@ -280,25 +280,25 @@ namespace CodeImp.DoomBuilder.Map
 		internal void TranslateFromUDMF() 
 		{
 			// Try to translate UDMF texture offsets to regular ones
-			if(longtexnamemid != MapSet.EmptyLongName && MiddleRequired()) 
+			string part = FoldedOffsetPart();
+			if(part != null)
 			{
-				offsetx += (int)UniFields.GetFloat(this.Fields, "offsetx_mid");
-				offsety += (int)UniFields.GetFloat(this.Fields, "offsety_mid");
+				offsetx += (int)UniFields.GetFloat(this.Fields, "offsetx_" + part);
+				offsety += (int)UniFields.GetFloat(this.Fields, "offsety_" + part);
 			}
-			else if(longtexnamehigh != MapSet.EmptyLongName && HighRequired()) 
-			{
-				offsetx += (int)UniFields.GetFloat(this.Fields, "offsetx_top");
-				offsety += (int)UniFields.GetFloat(this.Fields, "offsety_top");
-			}
-			else if(longtexnamelow != MapSet.EmptyLongName && LowRequired()) 
-			{
-				offsetx += (int)UniFields.GetFloat(this.Fields, "offsetx_bottom");
-				offsety += (int)UniFields.GetFloat(this.Fields, "offsety_bottom");
-			}
-			
+
 			// Clear UDMF-related properties
 			this.Fields.Clear();
 			this.Flags.Clear();
+		}
+
+		// The part whose UDMF offsets TranslateFromUDMF adds to the sidedef offsets: "mid", "top", "bottom" or null
+		internal string FoldedOffsetPart()
+		{
+			if(longtexnamemid != MapSet.EmptyLongName && MiddleRequired()) return "mid";
+			if(longtexnamehigh != MapSet.EmptyLongName && HighRequired()) return "top";
+			if(longtexnamelow != MapSet.EmptyLongName && LowRequired()) return "bottom";
+			return null;
 		}
 		
 		#endregion

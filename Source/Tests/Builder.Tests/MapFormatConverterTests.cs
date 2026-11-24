@@ -43,6 +43,10 @@ namespace Builder.Tests
 			Assert.Equal(MapFormat.Udmf, Profile("GZDoom_DoomUDMF").Format);
 			Assert.NotEmpty(Profile("GZDoom_DoomHexen").LineFlagTable);
 			Assert.NotEmpty(gz.ThingFlagTable);
+			Assert.Null(Profile("Eternity_DoomUDMF")); // other UDMF namespaces have other special sets
+			Assert.Null(Profile("DSDADoom_DoomUDMF"));
+			Assert.Null(Profile("Eternity_Doom2Doom")); // no xlattranslator
+			Assert.NotNull(Profile("Zandronum_DoomUDMF"));
 
 			Assert.True(gz.OffersLineType(340) && gz.OffersLineType(0x3c01), "GZDoom reads every xlat type");
 			Assert.True(boom.OffersLineType(260) && boom.OffersLineType(0x3c01), "Boom has its types and generalized ranges");

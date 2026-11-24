@@ -69,7 +69,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		public static FormatProfile FromConfiguration(string name, Configuration cfg, string xlatfolder)
 		{
-			// xlatfolder holds the bundled tables (Configurations/Xlat); a Doom-format config without xlattranslator has no profile
+			// xlatfolder holds the bundled tables (Configurations/Xlat); a Doom-format config without xlattranslator, or a non-ZDoom UDMF namespace, has no profile
 			FormatProfile p = new FormatProfile();
 			p.Name = name;
 			p.Engine = cfg.ReadSetting("engine", "");
@@ -80,6 +80,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				case "universalmapsetio": p.Format = MapFormat.Udmf; break;
 				default: return null;
 			}
+
+			// A UDMF config's engine is its namespace; Eternity, DSDA and other namespaces have other special sets
+			if(p.Format == MapFormat.Udmf && !xlatengines.Contains(p.Engine)) return null;
 
 			ReadFlagTable(cfg, "linedefflagstranslation", p.LineFlagTable);
 			ReadFlagTable(cfg, "thingflagstranslation", p.ThingFlagTable);

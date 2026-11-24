@@ -385,10 +385,9 @@ namespace CodeImp.DoomBuilder.Map
 			}
 		}
 
-		// This translates UDMF fields back into the normal flags
-		internal void TranslateFromUDMF()
+		//mxd. Clear UDMF-related properties
+		internal void ClearUDMFProperties()
 		{
-			//mxd. Clear UDMF-related properties
 			this.Fields.Clear();
 			scaleX = 1.0f;
 			scaleY = 1.0f;
@@ -396,7 +395,13 @@ namespace CodeImp.DoomBuilder.Map
 			pitchrad = 0;
 			roll = 0;
 			rollrad = 0;
-			
+		}
+
+		// This translates UDMF fields back into the normal flags
+		internal void TranslateFromUDMF()
+		{
+			ClearUDMFProperties();
+
 			// Make copy of the flags
 			Dictionary<string, bool> oldfields = new Dictionary<string, bool>(flags);
 
@@ -601,6 +606,19 @@ namespace CodeImp.DoomBuilder.Map
 			UpdateCache(); //mxd
 		}
 		
+		// Map format conversion runs while the data manager is down; its reload refreshes the cache afterwards
+		internal void SetConvertedProperties(Dictionary<string, bool> flags, ushort rawflags, int tag, double z, int action, int[] args)
+		{
+			BeforePropsChange();
+			this.flags = new Dictionary<string, bool>(flags);
+			this.rawflags = rawflags;
+			this.tag = tag;
+			this.action = action;
+			this.args = new int[NUM_ARGS];
+			args.CopyTo(this.args, 0);
+			this.pos = new Vector3D(pos.x, pos.y, z);
+		}
+
 		// This updates the settings from configuration
 		public void UpdateConfiguration()
 		{

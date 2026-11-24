@@ -24,6 +24,7 @@ using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.IO;
 using System.IO;
 using CodeImp.DoomBuilder.Config;
+using CodeImp.DoomBuilder.Map.Conversion;
 
 #endregion
 
@@ -40,9 +41,11 @@ namespace CodeImp.DoomBuilder.Windows
 		private ExternalCommandSettings testpostcommand;
 		private bool prepostcommandsmodified;
 		private readonly ResourceWarningResize warningresize;
-		
+		private MapSetConversion conversion;
+
 		// Properties
 		public MapOptions Options { get { return options; } }
+		internal MapSetConversion Conversion { get { return conversion; } } // the accepted format conversion, null without one
 		
 		// Constructor
 		public MapOptionsForm(MapOptions options, bool newmap)
@@ -234,24 +237,31 @@ namespace CodeImp.DoomBuilder.Windows
 				if((options.ConfigFile != "") && (configinfo.Filename != options.ConfigFile))
 				{
 					// Check if the config uses a different IO interface
+					conversion = null;
 					if(configinfo.Configuration.ReadSetting("formatinterface", "") != General.Map.Config.FormatInterface)
 					{
-						// Warn the user about IO interface change
-						if(General.ShowWarningMessage("The game configuration you selected uses a different file format than your current map. Because your map was not designed for this format it may cause the map to work incorrectly in the game. Do you want to continue?", MessageBoxButtons.YesNo, MessageBoxDefaultButton.Button2) == DialogResult.No)
+						// Plan the conversion; configs it doesn't cover keep the old partial translation
+						MapSetConversion planned = General.Map.PlanFormatConversion(configinfo);
+						string nl = Environment.NewLine;
+						if(planned != null && planned.Report.Blocked)
 						{
-							// Reset to old configuration
-							for(int i = 0; i < config.Items.Count; i++)
-							{
-								// Is this configuration the old config?
-								if(string.Compare((config.Items[i] as ConfigurationInfo).Filename, options.ConfigFile, true) == 0)
-								{
-									// Select this item
-									config.SelectedIndex = i;
-									datalocations.GameConfiguration = GetGameConfiguration();
-								}
-							}
+							General.ShowErrorMessage("The map can't be converted to the format of the game configuration you selected:" + nl + nl + planned.Describe(12), MessageBoxButtons.OK);
+							SelectOldConfiguration();
 							return;
-						} 
+						}
+
+						// Warn the user about IO interface change
+						string message = planned == null
+							? "The game configuration you selected uses a different file format than your current map. Because your map was not designed for this format it may cause the map to work incorrectly in the game. Do you want to continue?"
+							: "The game configuration you selected uses a different map format. The map will be converted from " + planned.Source.Format + " to " + planned.Target.Format + ":" + nl + nl
+							  + planned.Describe(12) + nl + nl
+							  + "Everything lost or changed is listed in the Errors and Warnings panel, and the undo history is cleared. Do you want to continue?";
+						if(General.ShowWarningMessage(message, MessageBoxButtons.YesNo, MessageBoxDefaultButton.Button2) == DialogResult.No)
+						{
+							SelectOldConfiguration();
+							return;
+						}
+						conversion = planned;
 
 						//mxd. Otherwise map data won't be saved if a user decides to save the map right after converting to new map format
 						General.Map.IsChanged = true;
@@ -297,6 +307,19 @@ namespace CodeImp.DoomBuilder.Windows
 			// Hide window
 			this.DialogResult = DialogResult.OK;
 			this.Close();
+		}
+
+		// Reselects the map's current configuration after a declined format change
+		private void SelectOldConfiguration()
+		{
+			for(int i = 0; i < config.Items.Count; i++)
+			{
+				if(string.Compare((config.Items[i] as ConfigurationInfo).Filename, options.ConfigFile, true) == 0)
+				{
+					config.SelectedIndex = i;
+					datalocations.GameConfiguration = GetGameConfiguration();
+				}
+			}
 		}
 
 		// Cancel clicked

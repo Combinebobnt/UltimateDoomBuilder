@@ -492,7 +492,7 @@ namespace Builder.Tests
 			Assert.True(rekey > reload.FindLastIndex(method => method.DeclaringType == typeof(DataManager) && method.Name == "Load"));
 			Assert.True(rekey < reload.FindIndex(method => method.Name == "ReloadResources"));
 			Assert.True(Calls(typeof(MapManager).GetMethod("UpdateConfiguration", Instance)).Any(method => method.Name == "UpdateFavorites"));
-			Assert.True(Calls(typeof(MapManager).GetMethod("ShowMapOptions", Instance)).Any(method => method.Name == "ReloadResources"));
+			Assert.True(Calls(typeof(MapManager).GetMethod("ApplyConfiguration", Instance)).Any(method => method.Name == "ReloadResources"));
 		}
 	}
 }
