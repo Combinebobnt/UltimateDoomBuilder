@@ -102,7 +102,13 @@ namespace CodeImp.DoomBuilder.Windows
 				screenshotsdefault = new CheckBox { AutoSize = true, Checked = true, Text = "Screenshots folder " + screenshots.Value + " is missing: use this install's default" };
 				grid.Controls.Add(screenshotsdefault, 0, r0);
 				grid.SetColumnSpan(screenshotsdefault, 4);
+				r0++;
 			}
+
+			// Rows keep their own height; a last empty row takes the slack
+			grid.RowCount = r0 + 1;
+			for(int i = 0; i < r0; i++) grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			layout.Controls.Add(grid, 0, 1);
 
 			FlowLayoutPanel buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill, AutoSize = true, Margin = new Padding(0, 6, 0, 0) };

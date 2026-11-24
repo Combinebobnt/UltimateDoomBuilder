@@ -903,8 +903,7 @@ namespace CodeImp.DoomBuilder
 			if(result.State == SettingsImportState.Applied)
 			{
 				toastmanager.ShowToast("settingsimport", ToastType.INFO, "Settings imported",
-					"Imported settings were applied (" + result.UnitCount + " entries). To undo, close Ultimate Doom Builder and copy \"" +
-					SettingsTransfer.BACKUP_FILE + "\" over \"" + SettingsTransfer.SETTINGS_FILE + "\" in \"" + settingspath + "\".",
+					"Applied " + result.UnitCount + " imported entries. Previous settings: " + SettingsTransfer.BACKUP_FILE + ".",
 					"Imported settings were applied.");
 			}
 			else if(result.State == SettingsImportState.Failed)

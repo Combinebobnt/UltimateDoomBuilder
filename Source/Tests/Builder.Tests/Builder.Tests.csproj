@@ -53,6 +53,9 @@
     <None Include="..\..\..\Assets\Common\Configurations\**\*" Exclude="..\..\..\Assets\Common\Configurations\**\.*\**" Link="Configurations\%(RecursiveDir)%(Filename)%(Extension)" Visible="false">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\..\Assets\Common\UDBuilder.default.cfg" Link="UDBuilder.default.cfg" Visible="false">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

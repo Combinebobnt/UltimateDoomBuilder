@@ -151,6 +151,8 @@ mainwindow { positionx = 0; }
 
 			Assert.Null(SettingsTransfer.CheckImportable(SettingsTransfer.ReadHeader(Parse("udbsettingsexport { formatversion = 1; }"))));
 			Assert.NotNull(SettingsTransfer.CheckImportable(SettingsTransfer.ReadHeader(Parse("udbsettingsexport { formatversion = 2; }"))));
+			Assert.NotNull(SettingsTransfer.CheckImportable(SettingsTransfer.ReadHeader(Parse("udbsettingsexport { formatversion = \"1a\"; }"))));
+			Assert.NotNull(SettingsTransfer.CheckImportable(SettingsTransfer.ReadHeader(Parse("udbsettingsexport { program = \"x\"; }"))));
 		}
 
 		private static Configuration Pending(Configuration source, ICollection<string> units, string platform = SettingsTransfer.PLATFORM_WINDOWS, string apppath = @"C:\UDB")
@@ -196,6 +198,24 @@ plugins { mine { x = 1; } }
 			Assert.False(local.SettingExists("shortcutsalt.builder_preferences"));
 			Assert.Equal(3, local.ReadSetting("shortcutsalt.builder_other", 0));
 			Assert.Equal(8, local.ReadSetting("shortcutsalt.builder_newmap", 0));
+
+			// An alternate without a primary leaves the local primary alone
+			local = Parse("shortcuts { builder_x = 5; }");
+			SettingsTransfer.Merge(local, Pending(Parse("shortcutsalt { builder_x = 9; }"), new HashSet<string> { "shortcuts.builder_x" }));
+			Assert.Equal(5, local.ReadSetting("shortcuts.builder_x", 0));
+			Assert.Equal(9, local.ReadSetting("shortcutsalt.builder_x", 0));
+		}
+
+		[Fact]
+		public void ListedUnitMissingFromThePendingFileIsDeleted()
+		{
+			// The path remap's "use this install's default" drops screenshotspath after the unit was listed
+			Configuration pending = Pending(Parse(FIXTURE), new HashSet<string> { "screenshotspath", "blackbrowsers" });
+			pending.DeleteSetting(SettingsTransfer.SCREENSHOTS_KEY);
+			Configuration local = Parse("screenshotspath = \"/srv/shots\"; blackbrowsers = false;");
+			Assert.Equal(2, SettingsTransfer.Merge(local, pending));
+			Assert.False(local.SettingExists("screenshotspath"));
+			Assert.True(local.ReadSetting("blackbrowsers", false));
 		}
 
 		[Fact]
@@ -342,6 +362,8 @@ plugins { mine { x = 1; } }
 
 				// A directory where the swap's sibling file goes makes the write fail
 				Directory.CreateDirectory(settings + SiblingFileSwap.SIBLING_SUFFIX);
+				string backup = Path.Combine(dir, SettingsTransfer.BACKUP_FILE);
+				File.WriteAllText(backup, "earlier backup\n");
 
 				Configuration cfg = new Configuration(settings, true);
 				Configuration before = cfg;
@@ -350,6 +372,8 @@ plugins { mine { x = 1; } }
 				Assert.True(ReferenceEquals(before, cfg));
 				Assert.False(cfg.ReadSetting("blackbrowsers", true));
 				Assert.Equal("blackbrowsers = false;\n", File.ReadAllText(settings));
+				Assert.Equal("earlier backup\n", File.ReadAllText(backup));
+				Assert.False(File.Exists(backup + ".new"));
 			}
 			finally { Directory.Delete(dir, true); }
 		}

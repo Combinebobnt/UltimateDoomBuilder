@@ -3991,9 +3991,9 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			General.WriteLogLine("Settings import from \"" + path + "\" queued for the next startup");
 
-			DialogResult answer = General.ShowWarningMessage("The settings will be applied the next time Ultimate Doom Builder starts. "
+			DialogResult answer = MessageBox.Show(this, "The settings will be applied the next time Ultimate Doom Builder starts. "
 				+ "Settings you change before then are overwritten by the import where they overlap.\n\nClose Ultimate Doom Builder now?",
-				MessageBoxButtons.YesNo, MessageBoxDefaultButton.Button1);
+				"Import Settings", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if(answer == DialogResult.Yes) General.Exit(true);
 		}
 

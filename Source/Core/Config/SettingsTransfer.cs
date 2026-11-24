@@ -269,7 +269,9 @@ namespace CodeImp.DoomBuilder.Config
 			info.IsExport = cfg.SettingExists(HEADER) && (cfg.ReadSettingObject(HEADER, null) is IDictionary);
 			if(info.IsExport)
 			{
-				info.FormatVersion = cfg.ReadSetting(HEADER + ".formatversion", 0);
+				int version;
+				object v = cfg.ReadSettingObject(HEADER + ".formatversion", null);
+				info.FormatVersion = (v != null && int.TryParse(v.ToString(), out version)) ? version : -1;
 				info.Program = cfg.ReadSetting(HEADER + ".program", "");
 				info.Platform = cfg.ReadSetting(HEADER + ".platform", "");
 				info.HomePath = cfg.ReadSetting(HEADER + ".homepath", "");
@@ -285,6 +287,8 @@ namespace CodeImp.DoomBuilder.Config
 		// Null when the file can be imported, else the reason it can't
 		internal static string CheckImportable(SettingsFileInfo info)
 		{
+			if(info.IsExport && info.FormatVersion < 0)
+				return "This settings file has no valid format version and can't be imported.";
 			if(info.IsExport && info.FormatVersion > FORMAT_VERSION)
 				return "This settings file was written by a newer version of Ultimate Doom Builder (format version " + info.FormatVersion + ") and can't be imported.";
 			return null;
@@ -529,8 +533,9 @@ namespace CodeImp.DoomBuilder.Config
 					if(!target.WriteSetting(unit, Clone(pending.ReadSettingObject(unit, null))))
 						throw new InvalidDataException("Could not write setting \"" + unit + "\".");
 				}
-				else
+				else if(AlternateShortcutPath(unit) == null)
 				{
+					// A shortcut unit without a primary key still carries its alternate below
 					DeleteIfExists(target, unit);
 				}
 
@@ -567,13 +572,31 @@ namespace CodeImp.DoomBuilder.Config
 				string error = CheckImportable(ReadHeader(pending));
 				if(error != null) throw new InvalidDataException(error);
 
-				if(File.Exists(settingsfile)) File.Copy(settingsfile, Path.Combine(settingsdir, BACKUP_FILE), true);
+				// The backup only replaces an older one once the import is written
+				string backup = Path.Combine(settingsdir, BACKUP_FILE);
+				string newbackup = backup + ".new";
+				bool hasbackup = File.Exists(settingsfile);
+				if(hasbackup) File.Copy(settingsfile, newbackup, true);
 
 				Configuration merged = CloneConfiguration(cfg);
 				int count = Merge(merged, pending);
 				WriteFile(merged, settingsfile);
 				cfg = merged;
-				File.Delete(pendingfile);
+
+				try
+				{
+					if(hasbackup)
+					{
+						if(File.Exists(backup)) File.Delete(backup);
+						File.Move(newbackup, backup);
+					}
+					File.Delete(pendingfile);
+				}
+				catch(Exception e)
+				{
+					// Applied anyway; a pending file left behind would only reapply the same units
+					General.WriteLogLine("Warning: settings import cleanup failed: " + e.Message);
+				}
 
 				string groups = pending.ReadSetting(HEADER + ".groups", "");
 				General.WriteLogLine("Settings import applied: " + groups + ", " + count + " units");
@@ -585,6 +608,8 @@ namespace CodeImp.DoomBuilder.Config
 				string failedfile = Path.Combine(settingsdir, FAILED_FILE);
 				try
 				{
+					string newbackup = Path.Combine(settingsdir, BACKUP_FILE) + ".new";
+					if(File.Exists(newbackup)) File.Delete(newbackup);
 					if(File.Exists(failedfile)) File.Delete(failedfile);
 					File.Move(pendingfile, failedfile);
 				}
