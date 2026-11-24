@@ -273,6 +273,9 @@ namespace CodeImp.DoomBuilder.Windows
 			// Let the base class know
 			base.OnLoad(e);
 
+			// Not in OnShown: on Mono a form shown at 0% opacity may never raise Shown
+			DialogCancelWatch.Attach(this);
+
 			if(this.DesignMode) return;
 
 			MixedCheckGlyph.AttachTree(this);
@@ -357,7 +360,6 @@ namespace CodeImp.DoomBuilder.Windows
 		protected override void OnShown(EventArgs e)
 		{
 			if(UITiming.Enabled) UITiming.Mark(this, "shown");
-			DialogCancelWatch.Attach(this);
 			base.OnShown(e);
 			if(ilogstate != null) InteractionLog.DialogShown(ilogstate, this, false);
 			if(UITiming.Enabled && UITimingState != null && !UITimingState.Complete)

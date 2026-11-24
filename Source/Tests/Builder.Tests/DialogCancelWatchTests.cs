@@ -11,7 +11,7 @@ namespace Builder.Tests
 	{
 		private enum Ending { CancelButton, OkThenClose, OkWithResult }
 
-		private static int CancelsReported(Ending how)
+		private static int CancelsReported(Ending how, bool fadein = false)
 		{
 			int reported = 0;
 			EventHandler counter = (s, e) => reported++;
@@ -31,8 +31,11 @@ namespace Builder.Tests
 					else ok.Click += (s, e) => form.Close();
 
 					failsafe.Tick += (s, e) => { failsafe.Stop(); form.Close(); };
-					form.Shown += (s, e) =>
+					// DelayedForm's fade-in: shown at 0% opacity, raised to 100% in OnLoad
+					if(fadein) form.Opacity = 0;
+					form.Load += (s, e) =>
 					{
+						if(fadein) form.Opacity = 1.0;
 						DialogCancelWatch.Attach(form);
 						failsafe.Start();
 						form.BeginInvoke(new MethodInvoker(() =>
@@ -56,6 +59,8 @@ namespace Builder.Tests
 			Assert.Equal(1, CancelsReported(Ending.CancelButton));
 			Assert.Equal(0, CancelsReported(Ending.OkThenClose));
 			Assert.Equal(0, CancelsReported(Ending.OkWithResult));
+			Assert.Equal(1, CancelsReported(Ending.CancelButton, true));
+			Assert.Equal(0, CancelsReported(Ending.OkThenClose, true));
 		}
 	}
 }
