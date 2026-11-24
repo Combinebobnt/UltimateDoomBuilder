@@ -118,9 +118,11 @@
 
 	<h2>Seeing the result</h2>
 	<p>
-		Visual mode does not show baked light; the lightmap light things are drawn there like ordinary dynamic lights.<br>
+		Visual mode previews the bake that the next save would write: walls, floors, ceilings and 3D floors get the baked light added to their sector light, as in UZDoom, and the lightmap light things stop drawing as dynamic lights while it shows. The status bar says when the preview turns on and why it is off. Any edit turns it off at once; about half a second after the map stops changing, the editor checks it against the bake again, so undoing the edit brings the preview back. <b>View &gt; Lightmap preview (Visual mode)</b> turns it on or off.<br>
 		<br>
-		Use <b>Test Map</b> to see the bake. When the saved test map contains a LIGHTMAP lump, the editor adds the configuration's <b>-enablelightmaps</b> parameter to the engine command line, so make sure the test engine is UZDoom. When you start the map yourself, add <b>-enablelightmaps</b>; without it UZDoom ignores the lump.<br>
+		The preview does not light things and sprites from the bake (UZDoom uses the bake's light probes for them), so things near a lightmap light look darker than in the game. Vavoom-style 3D floors get no baked light in the preview: the baker treats every 3D floor as the standard type, so their baked surfaces are at the wrong heights.<br>
+		<br>
+		Use <b>Test Map</b> to see the bake in the engine. When the saved test map contains a LIGHTMAP lump, the editor adds the configuration's <b>-enablelightmaps</b> parameter to the engine command line, so make sure the test engine is UZDoom. When you start the map yourself, add <b>-enablelightmaps</b>; without it UZDoom ignores the lump.<br>
 		<br>
 		When Test Map would run without a bake the map no longer matches, the editor says so before the engine starts. The first time it asks: <b>Yes</b> bakes again and then tests, <b>No</b> tests without the lightmap, <b>Cancel</b> doesn't test. When the map can't be baked in the current configuration, the choice is only <b>OK</b> (test without) or <b>Cancel</b>. After that, each test without the bake shows a warning in the status bar, until the map matches a bake again.
 	</p>
