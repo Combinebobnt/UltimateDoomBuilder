@@ -74,6 +74,30 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void ChainedTicksAreCountedPerWindow()
+		{
+			Rig r = new Rig();
+			for(int i = 0; i < 10; i++)
+			{
+				double start = r.Time;
+				r.Timer.TickBegin("VisualMode");
+				if(i % 2 == 0) r.Timer.NoteChained();
+				r.Timer.TickEnd();
+				r.Timer.NoteChainIdle(i < 8 ? ChainIdle.Paints : ChainIdle.Unwanted, i < 9);
+				r.Time = start + 150;
+			}
+			r.Timer.TickBegin("ClassicMode");
+			Assert.Equal(2, r.Lines.Count);
+			int n0 = int.Parse(r.Lines[0]["n"]);
+			Assert.Equal((n0 + 1) / 2, int.Parse(r.Lines[0]["chained"]));
+			Assert.Equal(5 - (n0 + 1) / 2, int.Parse(r.Lines[1]["chained"]));
+			Assert.Equal(8, int.Parse(r.Lines[0]["blk_paints"]) + int.Parse(r.Lines[1]["blk_paints"]));
+			Assert.Equal(10, int.Parse(r.Lines[0]["idle_passes"]) + int.Parse(r.Lines[1]["idle_passes"]));
+			Assert.Equal("1", r.Lines[1]["blk_other"]);
+			Assert.Equal("1", r.Lines[1]["blk_inactive"]);
+		}
+
+		[Fact]
 		public void PauseAndModeChangeStartNewWindows()
 		{
 			Rig r = new Rig();

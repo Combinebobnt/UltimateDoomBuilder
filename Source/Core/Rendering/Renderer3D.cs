@@ -449,9 +449,11 @@ namespace CodeImp.DoomBuilder.Rendering
 		// This ends rendering world geometry
 		public void FinishGeometry()
 		{
+			FrameTiming.Lap(FrameBucket.Gather);
 			//mxd. Sort lights
 			if(General.Settings.GZDrawLightsMode != LightRenderMode.NONE && !fullbrightness && lightthings.Count > 0)
 				UpdateLights();
+			FrameTiming.Lap(FrameBucket.Lights);
 
 			// Initial renderstates
 			graphics.SetCullMode(Cull.Clockwise);
@@ -466,6 +468,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				world = Matrix.Identity;
                 graphics.SetUniform(UniformName.world, ref world);
 				RenderSky(skygeo);
+				FrameTiming.Lap(FrameBucket.Geometry);
 			}
 
 			// SOLID PASS
@@ -479,6 +482,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetAlphaTestEnable(true);
 				graphics.SetCullMode(Cull.None);
 				RenderModels(false, lightthings);
+				FrameTiming.Lap(FrameBucket.Models);
                 graphics.SetCullMode(Cull.Clockwise);
 			}
 
@@ -501,6 +505,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetZWriteEnable(false);
 				graphics.SetSourceBlend(Blend.SourceAlpha);
 				RenderTranslucentPass(translucentgeo, translucentthings, lightthings);
+				FrameTiming.Lap(FrameBucket.Translucent);
 			}
 
 			//mxd. Render translucent models, with backface culling
@@ -511,6 +516,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetZWriteEnable(false);
 				graphics.SetSourceBlend(Blend.SourceAlpha);
                 RenderModels(true, lightthings);
+                FrameTiming.Lap(FrameBucket.Models);
             }
 
             // THING CAGES
@@ -1065,6 +1071,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				}
 			}
 
+			FrameTiming.Lap(FrameBucket.Geometry);
 			// Done with geometry, reset potentially lingering skew setting
 			graphics.SetUniform(UniformName.skew, new Vector2f(0.0f, 0.0f));
 			SetGlowUniforms(null);
@@ -1203,6 +1210,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetCullMode(Cull.Clockwise); //mxd
 			}
 			UnbindMaterials();
+			FrameTiming.Lap(FrameBucket.Things);
 		}
 
 		// The map's light model for the sector light in the shaders

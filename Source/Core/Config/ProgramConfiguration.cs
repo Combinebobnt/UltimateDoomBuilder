@@ -151,6 +151,8 @@ namespace CodeImp.DoomBuilder.Config
 		private bool storeSelectedEditTab;
 		private bool checkforupdates;
 		private bool nativefiledialogs;
+		private bool visualframechain;
+		private int visualminframetime;
 		private readonly LightmapBakeSettings lightmapbake = new LightmapBakeSettings();
 		private bool rendercomments; //mxd
 		private bool fixedthingsscale; //mxd
@@ -312,6 +314,8 @@ namespace CodeImp.DoomBuilder.Config
 		public bool StoreSelectedEditTab { get { return storeSelectedEditTab; } internal set { storeSelectedEditTab = value; } }
 		internal bool CheckForUpdates { get { return checkforupdates; } set { checkforupdates = value; } } //mxd
 		internal bool NativeFileDialogs { get { return nativefiledialogs; } set { nativefiledialogs = value; } }
+		internal bool VisualFrameChain { get { return visualframechain; } set { visualframechain = value; } }
+		internal int VisualMinFrameTime { get { return visualminframetime; } set { visualminframetime = value; } }
 		internal LightmapBakeSettings LightmapBake { get { return lightmapbake; } }
 		public bool RenderComments { get { return rendercomments; } internal set { rendercomments = value; } } //mxd
 		public bool FixedThingsScale { get { return fixedthingsscale; } internal set { fixedthingsscale = value; } } //mxd
@@ -467,6 +471,8 @@ namespace CodeImp.DoomBuilder.Config
 				storeSelectedEditTab = cfg.ReadSetting("storeselectededittab", true);
 				checkforupdates = cfg.ReadSetting("checkforupdates", true); //mxd
 				nativefiledialogs = cfg.ReadSetting("nativefiledialogs", true);
+				visualframechain = cfg.ReadSetting("visualframechain", true);
+				visualminframetime = General.Clamp(cfg.ReadSetting("visualminframetime", FrameChain.DEFAULT_MIN_FRAME_MS), 0, FrameChain.MAX_MIN_FRAME_MS);
 				lightmapbake.BakerPath = cfg.ReadSetting("lightmapbaker.path", "");
 				lightmapbake.TextureSize = cfg.ReadSetting("lightmapbaker.texturesize", LightmapBakeSettings.DEFAULT_TEXTURE_SIZE);
 				if(Array.IndexOf(LightmapBakeSettings.TEXTURE_SIZES, lightmapbake.TextureSize) < 0) lightmapbake.TextureSize = LightmapBakeSettings.DEFAULT_TEXTURE_SIZE;
@@ -650,6 +656,8 @@ namespace CodeImp.DoomBuilder.Config
 			cfg.WriteSetting("storeselectededittab", storeSelectedEditTab);
 			cfg.WriteSetting("checkforupdates", checkforupdates); //mxd
 			cfg.WriteSetting("nativefiledialogs", nativefiledialogs);
+			cfg.WriteSetting("visualframechain", visualframechain);
+			cfg.WriteSetting("visualminframetime", visualminframetime);
 			cfg.WriteSetting("lightmapbaker.path", lightmapbake.BakerPath);
 			cfg.WriteSetting("lightmapbaker.texturesize", lightmapbake.TextureSize);
 			cfg.WriteSetting("lightmapbaker.threads", lightmapbake.Threads);

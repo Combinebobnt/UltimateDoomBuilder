@@ -145,6 +145,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// Processing
 		private ProcessingGate processinggate;
 		private long lastupdatetime;
+		private FrameChain framechain;
 
 		// Updating
 		private int lockupdatecount;
@@ -662,6 +663,8 @@ namespace CodeImp.DoomBuilder.Windows
 			// Info panel state?
 			bool expandedpanel = General.Settings.ReadSetting("windows." + configname + ".expandedinfopanel", true);
 			if(expandedpanel != IsInfoPanelExpanded) ToggleInfoPanel();
+
+			StartFrameChain();
 		}
 
 		// Window receives focus
@@ -711,6 +714,7 @@ namespace CodeImp.DoomBuilder.Windows
 				// Stop exclusive mode, if any is active
 				StopExclusiveMouseInput();
 				StopProcessing();
+				if(framechain != null) Application.Idle -= FrameChainIdle;
 
 				// Unbind methods
 				General.Actions.UnbindMethods(this);
@@ -4979,8 +4983,63 @@ namespace CodeImp.DoomBuilder.Windows
 				General.Editing.Mode.OnClockReset();
 		}
 		
+		// Visual mode on Mono runs its ticks from the pump's idle pass; the timer stays as the fallback
+		private void StartFrameChain()
+		{
+			if(Environment.OSVersion.Platform != PlatformID.Unix || !General.Settings.VisualFrameChain) return;
+			if(Environment.GetEnvironmentVariable("UDB_FRAME_CHAIN") == "0") return;
+			Func<int> paints = FrameChain.MonoPaintCounter(Handle);
+			if(paints == null)
+			{
+				General.WriteLogLine("Visual mode frame chain unavailable: Mono's paint queue not found, using the processor timer");
+				return;
+			}
+			framechain = new FrameChain(FrameChainWanted, paints, PostChainedFrame, () => Clock.CurrentTime, System.Threading.Thread.Sleep, RunChainedFrame);
+			framechain.MinFrameMs = General.Settings.VisualMinFrameTime;
+			Application.Idle += FrameChainIdle;
+		}
+
+		private void FrameChainIdle(object sender, EventArgs e)
+		{
+			FrameTiming.NoteChainIdle(framechain.OnIdle(), windowactive);
+		}
+
+		private bool FrameChainWanted()
+		{
+			return processor.Enabled && windowactive && General.Map != null && General.Editing.Mode is VisualMode;
+		}
+
+		private bool PostChainedFrame(System.Action frame)
+		{
+			if(IsDisposed || Disposing || !IsHandleCreated) return false;
+			BeginInvoke(frame);
+			return true;
+		}
+
+		private void RunChainedFrame()
+		{
+#if DEBUG
+			ProcessorTick(true);
+#else
+			try
+			{
+				ProcessorTick(true);
+			}
+			catch(Exception ex)
+			{
+				Application.OnThreadException(ex);
+			}
+#endif
+		}
+
 		// Processor event
 		private void processor_Tick(object sender, EventArgs e)
+		{
+			if(framechain != null && FrameChainWanted() && !framechain.TimerShouldTick()) return;
+			ProcessorTick(false);
+		}
+
+		private void ProcessorTick(bool chained)
 		{
 			long curtime = Clock.CurrentTime;
 			long deltatime = curtime - lastupdatetime;
@@ -4989,6 +5048,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if((General.Map != null) && (General.Editing.Mode != null))
 			{
 				FrameTiming.TickBegin(General.Editing.Mode.GetType().Name);
+				if(chained) FrameTiming.NoteChained();
 				try
 				{
 					// In exclusive mouse mode?

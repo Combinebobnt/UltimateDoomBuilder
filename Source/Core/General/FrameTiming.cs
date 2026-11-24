@@ -15,6 +15,12 @@ namespace CodeImp.DoomBuilder
 		Input,
 		Move,
 		Cull,
+		Gather,
+		Lights,
+		Geometry,
+		Things,
+		Models,
+		Translucent,
 		Draw,
 		Present,
 		Ui,
@@ -58,6 +64,17 @@ namespace CodeImp.DoomBuilder
 		{
 			if(intick) timer.NoteVisible(geometry, things);
 		}
+
+		internal static void NoteChained()
+		{
+			if(intick) timer.NoteChained();
+		}
+
+		// Counted between ticks too, into the window the next tick belongs to
+		internal static void NoteChainIdle(ChainIdle result, bool windowactive)
+		{
+			if(timer != null && InteractionLog.Enabled) timer.NoteChainIdle(result, windowactive);
+		}
 	}
 
 	// The accumulator behind FrameTiming, with an injectable clock and sink so tests can drive it
@@ -80,6 +97,8 @@ namespace CodeImp.DoomBuilder
 		private int count;
 		private int gapcount;
 		private int picks;
+		private int chained;
+		private int idlepasses, blockpaints, blockinactive, blockother;
 		private string mode;
 		private double windowstart;
 
@@ -137,6 +156,7 @@ namespace CodeImp.DoomBuilder
 				gaps[count] = double.NaN;
 				idles[count] = double.NaN;
 				hascamera = false;
+				idlepasses = blockpaints = blockinactive = blockother = 0;
 			}
 			tickstart = now;
 			lastlap = now;
@@ -177,6 +197,19 @@ namespace CodeImp.DoomBuilder
 			lastanglez = anglez;
 		}
 
+		internal void NoteChained()
+		{
+			chained++;
+		}
+
+		internal void NoteChainIdle(ChainIdle result, bool windowactive)
+		{
+			idlepasses++;
+			if(result == ChainIdle.Paints) blockpaints++;
+			else if(result == ChainIdle.Unwanted && !windowactive) blockinactive++;
+			else if(result == ChainIdle.Unwanted) blockother++;
+		}
+
 		internal void NoteVisible(int geometry, int things)
 		{
 			maxgeometry = Math.Max(maxgeometry, geometry);
@@ -198,6 +231,11 @@ namespace CodeImp.DoomBuilder
 			AddStats(f, "idle", idles);
 			for(int i = 0; i < BUCKETS; i++) AddStats(f, BUCKETNAMES[i], buckets[i]);
 			f.Add("picks"); f.Add(Num(picks));
+			f.Add("chained"); f.Add(Num(chained));
+			f.Add("idle_passes"); f.Add(Num(idlepasses));
+			f.Add("blk_paints"); f.Add(Num(blockpaints));
+			f.Add("blk_inactive"); f.Add(Num(blockinactive));
+			f.Add("blk_other"); f.Add(Num(blockother));
 			if(maxgeometry >= 0)
 			{
 				f.Add("vis_geo"); f.Add(Num(maxgeometry));
@@ -213,6 +251,8 @@ namespace CodeImp.DoomBuilder
 			count = 0;
 			gapcount = 0;
 			picks = 0;
+			chained = 0;
+			idlepasses = blockpaints = blockinactive = blockother = 0;
 			distance = 0;
 			turn = 0;
 			windowcamera = false;
