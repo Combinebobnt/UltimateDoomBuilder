@@ -193,19 +193,35 @@ namespace Builder.Tests
 		}
 
 		[Fact]
-		public void StackedThings_PairByTidWithTheHighestIndexOfEachClass()
+		public void StackedThings_EveryPointLinksToTheHighestIndexPartner_AndTheOffsetUsesThePartnersLastPicker()
 		{
-			PortalMapData d = Sectors(3);
-			Thing(d, UPPER, 4, 0, 0, 0);
-			Thing(d, LOWER, 4, 100, 50, 1);
+			PortalMapData d = Sectors(6);
+			Thing(d, UPPER, 4, 0, 0, 0);     // 0: picks lower 1, which picks upper 2: one-way
+			Thing(d, LOWER, 4, 100, 50, 1);  // 1: mutual with upper 2
 			Thing(d, UPPER, 4, 10, 10, 2);
+			Thing(d, LOWER, 5, 0, 0, 3);     // 3: picks upper 4, which picks lower 5: one-way
+			Thing(d, UPPER, 5, 100, 0, 4);
+			Thing(d, LOWER, 5, 30, 0, 5);
 			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
 
-			PortalLink link = Assert.Single(r.Links);
-			Assert.Equal(new int?[] { 2, 1 }, new[] { End(link.Origin), End(link.Destination) });
-			Assert.Equal(new Vector2D(90, 40), link.Displacement);
-			Assert.Equal(new[] { 2, 1 }, link.Sectors);
+			// The engine's offset is partner minus partner->target, the highest-index point that picked the partner
+			Assert.Equal(new[] { "0->1 90,40", "2<->1 90,40", "3->4 70,0", "4<->5 -70,0" },
+				r.Links.Select(l => End(l.Origin) + (l.TwoWay ? "<->" : "->") + End(l.Destination) + " " + l.Displacement.x + "," + l.Displacement.y).ToArray());
+			Assert.Equal(new[] { 0, 1 }, r.Links[0].Sectors);
+			Assert.Equal("Upper Sector thing", r.Links[1].Origin.Role);
+			Assert.Equal("Lower Sector thing", r.Links[2].Origin.Role);
 			Assert.Empty(r.Issues);
+		}
+
+		[Fact]
+		public void StackedThings_EveryPointWithoutAPartnerIsUnpaired()
+		{
+			PortalMapData d = Sectors(1);
+			Thing(d, UPPER, 6);
+			Thing(d, UPPER, 6);
+			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
+
+			Assert.Equal(new[] { 0, 1 }, r.Issues.Where(i => i.Code == PortalIssueCode.StackUnpaired).Select(i => i.Elements[0].Index).ToArray());
 		}
 
 		[Fact]
@@ -266,6 +282,68 @@ namespace Builder.Tests
 			Assert.Equal(new[] { 3, 4 }, links.Select(l => l.Type).ToArray());
 			Assert.All(links, l => Assert.Equal(new[] { 0 }, l.Sectors));
 			Assert.Empty(r.Issues);
+		}
+
+		[Fact]
+		public void Copies_OnZandronumOnlyTypeOneCopiesTypeZeroPortalsOnTheExactPlane()
+		{
+			PortalMapData d = Sectors(3, new[] { 7 }, new int[0], new[] { 8 });
+			Thing(d, SKYCAM, 0, 0, 0, 1);
+			Line(d, SECTORPORTAL, new[] { 7, 2, 1 }, null, front: 1);  // 0: skybox, which Zandronum never copies
+			Line(d, SECTORPORTAL, new[] { 8, 0, 0, 0 }, null);         // 1: anchored floor portal on tag 8
+			Line(d, SECTORPORTAL, new[] { 8, 0, 0, 1 }, null);         // 2: its reference
+			Line(d, SECTORPORTAL, new[] { 0, 1, 0, 8 }, null);         // 3: copies it
+			Line(d, SECTORPORTAL, new[] { 0, 1, 3, 8 }, null);         // 4: plane 3 = any is UZDoom only
+			Line(d, SECTORPORTAL, new[] { 0, 1, 1, 7 }, null);         // 5: skybox copy
+			Line(d, SECTORPORTAL, new[] { 0, 5, 0, 7 }, null);         // 6: copy to line
+			PortalReport zan = PortalAnalyzer.Analyze(d, Zandronum());
+			PortalReport uz = PortalAnalyzer.Analyze(d, Caps());
+
+			Assert.Equal(new[] { 3 }, Assert.Single(Links(zan, PortalKind.AnchoredSector)).Dependents.Select(e => e.Element.Index).ToArray());
+			Assert.Empty(Assert.Single(Links(zan, PortalKind.Skybox)).Dependents);
+			Assert.Equal(new[] { 4, 5, 6 }, Links(zan, PortalKind.Copy).Select(l => End(l.Origin) ?? -1).ToArray());
+
+			Assert.Equal(new[] { 3, 4 }, Assert.Single(Links(uz, PortalKind.AnchoredSector)).Dependents.Select(e => e.Element.Index).ToArray());
+			Assert.Equal(new[] { 5, 6 }, Assert.Single(Links(uz, PortalKind.Skybox)).Dependents.Select(e => e.Element.Index).ToArray());
+			Assert.Empty(Links(uz, PortalKind.Copy));
+		}
+
+		[Theory]
+		[InlineData(0, 1, true)]
+		[InlineData(6, 1, true)]
+		[InlineData(0, 2, true)]
+		[InlineData(6, 2, false)]
+		[InlineData(0, 3, false)]
+		public void AnchoredPortal_ThePlaneDecidesWhetherItIsBuilt(int type, int plane, bool built)
+		{
+			PortalMapData d = Sectors(1, new[] { 5 });
+			Line(d, SECTORPORTAL, new[] { 5, type, plane, 0 }, null, 0, 0, 0, 64);
+			Line(d, SECTORPORTAL, new[] { 5, type, plane, 1 }, null, 128, 0, 128, 64);
+			Line(d, SECTORPORTAL, new[] { 0, 1, plane, 5 }, null);
+			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
+
+			PortalLink link = Assert.Single(Links(r, PortalKind.AnchoredSector));
+			Assert.Equal(1, End(link.Destination));
+			Assert.Equal(built, link.HasDisplacement);
+			Assert.Equal(built ? 1 : 0, link.Dependents.Count);
+			Assert.Equal(built ? 0 : 1, Links(r, PortalKind.Copy).Count);
+		}
+
+		[Fact]
+		public void MutualLinesOfDifferentTypes_StayTwoOneWayRows()
+		{
+			PortalMapData d = Sectors(2);
+			Line(d, SETPORTAL, new[] { 2, 0, 0 }, new[] { 1 }, 0, 0, 0, 128, 0);
+			Line(d, SETPORTAL, new[] { 1, 0, 3 }, new[] { 2 }, 512, 128, 512, 0, 1);
+			Line(d, QUICKPORTAL, new[] { 0 }, new[] { 9 });
+			Line(d, QUICKPORTAL, new[] { 1 }, new[] { 9 });
+			PortalReport r = PortalAnalyzer.Analyze(d, Caps());
+
+			Assert.Equal(new[] { "0->1 0 False", "1->0 3 True" },
+				Links(r, PortalKind.LinePortal).Select(l => End(l.Origin) + "->" + End(l.Destination) + " " + l.Type + " " + l.HasDisplacement).ToArray());
+			Assert.Equal(new[] { "2->3 3", "3->2 0" },
+				Links(r, PortalKind.QuickPortal).Select(l => End(l.Origin) + "->" + End(l.Destination) + " " + l.Type).ToArray());
+			Assert.All(r.Links, l => Assert.False(l.TwoWay));
 		}
 
 		[Fact]

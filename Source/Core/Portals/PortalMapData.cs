@@ -18,7 +18,6 @@ namespace CodeImp.DoomBuilder.Portals
 
 		public int FirstId { get { return Ids.Length > 0 ? Ids[0] : 0; } }
 		public Vector2D Middle { get { return new Vector2D((V1.x + V2.x) * 0.5, (V1.y + V2.y) * 0.5); } }
-		public bool HasId(int id) { return id != 0 && Array.IndexOf(Ids, id) >= 0; }
 	}
 
 	public sealed class PortalSector

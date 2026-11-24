@@ -252,7 +252,8 @@ namespace CodeImp.DoomBuilder.Portals
 				else
 				{
 					PortalLine back;
-					link.TwoWay = exits.TryGetValue(exit, out back) && back == l;
+					// Ends of different types stay two one-way rows, so each row shows its own type
+					link.TwoWay = exits.TryGetValue(exit, out back) && back == l && exit.Args[2] == l.Args[2];
 					if(link.TwoWay) done.Add(exit);
 					link.Destination = new PortalEnd(Line(exit), link.TwoWay ? "Portal line" : "Exit line");
 					if(l.Args[2] == LINE_LINKED) SetDisplacement(link, exit.V2 - l.V1);
@@ -338,7 +339,7 @@ namespace CodeImp.DoomBuilder.Portals
 				else
 				{
 					PortalLine back;
-					link.TwoWay = partners.TryGetValue(partner, out back) && back == l;
+					link.TwoWay = partners.TryGetValue(partner, out back) && back == l && (partner.Args[0] == 0) == linked;
 					if(link.TwoWay) done.Add(partner);
 					link.Destination = new PortalEnd(Line(partner), link.TwoWay ? "Portal line" : "Exit line");
 					if(linked) SetDisplacement(link, partner.V2 - l.V1);
@@ -392,8 +393,14 @@ namespace CodeImp.DoomBuilder.Portals
 				{
 					usedrefs.Add(reference);
 					link.Destination = new PortalEnd(Line(reference), "Reference (arg3 = 1)");
-					SetDisplacement(link, reference.Middle - l.Middle);
-					copysources.Add(new CopySource { Link = link, Tag = l.Args[0], Plane = l.Args[2], ToLines = false });
+
+					// SpawnPortal builds nothing on a plane outside 0 to 2 or a linked portal on plane 2; older engines build type 0 only
+					bool built = l.Args[2] >= 0 && l.Args[2] <= 2 && (l.Args[1] == SECTOR_ANCHORED || (c.Caps.ModernSectorPortals && l.Args[2] != 2));
+					if(built)
+					{
+						SetDisplacement(link, reference.Middle - l.Middle);
+						copysources.Add(new CopySource { Link = link, Tag = l.Args[0], Plane = l.Args[2], ToLines = false });
+					}
 				}
 				c.Report.Links.Add(link);
 			}
@@ -425,7 +432,7 @@ namespace CodeImp.DoomBuilder.Portals
 						link.Origin = new PortalEnd(Line(l), "Skybox line");
 						link.Destination = new PortalEnd(Thing(t), "Viewpoint");
 						AddTaggedSectors(c, link, l.Args[0]);
-						copysources.Add(new CopySource { Link = link, Tag = l.Args[0], Plane = l.Args[2], ToLines = true });
+						if(c.Caps.ModernSectorPortals) copysources.Add(new CopySource { Link = link, Tag = l.Args[0], Plane = l.Args[2], ToLines = true });
 						c.Report.Links.Add(link);
 						break;
 					}
@@ -447,11 +454,12 @@ namespace CodeImp.DoomBuilder.Portals
 				PortalLink link = new PortalLink { Kind = PortalKind.PlaneHorizon, Type = l.Args[1], Plane = l.Args[2], Id = l.Args[0] };
 				link.Origin = new PortalEnd(Line(l), l.Args[1] == SECTOR_PLANE ? "Plane portal line" : "Horizon portal line");
 				AddTaggedSectors(c, link, l.Args[0]);
-				copysources.Add(new CopySource { Link = link, Tag = l.Args[0], Plane = l.Args[2], ToLines = true });
+				if(c.Caps.ModernSectorPortals) copysources.Add(new CopySource { Link = link, Tag = l.Args[0], Plane = l.Args[2], ToLines = true });
 				c.Report.Links.Add(link);
 			}
 
-			// Copies (CopyPortal): type 1 matches the plane or plane 3; type 5 copies only portals built with tolines
+			// Copies (CopyPortal): type 1 matches the plane or plane 3; type 5 copies only portals built with tolines.
+			// Older engines (Zandronum) copy only type 0 portals, by type 1 with the exact plane.
 			foreach(PortalLine l in c.Data.Lines)
 			{
 				if(l.Action != action || (l.Args[1] != SECTOR_COPY && l.Args[1] != SECTOR_COPY_TO_LINE)) continue;
@@ -459,7 +467,9 @@ namespace CodeImp.DoomBuilder.Portals
 				foreach(CopySource s in copysources)
 				{
 					if(s.Tag != l.Args[3]) continue;
-					if(l.Args[1] == SECTOR_COPY ? (l.Args[2] != s.Plane && l.Args[2] != 3) : !s.ToLines) continue;
+					if(l.Args[1] == SECTOR_COPY_TO_LINE && !c.Caps.ModernSectorPortals) continue;
+					bool anyplane = l.Args[2] == 3 && c.Caps.ModernSectorPortals;
+					if(l.Args[1] == SECTOR_COPY ? (l.Args[2] != s.Plane && !anyplane) : !s.ToLines) continue;
 					s.Link.Dependents.Add(new PortalEnd(Line(l), CopyRole(l)));
 					copied = true;
 				}
@@ -493,58 +503,60 @@ namespace CodeImp.DoomBuilder.Portals
 
 		#region ================== Thing portals
 
-		// Each stack point takes the other class's thing with its TID; the TID hash yields the highest index first
+		// Every stack point builds its own portal to the other class's thing with its TID, and the TID hash
+		// yields the highest index first. A mutual pair is one two-way row; any other point is a one-way row.
 		private static void AddStackedSectors(Context c)
 		{
-			Dictionary<int, PortalThing> uppers = new Dictionary<int, PortalThing>();
-			Dictionary<int, PortalThing> lowers = new Dictionary<int, PortalThing>();
-			List<int> order = new List<int>();
+			Dictionary<int, PortalThing> highestupper = new Dictionary<int, PortalThing>();
+			Dictionary<int, PortalThing> highestlower = new Dictionary<int, PortalThing>();
+			List<PortalThing> points = new List<PortalThing>();
 			foreach(PortalThing t in c.Data.Things)
 			{
 				bool upper = t.Type == c.Caps.UpperStack;
 				if(!upper && t.Type != c.Caps.LowerStack) continue;
-				if(t.Tid == 0)
-				{
-					PortalLink lone = new PortalLink { Kind = PortalKind.StackedSectors };
-					SetStackEnd(lone, t, upper);
-					AddIssue(c, lone, new PortalIssue(PortalSeverity.Error, PortalIssueCode.StackUnpaired,
-						"Stacked sector things with TID 0 never pair", Thing(t)));
-					c.Report.Links.Add(lone);
-					continue;
-				}
-				if(!uppers.ContainsKey(t.Tid) && !lowers.ContainsKey(t.Tid)) order.Add(t.Tid);
-				(upper ? uppers : lowers)[t.Tid] = t;
+				points.Add(t);
+				if(t.Tid != 0) (upper ? highestupper : highestlower)[t.Tid] = t;
 			}
 
-			foreach(int tid in order)
+			foreach(PortalThing t in points)
 			{
-				PortalThing u, l;
-				uppers.TryGetValue(tid, out u);
-				lowers.TryGetValue(tid, out l);
-				PortalLink link = new PortalLink { Kind = PortalKind.StackedSectors, Id = tid, TwoWay = u != null && l != null };
-				if(u != null) SetStackEnd(link, u, true);
-				if(l != null) SetStackEnd(link, l, false);
-				if(u != null && l != null)
+				bool upper = t.Type == c.Caps.UpperStack;
+				PortalLink link = new PortalLink { Kind = PortalKind.StackedSectors, Id = t.Tid };
+				PortalThing partner = null;
+				if(t.Tid != 0) (upper ? highestlower : highestupper).TryGetValue(t.Tid, out partner);
+				if(partner == null)
 				{
-					SetDisplacement(link, l.Position - u.Position);
-				}
-				else
-				{
-					PortalThing t = u ?? l;
-					string msg = u != null
-						? "No Lower Sector thing (LowerStackLookOnly) has TID " + tid + ", so this floor portal is never built"
-						: "No Upper Sector thing (UpperStackLookOnly) has TID " + tid + ", so this ceiling portal is never built";
+					SetStackEnd(c, link, t, true);
+					string msg = t.Tid == 0 ? "Stacked sector things with TID 0 never pair"
+						: upper ? "No Lower Sector thing (LowerStackLookOnly) has TID " + t.Tid + ", so this floor portal is never built"
+						: "No Upper Sector thing (UpperStackLookOnly) has TID " + t.Tid + ", so this ceiling portal is never built";
 					AddIssue(c, link, new PortalIssue(PortalSeverity.Error, PortalIssueCode.StackUnpaired, msg, Thing(t)));
+					c.Report.Links.Add(link);
+					continue;
 				}
+
+				// The partner's pick is the highest-index point of t's class on the TID
+				PortalThing partnerpick = (upper ? highestupper : highestlower)[t.Tid];
+				link.TwoWay = partnerpick == t;
+				if(link.TwoWay && partner.Index < t.Index) continue;  // already added from the partner's side
+
+				// A two-way row always runs upper to lower
+				PortalThing from = link.TwoWay && !upper ? partner : t;
+				PortalThing to = from == t ? partner : t;
+				SetStackEnd(c, link, from, true);
+				SetStackEnd(c, link, to, false);
+
+				// SetupPortals takes the offset from to->target, which the last point to pick it (the highest index) overwrites
+				PortalThing totarget = (to.Type == c.Caps.UpperStack ? highestlower : highestupper)[t.Tid];
+				SetDisplacement(link, to.Position - totarget.Position);
 				c.Report.Links.Add(link);
 			}
 		}
 
-		private static void SetStackEnd(PortalLink link, PortalThing t, bool upper)
+		private static void SetStackEnd(Context c, PortalLink link, PortalThing t, bool origin)
 		{
-			PortalEnd end = new PortalEnd(Thing(t), upper ? "Upper Sector thing" : "Lower Sector thing");
-			if(upper) link.Origin = end; else link.Destination = end;
-			link.Id = t.Tid;
+			PortalEnd end = new PortalEnd(Thing(t), t.Type == c.Caps.UpperStack ? "Upper Sector thing" : "Lower Sector thing");
+			if(origin) link.Origin = end; else link.Destination = end;
 			if(t.Sector >= 0) AddSector(link, t.Sector);
 		}
 

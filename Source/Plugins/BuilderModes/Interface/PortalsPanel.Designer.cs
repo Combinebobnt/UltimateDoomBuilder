@@ -19,6 +19,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				Terminate();
 				if(components != null) components.Dispose();
+				foreach(System.Drawing.Bitmap b in imagebitmaps) b.Dispose();
+				imagebitmaps.Clear();
 			}
 			base.Dispose(disposing);
 		}

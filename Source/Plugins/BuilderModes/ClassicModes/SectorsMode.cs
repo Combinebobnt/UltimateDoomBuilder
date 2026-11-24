@@ -800,6 +800,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 		}
 
+		// Selects many sectors with one label and overlay update, where SelectMapElement per sector is quadratic
+		internal void SelectSectors(IEnumerable<Sector> sectors)
+		{
+			foreach(Sector s in sectors) SelectSector(s, true, false);
+			UpdateSelectedLabels();
+			UpdateOverlaySurfaces();
+			UpdateSelectionInfo();
+		}
+
 		//Update Selection event lines whenever sector selection changes
 		public override void UpdateSelectionInfo()
 		{

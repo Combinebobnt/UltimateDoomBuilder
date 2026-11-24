@@ -33,6 +33,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			public SectorList(List<int> sectors) { Sectors = sectors; }
 		}
 
+		private readonly List<Bitmap> imagebitmaps = new List<Bitmap>();
 		private Docker docker;
 		private Form parentform;
 		private PortalCapabilities caps = PortalCapabilities.None;
@@ -94,7 +95,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			PortalReport report = PortalAnalyzer.Analyze(data, caps);
 			long analysis = watch.ElapsedMilliseconds;
 
-			TreeNode selected = null;
+			// Keep the user's place: collapsed kinds, expanded links and the first visible row
+			HashSet<PortalKind> collapsed = new HashSet<PortalKind>();
+			HashSet<string> expanded = new HashSet<string>();
+			string topkey = NodeKey(tree.TopNode);
+			foreach(TreeNode kn in tree.Nodes)
+			{
+				if(kn.Tag is PortalKind && !kn.IsExpanded) collapsed.Add((PortalKind)kn.Tag);
+				foreach(TreeNode ln in kn.Nodes)
+					if(ln.IsExpanded && ln.Tag is PortalLink) expanded.Add(((PortalLink)ln.Tag).Key);
+			}
+
+			TreeNode selected = null, top = null;
 			int shown = 0, errors = 0, warnings = 0;
 			tree.BeginUpdate();
 			try
@@ -105,7 +117,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					List<PortalLink> links = report.Links.FindAll(l => l.Kind == kind && (!problemsonly.Checked || l.Issues.Count > 0));
 					if(links.Count == 0) continue;
 
-					TreeNode kindnode = new TreeNode(KindTitle(kind) + " (" + links.Count + ")", IMAGE_KIND, IMAGE_KIND);
+					TreeNode kindnode = new TreeNode(KindTitle(kind) + " (" + links.Count + ")", IMAGE_KIND, IMAGE_KIND) { Tag = kind };
+					if(topkey != null && NodeKey(kindnode) == topkey) top = kindnode;
 					int worst = IMAGE_OK;
 					foreach(PortalLink link in links)
 					{
@@ -113,23 +126,31 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						kindnode.Nodes.Add(node);
 						worst = Math.Max(worst, node.ImageIndex);
 						if(link.Key == selectedkey) selected = node;
+						if(link.Key == topkey) top = node;
+						if(expanded.Contains(link.Key)) node.Expand();
 						if(link.HasErrors) errors++;
 						else if(link.HasWarnings) warnings++;
 					}
 					kindnode.ImageIndex = kindnode.SelectedImageIndex = worst == IMAGE_OK ? IMAGE_KIND : worst;
 					tree.Nodes.Add(kindnode);
-					kindnode.Expand();
+
+					// Expanding a child row expands its kind on Mono, so a collapsed kind is collapsed again here
+					if(collapsed.Contains(kind)) kindnode.Collapse(true);
+					else kindnode.Expand();
 					shown += links.Count;
 				}
 
 				if(tree.Nodes.Count == 0)
 					tree.Nodes.Add(new TreeNode(problemsonly.Checked && report.Links.Count > 0 ? "No portal problems found" : "No portals in this map", IMAGE_KIND, IMAGE_KIND));
+				// Selecting a row inside a collapsed kind would expand it again, so the kind row takes the selection
+				if(selected != null && selected.Parent != null && !selected.Parent.IsExpanded) selected = selected.Parent;
 				if(selected != null) tree.SelectedNode = selected;
 			}
 			finally
 			{
 				tree.EndUpdate();
 			}
+			if(top != null) tree.TopNode = top;
 
 			summary.Text = report.Links.Count + (report.Links.Count == 1 ? " portal" : " portals")
 				+ (errors > 0 ? ", " + errors + " with errors" : "") + (warnings > 0 ? ", " + warnings + " with warnings" : "");
@@ -142,7 +163,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private TreeNode LinkNode(PortalLink link, PortalMapData data)
 		{
 			int image = link.HasErrors ? IMAGE_ERROR : link.HasWarnings ? IMAGE_WARNING : IMAGE_OK;
-			TreeNode node = new TreeNode(LinkText(link), image, image) { Tag = link, ToolTipText = "Click to select both ends. Right-click an end to edit it." };
+			// Classic modes select one element type, so a line-to-thing row selects its line and centers on both
+			bool mixed = link.Origin != null && link.Destination != null && link.Origin.Element.Type != link.Destination.Element.Type;
+			string tip = mixed ? "Click to select the line and center on both ends. Right-click an end to edit it."
+				: "Click to select both ends. Right-click an end to edit it.";
+			TreeNode node = new TreeNode(LinkText(link), image, image) { Tag = link, ToolTipText = tip };
 
 			if(link.Origin != null) node.Nodes.Add(EndNode(link.Origin, data));
 			if(link.Destination != null) node.Nodes.Add(EndNode(link.Destination, data));
@@ -172,6 +197,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				if(t.Sector >= 0) text += " (sector " + t.Sector + ")";
 			}
 			return new TreeNode(text, IMAGE_ELEMENT, IMAGE_ELEMENT) { Tag = end, ToolTipText = "Click to select. Right-click to edit." };
+		}
+
+		// Only kind and link rows have a key; the first visible row is restored only when it is one of them
+		private static string NodeKey(TreeNode node)
+		{
+			if(node == null) return null;
+			if(node.Tag is PortalKind) return "kind:" + node.Tag;
+			if(node.Tag is PortalLink) return ((PortalLink)node.Tag).Key;
+			return null;
 		}
 
 		private static string KindTitle(PortalKind kind)
@@ -283,13 +317,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return (sectors.Count == 1 ? "Sector " : "Sectors ") + string.Join(", ", names) + (sectors.Count > max ? " and " + (sectors.Count - max) + " more" : "");
 		}
 
+		// The bitmaps are kept and disposed after the image list, since Mono's ImageList may still reference them
 		private void BuildImages()
 		{
-			images.Images.Add(Dot(Color.FromArgb(128, 128, 128), true));
-			images.Images.Add(Dot(Color.FromArgb(64, 170, 80), false));
-			images.Images.Add(Dot(Color.FromArgb(230, 160, 20), false));
-			images.Images.Add(Dot(Color.FromArgb(215, 50, 50), false));
-			images.Images.Add(new Bitmap(16, 16));
+			imagebitmaps.Add(Dot(Color.FromArgb(128, 128, 128), true));
+			imagebitmaps.Add(Dot(Color.FromArgb(64, 170, 80), false));
+			imagebitmaps.Add(Dot(Color.FromArgb(230, 160, 20), false));
+			imagebitmaps.Add(Dot(Color.FromArgb(215, 50, 50), false));
+			imagebitmaps.Add(new Bitmap(16, 16));
+			foreach(Bitmap b in imagebitmaps) images.Images.Add(b);
 		}
 
 		private static Bitmap Dot(Color color, bool square)
@@ -333,6 +369,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(General.Editing.Mode == null || General.Editing.Mode.GetType().Name != mode) General.Editing.ChangeMode(mode);
 			ClassicMode classic = General.Editing.Mode as ClassicMode;
 
+			List<Sector> sectors = new List<Sector>();
 			foreach(PortalElement e in elements)
 			{
 				if(e.Type != type) continue;
@@ -348,10 +385,14 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						break;
 					default:
 						Sector s = General.Map.Map.GetSectorByIndex(e.Index);
-						if(s != null && classic != null) classic.SelectMapElement(s);
+						if(s != null) sectors.Add(s);
 						break;
 				}
 			}
+
+			if(sectors.Count == 0) return;
+			if(classic is SectorsMode) ((SectorsMode)classic).SelectSectors(sectors);
+			else if(classic != null) foreach(Sector s in sectors) classic.SelectMapElement(s);
 		}
 
 		private static void CenterOn(List<PortalElement> elements)
