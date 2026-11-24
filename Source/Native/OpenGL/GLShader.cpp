@@ -42,7 +42,7 @@ bool GLShader::CheckCompile(GLRenderDevice* device)
 		CreateProgram(device);
 		if (!mProgram) return false;
 		glUseProgram(mProgram);
-		for (int unit = 0; unit < 10; unit++)
+		for (int unit = 0; unit < GLRenderDevice::MaxTextureUnits; unit++)
 		{
 			std::string name = "texture" + std::to_string(unit + 1);
 			glUniform1i(glGetUniformLocation(mProgram, name.c_str()), unit);

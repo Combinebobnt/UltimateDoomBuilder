@@ -24,18 +24,19 @@ static void CheckDeletion(bool finalize)
 	auto retained = new GLTexture();
 	retained->Device = &device;
 	retained->ItTexture = device.mTextures.insert(device.mTextures.end(), retained);
-	for (int unit = 0; unit < 10; unit++) device.SetTexture(unit, unit == 5 ? retained : texture);
+	for (int unit = 0; unit < GLRenderDevice::MaxTextureUnits; unit++) device.SetTexture(unit, unit == 5 ? retained : texture);
 	device.mNeedApply = device.mTexturesChanged = false;
 	std::thread finalizer([&]() { GLRenderDevice::DeleteObject(texture); });
 	finalizer.join();
 	Require(device.mDeleteList.Textures.size() == 1, "worker did not enqueue the texture");
-	for (int unit = 0; unit < 10; unit++)
+	for (int unit = 0; unit < GLRenderDevice::MaxTextureUnits; unit++)
 		Require(device.mTextureUnit[unit].Tex == (unit == 5 ? retained : texture), "worker changed a render-thread binding");
 	Require(!device.mNeedApply && !device.mTexturesChanged, "worker changed render-thread dirty flags");
 	device.ProcessDeleteList(finalize);
-	for (int unit = 0; unit < 10; unit++)
+	for (int unit = 0; unit < GLRenderDevice::MaxTextureUnits; unit++)
 		Require(device.mTextureUnit[unit].Tex == (unit == 5 ? retained : nullptr), "render-thread drain left a stale binding");
 	Require(device.mNeedApply && device.mTexturesChanged, "render-thread drain did not dirty the bindings");
+	Require(!device.mTextureUnit[13].Tex, "render-thread drain left a material layer unit bound");
 	Require(device.mDeleteList.Textures.empty(), "render-thread drain did not empty the queue");
 	Require(device.mTextures.size() == 1, "render-thread drain finalized the wrong texture");
 	if (finalize) { Require(!texture->Device, "finalization kept its device"); delete texture; }
@@ -44,13 +45,32 @@ static void CheckDeletion(bool finalize)
 	Require(!device.mTextureUnit[5].Tex && device.mTextures.empty(), "retained texture did not clean up");
 }
 
+// An out-of-range unit must not write past the unit array or dirty the bindings
+static void CheckUnitBounds()
+{
+	GLRenderDevice device(nullptr, nullptr, false);
+	GLTexture texture;
+	device.mNeedApply = device.mTexturesChanged = false;
+	for (int unit : { -1, GLRenderDevice::MaxTextureUnits })
+	{
+		device.SetTexture(unit, &texture);
+		device.SetSamplerFilter(unit, TextureFilter::Linear, TextureFilter::Linear, MipmapFilter::Linear, 4.0f);
+		device.SetSamplerState(unit, TextureAddress::Clamp);
+	}
+	Require(!device.mNeedApply && !device.mTexturesChanged, "out-of-range unit dirtied the bindings");
+	device.SetTexture(GLRenderDevice::MaxTextureUnits - 1, &texture);
+	Require(device.mTextureUnit[GLRenderDevice::MaxTextureUnits - 1].Tex == &texture, "last unit was not bound");
+	device.SetTexture(GLRenderDevice::MaxTextureUnits - 1, nullptr);
+}
+
 int main()
 {
 	try
 	{
 		CheckDeletion(false);
 		CheckDeletion(true);
-		std::puts("passed 2 failed 0: worker enqueue, render-thread delete and finalize");
+		CheckUnitBounds();
+		std::puts("passed 3 failed 0: worker enqueue, render-thread delete and finalize, unit bounds");
 		return 0;
 	}
 	catch (const std::exception& e)

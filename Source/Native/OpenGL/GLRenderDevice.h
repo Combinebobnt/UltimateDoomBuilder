@@ -35,6 +35,9 @@ class GLTexture;
 class GLRenderDevice : public RenderDevice
 {
 public:
+	// GL 3.3 guarantees 16 fragment texture units; the managed RenderDevice.MaxTextureUnits matches
+	static const int MaxTextureUnits = 16;
+
 	GLRenderDevice(void* disp, void* window, bool debug);
 	~GLRenderDevice();
 
@@ -125,7 +128,7 @@ public:
 		TextureFilter MagFilter = TextureFilter::Nearest;
 		MipmapFilter MipFilter = MipmapFilter::None;
 		float MaxAnisotropy = 1;
-	} mTextureUnit[10];
+	} mTextureUnit[MaxTextureUnits];
 
 	struct SamplerFilterKey
 	{

@@ -853,7 +853,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		private void UnbindMaterials()
 		{
 			graphics.SetUniform(UniformName.brightmapEnabled, false);
-			for(int unit = 2; unit < 10; unit++) graphics.SetTexture(null, unit);
+			for(int unit = 2; unit < RenderDevice.MaxTextureUnits; unit++) graphics.SetTexture(null, unit);
 		}
 
 		// This performs a single render pass

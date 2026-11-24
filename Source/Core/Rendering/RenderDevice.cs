@@ -37,6 +37,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
     public class RenderDevice : IDisposable
     {
+		// The native device's texture unit count (GLRenderDevice::MaxTextureUnits)
+		public const int MaxTextureUnits = 16;
+
 		public RenderDevice(RenderTargetControl rendertarget)
 		{
             RenderTarget = rendertarget;

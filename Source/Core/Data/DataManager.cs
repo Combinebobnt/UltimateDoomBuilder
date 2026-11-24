@@ -2955,7 +2955,7 @@ namespace CodeImp.DoomBuilder.Data
 
 		private void ClearMaterialImages()
 		{
-			for(int unit = 2; unit < 10; unit++) General.Map.Graphics.SetTexture(null, unit);
+			for(int unit = 2; unit < RenderDevice.MaxTextureUnits; unit++) General.Map.Graphics.SetTexture(null, unit);
 			foreach(UserShaderProgram program in materialprograms.Values)
 				if(program != null) General.Map.Graphics.DeclareShader(program.Index, string.Empty, string.Empty, string.Empty);
 			materialprograms.Clear();

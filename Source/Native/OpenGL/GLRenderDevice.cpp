@@ -291,6 +291,7 @@ void GLRenderDevice::SetZWriteEnable(bool value)
 
 void GLRenderDevice::SetTexture(int unit, Texture* texture)
 {
+	if (unit < 0 || unit >= MaxTextureUnits) return;
 	if (mTextureUnit[unit].Tex != texture)
 	{
 		mTextureUnit[unit].Tex = static_cast<GLTexture*>(texture);
@@ -301,6 +302,7 @@ void GLRenderDevice::SetTexture(int unit, Texture* texture)
 
 void GLRenderDevice::SetSamplerFilter(int unit, TextureFilter minfilter, TextureFilter magfilter, MipmapFilter mipfilter, float maxanisotropy)
 {
+    if (unit < 0 || unit >= MaxTextureUnits) return;
     bool dirty = false;
     
     if (mTextureUnit[unit].MinFilter != minfilter) 
@@ -370,6 +372,7 @@ GLRenderDevice::SamplerFilterKey GLRenderDevice::GetSamplerFilterKey(TextureFilt
 
 void GLRenderDevice::SetSamplerState(int unit, TextureAddress address)
 {
+	if (unit < 0 || unit >= MaxTextureUnits) return;
 	if (mTextureUnit[unit].WrapMode != address)
 	{
 		mTextureUnit[unit].WrapMode = address;
@@ -964,7 +967,7 @@ bool GLRenderDevice::ApplyUniforms()
 bool GLRenderDevice::ApplyTextures()
 {
     bool hasError = false;
-    for (int index = 0; index < 10; index++)
+    for (int index = 0; index < MaxTextureUnits; index++)
     {
         TextureUnit &unit = mTextureUnit[index];
         if (unit.Tex)
@@ -1053,7 +1056,7 @@ void GLRenderDevice::ProcessDeleteList(bool finalize)
 
 	// Finalizers only enqueue; bindings and dirty flags belong to the render thread.
 	for (auto texture : mDeleteList.Textures)
-		for (int unit = 0; unit < 10; unit++)
+		for (int unit = 0; unit < MaxTextureUnits; unit++)
 			if (mTextureUnit[unit].Tex == texture) SetTexture(unit, nullptr);
 
 	if (!finalize)
