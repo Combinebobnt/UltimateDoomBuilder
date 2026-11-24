@@ -112,6 +112,7 @@ namespace CodeImp.DoomBuilder.Windows
 		
 		// Last info on panels
 		private object lastinfoobject;
+		private readonly ControlTreePainter infopainter = new ControlTreePainter();
 		
 		// Recent files
 		private ToolStripMenuItem[] recentitems;
@@ -4146,18 +4147,12 @@ namespace CodeImp.DoomBuilder.Windows
 		
 		// Mono services one paint per message-loop pass, after expired timers, so with the processor
 		// rendering a frame per tick the panel would otherwise repaint one control per frame.
-		// Each control is invalidated itself: a re-shown one is not, and Invalidate(true) skips it.
+		// Only controls that changed, moved or were re-shown repaint; the rest still show the right content.
 		private void PaintInfoPanelNow()
 		{
-			if(Environment.OSVersion.Platform == PlatformID.Unix && processor.Enabled) UpdateControlTree(panelinfo);
-		}
-
-		private static void UpdateControlTree(Control c)
-		{
-			c.Invalidate();
-			c.Update();
-			foreach(Control child in c.Controls)
-				if(child.Visible) UpdateControlTree(child);
+			if(Environment.OSVersion.Platform != PlatformID.Unix) return;
+			if(processor.Enabled) infopainter.Paint(panelinfo);
+			else infopainter.Reset();
 		}
 
 		// This refreshes info

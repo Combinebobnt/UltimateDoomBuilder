@@ -27,6 +27,7 @@ namespace CodeImp.DoomBuilder
 		Ui,
 		Post,
 		Pick,
+		Info,
 	}
 
 	// Per-tick timing of the main processor loop, written to the interaction log once a second as a "frames" line.

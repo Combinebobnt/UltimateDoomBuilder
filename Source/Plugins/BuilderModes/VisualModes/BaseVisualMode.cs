@@ -577,7 +577,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			// Show target info
 			if (updateinfo)
+			{
+				FrameTiming.Lap(FrameBucket.Pick);
 				ShowTargetInfo();
+				FrameTiming.Lap(FrameBucket.Info);
+			}
 		}
 
 		// This shows the picked target information
