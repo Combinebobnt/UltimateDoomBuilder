@@ -71,6 +71,7 @@ namespace CodeImp.DoomBuilder.Compilers
 		public const string FEATURE_SAMPLESCALE = "sample-scale";
 		public const string FEATURE_SIZE4096 = "size4096";
 		public const string FEATURE_SAMPLES = "samples";
+		public const string FEATURE_EMISSIVE = "emissive-table";
 
 		private static LightmapBakeOption O(string id, LightmapOptionTab tab, string label, LightmapOptionKind kind, LightmapOptionType type,
 			object def, double min, double max, string feature, string key)
@@ -93,7 +94,7 @@ namespace CodeImp.DoomBuilder.Compilers
 			O("ao", L, "Ambient occlusion", LightmapOptionKind.MapKey, LightmapOptionType.Bool, true, 0, 1, "ao", "lm_ao"),
 			O("skycolor", L, "Sky light colour:", LightmapOptionKind.MapKey, LightmapOptionType.Colour, "ffffff", 0, 0, "skylight", "lm_skycolor"),
 			O("skyintensity", L, "Sky light intensity:", LightmapOptionKind.MapKey, LightmapOptionType.Float, 0.0, 0, 16, "skylight", "lm_skyintensity"),
-			O("emissive", L, "Emissive textures:", LightmapOptionKind.ReadOnly, LightmapOptionType.Text, null, 0, 0, "emissive-table", null),
+			O("emissive", L, "Emissive textures:", LightmapOptionKind.ReadOnly, LightmapOptionType.Text, null, 0, 0, FEATURE_EMISSIVE, null),
 
 			O("preset", Q, "Quality preset:", LightmapOptionKind.MapSetting, LightmapOptionType.Choice, "final", 0, 0, FEATURE_SAMPLES, "preset"),
 			O("samplescale", Q, "Sample distance scale:", LightmapOptionKind.CliFlag, LightmapOptionType.Float, 1.0, 0.25, 16, FEATURE_SAMPLESCALE, "--sample-scale"),

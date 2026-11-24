@@ -45,7 +45,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly Button copylog = new Button();
 		private readonly Button savelog = new Button();
 		private readonly Button exportatlas = new Button();
-		private int shownlines = -1; // the running bake's line count the log shows
+		private int shownlines; // the running bake's lines the log shows
 		private readonly Label status = new Label();
 		private readonly ProgressBar progress = new ProgressBar();
 		private readonly Button quickbake = new Button();
@@ -155,7 +155,7 @@ namespace CodeImp.DoomBuilder.Windows
 			LoadRows();
 			UpdateAvailability();
 			UpdateState();
-			UpdateOutput(true);
+			UpdateOutput(true, false);
 		}
 
 		private void BuildLightingTab()
@@ -361,8 +361,9 @@ namespace CodeImp.DoomBuilder.Windows
 			table.Controls.Add(output, 0, 2);
 		}
 
-		// The bake's stats, and its log unless a bake's log is already showing
-		private void UpdateOutput(bool showlog)
+		// The bake's stats, and its log unless a bake's log is already showing. After a failed attempt
+		// the stats are still the map's earlier bake, and say so.
+		private void UpdateOutput(bool showlog, bool failed)
 		{
 			LightmapBakeCache bake;
 			string error;
@@ -375,11 +376,10 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			if(showlog) ShowLog(bake.Log ?? new[] { "(The map's lightmap came with the opened file; it has no baker log.)" });
 
-			List<string> lines = new List<string>
-			{
-				"Bake: " + (bake.Seconds >= 0 ? bake.Seconds.ToString("0.0", CultureInfo.InvariantCulture) + " s" : "came with the opened map") +
-				", quality " + (bake.Quality != null ? bake.Quality.Describe() : "unknown"),
-			};
+			List<string> lines = new List<string>();
+			if(failed) lines.Add("This attempt failed. The map keeps its earlier bake:");
+			lines.Add("Bake: " + (bake.Seconds >= 0 ? bake.Seconds.ToString("0.0", CultureInfo.InvariantCulture) + " s" : "came with the opened map") +
+				", quality " + (bake.Quality != null ? bake.Quality.Describe() : "unknown"));
 			LightmapStats s = (lump != null ? LightmapStats.Read(lump, out error) : null);
 			if(s == null) lines.Add("The LIGHTMAP can't be read: " + error + ".");
 			else
@@ -720,7 +720,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			output.Text = string.Empty;
-			shownlines = -1;
+			shownlines = 0;
 			tabs.SelectedTab = pages[LightmapOptionTab.Output];
 			status.Text = "Starting the baker...";
 			progress.Style = ProgressBarStyle.Marquee;
@@ -746,8 +746,11 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			if(linecount != shownlines)
 			{
+				// Only new lines are appended, so a long log isn't rewritten every tick
+				string[] added = job.Baker.LinesFrom(shownlines, out linecount);
+				if(added == null) ShowLog(job.Baker.Lines);
+				else foreach(string line in added) output.AppendText((output.TextLength > 0 ? Environment.NewLine : "") + line);
 				shownlines = linecount;
-				ShowLog(job.Baker.Lines);
 			}
 
 			int exitcode;
@@ -767,7 +770,7 @@ namespace CodeImp.DoomBuilder.Windows
 			SetResult(message);
 			UpdateState();
 			ShowLog(log);
-			UpdateOutput(false);
+			UpdateOutput(false, !ok);
 		}
 
 		private void SaveLog()

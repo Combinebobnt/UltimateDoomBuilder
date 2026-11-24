@@ -96,10 +96,11 @@ namespace Builder.Tests
 		[Fact]
 		public void AtlasExportWritesOnePngPerPageClampedToFullBrightness()
 		{
-			// Page 0 alternates half and no light per texel, page 1 is twice full brightness
+			// Page 0 alternates half and no light per texel, except texel 2 which is pure red; page 1 is
+			// twice full brightness
 			int page = 128 * 128 * 3;
-			byte[] lump = LightmapPreviewDataTests.Lump(128, 2, SURFACES, COORDS,
-				texel: i => i >= page ? (ushort)0x4000 : ((i / 3) % 2 == 0 ? (ushort)0x3800 : (ushort)0));
+			byte[] lump = LightmapPreviewDataTests.Lump(128, 2, SURFACES, COORDS, texel: i =>
+				i >= page ? (ushort)0x4000 : i == 6 ? (ushort)0x3C00 : (i == 7 || i == 8) ? (ushort)0 : ((i / 3) % 2 == 0 ? (ushort)0x3800 : (ushort)0));
 			string path = Path.Combine(directory, "atlas.png");
 
 			List<string> files = LightmapAtlasExport.Export(lump, path, out string error);
@@ -113,6 +114,7 @@ namespace Builder.Tests
 				Assert.Equal(128, first.Height);
 				Assert.Equal(Color.FromArgb(128, 128, 128).ToArgb(), first.GetPixel(0, 0).ToArgb());
 				Assert.Equal(Color.Black.ToArgb(), first.GetPixel(1, 0).ToArgb());
+				Assert.Equal(Color.FromArgb(255, 0, 0).ToArgb(), first.GetPixel(2, 0).ToArgb());
 				Assert.Equal(Color.White.ToArgb(), second.GetPixel(77, 99).ToArgb());
 			}
 		}
@@ -135,6 +137,11 @@ namespace Builder.Tests
 			files = LightmapAtlasExport.Export(LayoutOnly(64, 2, 2, 7, withtexels), Path.Combine(directory, "cut.png"), out error);
 			Assert.Contains("truncated", error);
 			Assert.Equal(1, files.Count);
+
+			// A page larger than ZDRay writes is refused before a bitmap is made
+			files = LightmapAtlasExport.Export(LayoutOnly(LightmapAtlasExport.MAX_PAGE_SIZE + 1, 1, 2, 7, SurfaceBody()), Path.Combine(directory, "big.png"), out error);
+			Assert.Contains("larger than", error);
+			Assert.Equal(0, files.Count);
 		}
 	}
 }

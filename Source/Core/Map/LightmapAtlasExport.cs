@@ -14,6 +14,13 @@ namespace CodeImp.DoomBuilder.Map
 	// Writes a LIGHTMAP lump's texture pages as PNG files, one row at a time, so any texture size exports
 	internal static class LightmapAtlasExport
 	{
+		#region ================== Constants
+
+		// The largest page ZDRay writes; a larger header would ask for a multi-gigabyte bitmap
+		public const int MAX_PAGE_SIZE = 4096;
+
+		#endregion
+
 		#region ================== Methods
 
 		// The file a page goes to: the chosen path for a single page, numbered from 0 otherwise
@@ -32,6 +39,11 @@ namespace CodeImp.DoomBuilder.Map
 			if(header.IsEmpty)
 			{
 				error = "the lightmap is empty";
+				return written;
+			}
+			if(header.TextureSize > MAX_PAGE_SIZE)
+			{
+				error = "its pages are " + header.TextureSize + " texels, larger than the " + MAX_PAGE_SIZE + " ZDRay writes";
 				return written;
 			}
 
@@ -82,6 +94,8 @@ namespace CodeImp.DoomBuilder.Map
 			catch(IOException e) { error = e.Message; }
 			catch(UnauthorizedAccessException e) { error = e.Message; }
 			catch(ExternalException e) { error = "the PNG could not be written: " + e.Message; }
+			catch(ArgumentException e) { error = "the page bitmap could not be made: " + e.Message; }
+			catch(OutOfMemoryException) { error = "not enough memory for a " + size + "x" + size + " page"; }
 			return written;
 		}
 

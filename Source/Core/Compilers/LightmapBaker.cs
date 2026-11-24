@@ -84,6 +84,7 @@ namespace CodeImp.DoomBuilder.Compilers
 		public readonly string EmissivePath;    // the baker's --emissive file, null when none is passed
 		public readonly string EmissiveSummary; // null when no EMITDEFS is loaded
 		public readonly LightmapBakeQuality Quality; // what the baker was asked to run at, after its features
+		public LightmapBakerFeatures Features = LightmapBakerFeatures.None; // the baker's, as probed when it started
 		public readonly LightmapBaker Baker = new LightmapBaker();
 		private bool outputtaken;
 
@@ -155,6 +156,15 @@ namespace CodeImp.DoomBuilder.Compilers
 				result.AddRange(lines);
 				return result.ToArray();
 			}
+		}
+
+		// The lines from the index'th line seen on, and in end the count seen; null when some of them
+		// were already dropped
+		public string[] LinesFrom(int index, out int end)
+		{
+			end = LineCount;
+			if(index < DroppedLines) return null;
+			return lines.Skip(index - DroppedLines).ToArray();
 		}
 
 		// The last line, which holds the reason when the baker stops on an error
@@ -334,6 +344,7 @@ namespace CodeImp.DoomBuilder.Compilers
 		}
 
 		public string[] Lines { get { lock(sync) return progress.Lines; } }
+		public string[] LinesFrom(int index, out int end) { lock(sync) return progress.LinesFrom(index, out end); }
 		public string LastLine { get { lock(sync) return progress.LastLine; } }
 
 		// A bake that already exited keeps its result

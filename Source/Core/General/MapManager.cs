@@ -2296,8 +2296,16 @@ namespace CodeImp.DoomBuilder
 		// UZDoom reads UDMF ZNODES as GL nodes only
 		private static readonly string[] GL_NODE_MAGICS = { "XGLN", "ZGLN", "XGL2", "ZGL2", "XGL3", "ZGL3" };
 
-		// Checks a baker output WAD: TEXTMAP, GL ZNODES and a loadable, non-empty LIGHTMAP before
-		// ENDMAP. The baker exits 0 even when it baked nothing. Returns null when valid, else why not.
+		// Why a bake that exited with an error or wrote no output failed. ZDRay prints its reason as the
+		// last line: the page limit exits 20, an unknown option ("Try `zdray --help'") exits 0 with no output.
+		internal static string BakeFailure(int exitcode, string lastline, bool emissivepassed, bool emissivesupported)
+		{
+			string error = (exitcode != 0 ? "the baker exited with code " + exitcode : "the baker wrote no output file");
+			if(!string.IsNullOrEmpty(lastline)) error += ": " + lastline.TrimEnd('.');
+			if(emissivepassed && !emissivesupported) error += " (the emissive texture table needs the forked ZDRay build described in its README)";
+			return error;
+		}
+
 		// The stored LIGHTMAP lump's exact bytes, null when the map has none or it is short.
 		// Reads to the lump's length: a lump stream can return a byte past its end.
 		internal static byte[] ReadLightmapLump(WAD wad, string mapheader)
@@ -2338,6 +2346,8 @@ namespace CodeImp.DoomBuilder
 			}
 		}
 
+		// Checks a baker output WAD: TEXTMAP, GL ZNODES and a loadable, non-empty LIGHTMAP before
+		// ENDMAP. The baker exits 0 even when it baked nothing. Returns null when valid, else why not.
 		internal static string ValidateBakeOutput(WAD wad, string mapheader, out LightmapLump lightmap)
 		{
 			lightmap = null;
@@ -2723,6 +2733,7 @@ namespace CodeImp.DoomBuilder
 			}
 
 			LightmapBakeJob job = new LightmapBakeJob(input, output, fingerprint, emissivepath, emissivesummary, settings.EffectiveQuality());
+			job.Features = settings.Features;
 			try { job.Baker.Start(settings, input, output, emissivepath); }
 			catch(Exception e)
 			{
@@ -2739,16 +2750,8 @@ namespace CodeImp.DoomBuilder
 			LightmapLump lightmap = null;
 			string error = null, lumpsha = null;
 			if(job.Baker.Cancelled) error = "cancelled";
-			else if(exitcode != 0)
-			{
-				error = "the baker exited with code " + exitcode;
-				// ZDRay prints why it stopped as its last line (the page limit, an unknown option)
-				string reason = job.Baker.LastLine;
-				if(reason != null) error += ": " + reason.TrimEnd('.');
-				// Upstream ZDRay has no --emissive and exits on an unknown option
-				if(job.EmissivePath != null) error += " (the emissive texture table needs the forked ZDRay build described in its README)";
-			}
-			else if(!File.Exists(job.OutputPath)) error = "the baker wrote no output file";
+			else if(exitcode != 0 || !File.Exists(job.OutputPath))
+				error = BakeFailure(exitcode, job.Baker.LastLine, job.EmissivePath != null, job.Features.Has(LightmapBakeOptions.FEATURE_EMISSIVE));
 			else
 			{
 				try

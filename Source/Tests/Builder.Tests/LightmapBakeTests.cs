@@ -128,6 +128,24 @@ namespace Builder.Tests
 			Assert.Contains("3 earlier lines", lines[0]);
 			Assert.Equal("line 3", lines[1]);
 			Assert.Equal("line " + (total - 1), p.LastLine);
+
+			// New lines since a count; null once some of them are gone
+			Assert.Equal(new[] { "line " + (total - 1) }, p.LinesFrom(total - 1, out int end));
+			Assert.Equal(total, end);
+			Assert.Empty(p.LinesFrom(total, out end));
+			Assert.Null(p.LinesFrom(2, out end));
+		}
+
+		[Fact]
+		public void BakeFailureGivesTheBakersReasonAndTheEmissiveHintOnlyWithoutTheFeature()
+		{
+			const string LIMIT = "The LIGHTMAP lump would reach 2 GB, the most UZDoom can read.";
+			Assert.Equal("the baker exited with code 20: The LIGHTMAP lump would reach 2 GB, the most UZDoom can read",
+				MapManager.BakeFailure(20, LIMIT, true, true));
+			Assert.Equal("the baker wrote no output file: Try `zdray --help' for more information (the emissive texture table needs the forked ZDRay build described in its README)",
+				MapManager.BakeFailure(0, "Try `zdray --help' for more information.", true, false));
+			Assert.Equal("the baker exited with code 3", MapManager.BakeFailure(3, null, false, false));
+			Assert.Equal("the baker wrote no output file", MapManager.BakeFailure(0, "", false, true));
 		}
 
 		[Fact]
