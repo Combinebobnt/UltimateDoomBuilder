@@ -198,6 +198,42 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void DrawCountersArePerWindowMaximaWithRunFractionAndNativeTime()
+		{
+			Rig r = new Rig();
+			for(int i = 0; i < 140; i++)
+			{
+				double start = r.Time;
+				r.Timer.TickBegin("VisualMode");
+				if(i < 30) // the second window starts near tick 63
+				{
+					// Draw time unmeasured for the first ten ticks, 2 ms after; tick 10 notes twice, which adds up
+					long ns = i < 10 ? -1 : 2000000;
+					r.Timer.NoteDraws(100, i == 0 ? 40 : 20, new long[] { 300 + i, 300 + i, 5000, 900, 30, ns });
+					if(i == 10) r.Timer.NoteDraws(0, 0, new long[] { 0, 0, 0, 0, 0, ns });
+				}
+				r.Timer.TickEnd();
+				r.Time = start + 16;
+			}
+			Dictionary<string, string> first = r.Lines[0];
+			Assert.Equal("329", first["draws"]);
+			Assert.Equal("329", first["drawn_surfaces"]);
+			Assert.Equal("5000", first["uni_calls"]);
+			Assert.Equal("900", first["uni_uploads"]);
+			Assert.Equal("30", first["shader_binds"]);
+			Assert.Equal("100", first["geo_surfaces"]);
+			Assert.Equal("40", first["runs"]);
+			// From sums, not maxima: 620 runs over 3000 surfaces
+			Assert.Equal("20.7", first["runs_pct"]);
+			Assert.Equal("2.0", first["native_p50"]);
+			Assert.Equal("4.0", first["native_max"]);
+
+			// A window with no draw notes has none of the fields
+			Assert.False(r.Lines[1].ContainsKey("draws"));
+			Assert.False(r.Lines[1].ContainsKey("native_p50"));
+		}
+
+		[Fact]
 		public void GLFieldsFillMissingParts()
 		{
 			string[] f = InteractionLog.GLFields("AMD\tAMD Radeon Graphics (gfx1100)\t4.6 Mesa 22.3.6\t1");

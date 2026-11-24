@@ -77,6 +77,14 @@ namespace CodeImp.DoomBuilder
 			if(intick) timer.NoteLights(lights, litsurfaces, uploads);
 		}
 
+		// True while a logged tick runs, so callers can skip work that only feeds the log
+		internal static bool Counting { get { return intick; } }
+
+		internal static void NoteDraws(int geosurfaces, int runs, long[] counters)
+		{
+			if(intick) timer.NoteDraws(geosurfaces, runs, counters);
+		}
+
 		// Counted between ticks too; passes during a pause are dropped when the next tick starts a new window
 		internal static void NoteChainIdle(ChainIdle result, bool windowactive)
 		{
@@ -101,6 +109,7 @@ namespace CodeImp.DoomBuilder
 		private readonly double[] gaps = new double[CAPACITY];
 		private readonly double[] idles = new double[CAPACITY];
 		private readonly double[] busy = new double[CAPACITY];
+		private readonly double[] nativems = new double[CAPACITY];
 		private int count;
 		private int gapcount;
 		private int picks;
@@ -115,6 +124,7 @@ namespace CodeImp.DoomBuilder
 		private double prevtickstart = -1;
 		private double prevtickend = -1;
 		private readonly double[] current;
+		private double currentnative;
 
 		// Camera and culling, per window
 		private bool hascamera;
@@ -124,6 +134,13 @@ namespace CodeImp.DoomBuilder
 		private double distance, turn;
 		private int maxgeometry = -1, maxthings = -1;
 		private int maxlights = -1, maxlit = -1, maxuploads = -1;
+
+		// Draw counters, per window: maxima, plus sums for the run fraction
+		private static readonly string[] COUNTERNAMES = { "draws", "drawn_surfaces", "uni_calls", "uni_uploads", "shader_binds" };
+		private readonly long[] maxcounters = new long[COUNTERNAMES.Length];
+		private bool hasdraws;
+		private int maxgeosurfaces, maxruns;
+		private long sumgeosurfaces, sumruns;
 
 		internal FrameTimer(Func<double> clock, Action<string, string[]> emit)
 		{
@@ -169,6 +186,7 @@ namespace CodeImp.DoomBuilder
 			tickstart = now;
 			lastlap = now;
 			Array.Clear(current, 0, BUCKETS);
+			currentnative = double.NaN;
 		}
 
 		internal void Lap(FrameBucket bucket)
@@ -183,6 +201,7 @@ namespace CodeImp.DoomBuilder
 			Lap(FrameBucket.Post);
 			double now = lastlap;
 			for(int i = 0; i < BUCKETS; i++) buckets[i][count] = current[i];
+			nativems[count] = currentnative;
 			if(current[(int)FrameBucket.Pick] > 0) picks++;
 			busy[count] = now - tickstart;
 			count++;
@@ -231,6 +250,19 @@ namespace CodeImp.DoomBuilder
 			maxuploads = Math.Max(maxuploads, uploads);
 		}
 
+		// counters is indexed by DrawCounter; a negative draw time means it wasn't measured
+		internal void NoteDraws(int geosurfaces, int runs, long[] counters)
+		{
+			hasdraws = true;
+			for(int i = 0; i < COUNTERNAMES.Length; i++) maxcounters[i] = Math.Max(maxcounters[i], counters[i]);
+			maxgeosurfaces = Math.Max(maxgeosurfaces, geosurfaces);
+			maxruns = Math.Max(maxruns, runs);
+			sumgeosurfaces += geosurfaces;
+			sumruns += runs;
+			long ns = counters[(int)Rendering.DrawCounter.DrawNanoseconds];
+			if(ns >= 0) currentnative = (double.IsNaN(currentnative) ? 0.0 : currentnative) + ns / 1e6;
+		}
+
 		private void Flush(double now)
 		{
 			double gapsum = 0;
@@ -262,6 +294,14 @@ namespace CodeImp.DoomBuilder
 				f.Add("lit_surfaces"); f.Add(Num(maxlit));
 				f.Add("light_uploads"); f.Add(Num(maxuploads));
 			}
+			if(hasdraws)
+			{
+				for(int i = 0; i < COUNTERNAMES.Length; i++) { f.Add(COUNTERNAMES[i]); f.Add(maxcounters[i].ToString(CultureInfo.InvariantCulture)); }
+				f.Add("geo_surfaces"); f.Add(Num(maxgeosurfaces));
+				f.Add("runs"); f.Add(Num(maxruns));
+				f.Add("runs_pct"); f.Add(sumgeosurfaces > 0 ? (100.0 * sumruns / sumgeosurfaces).ToString("0.0", CultureInfo.InvariantCulture) : "-");
+			}
+			if(Collect(nativems, count).Length > 0) AddStats(f, "native", nativems);
 			if(windowcamera)
 			{
 				f.Add("cam_dist"); f.Add(distance.ToString("0.0", CultureInfo.InvariantCulture));
@@ -280,6 +320,10 @@ namespace CodeImp.DoomBuilder
 			maxgeometry = -1;
 			maxthings = -1;
 			maxlights = maxlit = maxuploads = -1;
+			hasdraws = false;
+			Array.Clear(maxcounters, 0, maxcounters.Length);
+			maxgeosurfaces = maxruns = 0;
+			sumgeosurfaces = sumruns = 0;
 		}
 
 		private void AddStats(List<string> f, string name, double[] values)

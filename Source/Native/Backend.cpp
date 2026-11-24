@@ -219,6 +219,11 @@ extern "C"
 		device->GetInfo(out, len);
 	}
 
+	int RenderDevice_GetCounters(RenderDevice* device, int64_t* out, int n)
+	{
+		return device->GetCounters(out, n);
+	}
+
 	bool RenderDevice_ClearTexture(RenderDevice* device, int backcolor, Texture* texture)
 	{
 		return device->ClearTexture(backcolor, texture);

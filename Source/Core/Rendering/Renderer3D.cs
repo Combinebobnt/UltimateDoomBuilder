@@ -116,6 +116,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		private List<VisualThing> lightthings;
 		private readonly SurfaceLights surfacelights = new SurfaceLights();
 		private int litsurfaces, lightuploads; // per frame, for frame timing
+		private int geosurfaces, georuns; // geometry loop draws, and how many would remain if equal-state neighbours merged
+		private readonly long[] drawcounters = new long[(int)DrawCounter.Count];
 		
 		//mxd. Things, which should be rendered as models
 		private Dictionary<ModelData, List<VisualThing>> maskedmodelthings;
@@ -440,6 +442,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		public void StartGeometry()
 		{
 			FrameTiming.Lap(FrameBucket.Start);
+			if(FrameTiming.Counting) graphics.ReadDrawCounters(drawcounters); // drops draws from before this frame's geometry
 			// Make collections
 			solidgeo = new Dictionary<ImageData, List<VisualGeometry>>(); //mxd
 			maskedgeo = new Dictionary<ImageData, List<VisualGeometry>>(); //mxd
@@ -466,6 +469,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				UpdateLights();
 			FrameTiming.Lap(FrameBucket.Lights);
 			litsurfaces = lightuploads = 0;
+			geosurfaces = georuns = 0;
 
 			// Initial renderstates
 			graphics.SetCullMode(Cull.Clockwise);
@@ -552,6 +556,11 @@ namespace CodeImp.DoomBuilder.Rendering
 			// Remove references
 			graphics.SetTexture(null);
 			FrameTiming.NoteLights(lightthings.Count, litsurfaces, lightuploads);
+			if(FrameTiming.Counting)
+			{
+				graphics.ReadDrawCounters(drawcounters);
+				FrameTiming.NoteDraws(geosurfaces, georuns, drawcounters);
+			}
 
 			//mxd. Trash collections
 			solidgeo = null;
@@ -973,6 +982,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			ImageData curtexture;
 			ShaderName currentshaderpass = shaderpass;
 			ShaderName highshaderpass = (ShaderName)(shaderpass + 2);
+			bool countruns = FrameTiming.Counting;
+			SurfaceDrawState lastrun = new SurfaceDrawState();
 
             // Begin rendering with this shader
             graphics.SetShader(shaderpass);
@@ -1010,16 +1021,17 @@ namespace CodeImp.DoomBuilder.Rendering
 
 				// Go for all geometry that uses this texture
 				VisualSector sector = null;
+				bool runbreak = true; // a texture group, a light set change or a sector update starts a new run
 				
 				foreach(VisualGeometry g in group.Value)
 				{
-					SelectSurfaceLights(g.BoundingBox);
+					if(SelectSurfaceLights(g.BoundingBox)) runbreak = true;
 
 					// Changing sector?
 					if(!object.ReferenceEquals(g.Sector, sector))
 					{
 						// Update the sector if needed
-						if(g.Sector.NeedsUpdateGeo) g.Sector.Update(graphics);
+						if(g.Sector.NeedsUpdateGeo) { g.Sector.Update(graphics); runbreak = true; }
 
 						// Only do this sector when a vertexbuffer is created
 						//mxd. No Map means that sector was deleted recently, I suppose
@@ -1037,7 +1049,6 @@ namespace CodeImp.DoomBuilder.Rendering
 						}
 					}
 
-                    graphics.SetUniform(UniformName.desaturation, 0.0f);
                     if (sector != null) 
 					{
 						// Determine the shader pass we want to use for this object
@@ -1067,12 +1078,15 @@ namespace CodeImp.DoomBuilder.Rendering
 
 						// The sector light needs the camera in every pass
 						graphics.SetUniform(UniformName.campos, new Vector4f((float)cameraposition.x, (float)cameraposition.y, (float)cameraposition.z, g.FogFactor));
-						SetSectorLightParams(sector.Sector);
-						if(fogpass || General.Settings.ClassicRendering || material != null)
+						Vector4f lightparams = SectorLightParams(sector.Sector);
+						graphics.SetUniform(UniformName.lightparams, lightparams);
+						bool sendfogcolor = fogpass || General.Settings.ClassicRendering || material != null;
+						if(sendfogcolor)
 							graphics.SetUniform(UniformName.sectorfogcolor, sector.Sector.FogColor);
-                        
+
 						// Set the colors to use
-						graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((g == highlighted) && showhighlight, (g.Selected && showselection)));
+						Color4 highlight = CalculateHighlightColor((g == highlighted) && showhighlight, (g.Selected && showselection));
+						graphics.SetUniform(UniformName.highlightcolor, highlight);
 
                         // [ZZ] include desaturation factor
                         graphics.SetUniform(UniformName.desaturation, (float)sector.Sector.Desaturation);
@@ -1080,6 +1094,20 @@ namespace CodeImp.DoomBuilder.Rendering
 						// Skew
 						graphics.SetUniform(UniformName.skew, g.Skew);
 						SetGlowUniforms(g);
+
+						if(countruns)
+						{
+							SurfaceDrawState state = new SurfaceDrawState {
+								Shader = wantedshaderpass, Fog = fogpass, SectorLightLevel = sector.Sector.Brightness, FogFactor = g.FogFactor,
+								LightParams = lightparams, SendFogColor = sendfogcolor, SectorFogColor = sector.Sector.FogColor,
+								Highlight = highlight, Desaturation = (float)sector.Sector.Desaturation, Skew = g.Skew,
+								GlowTopColor = g.GlowTopColor, GlowBottomColor = g.GlowBottomColor,
+								GlowTopPlane = g.GlowTopPlane, GlowBottomPlane = g.GlowBottomPlane };
+							if(runbreak || !state.SameAs(ref lastrun)) georuns++;
+							geosurfaces++;
+							lastrun = state;
+							runbreak = false;
+						}
 
 						// Render!
 						graphics.Draw(PrimitiveType.TriangleList, g.VertexOffset, g.Triangles);
@@ -1256,8 +1284,13 @@ namespace CodeImp.DoomBuilder.Rendering
 		// The sector light's per-sector parameters (black fog density) for the geometry or thing drawn next
 		private void SetSectorLightParams(Sector s)
 		{
+			graphics.SetUniform(UniformName.lightparams, SectorLightParams(s));
+		}
+
+		private Vector4f SectorLightParams(Sector s)
+		{
 			float density = s != null ? LightModel.BlackFogDensity(lightsettings, s.HasBlackFade, VisualGeometry.SectorFogDensity(s)) : -1f;
-			graphics.SetUniform(UniformName.lightparams, new Vector4f(lightsettings.GlobVis, density, 0f, 0f));
+			return new Vector4f(lightsettings.GlobVis, density, 0f, 0f);
 		}
 
 		// Clears the thing light uniforms so the geometry drawn next reads its own vertex light
@@ -2038,14 +2071,15 @@ namespace CodeImp.DoomBuilder.Rendering
 		//mxd
 		public void SetEventLines(List<Line3D> lines) { eventlines = lines; }
 
-		// Picks one surface's dynamic lights and uploads them when the set changed
-		private void SelectSurfaceLights(Vector3D[] box)
+		// Picks one surface's dynamic lights and uploads them when the set changed; true when it uploaded
+		private bool SelectSurfaceLights(Vector3D[] box)
 		{
 			bool upload = surfacelights.Select(box);
 			if(surfacelights.SelectedCount > 0) litsurfaces++;
-			if(!upload) return;
+			if(!upload) return false;
 			surfacelights.Upload(graphics);
 			lightuploads++;
+			return true;
 		}
 
 		// This renders the crosshair

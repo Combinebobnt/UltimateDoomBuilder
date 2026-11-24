@@ -499,6 +499,13 @@ namespace CodeImp.DoomBuilder.Rendering
             FrameTiming.Lap(FrameBucket.Present);
         }
 
+        // Fills values (indexed by DrawCounter) with the native draw counters since the last read and resets them
+        internal void ReadDrawCounters(long[] values)
+        {
+            int n = RenderDevice_GetCounters(Handle, values, values.Length);
+            for(int i = n; i < values.Length; i++) values[i] = 0;
+        }
+
         public void ClearTexture(Color4 backcolor, Texture texture)
         {
             ThrowIfFailed(RenderDevice_ClearTexture(Handle, backcolor.ToArgb(), texture.Handle));
@@ -755,6 +762,9 @@ namespace CodeImp.DoomBuilder.Rendering
         static extern void RenderDevice_GetInfo(IntPtr handle, StringBuilder str, int length);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
+        static extern int RenderDevice_GetCounters(IntPtr handle, [Out] long[] values, int count);
+
+        [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
         static extern bool RenderDevice_ClearTexture(IntPtr handle, int backcolor, IntPtr texture);
 
         [DllImport("BuilderNative", CallingConvention = CallingConvention.Cdecl)]
@@ -932,4 +942,6 @@ namespace CodeImp.DoomBuilder.Rendering
     public enum PrimitiveType : int { LineList, TriangleList, TriangleStrip }
     public enum TextureFilter : int { Nearest, Linear }
     public enum MipmapFilter : int { None, Nearest, Linear}
+    // Mirrors the native DrawCounter order; DrawNanoseconds is -1 unless UDB_GL_TIME_DRAWS=1
+    internal enum DrawCounter : int { Draws, Surfaces, UniformCalls, UniformUploads, ShaderBinds, DrawNanoseconds, Count }
 }

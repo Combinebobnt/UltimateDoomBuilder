@@ -31,6 +31,7 @@ EXPORTS
 	RenderDevice_FinishRendering
 	RenderDevice_Present
 	RenderDevice_GetInfo
+	RenderDevice_GetCounters
 	RenderDevice_ClearTexture
 	RenderDevice_CopyTexture
 	RenderDevice_SetVertexBufferData

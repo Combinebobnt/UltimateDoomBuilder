@@ -62,6 +62,9 @@ class VertexBuffer;
 class IndexBuffer;
 class Texture;
 
+// Order of RenderDevice_GetCounters' output; the managed RenderDevice.DrawCounter mirrors it
+enum class DrawCounter : int { Draws, Surfaces, UniformCalls, UniformUploads, ShaderBinds, DrawNanoseconds, Count };
+
 class RenderDevice
 {
 public:
@@ -94,6 +97,7 @@ public:
 	virtual bool FinishRendering() = 0;
 	virtual bool Present() = 0;
 	virtual void GetInfo(char* out, int len) = 0;
+	virtual int GetCounters(int64_t* out, int n) = 0;
 	virtual bool ClearTexture(int backcolor, Texture* texture) = 0;
 	virtual bool CopyTexture(Texture* dst, CubeMapFace face) = 0;
 	virtual bool SetVertexBufferData(VertexBuffer* buffer, void* data, int64_t size, VertexFormat format) = 0;

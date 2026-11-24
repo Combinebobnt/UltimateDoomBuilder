@@ -100,6 +100,10 @@ public:
 	void RequireContext();
 
 	bool CheckGLError();
+	// Draw paths skip glGetError unless UDB_GL_CHECK_DRAWS=1; Present still reports what they left
+	bool CheckDrawError() { return !mCheckDrawErrors || CheckGLError(); }
+
+	int GetCounters(int64_t* out, int n) override;
 
 	GLShader* GetActiveShader();
 
@@ -202,6 +206,10 @@ public:
 	bool mRasterizerStateChanged = true;
 
 	bool mContextIsCurrent = false;
+
+	bool mCheckDrawErrors = false;
+	bool mTimeDraws = false; // UDB_GL_TIME_DRAWS=1: time spent inside the Draw entries
+	int64_t mCounters[(int)DrawCounter::Count] = {};
 
 	int mViewportWidth = 0;
 	int mViewportHeight = 0;

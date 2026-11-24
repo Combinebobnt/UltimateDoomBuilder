@@ -28,7 +28,25 @@
 #include <stdexcept>
 #include <cstdarg>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
+
+static bool EnvIsOne(const char* name)
+{
+	const char* v = getenv(name);
+	return v && strcmp(v, "1") == 0;
+}
+
+// Adds the time until scope exit to a counter, or does nothing when given none
+struct DrawTimer
+{
+	int64_t* Total;
+	std::chrono::steady_clock::time_point Start;
+	DrawTimer(int64_t* total) : Total(total) { if (Total) Start = std::chrono::steady_clock::now(); }
+	~DrawTimer() { if (Total) *Total += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - Start).count(); }
+};
 
 static void APIENTRY GLLogCallback(GLenum source, GLenum type, GLuint id,
 	GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
@@ -46,6 +64,8 @@ static const char* GLLogCheckNull(const GLubyte* str)
 
 GLRenderDevice::GLRenderDevice(void* disp, void* window, bool debug)
 {
+	mCheckDrawErrors = EnvIsOne("UDB_GL_CHECK_DRAWS");
+	mTimeDraws = EnvIsOne("UDB_GL_TIME_DRAWS");
 	Context = IOpenGLContext::Create(disp, window);
 	if (Context)
 	{
@@ -387,9 +407,12 @@ bool GLRenderDevice::Draw(PrimitiveType type, int startIndex, int primitiveCount
 	static const int toVertexCount[] = { 2, 3, 1 };
 	static const int toVertexStart[] = { 0, 0, 2 };
 
+	DrawTimer timer(mTimeDraws ? &mCounters[(int)DrawCounter::DrawNanoseconds] : nullptr);
+	mCounters[(int)DrawCounter::Draws]++;
+	mCounters[(int)DrawCounter::Surfaces]++;
 	if (mNeedApply && !ApplyChanges()) return false;
 	glDrawArrays(modes[(int)type], mVertexBufferStartIndex + startIndex, toVertexStart[(int)type] + primitiveCount * toVertexCount[(int)type]);
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::DrawIndexed(PrimitiveType type, int startIndex, int primitiveCount)
@@ -398,9 +421,12 @@ bool GLRenderDevice::DrawIndexed(PrimitiveType type, int startIndex, int primiti
 	static const int toVertexCount[] = { 2, 3, 1 };
 	static const int toVertexStart[] = { 0, 0, 2 };
 
+	DrawTimer timer(mTimeDraws ? &mCounters[(int)DrawCounter::DrawNanoseconds] : nullptr);
+	mCounters[(int)DrawCounter::Draws]++;
+	mCounters[(int)DrawCounter::Surfaces]++;
 	if (mNeedApply && !ApplyChanges()) return false;
 	glDrawElementsBaseVertex(modes[(int)type], toVertexStart[(int)type] + primitiveCount * toVertexCount[(int)type], GL_UNSIGNED_INT, (const void*)(startIndex * sizeof(uint32_t)), mVertexBufferStartIndex);
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::DrawData(PrimitiveType type, int startIndex, int primitiveCount, const void* data)
@@ -411,13 +437,16 @@ bool GLRenderDevice::DrawData(PrimitiveType type, int startIndex, int primitiveC
 
 	int vertcount = toVertexStart[(int)type] + primitiveCount * toVertexCount[(int)type];
 
+	DrawTimer timer(mTimeDraws ? &mCounters[(int)DrawCounter::DrawNanoseconds] : nullptr);
+	mCounters[(int)DrawCounter::Draws]++;
+	mCounters[(int)DrawCounter::Surfaces]++;
 	if (mNeedApply && !ApplyChanges()) return false;
 
 	glBindBuffer(GL_ARRAY_BUFFER, mStreamVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vertcount * (size_t)VertexBuffer::FlatStride, static_cast<const uint8_t*>(data) + startIndex * (size_t)VertexBuffer::FlatStride, GL_STREAM_DRAW);
 	glBindVertexArray(mStreamVAO);
 	glDrawArrays(modes[(int)type], 0, vertcount);
-	if (!CheckGLError()) return false;
+	if (!CheckDrawError()) return false;
 
 	return ApplyVertexBuffer();
 }
@@ -519,6 +548,16 @@ void GLRenderDevice::GetInfo(char* out, int len)
 	int n = std::min(len - 1, (int)info.size());
 	std::copy(info.begin(), info.begin() + n, out);
 	out[n] = 0;
+}
+
+// Copies up to n counters (DrawCounter order) and resets them; the draw time is -1 unless UDB_GL_TIME_DRAWS=1
+int GLRenderDevice::GetCounters(int64_t* out, int n)
+{
+	int count = std::max(0, std::min(n, (int)DrawCounter::Count));
+	if (!mTimeDraws) mCounters[(int)DrawCounter::DrawNanoseconds] = -1;
+	for (int i = 0; i < count; i++) out[i] = mCounters[i];
+	std::fill(std::begin(mCounters), std::end(mCounters), 0);
+	return count;
 }
 
 bool GLRenderDevice::ClearTexture(int backcolor, Texture* texture)
@@ -809,6 +848,7 @@ void GLRenderDevice::SetShader(ShaderName name)
 void GLRenderDevice::SetUniform(UniformName name, const void* values, int count, int bytesize)
 {
 	// "count" should be in bytes now
+	mCounters[(int)DrawCounter::UniformCalls]++;
 	UniformInfo& info = mUniformInfo[(int)name];
 	// A partial array upload leaves the GPU's tail as it was, so a resize is a change even when the bytes match
 	bool resized = info.Data.size() != (size_t)bytesize;
@@ -855,9 +895,10 @@ bool GLRenderDevice::ApplyShader()
 	}
 
 	curShader->Bind();
+	mCounters[(int)DrawCounter::ShaderBinds]++;
 	mShaderChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::ApplyRasterizerState()
@@ -877,7 +918,7 @@ bool GLRenderDevice::ApplyRasterizerState()
 
 	mRasterizerStateChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::ApplyBlendState()
@@ -898,7 +939,7 @@ bool GLRenderDevice::ApplyBlendState()
 
 	mBlendStateChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::ApplyDepthState()
@@ -916,7 +957,7 @@ bool GLRenderDevice::ApplyDepthState()
 
 	mDepthStateChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::ApplyIndexBuffer()
@@ -932,7 +973,7 @@ bool GLRenderDevice::ApplyIndexBuffer()
 
 	mIndexBufferChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::ApplyVertexBuffer()
@@ -942,7 +983,7 @@ bool GLRenderDevice::ApplyVertexBuffer()
 
 	mVertexBufferChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 void GLRenderDevice::DeclareUniform(UniformName name, const char* glslname, UniformType type)
@@ -992,13 +1033,14 @@ bool GLRenderDevice::ApplyUniforms()
 			case UniformType::Vec3fArray: glUniform3fv(location, info.Count, data); break;
 			case UniformType::Vec2fArray: glUniform2fv(location, info.Count, data); break;
 			}
+			mCounters[(int)DrawCounter::UniformUploads]++;
 			lastupdates[i] = mUniformInfo[i].LastUpdate;
 		}
 	}
 
 	mUniformsChanged = false;
 
-	return CheckGLError();
+	return CheckDrawError();
 }
 
 bool GLRenderDevice::ApplyTextures()
@@ -1047,7 +1089,7 @@ bool GLRenderDevice::ApplyTextures()
             unit.SamplerHandle = 0;
         }
         
-        hasError |= CheckGLError();
+        hasError |= CheckDrawError();
     }
     
     mTexturesChanged = false;
