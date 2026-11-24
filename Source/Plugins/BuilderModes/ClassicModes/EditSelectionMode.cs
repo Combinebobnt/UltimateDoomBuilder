@@ -203,6 +203,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private Line2D resizeaxis;
 		private int stickcorner;
 		private double rotategripangle;
+		private bool gripaboutpivot;
+		private Vector2D grippivot;
+		private Vector2D gripstartoffset;
+		private double gripstartrotation;
 		private bool autopanning;
 		
 		// Rectangle components
@@ -218,6 +222,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private bool snaptonearest;     // CTRL to enable
 
 		private bool updateslopes;
+
+		// Rotate and flip around the 2D cursor instead of the selection center
+		private bool pivotat2dcursor;
+		private bool pivotmissingwarned;
 		
 		#endregion
 
@@ -236,6 +244,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Texture offset properties
 		internal bool PinFloorTextures { get { return pinfloortextures; } set { pinfloortextures = value; UpdateAllChanges(); } }
 		internal bool PinCeilingTextures { get { return pinceilingtextures; } set { pinceilingtextures = value; UpdateAllChanges(); } }
+
+		internal bool PivotAt2DCursor
+		{
+			get { return pivotat2dcursor; }
+			set
+			{
+				pivotat2dcursor = value;
+				if(panel != null) panel.SetPivotAt2DCursor(value);
+				General.Interface.RedrawDisplay();
+			}
+		}
 
 		//mxd. Height offset mode
 		internal HeightAdjustMode SectorHeightAdjustMode { get { return heightadjustmode; } set { heightadjustmode = value; } }
@@ -330,8 +349,38 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		public void SetAbsRotation(double absrot)
 		{
-			rotation = absrot;
+			ApplyRotation(absrot);
 			UpdateAllChanges();
+		}
+
+		// The 2D cursor when Around 2D cursor is on and it is placed. Warns once per session when it isn't placed.
+		private bool TryGetPivot(out Vector2D pivot)
+		{
+			pivot = General.Map.Cursor2D.Position;
+			if(!pivotat2dcursor) return false;
+			if(General.Map.Cursor2D.IsSet) return true;
+			if(!pivotmissingwarned)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "No 2D cursor is placed, so the selection turns around its own center.");
+				pivotmissingwarned = true;
+			}
+			return false;
+		}
+
+		// Sets the rotation, swinging the selection around the 2D cursor when that pivot is active
+		private void ApplyRotation(double newrotation)
+		{
+			Vector2D pivot;
+			if(TryGetPivot(out pivot)) PivotMath.RotateBoxAbout(ref offset, size, ref rotation, pivot, newrotation - rotation);
+			rotation = newrotation;
+		}
+
+		private void StartRotateGrip(Vector2D corner, Vector2D center)
+		{
+			gripaboutpivot = TryGetPivot(out grippivot);
+			rotategripangle = (corner - (gripaboutpivot ? grippivot : center)).GetAngle() - rotation;
+			gripstartoffset = offset;
+			gripstartrotation = rotation;
 		}
 		
 		// This updates all after changes were made
@@ -635,16 +684,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					case ModifyMode.Rotating:
 						// Get angle from mouse to center
 						Vector2D center = offset + size * 0.5f;
-						Vector2D delta = snappedmappos - center;
-						rotation = delta.GetAngle() - rotategripangle;
+						Vector2D delta = snappedmappos - (gripaboutpivot ? grippivot : center);
+						double newrotation = delta.GetAngle() - rotategripangle;
 						
 						// Snap rotation to grip?
 						if(dosnaptogrid)
 						{
 							// We make 24 vectors that the rotation can snap to
 							double founddistance = double.MaxValue;
-							double foundrotation = rotation;
-							Vector3D rotvec = Vector2D.FromAngle(rotation);
+							double foundrotation = newrotation;
+							Vector3D rotvec = Vector2D.FromAngle(newrotation);
 							
 							for(int i = 0; i < 24; i++)
 							{
@@ -662,8 +711,17 @@ namespace CodeImp.DoomBuilder.BuilderModes
 							}
 							
 							// Keep rotation
-							rotation = foundrotation;
+							newrotation = foundrotation;
 						}
+
+						// Around the 2D cursor, recompute from the drag start so a long drag doesn't drift
+						if(gripaboutpivot)
+						{
+							double startrotation = gripstartrotation;
+							offset = gripstartoffset;
+							PivotMath.RotateBoxAbout(ref offset, size, ref startrotation, grippivot, newrotation - gripstartrotation);
+						}
+						rotation = newrotation;
 						
 						// Update
 						UpdateGeometry();
@@ -1308,6 +1366,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd. Get EditPanel-related settings
 			usepreciseposition = General.Settings.ReadPluginSetting("editselectionmode.usepreciseposition", true);
 			heightadjustmode = (HeightAdjustMode)General.Settings.ReadPluginSetting("editselectionmode.heightadjustmode", (int)HeightAdjustMode.NONE);
+			pivotat2dcursor = General.Settings.ReadPluginSetting("editselectionmode.pivotat2dcursor", false);
+			pivotmissingwarned = false;
 			
 			// Add docker
 			panel = new EditSelectionPanel(this);
@@ -1990,6 +2050,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd. Save EditPanel-related settings 
 			General.Settings.WritePluginSetting("editselectionmode.usepreciseposition", usepreciseposition);
 			General.Settings.WritePluginSetting("editselectionmode.heightadjustmode", (int)heightadjustmode);
+			General.Settings.WritePluginSetting("editselectionmode.pivotat2dcursor", pivotat2dcursor);
 
 			// Remove docker
 			General.Interface.RemoveDocker(docker);
@@ -2052,6 +2113,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				// Extension line
 				if(extensionline.GetLengthSq() > 0.0f)
 					renderer.RenderLine(extensionline.v1, extensionline.v2, 1, General.Colors.Indication.WithAlpha(EXTENSION_LINE_ALPHA), true);
+
+				// What rotations and flips turn around
+				if(pivotat2dcursor && General.Map.Cursor2D.IsSet)
+					renderer.RenderLine(offset + size * 0.5, General.Map.Cursor2D.Position, 1, General.Colors.Guideline, true);
 				
 				// Grips
 				for(int i = 0; i < 4; i++)
@@ -2108,7 +2173,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			// Used in many cases:
 			Vector2D center = offset + size * 0.5f;
-			Vector2D delta;
 
 			// Check what grip the mouse is over
 			Grip mousegrip = (autodrag ? Grip.Main : CheckMouseGrip()); //mxd. We only want to move when starting auto-dragging
@@ -2231,8 +2295,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				// Rotate
 				case Grip.RotateLB:
-					delta = corners[3] - center;
-					rotategripangle = delta.GetAngle() - rotation;
+					StartRotateGrip(corners[3], center);
 					Highlight(null);
 					mode = ModifyMode.Rotating;
 
@@ -2242,8 +2305,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				// Rotate
 				case Grip.RotateLT:
-					delta = corners[0] - center;
-					rotategripangle = delta.GetAngle() - rotation;
+					StartRotateGrip(corners[0], center);
 					Highlight(null);
 					mode = ModifyMode.Rotating;
 
@@ -2253,8 +2315,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				// Rotate
 				case Grip.RotateRB:
-					delta = corners[2] - center;
-					rotategripangle = delta.GetAngle() - rotation;
+					StartRotateGrip(corners[2], center);
 					Highlight(null);
 					mode = ModifyMode.Rotating;
 
@@ -2264,8 +2325,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				// Rotate
 				case Grip.RotateRT:
-					delta = corners[1] - center;
-					rotategripangle = delta.GetAngle() - rotation;
+					StartRotateGrip(corners[1], center);
 					Highlight(null);
 					mode = ModifyMode.Rotating;
 
@@ -2344,6 +2404,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		[BeginAction("flipselectionv")]
 		public void FlipVertically()
 		{
+			// Around the 2D cursor: mirror across its horizontal line, rotation and pinned textures included
+			Vector2D pivot;
+			if(TryGetPivot(out pivot))
+			{
+				PivotMath.MirrorBoxAcross(ref offset, ref size, ref rotation, pivot, false);
+				UpdateAllChanges();
+				return;
+			}
+
 			// Flip the selection
 			offset.y += size.y;
 			size.y = -size.y;
@@ -2359,6 +2428,15 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		[BeginAction("flipselectionh")]
 		public void FlipHorizontally()
 		{
+			// Around the 2D cursor: mirror across its vertical line
+			Vector2D pivot;
+			if(TryGetPivot(out pivot))
+			{
+				PivotMath.MirrorBoxAcross(ref offset, ref size, ref rotation, pivot, true);
+				UpdateAllChanges();
+				return;
+			}
+
 			// Flip the selection
 			offset.x += size.x;
 			size.x = -size.x;
@@ -2434,7 +2512,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		[BeginAction("rotateclockwise")]
 		public void RotateCW()
 		{
-			rotation -= Angle2D.DegToRad(5);
+			ApplyRotation(rotation - Angle2D.DegToRad(5));
 
 			// Update
 			UpdateGeometry();
@@ -2446,13 +2524,24 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		[BeginAction("rotatecounterclockwise")]
 		public void RotateCCW()
 		{
-			rotation += Angle2D.DegToRad(5);
+			ApplyRotation(rotation + Angle2D.DegToRad(5));
 
 			// Update
 			UpdateGeometry();
 			UpdateRectangleComponents();
 			General.Map.Map.Update();
 			General.Interface.RedrawDisplay();
+		}
+
+		[BeginAction("toggle2dcursorpivot")]
+		public void Toggle2DCursorPivot()
+		{
+			PivotAt2DCursor = !pivotat2dcursor;
+			string message;
+			if(!pivotat2dcursor) message = "Rotations and flips turn around the selection center.";
+			else if(General.Map.Cursor2D.IsSet) message = "Rotations and flips turn around the 2D cursor.";
+			else message = "Rotations and flips will turn around the 2D cursor once one is placed.";
+			General.Interface.DisplayStatus(StatusType.Action, message);
 		}
 
 		#endregion

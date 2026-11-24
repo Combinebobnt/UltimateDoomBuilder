@@ -45,6 +45,9 @@ namespace CodeImp.DoomBuilder.Rendering
 
 		private const float FSAA_FACTOR = 0.6f;
 		private const int MAP_CENTER_SIZE = 16; //mxd
+		private const int CURSOR2D_RADIUS = 10;
+		private const int CURSOR2D_TICK = 5;
+		private const int CURSOR2D_SEGMENTS = 16;
 		private const float THING_ARROW_SIZE = 1.4f;
 		//private const float THING_ARROW_SHRINK = 2f;
 		//private const float THING_CIRCLE_SIZE = 1f;
@@ -97,6 +100,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		private float minlinenormallength; //mxd. Linedef direction indicator should be longer than this to be rendered 
 		private bool drawmapcenter = true; //mxd
 		private bool lastdrawmapcenter = true; //mxd
+		private int lastcursor2dversion = -1;
 		private float lastgridscale = -1f;
 		private float lastgridsize;
 		private float lastgridx;
@@ -850,7 +854,8 @@ namespace CodeImp.DoomBuilder.Rendering
 		{
 			// Do we need to redraw grid?
 			if(lastgridsize != General.Map.Grid.GridSizeF || lastgridscale != scale ||
-			   lastgridx != offsetx || lastgridy != offsety || drawmapcenter != lastdrawmapcenter)
+			   lastgridx != offsetx || lastgridy != offsety || drawmapcenter != lastdrawmapcenter ||
+			   lastcursor2dversion != General.Map.Cursor2D.Version)
 			{
 				gridplotter.Clear();
 
@@ -904,6 +909,8 @@ namespace CodeImp.DoomBuilder.Rendering
 					gridplotter.DrawLineSolid(cx - MAP_CENTER_SIZE, cy, cx + MAP_CENTER_SIZE, cy, ref c);
 				}
 
+				if(General.Map.Cursor2D.IsSet) RenderCursor2D(General.Map.Cursor2D.Position, gridplotter);
+
                 // Done
                 gridplotter.DrawContents(graphics);
 				lastgridscale = scale;
@@ -911,7 +918,36 @@ namespace CodeImp.DoomBuilder.Rendering
 				lastgridx = offsetx;
 				lastgridy = offsety;
 				lastdrawmapcenter = drawmapcenter; //mxd
+				lastcursor2dversion = General.Map.Cursor2D.Version;
 			}
+		}
+
+		// An open ring with outward ticks, so a vertex under the 2D cursor stays visible
+		private void RenderCursor2D(Vector2D pos, Plotter plotter)
+		{
+			Vector2D p = pos.GetTransformed(translatex, translatey, scale, -scale);
+			if(Math.Abs(p.x) > 1e6 || Math.Abs(p.y) > 1e6) return;
+			int cx = (int)Math.Round(p.x);
+			int cy = (int)Math.Round(p.y);
+			PixelColor c = General.Colors.Indication;
+
+			int px = cx + CURSOR2D_RADIUS;
+			int py = cy;
+			for(int i = 1; i <= CURSOR2D_SEGMENTS; i++)
+			{
+				double a = Angle2D.PI2 * i / CURSOR2D_SEGMENTS;
+				int nx = cx + (int)Math.Round(Math.Cos(a) * CURSOR2D_RADIUS);
+				int ny = cy + (int)Math.Round(Math.Sin(a) * CURSOR2D_RADIUS);
+				plotter.DrawLineSolid(px, py, nx, ny, ref c);
+				px = nx;
+				py = ny;
+			}
+
+			int outer = CURSOR2D_RADIUS + CURSOR2D_TICK;
+			plotter.DrawLineSolid(cx, cy - CURSOR2D_RADIUS, cx, cy - outer, ref c);
+			plotter.DrawLineSolid(cx, cy + CURSOR2D_RADIUS, cx, cy + outer, ref c);
+			plotter.DrawLineSolid(cx - CURSOR2D_RADIUS, cy, cx - outer, cy, ref c);
+			plotter.DrawLineSolid(cx + CURSOR2D_RADIUS, cy, cx + outer, cy, ref c);
 		}
 		
 		// This renders the grid with a transform applied

@@ -95,6 +95,7 @@ namespace CodeImp.DoomBuilder
 		private Renderer3D renderer3d;
 		private WADReader tempwadreader;
 		private GridSetup grid;
+		private Cursor2D cursor2d;
 		private UndoManager undoredo;
 		private CopyPasteManager copypaste;
 		private Launcher launcher;
@@ -143,6 +144,7 @@ namespace CodeImp.DoomBuilder
 		public GameConfiguration Config { get { return config; } }
 		public ConfigurationInfo ConfigSettings { get { return configinfo; } }
 		public GridSetup Grid { get { return grid; } }
+		public Cursor2D Cursor2D { get { return cursor2d; } }
 		public UndoManager UndoRedo { get { return undoredo; } }
 		internal CopyPasteManager CopyPaste { get { return copypaste; } }
 		public IMapSetIO FormatInterface { get { return io; } }
@@ -194,6 +196,8 @@ namespace CodeImp.DoomBuilder
 
 			// Basic objects
 			grid = new GridSetup();
+			cursor2d = new Cursor2D();
+			cursor2d.Changed += OnCursor2DChanged;
 			undoredo = new UndoManager();
 			copypaste = new CopyPasteManager();
 			launcher = new Launcher(this);
@@ -232,6 +236,7 @@ namespace CodeImp.DoomBuilder
 				// Dispose
 				maploading = true; //mxd
 				if(grid != null) grid.Dispose();
+				if(cursor2d != null) cursor2d.Changed -= OnCursor2DChanged;
 				if(launcher != null) launcher.Dispose();
 				if(copypaste != null) copypaste.Dispose();
 				if(undoredo != null) undoredo.Dispose();
@@ -373,6 +378,7 @@ namespace CodeImp.DoomBuilder
 
 			// Update structures
 			options.ApplyGridSettings();
+			options.ApplyCursor2DSettings();
 			map.UpdateConfiguration();
 			map.Update();
 			thingsfilter.Update();
@@ -716,6 +722,7 @@ namespace CodeImp.DoomBuilder
 
 			// Update structures
 			options.ApplyGridSettings();
+			options.ApplyCursor2DSettings();
 			map.UpdateConfiguration();
 			map.SnapAllToAccuracy();
 			map.Update();
@@ -823,6 +830,7 @@ namespace CodeImp.DoomBuilder
 
 			// And switch to it
 			ChangeMapSet(newmap);
+			options.ApplyCursor2DSettings();
 
 			// Sector textures may've been changed 
 			data.UpdateUsedTextures();
@@ -2628,6 +2636,108 @@ namespace CodeImp.DoomBuilder
 				form.ShowDialog(General.MainWindow);
 				return form.BakeSucceeded;
 			}
+		}
+
+		#endregion
+
+		#region ================== 2D Cursor
+
+		private void OnCursor2DChanged(object sender, EventArgs e)
+		{
+			General.Interface.RedrawDisplay();
+		}
+
+		private static string FormatCursor2D(Vector2D pos)
+		{
+			return pos.x.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + ", "
+				+ pos.y.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+		}
+
+		private void PlaceCursor2DWithStatus(Vector2D pos)
+		{
+			cursor2d.Place(pos);
+			General.Interface.DisplayStatus(StatusType.Action, "Placed the 2D cursor at " + FormatCursor2D(cursor2d.Position));
+		}
+
+		// Snaps like Draw Lines without its modifier keys: a nearby vertex with auto-merge on, else the grid with snap on
+		[BeginAction("place2dcursor")]
+		internal void PlaceCursor2DAtMouse()
+		{
+			ClassicMode mode = General.Editing.Mode as ClassicMode;
+			if(mode == null)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "The 2D cursor can only be placed in a classic mode.");
+				return;
+			}
+
+			Vector2D pos = mode.MouseMapPos;
+			if(!mode.IsMouseInside || !pos.IsFinite())
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "Point at the map to place the 2D cursor.");
+				return;
+			}
+
+			Vertex nearest = null;
+			if(General.Interface.AutoMerge && renderer2d != null)
+				nearest = map.NearestVertexSquareRange(pos, 10.0 / renderer2d.Scale);
+
+			if(nearest != null) pos = nearest.Position;
+			else if(General.Interface.SnapToGrid) pos = grid.SnappedToGrid(pos);
+
+			PlaceCursor2DWithStatus(pos);
+		}
+
+		[BeginAction("place2dcursoratselection")]
+		internal void PlaceCursor2DAtSelection()
+		{
+			HashSet<Vertex> verts = new HashSet<Vertex>(map.GetSelectedVertices(true));
+			foreach(Linedef ld in map.GetSelectedLinedefs(true))
+			{
+				verts.Add(ld.Start);
+				verts.Add(ld.End);
+			}
+			foreach(Sector s in map.GetSelectedSectors(true))
+			{
+				foreach(Sidedef sd in s.Sidedefs)
+				{
+					verts.Add(sd.Line.Start);
+					verts.Add(sd.Line.End);
+				}
+			}
+
+			List<Vector2D> points = new List<Vector2D>(verts.Count);
+			foreach(Vertex v in verts) points.Add(v.Position);
+			List<KeyValuePair<Vector2D, double>> things = new List<KeyValuePair<Vector2D, double>>();
+			foreach(Thing t in map.GetSelectedThings(true))
+				things.Add(new KeyValuePair<Vector2D, double>(t.Position, t.Size));
+
+			Vector2D center;
+			if(!Cursor2D.TryGetSelectionCenter(points, things, out center))
+			{
+				object highlighted = (General.Editing.Mode != null) ? General.Editing.Mode.HighlightedObject : null;
+				if(highlighted is Vertex) center = ((Vertex)highlighted).Position;
+				else if(highlighted is Thing) center = ((Thing)highlighted).Position;
+				else if(highlighted is Linedef) center = ((Linedef)highlighted).GetCenterPoint();
+				else if(highlighted is Sector)
+				{
+					RectangleF box = ((Sector)highlighted).BBox;
+					center = new Vector2D(box.Left + box.Width * 0.5, box.Top + box.Height * 0.5);
+				}
+				else
+				{
+					General.Interface.DisplayStatus(StatusType.Warning, "Select or highlight something to place the 2D cursor at.");
+					return;
+				}
+			}
+
+			PlaceCursor2DWithStatus(center);
+		}
+
+		[BeginAction("clear2dcursor")]
+		internal void ClearCursor2D()
+		{
+			cursor2d.Clear();
+			General.Interface.DisplayStatus(StatusType.Action, "Cleared the 2D cursor.");
 		}
 
 		#endregion

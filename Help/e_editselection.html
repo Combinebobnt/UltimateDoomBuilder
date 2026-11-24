@@ -36,7 +36,9 @@
 		<h3>Rotate</h3>
 		Grab one of the handles on the corners of the selection rectangle using <b title="Left Mouse Button">LMB</b> and drag it to rotate the selection. The selection will normally only rotate by the nearest 45 degrees. You can hold Shift to rotate it freely.
 		<h3>Rotate 90 degrees</h3>
-		The two curved-arrow buttons on the toolbar, and the same pair next to the Rotation field in the side panel, turn the selection a quarter turn counterclockwise or clockwise about its center. The actions "Rotate Selection 90 Degrees Clockwise" and "Rotate Selection 90 Degrees Counterclockwise" have no default key; assign one in Preferences, Controls.
+		The two curved-arrow buttons on the toolbar, and the same pair next to the Rotation field in the side panel, turn the selection a quarter turn counterclockwise or clockwise about its center (or about the 2D cursor, below). The actions "Rotate Selection 90 Degrees Clockwise" and "Rotate Selection 90 Degrees Counterclockwise" have no default key; assign one in Preferences, Controls.
+		<h3>Around 2D cursor</h3>
+		With the "Around 2D cursor" box in the side panel's Transform group checked and a 2D cursor placed (see <a href="classiccontrols.html">Classic Controls</a>), the selection turns around the 2D cursor instead of its own center: the rotate handles, the Rotation field, the 90-degree and 5-degree rotations all swing it around the cursor, Flip Horizontally mirrors it across the cursor's vertical line and Flip Vertically across its horizontal line. A thin line from the selection center to the cursor shows that it is in use. Moving, resizing and the position and size fields are unchanged. With the box checked but no 2D cursor placed, the selection turns around its own center and the status bar says so. The box is remembered between sessions; the action "Toggle 2D Cursor Pivot" (no default key) switches it.
 
 		<h2>Default Controls</h2>
 		<table border="0" cellspacing="6" width="90%">

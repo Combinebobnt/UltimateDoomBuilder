@@ -284,6 +284,7 @@
     <Compile Include="Editing\EditMode.cs" />
     <Compile Include="Editing\EditModeAttribute.cs" />
     <Compile Include="Editing\EditModeInfo.cs" />
+    <Compile Include="Editing\Cursor2D.cs" />
     <Compile Include="Editing\GridSetup.cs" />
     <Compile Include="Editing\NullThingsFilter.cs" />
     <Compile Include="Editing\ThingsFilter.cs" />
@@ -354,6 +355,7 @@
     <Compile Include="Actions\SpecialKeys.cs" />
     <Compile Include="Config\NodebuilderInfo.cs" />
     <Compile Include="Geometry\Angle2D.cs" />
+    <Compile Include="Geometry\PivotMath.cs" />
     <Compile Include="Geometry\DrawnVertex.cs" />
     <Compile Include="Geometry\LabelPositionInfo.cs" />
     <Compile Include="Geometry\LinedefsTracePath.cs" />

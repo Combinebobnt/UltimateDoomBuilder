@@ -402,6 +402,7 @@ namespace CodeImp.DoomBuilder.Map
 
 			// Write grid settings
 			General.Map.Grid.WriteToConfig(mapconfig, "grid");
+			General.Map.Cursor2D.WriteToConfig(mapconfig, "cursor2d");
 
 			//mxd. Write script document settings to config
 			int sdcounter = 0;
@@ -581,6 +582,12 @@ namespace CodeImp.DoomBuilder.Map
 		internal void ApplyGridSettings()
 		{
 			General.Map.Grid.ReadFromConfig(mapconfig, "grid");
+		}
+
+		// This loads the 2D cursor; a map that never saved one reads as unset
+		internal void ApplyCursor2DSettings()
+		{
+			General.Map.Cursor2D.ReadFromConfig(mapconfig, "cursor2d");
 		}
 
 		//mxd. This reads stored selection groups from the map configuration

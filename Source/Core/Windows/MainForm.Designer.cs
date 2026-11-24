@@ -308,6 +308,9 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemaligngridtolinedef = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemsetgridorigintovertex = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemresetgrid = new System.Windows.Forms.ToolStripMenuItem();
+			this.item2dcursor = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemplace2dcursoratselection = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemclear2dcursor = new System.Windows.Forms.ToolStripMenuItem();
 			toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
 			toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
 			toolStripSeparator12 = new System.Windows.Forms.ToolStripSeparator();
@@ -588,6 +591,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemsetgridorigintovertex,
 			this.itemresetgrid,
 			this.itemgridsetup,
+			this.item2dcursor,
 			this.toolStripSeparator5,
 			this.addToGroup,
 			this.selectGroup,
@@ -754,6 +758,31 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemgridsetup.Tag = "builder_gridsetup";
 			this.itemgridsetup.Text = "&Grid and Backdrop Setup...";
 			this.itemgridsetup.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// item2dcursor
+			// 
+			this.item2dcursor.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+			this.itemplace2dcursoratselection,
+			this.itemclear2dcursor});
+			this.item2dcursor.Name = "item2dcursor";
+			this.item2dcursor.Size = new System.Drawing.Size(219, 22);
+			this.item2dcursor.Text = "2D Cursor";
+			// 
+			// itemplace2dcursoratselection
+			// 
+			this.itemplace2dcursoratselection.Name = "itemplace2dcursoratselection";
+			this.itemplace2dcursoratselection.Size = new System.Drawing.Size(219, 22);
+			this.itemplace2dcursoratselection.Tag = "builder_place2dcursoratselection";
+			this.itemplace2dcursoratselection.Text = "Place at Selection Center";
+			this.itemplace2dcursoratselection.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemclear2dcursor
+			// 
+			this.itemclear2dcursor.Name = "itemclear2dcursor";
+			this.itemclear2dcursor.Size = new System.Drawing.Size(219, 22);
+			this.itemclear2dcursor.Tag = "builder_clear2dcursor";
+			this.itemclear2dcursor.Text = "Clear";
+			this.itemclear2dcursor.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// toolStripSeparator5
 			// 
@@ -3333,6 +3362,9 @@ namespace CodeImp.DoomBuilder.Windows
 		private ToolStripMenuItem itemaligngridtolinedef;
 		private ToolStripMenuItem itemsetgridorigintovertex;
 		private ToolStripMenuItem itemresetgrid;
+		private ToolStripMenuItem item2dcursor;
+		private ToolStripMenuItem itemplace2dcursoratselection;
+		private ToolStripMenuItem itemclear2dcursor;
 		private ToolStripButton buttontogglegrid;
 		private ToolStripButton buttontoggledynamicgrid;
 		private ToolStripMenuItem itemdynamicgridsize;

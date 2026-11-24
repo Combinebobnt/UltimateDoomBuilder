@@ -56,6 +56,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.label14 = new System.Windows.Forms.Label();
 			this.flipv = new System.Windows.Forms.Button();
 			this.fliph = new System.Windows.Forms.Button();
+			this.pivotat2dcursor = new System.Windows.Forms.CheckBox();
 			this.label13 = new System.Windows.Forms.Label();
 			this.label11 = new System.Windows.Forms.Label();
 			this.rotccw = new System.Windows.Forms.Button();
@@ -300,6 +301,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.groupBox3.Controls.Add(this.label14);
 			this.groupBox3.Controls.Add(this.flipv);
 			this.groupBox3.Controls.Add(this.fliph);
+			this.groupBox3.Controls.Add(this.pivotat2dcursor);
 			this.groupBox3.Controls.Add(this.label13);
 			this.groupBox3.Controls.Add(this.label11);
 			this.groupBox3.Controls.Add(this.rotcw);
@@ -371,6 +373,18 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			this.tooltip.SetToolTip(this.fliph, "Flip Selection Horizontally");
 			this.fliph.UseVisualStyleBackColor = true;
 			this.fliph.Click += new System.EventHandler(this.fliph_Click);
+			// 
+			// pivotat2dcursor
+			// 
+			this.pivotat2dcursor.AutoSize = true;
+			this.pivotat2dcursor.Location = new System.Drawing.Point(132, 86);
+			this.pivotat2dcursor.Name = "pivotat2dcursor";
+			this.pivotat2dcursor.Size = new System.Drawing.Size(105, 17);
+			this.pivotat2dcursor.TabIndex = 5;
+			this.pivotat2dcursor.Text = "Around 2D cursor";
+			this.tooltip.SetToolTip(this.pivotat2dcursor, "When checked and the 2D cursor is placed, rotations turn around it and flips mirror across its vertical or horizontal line.");
+			this.pivotat2dcursor.UseVisualStyleBackColor = true;
+			this.pivotat2dcursor.CheckedChanged += new System.EventHandler(this.pivotat2dcursor_CheckedChanged);
 			// 
 			// label13
 			// 
@@ -713,5 +727,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private System.Windows.Forms.CheckBox pinfloortextures;
 		private System.Windows.Forms.GroupBox gbTextures;
 		private System.Windows.Forms.CheckBox pinceilingtextures;
+		private System.Windows.Forms.CheckBox pivotat2dcursor;
 	}
 }

@@ -70,6 +70,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				preciseposition.Checked = false;
 				preciseposition.Enabled = false;
 			}
+			pivotat2dcursor.Checked = mode.PivotAt2DCursor;
 			preventchanges = false;
 
 			//mxd. Otherwise the focus will go to one of TextBoxes 
@@ -136,6 +137,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			pinfloortextures.Checked = mode.PinFloorTextures;
 			pinceilingtextures.Checked = mode.PinCeilingTextures;
 
+			preventchanges = false;
+		}
+
+		internal void SetPivotAt2DCursor(bool pivot)
+		{
+			preventchanges = true;
+			pivotat2dcursor.Checked = pivot;
 			preventchanges = false;
 		}
 
@@ -268,6 +276,13 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			if(preventchanges) return;
 			mode.UsePrecisePosition = preciseposition.Checked;
+			General.Interface.FocusDisplay();
+		}
+
+		private void pivotat2dcursor_CheckedChanged(object sender, EventArgs e)
+		{
+			if(preventchanges) return;
+			mode.PivotAt2DCursor = pivotat2dcursor.Checked;
 			General.Interface.FocusDisplay();
 		}
 

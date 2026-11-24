@@ -23,6 +23,7 @@
 
 #region ================== Namespaces
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CodeImp.DoomBuilder.BuilderModes;
@@ -110,6 +111,49 @@ namespace CodeImp.DoomBuilder.UDBScript.Wrapper
 			get
 			{
 				return mousemappos;
+			}
+		}
+
+		/// <summary>
+		/// The 2D cursor as a `Vector2D`, or `null` when it isn't placed. Setting it places the cursor and accepts a `Vector2D`, an array of two numbers or an object with `x` and `y`; setting it to `null` clears it. The position is rounded to the map format's vertex precision. Only in this fork of Ultimate Doom Builder.
+		/// ```js
+		/// UDB.Map.cursor2D = [ 64, 64 ];
+		/// UDB.Map.cursor2D = null;
+		/// ```
+		/// </summary>
+		/// <fakedtstype>Vector2D | null</fakedtstype>
+		public object cursor2D
+		{
+			get
+			{
+				if (!General.Map.Cursor2D.IsSet) return null;
+				return new Vector2DWrapper(General.Map.Cursor2D.Position);
+			}
+			set
+			{
+				Vector2D pos = new Vector2D();
+				if (value != null)
+				{
+					try
+					{
+						pos = BuilderPlug.Me.GetVector3DFromObject(value);
+					}
+					catch (CantConvertToVectorException e)
+					{
+						throw BuilderPlug.Me.ScriptRunner.CreateRuntimeException(e.Message);
+					}
+
+					if (!pos.IsFinite())
+						throw BuilderPlug.Me.ScriptRunner.CreateRuntimeException("The 2D cursor position must be finite.");
+				}
+
+				// The cursor's Changed event redraws, so apply it on the UI thread
+				BuilderPlug.Me.ScriptRunnerForm.InvokePaused(new Action(() => {
+					if (value == null)
+						General.Map.Cursor2D.Clear();
+					else
+						General.Map.Cursor2D.Place(pos);
+				}));
 			}
 		}
 

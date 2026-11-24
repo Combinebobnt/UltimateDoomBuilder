@@ -7,6 +7,15 @@
 `VisualCamera` object with information about the position of the camera in visual mode. Read-only.
 
 ---
+### cursor2D
+The 2D cursor as a `Vector2D`, or `null` when it isn't placed. Setting it places the cursor and accepts a `Vector2D`, an array of two numbers or an object with `x` and `y`; setting it to `null` clears it. The position is rounded to the map format's vertex precision. Only in this fork of Ultimate Doom Builder.
+
+```js
+UDB.Map.cursor2D = [ 64, 64 ];
+UDB.Map.cursor2D = null;
+```
+
+---
 ### isDoom
 `true` if the map is in Doom format, `false` if it isn't. Read-only.
 
