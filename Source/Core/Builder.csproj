@@ -289,6 +289,9 @@
     <Compile Include="Data\SpriteImage.cs" />
     <Compile Include="Data\TextureImage.cs" />
     <Compile Include="Editing\ClipboardHistory.cs" />
+    <Compile Include="Portals\PortalAnalyzer.cs" />
+    <Compile Include="Portals\PortalMapData.cs" />
+    <Compile Include="Portals\PortalMapSource.cs" />
     <Compile Include="Editing\TextureHistory.cs" />
     <Compile Include="Data\TextureFavorites.cs" />
     <Compile Include="Data\TextureNameMatcher.cs" />

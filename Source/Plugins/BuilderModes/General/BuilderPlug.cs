@@ -31,6 +31,7 @@ using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.Geometry;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Plugins;
+using CodeImp.DoomBuilder.Portals;
 using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.Windows;
 
@@ -111,6 +112,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		private Docker clipboardhistorydocker;
 		private TextureHistoryPanel texturehistorypanel;
 		private Docker texturehistorydocker;
+		private PortalsPanel portalspanel;
+		private Docker portalsdocker;
 		private SectorDrawingOptionsPanel drawingOverridesPanel; //mxd
 		private Docker drawingOverridesDocker; //mxd
 		
@@ -556,6 +559,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			base.OnMapNewEnd();
 			texturehistorypanel.WatchHistory(General.Map.TextureHistory);
 			undoredopanel.SetBeginDescription("New Map");
+			UpdatePortalsDocker();
 			undoredopanel.WatchUndoManager(General.Map.UndoRedo);
 			undoredopanel.UpdateList();
 
@@ -572,6 +576,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			base.OnMapOpenEnd();
 			texturehistorypanel.WatchHistory(General.Map.TextureHistory);
 			undoredopanel.SetBeginDescription("Opened Map");
+			UpdatePortalsDocker();
 			undoredopanel.WatchUndoManager(General.Map.UndoRedo);
 			undoredopanel.UpdateList();
 
@@ -589,6 +594,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			texturehistorypanel.WatchHistory(null);
 			undoredopanel.WatchUndoManager(null);
 			drawingOverridesPanel.Terminate();
+			RemovePortalsDocker();
 			General.Interface.RemoveDocker(drawingOverridesDocker);
 		}
 
@@ -607,6 +613,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public override void OnMapReconfigure()
 		{
 			errorcheckform = null;
+
+			// The map's args are translated after this call, so the portal capability check waits a UI turn
+			Control window = General.Interface as Control;
+			if(window != null && window.IsHandleCreated) window.BeginInvoke(new MethodInvoker(UpdatePortalsDocker));
+			else UpdatePortalsDocker();
 		}
 		
 		// Redo performed
@@ -614,6 +625,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			base.OnRedoEnd();
 			undoredopanel.UpdateList();
+			RefreshPortalsSoon();
 		}
 		
 		// Undo performed
@@ -621,6 +633,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			base.OnUndoEnd();
 			undoredopanel.UpdateList();
+			RefreshPortalsSoon();
 		}
 		
 		// Undo created
@@ -635,6 +648,63 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			base.OnUndoWithdrawn();
 			undoredopanel.UpdateList();
+		}
+
+		public override void OnPasteEnd(CodeImp.DoomBuilder.Config.PasteOptions options)
+		{
+			base.OnPasteEnd(options);
+			RefreshPortalsSoon();
+		}
+
+		public override void OnEditAccept()
+		{
+			base.OnEditAccept();
+			RefreshPortalsSoon();
+		}
+
+		public override void OnActionEnd(Actions.Action action)
+		{
+			base.OnActionEnd(action);
+			if(action.Name == "builder_deleteitem") RefreshPortalsSoon();
+		}
+
+		// The Portals docker exists only while a map with a ZDoom-family configuration is open
+		private void UpdatePortalsDocker()
+		{
+			PortalCapabilities caps = General.Map != null ? PortalMapSource.Capabilities(General.Map.Config, General.Map.FormatInterface) : PortalCapabilities.None;
+			if(!caps.Any)
+			{
+				RemovePortalsDocker();
+				return;
+			}
+			if(portalspanel == null)
+			{
+				portalspanel = new PortalsPanel();
+				portalsdocker = new Docker("portals", "Portals", portalspanel);
+				portalspanel.Capabilities = caps;
+				General.Interface.AddDocker(portalsdocker);
+				portalspanel.Setup(portalsdocker);
+			}
+			else
+			{
+				portalspanel.Capabilities = caps;
+				portalspanel.UpdateSoon();
+			}
+		}
+
+		private void RemovePortalsDocker()
+		{
+			if(portalspanel == null) return;
+			portalspanel.Terminate();
+			General.Interface.RemoveDocker(portalsdocker);
+			portalspanel.Dispose();
+			portalspanel = null;
+			portalsdocker = null;
+		}
+
+		private void RefreshPortalsSoon()
+		{
+			if(portalspanel != null) portalspanel.UpdateSoon();
 		}
 		
 		#endregion

@@ -520,6 +520,12 @@
     <Compile Include="Interface\ClipboardHistoryPanel.Designer.cs">
       <DependentUpon>ClipboardHistoryPanel.cs</DependentUpon>
     </Compile>
+    <Compile Include="Interface\PortalsPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Interface\PortalsPanel.Designer.cs">
+      <DependentUpon>PortalsPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="General\TexturePalette.cs" />
     <Compile Include="Interface\TexturePaletteForm.cs">
       <SubType>Form</SubType>
