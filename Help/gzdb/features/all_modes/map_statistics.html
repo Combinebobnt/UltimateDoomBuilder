@@ -1,0 +1,35 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<title>Map Statistics</title>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+<link rel="stylesheet" type="text/css" href="../../../default.css" media="screen" title="Default" />
+</head>
+<body>
+<object type="application/x-oleobject" classid="clsid:1e2a7bd0-dab9-11d0-b93a-00c04fc99f9e">
+  <param name="keyword" value="Map Statistics">
+  <param name="keyword" value="statistics">
+  <param name="keyword" value="tally">
+</object>
+<div id="gz_title">
+  <h1>Map Statistics</h1>
+</div>
+<div id="contents">
+  <p>The <strong>Map Statistics</strong> window collects information about the current map in one place. Open it with <strong>View -&gt; Map Statistics...</strong> or its toolbar button (shown with the View toolbar buttons). <strong>Edit -&gt; View Thing Types...</strong> opens it on the Things tab and <strong>Edit -&gt; View Used Tags...</strong> on the Tags tab. Otherwise it opens on the tab you had open last.</p>
+  <p>The numbers are computed when the window opens. Edits made from inside the window (right-click edits on the Things and Tags tabs) update the other tabs when you switch to them.</p>
+  <h2><strong>Overview</strong></h2>
+  <p>Map name, format and game configuration; vertex, linedef, sidedef, sector and thing counts next to the format's limits (shown in red when a limit is exceeded); map bounds and size; linedefs with an action, tagged linedefs and sectors, sectors with an effect and secret sectors; things of unknown type; player and deathmatch starts; script counts when the map has ACS; and how many wall textures and flats are used and missing. <strong>Copy</strong> puts the whole list on the clipboard.</p>
+  <h2><strong>Tally</strong></h2>
+  <p>What the game would count for this map, one column per skill level: kills, items, secret things, secret sectors and the secrets total, plus the total spawn health of the counted monsters and the health, armor and ammo the map's pickups give. Pick <strong>Single player</strong>, <strong>Cooperative</strong> or <strong>Deathmatch</strong> in the <strong>Mode</strong> list; Hexen games also have a <strong>Class</strong> list, since things can be limited to one player class.</p>
+  <p>The counts follow the things' skill, mode and class flags, and friendly, <strong>nocount</strong> and <strong>countsecret</strong> things are handled the way the game handles them. Whether a thing type counts as a kill or an item, and how much it gives, comes from the map's DEHACKED patch, the actor definitions (DECORATE and ZScript, including the engine's own when it is loaded as a resource), the game configuration's DEHACKED data, or the original Doom values, in that order. Thing types none of these explain are listed in an <strong>Unresolved things</strong> row instead of being guessed.</p>
+  <p>Health, armor and ammo are raw sums of pickup amounts: maximums, monster drops and skill ammo factors are not applied, and weapons count at their single player amount.</p>
+  <p>Click a cell in the Kills, Items, Secret things or Unresolved things row to select those things in Things mode; a Secret sectors cell selects the sectors in Sectors mode. <strong>Copy</strong> puts the table on the clipboard as tab-separated text.</p>
+  <h2><strong>Things</strong></h2>
+  <p>Every thing type the game configuration and resources define, with its category and how many of it the map has. The <strong>Category</strong> list shows one category, and <strong>Hide Unused Things</strong> hides the types the map doesn't use. Click a row to select those things, right-click to edit them.</p>
+  <h2><strong>Textures</strong></h2>
+  <p>Every wall texture and flat the map uses, how often, and whether it is missing from the loaded resources. Click a texture to select the linedefs using it, or a flat to select the sectors using it.</p>
+  <h2><strong>Tags</strong></h2>
+  <p>The tags used by sectors, linedefs and things, with their labels. See <a href="tag_support.html">Enhanced Tag support</a> for label editing. Label changes are kept when you close the window with <strong>OK</strong> and discarded with <strong>Cancel</strong>.</p>
+</div>
+</body>
+</html>

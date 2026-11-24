@@ -280,6 +280,10 @@
 					<param name="Local" value="gzdb\features\all_modes\tag_support.html">
 					</OBJECT>
 				<LI> <OBJECT type="text/sitemap">
+					<param name="Name" value="Map Statistics">
+					<param name="Local" value="gzdb\features\all_modes\map_statistics.html">
+					</OBJECT>
+				<LI> <OBJECT type="text/sitemap">
 					<param name="Name" value="Event lines">
 					<param name="Local" value="gzdb\features\all_modes\event_lines.html">
 					</OBJECT>

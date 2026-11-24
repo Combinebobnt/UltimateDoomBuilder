@@ -101,6 +101,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemlinedefcolors = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemthingsfilterlist = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemlinedefcolorpresetlist = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemviewmapstatistics = new System.Windows.Forms.ToolStripMenuItem();
 			this.separatorsidepanels = new System.Windows.Forms.ToolStripSeparator();
 			this.itemsidepanels = new System.Windows.Forms.ToolStripMenuItem();
 			this.seperatorviewthings = new System.Windows.Forms.ToolStripSeparator();
@@ -226,6 +227,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.seperatorviews = new System.Windows.Forms.ToolStripSeparator();
 			this.buttontogglecomments = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
 			this.buttontogglefixedthingsscale = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
+			this.buttonmapstatistics = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
 			this.buttonsnaptogrid = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
 			this.buttonautomerge = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
 			this.buttonsplitjoinedsectors = new CodeImp.DoomBuilder.Controls.ToolStripActionButton();
@@ -855,6 +857,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemthingsfilterlist,
 			this.itemlinedefcolors,
 			this.itemlinedefcolorpresetlist,
+			this.itemviewmapstatistics,
 			this.seperatorviewthings,
 			this.itemviewnormal,
 			this.itemviewbrightness,
@@ -952,6 +955,15 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemlinedefcolorpresetlist.Name = "itemlinedefcolorpresetlist";
 			this.itemlinedefcolorpresetlist.Size = new System.Drawing.Size(215, 22);
 			this.itemlinedefcolorpresetlist.Text = "Linedef Color &Presets";
+			// 
+			// itemviewmapstatistics
+			// 
+			this.itemviewmapstatistics.Image = global::CodeImp.DoomBuilder.Properties.Resources.ThingStatistics;
+			this.itemviewmapstatistics.Name = "itemviewmapstatistics";
+			this.itemviewmapstatistics.Size = new System.Drawing.Size(215, 22);
+			this.itemviewmapstatistics.Tag = "builder_viewmapstatistics";
+			this.itemviewmapstatistics.Text = "Map &Statistics...";
+			this.itemviewmapstatistics.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// seperatorviewthings
 			// 
@@ -1546,6 +1558,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.buttontogglegrid,
 			this.buttontogglecomments,
 			this.buttontogglefixedthingsscale,
+			this.buttonmapstatistics,
 			this.separatorfullbrightness,
 			this.buttonviewnormal,
 			this.buttonviewbrightness,
@@ -2223,6 +2236,17 @@ namespace CodeImp.DoomBuilder.Windows
 			this.buttontogglefixedthingsscale.Tag = "builder_togglefixedthingsscale";
 			this.buttontogglefixedthingsscale.Text = "Fixed Things Scale";
 			this.buttontogglefixedthingsscale.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// buttonmapstatistics
+			// 
+			this.buttonmapstatistics.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.buttonmapstatistics.Image = global::CodeImp.DoomBuilder.Properties.Resources.ThingStatistics;
+			this.buttonmapstatistics.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.buttonmapstatistics.Name = "buttonmapstatistics";
+			this.buttonmapstatistics.Size = new System.Drawing.Size(23, 22);
+			this.buttonmapstatistics.Tag = "builder_viewmapstatistics";
+			this.buttonmapstatistics.Text = "Map Statistics";
+			this.buttonmapstatistics.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// buttonsnaptogrid
 			// 
@@ -3424,9 +3448,11 @@ namespace CodeImp.DoomBuilder.Windows
 		private ToolStripMenuItem itemzoom800;
 		private ToolStripButton buttontogglecomments;
 		private ToolStripButton buttontogglefixedthingsscale;
+		private ToolStripButton buttonmapstatistics;
 		private ToolStripMenuItem itemlinedefcolors;
 		private ToolStripMenuItem itemthingsfilterlist;
 		private ToolStripMenuItem itemlinedefcolorpresetlist;
+		private ToolStripMenuItem itemviewmapstatistics;
 		private ToolStripSeparator separatorsidepanels;
 		private ToolStripMenuItem itemsidepanels;
 		private ToolStripMenuItem itemtestoptions;

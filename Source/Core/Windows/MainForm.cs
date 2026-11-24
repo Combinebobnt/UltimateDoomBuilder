@@ -443,7 +443,7 @@ namespace CodeImp.DoomBuilder.Windows
 			toolbardock.AddStrip("clipboard", null, "Clipboard", buttoncut, buttoncopy, buttonpaste, seperatorcopypaste);
 			toolbardock.AddStrip("prefabs", null, "Prefabs", buttoninsertprefabfile, buttoninsertpreviousprefab, seperatorprefabs);
 			toolbardock.AddStrip(ToolbarLayoutModel.FILTERS, null, "Filters", buttonthingsfilter, thingfilters, separatorlinecolors, buttonlinededfcolors, linedefcolorpresets);
-			toolbardock.AddStrip("view", null, "View", separatorfilters, buttonfullbrightness, buttontogglegrid, buttontogglecomments, buttontogglefixedthingsscale,
+			toolbardock.AddStrip("view", null, "View", separatorfilters, buttonfullbrightness, buttontogglegrid, buttontogglecomments, buttontogglefixedthingsscale, buttonmapstatistics,
 				separatorfullbrightness, buttonviewnormal, buttonviewbrightness, buttonviewfloors, buttonviewceilings, buttontoggleclassicrendering, seperatorviews);
 			toolbardock.AddStrip("geometry", null, "Geometry", buttonmergegeoclassic, buttonmergegeo, buttonplacegeo, separatorgeomergemodes,
 				buttonsnaptogrid, buttontoggledynamicgrid, buttonautomerge, buttonsplitjoinedsectors, buttonautoclearsidetextures, seperatorgeometry);
@@ -2304,6 +2304,7 @@ namespace CodeImp.DoomBuilder.Windows
 			buttontogglecomments.Checked = General.Settings.RenderComments; //mxd
 			buttontogglefixedthingsscale.Visible = General.Settings.ToolbarViewModes && maploaded; //mxd
 			buttontogglefixedthingsscale.Checked = General.Settings.FixedThingsScale; //mxd
+			buttonmapstatistics.Visible = General.Settings.ToolbarViewModes && maploaded;
 			separatorfullbrightness.Visible = General.Settings.ToolbarViewModes && maploaded; //mxd
 			buttonviewbrightness.Visible = General.Settings.ToolbarViewModes && maploaded;
 			buttonviewceilings.Visible = General.Settings.ToolbarViewModes && maploaded;
