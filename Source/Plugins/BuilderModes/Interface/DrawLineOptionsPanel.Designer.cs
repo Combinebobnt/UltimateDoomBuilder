@@ -34,6 +34,9 @@
 			this.showguidelines = new System.Windows.Forms.ToolStripButton();
 			this.mirrorx = new System.Windows.Forms.ToolStripButton();
 			this.mirrory = new System.Windows.Forms.ToolStripButton();
+			this.radialdrawing = new System.Windows.Forms.ToolStripButton();
+			this.radialcopieslabel = new System.Windows.Forms.ToolStripLabel();
+			this.radialcopies = new CodeImp.DoomBuilder.Controls.ToolStripNumericUpDown();
 			this.toolStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -44,7 +47,10 @@
             this.autoclosedrawing,
             this.showguidelines,
             this.mirrorx,
-            this.mirrory});
+            this.mirrory,
+            this.radialdrawing,
+            this.radialcopieslabel,
+            this.radialcopies});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(619, 25);
@@ -107,6 +113,38 @@
 			this.mirrory.ToolTipText = "Mirror the drawing across the horizontal line through the 2D cursor";
 			this.mirrory.CheckedChanged += new System.EventHandler(this.mirrory_CheckedChanged);
 			// 
+			// radialdrawing
+			// 
+			this.radialdrawing.CheckOnClick = true;
+			this.radialdrawing.Image = global::CodeImp.DoomBuilder.BuilderModes.Properties.Resources.Radial;
+			this.radialdrawing.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.radialdrawing.Margin = new System.Windows.Forms.Padding(2, 1, 0, 2);
+			this.radialdrawing.Name = "radialdrawing";
+			this.radialdrawing.Size = new System.Drawing.Size(113, 22);
+			this.radialdrawing.Text = "Radial symmetry";
+			this.radialdrawing.ToolTipText = "Repeat the drawing in rotated copies around the 2D cursor";
+			this.radialdrawing.CheckedChanged += new System.EventHandler(this.radialdrawing_CheckedChanged);
+			// 
+			// radialcopieslabel
+			// 
+			this.radialcopieslabel.Name = "radialcopieslabel";
+			this.radialcopieslabel.Size = new System.Drawing.Size(46, 22);
+			this.radialcopieslabel.Text = "Copies:";
+			// 
+			// radialcopies
+			// 
+			this.radialcopies.AutoSize = false;
+			this.radialcopies.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
+			this.radialcopies.Name = "radialcopies";
+			this.radialcopies.Size = new System.Drawing.Size(48, 20);
+			this.radialcopies.ToolTipText = "Number of copies, the drawing included, spaced evenly around the 2D cursor";
+			this.radialcopies.Value = new decimal(new int[] {
+            4,
+            0,
+            0,
+            0});
+			this.radialcopies.ValueChanged += new System.EventHandler(this.radialcopies_ValueChanged);
+			// 
 			// DrawLineOptionsPanel
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -129,5 +167,8 @@
 		private System.Windows.Forms.ToolStripButton showguidelines;
 		private System.Windows.Forms.ToolStripButton mirrorx;
 		private System.Windows.Forms.ToolStripButton mirrory;
+		private System.Windows.Forms.ToolStripButton radialdrawing;
+		private System.Windows.Forms.ToolStripLabel radialcopieslabel;
+		private CodeImp.DoomBuilder.Controls.ToolStripNumericUpDown radialcopies;
 	}
 }

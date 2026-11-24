@@ -179,6 +179,133 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		#endregion
 
+		#region ================== Radial
+
+		// Path plus count-1 copies rotated CCW about pivot, rounded to the map format's decimals.
+		// Points within stitch distance share one value before rounding, so seams round alike.
+		// Paths that collapse or repeat an earlier path's lines are skipped and counted.
+		public static List<List<DrawnVertex>> Radial(IList<DrawnVertex> path, Vector2D pivot, int count, int decimals, out int skipped)
+		{
+			skipped = 0;
+			if(path.Count < 2 || count < 2) return new List<List<DrawnVertex>> { new List<DrawnVertex>(path) };
+
+			List<List<DrawnVertex>> copies = new List<List<DrawnVertex>>(count);
+			for(int k = 0; k < count; k++)
+			{
+				List<DrawnVertex> c = new List<DrawnVertex>(path.Count);
+				foreach(DrawnVertex v in path)
+				{
+					DrawnVertex r = v;
+					if(k > 0) r.pos = RadialCopy(v.pos, pivot, k, count);
+					c.Add(r);
+				}
+				copies.Add(c);
+			}
+
+			// Cluster to the first position seen, then round that one value
+			StitchClusters clusters = new StitchClusters(MapSet.STITCH_DISTANCE);
+			foreach(List<DrawnVertex> c in copies)
+			{
+				for(int i = 0; i < c.Count; i++)
+				{
+					DrawnVertex v = c[i];
+					Vector2D canon = clusters.Canonical(v.pos);
+					v.pos = new Vector2D(Math.Round(canon.x, decimals), Math.Round(canon.y, decimals));
+					c[i] = v;
+				}
+			}
+
+			List<List<DrawnVertex>> result = new List<List<DrawnVertex>>(count);
+			List<HashSet<Segment>> keptsegments = new List<HashSet<Segment>>(count);
+			foreach(List<DrawnVertex> c in copies)
+			{
+				List<DrawnVertex> d = new List<DrawnVertex>(c.Count);
+				foreach(DrawnVertex v in c)
+					if(d.Count == 0 || d[d.Count - 1].pos != v.pos) d.Add(v);
+				if(d.Count < 2)
+				{
+					skipped++;
+					continue;
+				}
+
+				HashSet<Segment> segments = new HashSet<Segment>();
+				for(int i = 1; i < d.Count; i++) segments.Add(new Segment(d[i - 1].pos, d[i].pos));
+				bool repeat = false;
+				foreach(HashSet<Segment> s in keptsegments)
+					if(s.SetEquals(segments)) { repeat = true; break; }
+				if(repeat)
+				{
+					skipped++;
+					continue;
+				}
+
+				keptsegments.Add(segments);
+				result.Add(d);
+			}
+
+			return result;
+		}
+
+		// Copy k of count, unrounded. Snapping uses this too, so a snapped point equals the copy exactly.
+		public static Vector2D RadialCopy(Vector2D p, Vector2D pivot, int k, int count)
+		{
+			return PivotMath.RotatedAbout(p, pivot, k * Angle2D.PI2 / count);
+		}
+
+		// Unordered pair of exact positions
+		private struct Segment : IEquatable<Segment>
+		{
+			private readonly Vector2D a, b;
+
+			public Segment(Vector2D p, Vector2D q)
+			{
+				bool swap = p.x > q.x || (p.x == q.x && p.y > q.y);
+				a = swap ? q : p;
+				b = swap ? p : q;
+			}
+
+			public bool Equals(Segment o) { return a == o.a && b == o.b; }
+			public override bool Equals(object obj) { return obj is Segment && Equals((Segment)obj); }
+			// Adding 0.0 turns -0 into +0, which == treats as equal
+			public override int GetHashCode()
+			{
+				return (a.x + 0.0).GetHashCode() ^ ((a.y + 0.0).GetHashCode() * 31) ^ ((b.x + 0.0).GetHashCode() * 397) ^ ((b.y + 0.0).GetHashCode() * 7919);
+			}
+		}
+
+		// First-seen positions in a hash grid, so clustering stays linear in the point count
+		private class StitchClusters
+		{
+			private readonly double range;
+			private readonly Dictionary<long, List<Vector2D>> cells = new Dictionary<long, List<Vector2D>>();
+
+			public StitchClusters(double range) { this.range = range; }
+
+			public Vector2D Canonical(Vector2D p)
+			{
+				long cx = (long)Math.Floor(p.x / range), cy = (long)Math.Floor(p.y / range);
+				for(long x = cx - 1; x <= cx + 1; x++)
+				{
+					for(long y = cy - 1; y <= cy + 1; y++)
+					{
+						List<Vector2D> cell;
+						if(!cells.TryGetValue(Key(x, y), out cell)) continue;
+						foreach(Vector2D c in cell)
+							if(Vector2D.DistanceSq(c, p) <= range * range) return c;
+					}
+				}
+
+				List<Vector2D> home;
+				if(!cells.TryGetValue(Key(cx, cy), out home)) cells[Key(cx, cy)] = home = new List<Vector2D>();
+				home.Add(p);
+				return p;
+			}
+
+			private static long Key(long x, long y) { return (x << 32) ^ (y & 0xFFFFFFFFL); }
+		}
+
+		#endregion
+
 		#region ================== Bounds
 
 		public static bool AnyOutside(List<List<DrawnVertex>> paths, double left, double right, double top, double bottom)

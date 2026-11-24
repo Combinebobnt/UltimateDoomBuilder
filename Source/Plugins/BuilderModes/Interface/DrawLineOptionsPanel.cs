@@ -10,18 +10,24 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public event EventHandler OnShowGuidelinesChanged;
 		public event EventHandler OnMirrorXChanged;
 		public event EventHandler OnMirrorYChanged;
+		public event EventHandler OnRadialDrawingChanged;
+		public event EventHandler OnRadialCopiesChanged;
 
 		public bool ContinuousDrawing { get { return continuousdrawing.Checked; } set { continuousdrawing.Checked = value; } }
 		public bool AutoCloseDrawing { get { return autoclosedrawing.Checked; } set { autoclosedrawing.Checked = value; } }
 		public bool ShowGuidelines { get { return showguidelines.Checked; } set { showguidelines.Checked = value; } }
 		public bool MirrorX { get { return mirrorx.Checked; } set { mirrorx.Checked = value; } }
 		public bool MirrorY { get { return mirrory.Checked; } set { mirrory.Checked = value; } }
+		public bool RadialDrawing { get { return radialdrawing.Checked; } set { radialdrawing.Checked = value; } }
+		public int RadialCopies { get { return (int)radialcopies.Value; } set { radialcopies.Value = value; } }
 		
 		private ToolStripMenuItem menu;
 
 		public DrawLineOptionsPanel()
 		{
 			InitializeComponent();
+			radialcopies.Minimum = DrawGeometryMode.RADIAL_MIN_COPIES;
+			radialcopies.Maximum = DrawGeometryMode.RADIAL_MAX_COPIES;
 		}
 
 		public void Register()
@@ -38,8 +44,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Interface.AddButton(showguidelines);
 			General.Interface.AddButton(mirrorx);
 			General.Interface.AddButton(mirrory);
+			General.Interface.AddButton(radialdrawing);
+			General.Interface.AddButton(radialcopies);
 			General.Interface.EndToolbarUpdate();
-			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, showguidelines, mirrorx, mirrory);
+			if(menu == null) menu = MenusForm.CreatePanelMenu("&Draw", continuousdrawing, autoclosedrawing, showguidelines, mirrorx, mirrory, radialdrawing);
 			MenusForm.ShowPanelMenu(menu);
 		}
 
@@ -47,6 +55,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			if(menu != null) General.Interface.RemoveMenu(menu);
 			General.Interface.BeginToolbarUpdate();
+			General.Interface.RemoveButton(radialcopies);
+			General.Interface.RemoveButton(radialdrawing);
 			General.Interface.RemoveButton(mirrory);
 			General.Interface.RemoveButton(mirrorx);
 			General.Interface.RemoveButton(showguidelines);
@@ -70,14 +80,32 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(OnShowGuidelinesChanged != null) OnShowGuidelinesChanged(showguidelines.Checked, EventArgs.Empty);
 		}
 
+		// Radial and mirror copies are exclusive: turning one on turns the other off
 		private void mirrorx_CheckedChanged(object sender, EventArgs e)
 		{
+			if(mirrorx.Checked) radialdrawing.Checked = false;
 			if(OnMirrorXChanged != null) OnMirrorXChanged(mirrorx.Checked, EventArgs.Empty);
 		}
 
 		private void mirrory_CheckedChanged(object sender, EventArgs e)
 		{
+			if(mirrory.Checked) radialdrawing.Checked = false;
 			if(OnMirrorYChanged != null) OnMirrorYChanged(mirrory.Checked, EventArgs.Empty);
+		}
+
+		private void radialdrawing_CheckedChanged(object sender, EventArgs e)
+		{
+			if(radialdrawing.Checked)
+			{
+				mirrorx.Checked = false;
+				mirrory.Checked = false;
+			}
+			if(OnRadialDrawingChanged != null) OnRadialDrawingChanged(radialdrawing.Checked, EventArgs.Empty);
+		}
+
+		private void radialcopies_ValueChanged(object sender, EventArgs e)
+		{
+			if(OnRadialCopiesChanged != null) OnRadialCopiesChanged((int)radialcopies.Value, EventArgs.Empty);
 		}
 	}
 }

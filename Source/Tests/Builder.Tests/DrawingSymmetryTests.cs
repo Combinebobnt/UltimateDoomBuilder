@@ -236,5 +236,131 @@ namespace Builder.Tests
 			Assert.True(DrawingSymmetry.AnyOutside(r, -1000, 1000, 1000, -1000));
 			Assert.False(DrawingSymmetry.AnyOutside(r, -1000, 1200, 1000, -1000));
 		}
+
+		private static Vector2D Turned(Vector2D p, Vector2D pivot, int k, int n)
+		{
+			return PivotMath.RotatedAbout(p, pivot, k * Angle2D.PI2 / n);
+		}
+
+		private static void Exactly(Vector2D expected, Vector2D actual, string what)
+		{
+			Assert.True(expected == actual, $"{what}: expected {expected}, got {actual}");
+		}
+
+		[Fact]
+		public void RadialQuarterTurnsCarryFlags()
+		{
+			List<DrawnVertex> p = Path(0, 0, 10, 0);
+			DrawnVertex loose = p[1];
+			loose.stitch = false;
+			p[1] = loose;
+
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(p, new Vector2D(0, 0), 4, 3, out skipped);
+			Assert.Equal(0, skipped);
+			Assert.Equal(4, r.Count);
+			Equal(p, r[0]);
+			Equal(Path(0, 0, 0, 10), r[1]);
+			Equal(Path(0, 0, -10, 0), r[2]);
+			Equal(Path(0, 0, 0, -10), r[3]);
+			for(int k = 0; k < 4; k++)
+			{
+				Assert.True(r[k][0].stitch);
+				Assert.False(r[k][1].stitch);
+				Assert.True(r[k][1].stitchline);
+			}
+		}
+
+		[Fact]
+		public void RadialWedgeSeamsAndCenterRoundAlike()
+		{
+			// x offset 100.5 at 60 degrees puts every seam on a .5 rounding boundary
+			Vector2D a = new Vector2D(P.x + 201, P.y);
+			Vector2D b = Turned(a, P, 1, 6);
+			List<DrawnVertex> p = Path(P.x, P.y, a.x, a.y, b.x, b.y, P.x, P.y);
+
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(p, P, 6, 0, out skipped);
+			Assert.Equal(0, skipped);
+			Assert.Equal(6, r.Count);
+			for(int k = 0; k < 6; k++)
+			{
+				Assert.Equal(4, r[k].Count);
+				Exactly(P, r[k][0].pos, "center start of path " + k);
+				Exactly(P, r[k][3].pos, "center end of path " + k);
+				Exactly(r[k][2].pos, r[(k + 1) % 6][1].pos, "seam after path " + k);
+				foreach(DrawnVertex v in r[k])
+					Assert.True(v.pos.x == Math.Round(v.pos.x) && v.pos.y == Math.Round(v.pos.y), "not rounded: " + Show(r[k]));
+			}
+		}
+
+		[Fact]
+		public void RadialOpenArcChainsIntoOneLoop()
+		{
+			Vector2D a = new Vector2D(P.x + 300, P.y + 17);
+			Vector2D m = Turned(new Vector2D(P.x + 340, P.y + 17), P, 1, 14);
+			Vector2D end = Turned(a, P, 1, 7);
+			List<DrawnVertex> p = Path(a.x, a.y, m.x, m.y, end.x, end.y);
+
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(p, P, 7, 0, out skipped);
+			Assert.Equal(0, skipped);
+			Assert.Equal(7, r.Count);
+			for(int k = 0; k < 7; k++)
+				Exactly(r[k][2].pos, r[(k + 1) % 7][0].pos, "seam after path " + k);
+		}
+
+		[Fact]
+		public void RadialClustersWithinStitchDistanceOnly()
+		{
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(Path(100, 0, -100.004, 0, -100.004, 50), new Vector2D(0, 0), 2, 6, out skipped);
+			Assert.Equal(2, r.Count);
+			Exactly(new Vector2D(-100.004, 0), r[1][0].pos, "0.004 away");
+			Exactly(new Vector2D(100, 0), r[1][1].pos, "0.004 away");
+
+			r = DrawingSymmetry.Radial(Path(100, 0, -100.006, 0, -100.006, 50), new Vector2D(0, 0), 2, 6, out skipped);
+			Exactly(new Vector2D(-100, 0), r[1][0].pos, "0.006 away");
+			Exactly(new Vector2D(100.006, 0), r[1][1].pos, "0.006 away");
+		}
+
+		[Fact]
+		public void RadialSkipsCopiesRepeatingEarlierLines()
+		{
+			List<DrawnVertex> square = Path(P.x - 32, P.y - 32, P.x + 32, P.y - 32, P.x + 32, P.y + 32, P.x - 32, P.y + 32, P.x - 32, P.y - 32);
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(square, P, 4, 0, out skipped);
+			Assert.Single(r);
+			Assert.Equal(3, skipped);
+			Equal(square, r[0]);
+
+			r = DrawingSymmetry.Radial(square, P, 8, 0, out skipped);
+			Assert.Equal(2, r.Count);
+			Assert.Equal(6, skipped);
+		}
+
+		[Fact]
+		public void RadialDropsCollapsedEdgesAndPaths()
+		{
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(Path(0, 0, 10, 0, 10.4, 0, 10.4, 20), new Vector2D(0, 0), 2, 0, out skipped);
+			Assert.Equal(0, skipped);
+			Equal(Path(0, 0, 10, 0, 10, 20), r[0]);
+			Equal(Path(0, 0, -10, 0, -10, -20), r[1]);
+
+			r = DrawingSymmetry.Radial(Path(10, 0, 10.4, 0), new Vector2D(0, 0), 2, 0, out skipped);
+			Assert.Empty(r);
+			Assert.Equal(2, skipped);
+		}
+
+		[Fact]
+		public void RadialOfOnePointIsThePathAlone()
+		{
+			int skipped;
+			List<List<DrawnVertex>> r = DrawingSymmetry.Radial(Path(5.5, 7.25), P, 6, 0, out skipped);
+			Assert.Single(r);
+			Assert.Equal(0, skipped);
+			Equal(Path(5.5, 7.25), r[0]);
+		}
 	}
 }

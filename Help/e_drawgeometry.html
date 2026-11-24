@@ -31,6 +31,11 @@
 		<br />
 		A drawing that starts and ends on a mirror line and stays on one side of it is joined with its mirror image into one closed shape, so half a room drawn from the line back to it becomes one symmetric sector. A drawing with only one end on the line becomes one longer line through it. Any other drawing, including a closed shape or one that crosses the line, gets a separate copy, which is drawn as if you had drawn it by hand right after the original. When snapping to nearby geometry (Snap to Geometry on, or Control held while it is off), a vertex close to a mirror line snaps onto it. If a copy would fall outside the map, only the original is drawn.<br />
 		
+		<h2>Radial symmetry</h2>
+		The <b>Radial symmetry</b> toolbar button (also in the Draw menu, and as the unbound Toggle Radial Symmetry action) repeats your drawing in rotated copies spaced evenly around the 2D cursor, like the slices of a round arena or tower. <b>Copies</b> next to it sets how many, your own drawing included (2 to 64). It needs a placed 2D cursor (Place 2D Cursor at Mouse); without one only your own drawing is created. While drawing, a dimmed preview shows the copies following the mouse, and the whole drawing is one undo step. Radial symmetry and mirroring are exclusive: turning one on turns the other off.<br />
+		<br />
+		Each copy is drawn as if you had drawn it by hand right after the previous one, so copies that touch are joined where they meet and copies that cross split each other. When snapping to nearby geometry (Snap to Geometry on, or Control held while it is off), a vertex close to a copy of one of your earlier vertices snaps onto it: draw a slice from the cursor out and back, ending on the copy of its first outer vertex, and the slices close up into a full ring of sectors. A copy that would repeat lines already drawn (a shape that is already symmetric around the cursor) is skipped. In map formats with whole-unit vertex coordinates (Doom and Hexen) copies are rounded to whole units, so copies at angles other than right angles can differ from an exact rotation by up to half a unit. If a copy would fall outside the map, only the original is drawn.<br />
+		
 		<h2>Default Controls</h2>
 		<table border="0" cellspacing="6" width="90%">
 		<tr>

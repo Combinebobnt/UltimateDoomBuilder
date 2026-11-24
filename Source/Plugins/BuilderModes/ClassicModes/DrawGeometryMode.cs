@@ -47,6 +47,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		protected const float LINE_THICKNESS = 0.8f;
 		private const string MIRROR_NEEDS_CURSOR = "Mirror drawing needs the 2D cursor (Place 2D Cursor at Mouse).";
+		private const string RADIAL_NEEDS_CURSOR = "Radial symmetry needs the 2D cursor (Place 2D Cursor at Mouse).";
+		public const int RADIAL_MIN_COPIES = 2;
+		public const int RADIAL_MAX_COPIES = 64;
 
 		#endregion
 
@@ -78,9 +81,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		//mxd. Interface
 		private DrawLineOptionsPanel panel;
 
-		// Mirroring across the 2D cursor. Set only from panel events, so they stay false in subclass modes.
+		// Mirroring and radial copies around the 2D cursor. Set only from panel events, so they stay false in subclass modes.
 		private bool mirrorx;
 		private bool mirrory;
+		private bool radial;
+		private int radialcopies = 4;
 		private bool loadingsettings;
 
 		#endregion
@@ -176,6 +181,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				// Mirror preview goes under the original
 				if(MirrorActive) RenderMirrorPreview(curp, vsize);
+				if(RadialActive) RenderRadialPreview(curp, vsize);
 
 				// Go for all points to draw lines
 				PixelColor color;
@@ -274,6 +280,34 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					renderer.RenderLine(Reflected(points[points.Count - 1].pos, pivot, rx, ry), end, LINE_THICKNESS, dim, true);
 				renderer.RenderRectangleFilled(new RectangleF((float)(end.x - vsize), (float)(end.y - vsize), vsize * 2.0f, vsize * 2.0f), dim, true);
 			}
+		}
+
+		private bool RadialActive { get { return radial && General.Map.Cursor2D.IsSet; } }
+
+		// The copies accept would create, rubber band included, or only the mouse vertex's before the first point
+		private void RenderRadialPreview(DrawnVertex curp, float vsize)
+		{
+			Vector2D pivot = General.Map.Cursor2D.Position;
+			if(points.Count == 0)
+			{
+				PixelColor dim = General.Colors.Selection.WithAlpha(64);
+				for(int k = 1; k < radialcopies; k++)
+				{
+					Vector2D c = DrawingSymmetry.RadialCopy(curp.pos, pivot, k, radialcopies);
+					renderer.RenderRectangleFilled(new RectangleF((float)(c.x - vsize), (float)(c.y - vsize), vsize * 2.0f, vsize * 2.0f), dim, true);
+				}
+				return;
+			}
+
+			List<DrawnVertex> path = new List<DrawnVertex>(points) { curp };
+			int skipped;
+			List<List<DrawnVertex>> paths = DrawingSymmetry.Radial(path, pivot, radialcopies, General.Map.FormatInterface.VertexDecimals, out skipped);
+			if(DrawingSymmetry.AnyOutside(paths, General.Map.Config.LeftBoundary, General.Map.Config.RightBoundary,
+				General.Map.Config.TopBoundary, General.Map.Config.BottomBoundary)) return;
+
+			// The original draws itself on top
+			if(paths.Count > 0) paths.RemoveAt(0);
+			RenderReplicas(paths);
 		}
 
 		private static Vector2D Reflected(Vector2D p, Vector2D pivot, bool rx, bool ry)
@@ -628,7 +662,36 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		{
 			DrawnVertex p = GetCurrentPosition(mousemappos, snaptonearest, snaptogrid, snaptocardinaldirection, usefourcardinaldirections, renderer, points);
 			if(MirrorActive && snaptonearest && !snaptocardinaldirection) p.pos = SnappedToMirrorAxis(p.pos);
+			if(RadialActive && snaptonearest && !snaptocardinaldirection) p.pos = SnappedToRadialCopy(p.pos);
 			return p;
+		}
+
+		// Moves a position within stitch range of a copy of a drawn point onto that copy's unrounded
+		// position, unless it sits on a drawn point or a vertex. Accept rounds both to one value.
+		private Vector2D SnappedToRadialCopy(Vector2D pos)
+		{
+			foreach(DrawnVertex v in points)
+				if(Vector2D.DistanceSq(v.pos, pos) < 0.000001) return pos;
+			if(General.Map.Map.NearestVertexSquareRange(pos, 0.001) != null) return pos;
+
+			Vector2D pivot = General.Map.Cursor2D.Position;
+			double range = BuilderPlug.Me.StitchRange / renderer.Scale;
+			double best = range * range;
+			Vector2D result = pos;
+			foreach(DrawnVertex v in points)
+			{
+				for(int k = 1; k < radialcopies; k++)
+				{
+					Vector2D c = DrawingSymmetry.RadialCopy(v.pos, pivot, k, radialcopies);
+					double d = Vector2D.DistanceSq(c, pos);
+					if(d < best)
+					{
+						best = d;
+						result = c;
+					}
+				}
+			}
+			return result;
 		}
 
 		// Moves a position within stitch range of an active mirror axis onto it, unless it sits on geometry
@@ -808,6 +871,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			panel.OnShowGuidelinesChanged += OnShowGuidelinesChanged;
 			panel.OnMirrorXChanged += OnMirrorXChanged;
 			panel.OnMirrorYChanged += OnMirrorYChanged;
+			panel.OnRadialDrawingChanged += OnRadialSymmetryChanged;
+			panel.OnRadialCopiesChanged += OnRadialCopiesChanged;
 
 			// Needs to be set after adding the events...
 			loadingsettings = true;
@@ -816,6 +881,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			panel.ShowGuidelines = General.Settings.ReadPluginSetting("drawlinesmode.showguidelines", false);
 			panel.MirrorX = General.Settings.ReadPluginSetting("drawlinesmode.mirrorx", false);
 			panel.MirrorY = General.Settings.ReadPluginSetting("drawlinesmode.mirrory", false);
+			panel.RadialCopies = Math.Max(RADIAL_MIN_COPIES, Math.Min(RADIAL_MAX_COPIES, General.Settings.ReadPluginSetting("drawlinesmode.radialcopies", 4)));
+			panel.RadialDrawing = General.Settings.ReadPluginSetting("drawlinesmode.radialdrawing", false);
 			loadingsettings = false;
 
 			// Create guide labels
@@ -848,6 +915,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			General.Settings.WritePluginSetting("drawlinesmode.showguidelines", panel.ShowGuidelines);
 			General.Settings.WritePluginSetting("drawlinesmode.mirrorx", panel.MirrorX);
 			General.Settings.WritePluginSetting("drawlinesmode.mirrory", panel.MirrorY);
+			General.Settings.WritePluginSetting("drawlinesmode.radialdrawing", panel.RadialDrawing);
+			General.Settings.WritePluginSetting("drawlinesmode.radialcopies", panel.RadialCopies);
 			panel.Unregister();
 		}
 
@@ -940,6 +1009,32 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 
 				string suffix = (paths.Count > 1 || paths[0].Count != points.Count) ? " (mirrored)" : "";
+
+				// Radial copies, with the same fallback
+				if(radial)
+				{
+					if(!General.Map.Cursor2D.IsSet)
+					{
+						warning = RADIAL_NEEDS_CURSOR;
+					}
+					else
+					{
+						int skipped;
+						List<List<DrawnVertex>> copies = DrawingSymmetry.Radial(points, General.Map.Cursor2D.Position, radialcopies,
+							General.Map.FormatInterface.VertexDecimals, out skipped);
+						if(DrawingSymmetry.AnyOutside(copies, General.Map.Config.LeftBoundary, General.Map.Config.RightBoundary,
+							General.Map.Config.TopBoundary, General.Map.Config.BottomBoundary))
+						{
+							warning = "A radial copy was outside the map, so only the original was drawn.";
+						}
+						else if(copies.Count > 0)
+						{
+							paths = copies;
+							suffix = " (radial, " + radialcopies + " copies" + (skipped > 0 ? ", " + skipped + " skipped" : "") + ")";
+						}
+					}
+				}
+
 				General.Interface.DisplayStatus(StatusType.Action, "Created " + a + word + " drawing" + suffix + ".");
 
 				// Make the drawing
@@ -1077,6 +1172,20 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			if(!loadingsettings) General.Interface.RedrawDisplay();
 		}
 
+		private void OnRadialSymmetryChanged(object value, EventArgs e)
+		{
+			radial = (bool)value;
+			if(radial && !loadingsettings && !General.Map.Cursor2D.IsSet)
+				General.Interface.DisplayStatus(StatusType.Warning, RADIAL_NEEDS_CURSOR);
+			if(!loadingsettings) General.Interface.RedrawDisplay();
+		}
+
+		private void OnRadialCopiesChanged(object value, EventArgs e)
+		{
+			radialcopies = (int)value;
+			if(!loadingsettings) General.Interface.RedrawDisplay();
+		}
+
 		#endregion
 
 		#region ================== Actions
@@ -1124,6 +1233,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public void ToggleMirrorDrawingY()
 		{
 			if(panel != null) panel.MirrorY = !panel.MirrorY;
+		}
+
+		[BeginAction("toggleradialdrawing")]
+		public void ToggleRadialDrawing()
+		{
+			if(panel != null) panel.RadialDrawing = !panel.RadialDrawing;
 		}
 
 		// Finish drawing
