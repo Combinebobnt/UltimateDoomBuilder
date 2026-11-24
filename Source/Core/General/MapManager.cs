@@ -526,6 +526,8 @@ namespace CodeImp.DoomBuilder
 			// Autosaver
 			General.AutoSaver.InitializeTimer();
 
+			SeedLightmapBake(maprestored);
+
 			// Success
 			this.changed = maprestored; //mxd
 			this.maploading = false; //mxd
@@ -653,6 +655,8 @@ namespace CodeImp.DoomBuilder
 
 			// Autosaver
 			General.AutoSaver.InitializeTimer();
+
+			SeedLightmapBake(maprestored);
 
 			// Success
 			this.changed = maprestored;
@@ -2091,7 +2095,8 @@ namespace CodeImp.DoomBuilder
 			string fingerprint = BakeFingerprint.Compute(current);
 			if(fingerprint != lightmapbake.Fingerprint)
 			{
-				General.WriteLogLine("The lightmap bake does not match the map: it changed since the bake.");
+				General.WriteLogLine("The lightmap bake does not match the map: it changed since the bake (map " +
+					ShortFingerprint(fingerprint) + ", bake " + ShortFingerprint(lightmapbake.Fingerprint) + ").");
 				// A bake that was never saved is dropped here, not by WriteMapToTempFile; report the first miss
 				if(!lightmapbakemissed) lightmapdropped = true;
 				lightmapbakemissed = true;
@@ -2138,6 +2143,13 @@ namespace CodeImp.DoomBuilder
 			return true;
 		}
 
+		// The first 12 hex digits, enough to tell two fingerprints apart in the log
+		internal static string ShortFingerprint(string fingerprint)
+		{
+			if(fingerprint == null) return "unparsed";
+			return fingerprint.Substring(0, Math.Min(12, fingerprint.Length));
+		}
+
 		private void ClearLightmapStale()
 		{
 			lightmapstale = false;
@@ -2161,20 +2173,9 @@ namespace CodeImp.DoomBuilder
 			lightmapbakemissed = false;
 		}
 
-		// Null when this map can be baked, else why not
-		internal string LightmapBakeUnavailable()
+		// The map's TEXTMAP as the output set writes it, and its bake fingerprint (null when it doesn't parse back)
+		private byte[] OutputTextmap(out string fingerprint)
 		{
-			if(!config.LightmapBaking) return "The game configuration does not support lightmap baking (UZDoom UDMF configurations do).";
-			if(!(io is UniversalMapSetIO)) return "Lightmap baking needs a UDMF map.";
-			return null;
-		}
-
-		// Writes the map into a new WAD for the baker, never into the map's temp WAD, and starts it
-		internal LightmapBakeJob StartLightmapBake(LightmapBakeSettings settings, out string error)
-		{
-			error = LightmapBakeUnavailable() ?? settings.BakerProblem();
-			if(error != null) return null;
-
 			// Creating and disposing the copy's sidedefs sets the changed flag (Sidedef.SetSectorP); the copy is no edit
 			bool waschanged = changed;
 			MapSet outputset = null;
@@ -2192,7 +2193,122 @@ namespace CodeImp.DoomBuilder
 				if(!waschanged) ForceMapIsChangedFalse();
 			}
 
-			string fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)));
+			fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)));
+			return data;
+		}
+
+		// A backup's model is not the file's, so the file's lightmap can't stand for it
+		internal static bool ShouldSeedLightmapBake(bool udmf, bool maprestored, bool haslightmap)
+		{
+			return udmf && haslightmap && !maprestored;
+		}
+
+		// Copies the temp map's nodebuild lumps, in configuration order, into a new WAD at path as a bake
+		// output, and validates it. Returns null when valid, else why not, leaving no file behind.
+		internal static string WriteSeedWad(WAD temp, string tempheader, string path, Dictionary<string, MapLumpInfo> maplumps, out LightmapLump lightmap)
+		{
+			lightmap = null;
+			int tempindex = temp.FindLumpIndex(tempheader);
+			if(tempindex < 0) return "the map has no " + tempheader;
+
+			string error = null;
+			try
+			{
+				using(WAD seed = new WAD(path))
+				{
+					int insertindex = 0;
+					seed.Insert(BUILD_MAP_HEADER, insertindex++, 0, false);
+					foreach(KeyValuePair<string, MapLumpInfo> group in maplumps)
+					{
+						if(!group.Value.NodeBuild || group.Key == "ENDMAP") continue;
+						int source = FindSpecificLump(temp, group.Key.Replace(CONFIG_MAP_HEADER, tempheader), tempindex, tempheader, maplumps);
+						if(source < 0) continue;
+						Lump sourcelump = temp.Lumps[source];
+						sourcelump.CopyTo(seed.Insert(group.Key.Replace(CONFIG_MAP_HEADER, BUILD_MAP_HEADER), insertindex++, sourcelump.Length, false));
+					}
+					seed.Insert("ENDMAP", insertindex, 0, false);
+					seed.WriteHeaders();
+					error = ValidateBakeOutput(seed, BUILD_MAP_HEADER, out lightmap);
+				}
+			}
+			catch(Exception e)
+			{
+				error = e.GetType().Name + " while writing the seed: " + e.Message;
+			}
+
+			if(error != null)
+			{
+				lightmap = null;
+				try { File.Delete(path); }
+				catch(IOException) { }
+				catch(UnauthorizedAccessException) { }
+			}
+			return error;
+		}
+
+		// Makes the opened map's own TEXTMAP, ZNODES and LIGHTMAP its bake, so a save of the model as
+		// loaded (an edit undone, a nodes rebuild) brings the lightmap back. Never marks the map changed.
+		private void SeedLightmapBake(bool maprestored)
+		{
+			bool udmf = io is UniversalMapSetIO;
+			bool haslightmap = udmf && FindLightmapIndex(tempwadreader.WadFile, TEMP_MAP_HEADER) > -1;
+			if(!ShouldSeedLightmapBake(udmf, maprestored, haslightmap))
+			{
+				if(haslightmap) General.WriteLogLine("Lightmap bake not seeded: the map was restored from a backup.");
+				return;
+			}
+
+			Stopwatch timer = Stopwatch.StartNew();
+			string path = General.MakeTempFilename(temppath);
+			string error;
+			string fingerprint = null;
+			LightmapLump lightmap;
+			try
+			{
+				error = WriteSeedWad(tempwadreader.WadFile, TEMP_MAP_HEADER, path, config.MapLumps, out lightmap);
+				if(error == null)
+				{
+					OutputTextmap(out fingerprint);
+					if(fingerprint == null) error = "the map's TEXTMAP could not be parsed back";
+				}
+			}
+			catch(Exception e)
+			{
+				lightmap = null;
+				error = e.GetType().Name + " while seeding: " + e.Message;
+			}
+
+			if(error != null)
+			{
+				try { File.Delete(path); }
+				catch(IOException) { }
+				catch(UnauthorizedAccessException) { }
+				General.WriteLogLine("Lightmap bake not seeded: " + error + ".");
+				return;
+			}
+
+			ResetLightmapCache("the opened map's lightmap replaces it");
+			lightmapbake = new LightmapBakeCache(path, fingerprint, lightmap.ToString() + ", as opened");
+			lightmapbakemissed = false;
+			General.WriteLogLine("Lightmap bake seeded from the opened map (" + lightmapbake.Summary + ") in " + timer.ElapsedMilliseconds + " ms.");
+		}
+
+		// Null when this map can be baked, else why not
+		internal string LightmapBakeUnavailable()
+		{
+			if(!config.LightmapBaking) return "The game configuration does not support lightmap baking (UZDoom UDMF configurations do).";
+			if(!(io is UniversalMapSetIO)) return "Lightmap baking needs a UDMF map.";
+			return null;
+		}
+
+		// Writes the map into a new WAD for the baker, never into the map's temp WAD, and starts it
+		internal LightmapBakeJob StartLightmapBake(LightmapBakeSettings settings, out string error)
+		{
+			error = LightmapBakeUnavailable() ?? settings.BakerProblem();
+			if(error != null) return null;
+
+			string fingerprint;
+			byte[] data = OutputTextmap(out fingerprint);
 			if(fingerprint == null)
 			{
 				error = "The map's TEXTMAP could not be parsed back.";
