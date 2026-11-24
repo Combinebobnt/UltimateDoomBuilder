@@ -1,0 +1,165 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+
+	<title>Baking lightmaps</title>
+
+	<meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+	<link rel="stylesheet" type="text/css" href="../../../default.css" media="screen" title="Default" />
+</head>
+<body>
+
+	<object type="application/x-oleobject" classid="clsid:1e2a7bd0-dab9-11d0-b93a-00c04fc99f9e">
+	<param name="keyword" value="Bake Lightmaps">
+	</object>
+
+	<div id="gz_title"><h1>Baking lightmaps</h1></div>
+
+	<div id="contents">
+	<p>
+		<b>Menu path:</b> Tools -&gt; Bake Lightmaps...<br>
+		<b>Action:</b> "Bake Lightmaps" (Tools category). It has no default key; you can bind one in Preferences -&gt; Controls.<br>
+		<br>
+		This runs the ZDRay lightmap baker on the open map. ZDRay ray-traces the static light things placed in the map and writes a <b>LIGHTMAP</b> lump, together with its own node build (<b>ZNODES</b>) and a renumbered <b>TEXTMAP</b>, because the lightmap indexes into exactly those nodes. The editor keeps that result and writes it when you save or test the map, for as long as the map still matches what was baked.<br>
+		<br>
+		Only UZDoom reads the LIGHTMAP lump, and only when it is started with the <b>-enablelightmaps</b> parameter.
+	</p>
+
+	<h2>Requirements</h2>
+	<ul>
+		<li><b>Game configuration:</b> one of the UZDoom UDMF configurations (Doom, Heretic or Hexen). In other configurations the menu item is hidden.</li>
+		<li><b>Map format:</b> UDMF.</li>
+		<li><b>A ZDRay executable.</b> The editor does not include one. Build or download ZDRay and select it in the bake window.</li>
+	</ul>
+
+	<h2>Placing lights</h2>
+	<p>
+		The baker only reads the things in the <b>Lightmap Lights</b> category, which the UZDoom UDMF configurations provide. UZDoom does not spawn these things when the map runs: their light exists only in the bake.
+	</p>
+	<table border="1" cellpadding="5" cellspacing="0">
+		<tr>
+			<th>Thing</th>
+			<th>Type</th>
+			<th>Settings</th>
+		</tr>
+		<tr>
+			<td>Lightmap Point Light</td>
+			<td>9876</td>
+			<td>Arguments 1 to 3 are red, green and blue (0 to 255), argument 4 is the radius. The thing's alpha sets the intensity and its height places the light vertically.</td>
+		</tr>
+		<tr>
+			<td>Lightmap Spotlight</td>
+			<td>9881</td>
+			<td>Argument 1 is the color as hex text (for example ff8800), argument 2 the inner angle, argument 3 the outer angle, argument 4 the radius. Aim it with the thing's angle and pitch.</td>
+		</tr>
+		<tr>
+			<td>ZDRayInfo</td>
+			<td>9890</td>
+			<td>Place one per map. Its custom fields: <b>lm_suncolor</b> (sun color as hex text, for example ffcc88), <b>lm_sampledistance</b> (default sample distance in map units, 8 to 128, rounded to a power of two) and <b>lm_gridsize</b> (light probe grid spacing, 32 when absent). Its angle and pitch set the sun direction.</td>
+		</tr>
+	</table>
+	<p>
+		Per-surface detail is set in the custom fields of each edit window:
+	</p>
+	<ul>
+		<li><b>Sidedefs:</b> <b>lm_sampledist</b>, <b>lm_sampledist_top</b>, <b>lm_sampledist_mid</b>, <b>lm_sampledist_bot</b>.</li>
+		<li><b>Sectors:</b> <b>lm_sampledist_floor</b>, <b>lm_sampledist_ceiling</b>.</li>
+	</ul>
+	<p>
+		A smaller sample distance gives finer shadows, but uses more lightmap texture space and makes the bake take longer.<br>
+		<br>
+		Things to know about the baker:
+	</p>
+	<ul>
+		<li>Sunlight only reaches surfaces that can trace a ray to a sky surface.</li>
+		<li>Ordinary dynamic lights (the <b>Dynamic Lights</b> category) are not baked.</li>
+		<li>UZDoom's other lightmap fields (lm_sunintensity, lm_ao, lm_bounce, lm_dynamic) are not read by ZDRay, so the editor does not offer them.</li>
+	</ul>
+
+	<h2>Baking</h2>
+	<ol>
+		<li>Choose <b>Tools -&gt; Bake Lightmaps...</b></li>
+		<li>The first time, set the <b>ZDRay executable</b> (use <b>Browse...</b>). The <b>Bake</b> button stays disabled until the file exists and the game configuration and map qualify; the status line says why.</li>
+		<li>Set the options. They are remembered between sessions.
+			<ul>
+				<li><b>Lightmap texture size:</b> 128 to 4096, default 1024. The size of each lightmap texture page.</li>
+				<li><b>Threads (0 = automatic):</b> automatic uses the number of processor cores, at most 4.</li>
+				<li><b>CPU ray tracing only:</b> tells the baker to skip its Vulkan GPU tracer.</li>
+			</ul>
+		</li>
+		<li>Click <b>Bake</b>. The window shows the current stage, a progress bar, the elapsed seconds and the baker's last output lines. <b>Cancel</b> (or Escape) stops the baker and leaves the map exactly as it was, including its unsaved changes state.</li>
+		<li>On success the status line reads "Baked in N s: ... Save or Test to use it." and the map is marked as changed. A bake that lights nothing fails with "the bake lit no surfaces (does the map have static light things?)".</li>
+	</ol>
+	<p>
+		Baking never writes to the map file. The result is kept until the map is saved or tested.
+	</p>
+
+	<h2>What keeps a bake valid</h2>
+	<p>
+		The editor takes a fingerprint of the map when it bakes. Every Save, Save As, Save Into and Test Map compares the current map with that fingerprint:
+	</p>
+	<ul>
+		<li><b>Match:</b> the baker's TEXTMAP (with your current things), ZNODES and LIGHTMAP are written, and the normal nodebuilder is skipped.</li>
+		<li><b>No match:</b> the lightmap is left out and the normal nodebuilder runs. The next save into a file adds "Lightmap dropped: the map changed since it was baked." to the <a href="../../../w_errorsandwarnings.html">Errors and Warnings</a> window, once. <b>Testing and autosaving drop the lightmap without a warning</b>, so a test after an edit shows flat lighting.</li>
+	</ul>
+	<p>
+		Moving or adding the player 1 start and moving the Visual mode camera thing keep the match, so testing from the current position still uses the bake. <b>Any other change breaks the match</b>, including a moved monster or a changed texture.<br>
+		<br>
+		A practical loop: build and light the map, bake, test, adjust the lights, bake again. Bake last before the final save.
+	</p>
+	<p>
+		Other cases:
+	</p>
+	<ul>
+		<li><b>Reopening a saved baked map:</b> the LIGHTMAP lump is kept through saves that change nothing (for example Save As to a copy). The first real edit drops it, so bake again.</li>
+		<li><b>Autosave:</b> never contains the lightmap. The next real save writes a bake that still matches.</li>
+		<li><b>Bake discarded:</b> closing the map, opening another map, or changing the game configuration discards a bake that was not saved.</li>
+	</ul>
+
+	<h2>Seeing the result</h2>
+	<p>
+		Visual mode does not show baked light; the lightmap light things are drawn there like ordinary dynamic lights.<br>
+		<br>
+		Use <b>Test Map</b> to see the bake. When the saved test map contains a LIGHTMAP lump, the editor adds the configuration's <b>-enablelightmaps</b> parameter to the engine command line, so make sure the test engine is UZDoom. When you start the map yourself, add <b>-enablelightmaps</b>; without it UZDoom ignores the lump.
+	</p>
+
+	<h2>Troubleshooting</h2>
+	<table border="1" cellpadding="5" cellspacing="0">
+		<tr>
+			<th>Symptom</th>
+			<th>Cause</th>
+		</tr>
+		<tr>
+			<td>No Bake Lightmaps menu item</td>
+			<td>The game configuration is not a UZDoom UDMF configuration.</td>
+		</tr>
+		<tr>
+			<td>Bake disabled, "Lightmap baking needs a UDMF map."</td>
+			<td>The map is in Doom or Hexen format.</td>
+		</tr>
+		<tr>
+			<td>Bake disabled, "No ZDRay executable is set." or "The ZDRay executable was not found"</td>
+			<td>Set the ZDRay executable path in the bake window.</td>
+		</tr>
+		<tr>
+			<td>"Bake failed: the bake lit no surfaces"</td>
+			<td>No Lightmap Point Light or Lightmap Spotlight things, or a ZDRayInfo sun that cannot reach any sky surface.</td>
+		</tr>
+		<tr>
+			<td>The saved file has no LIGHTMAP lump, with a warning in Errors and Warnings</td>
+			<td>Something other than the player 1 start or the camera thing changed after the bake.</td>
+		</tr>
+		<tr>
+			<td>Testing shows flat sector lighting, with no warning</td>
+			<td>The map was edited since the bake (testing drops the lightmap silently), or the test engine is not UZDoom.</td>
+		</tr>
+		<tr>
+			<td>Your own UZDoom launch shows no baked light</td>
+			<td>The <b>-enablelightmaps</b> parameter is missing.</td>
+		</tr>
+	</table>
+	<p>
+		The baker's command line and the result are written to the editor's log file ("Running lightmap baker:", "Lightmap bake done:", "Removed the baked LIGHTMAP").
+	</p>
+</div>
+</body>

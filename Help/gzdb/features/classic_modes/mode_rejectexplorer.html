@@ -1,0 +1,64 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+
+	<title>Reject Explorer Mode</title>
+
+	<meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+	<link rel="stylesheet" type="text/css" href="../../../default.css" media="screen" title="Default" />
+</head>
+<body>
+
+	<object type="application/x-oleobject" classid="clsid:1e2a7bd0-dab9-11d0-b93a-00c04fc99f9e">
+	<param name="keyword" value="Reject Explorer Mode">
+	</object>
+
+	<div id="gz_title"><h1>Reject Explorer Mode</h1></div>
+
+	<div id="contents">
+	<p>
+		This mode lets you view the map's reject data. Available in Doom and Hexen format.<br>
+		<b>Menu path:</b> Mode -&gt; Reject Explorer<br>
+		<b>Action category:</b> Modes.<br>
+		<b>Default key:</b> None.<br>
+		<br>
+		Move the mouse over a sector to highlight it. Every other sector is colored by the line of sight that the REJECT lump allows between it and the highlighted sector. The highlighted sector's info is shown in the info panel. Press <b>Escape</b> to return to the previous mode.
+	</p>
+	<p>
+		<b>Colors (default):</b>
+	</p>
+	<table border="1" cellpadding="5" cellspacing="0">
+		<tr>
+			<th>Color</th>
+			<th>Description</th>
+		</tr>
+		<tr>
+			<td>Gray</td>
+			<td>there is no line of sight between the highlighted sector and this sector</td>
+		</tr>
+		<tr>
+			<td>Light green</td>
+			<td>currently highlighted sector</td>
+		</tr>
+		<tr>
+			<td>Dark green</td>
+			<td>there is a bidirectional line of sight between the highlighted sector and this sector</td>
+		</tr>
+		<tr>
+			<td>Yellow</td>
+			<td>there is a unidirectional line of sight from the highlighted sector to this sector</td>
+		</tr>
+		<tr>
+			<td>Purple</td>
+			<td>there is a unidirectional line of sight from this sector to the highlighted sector</td>
+		</tr>
+	</table>
+	<p>
+		Colors can be customized with the <b>Configure colors</b> button in the toolbar. The <b>Color Configuration</b> window sets the default, highlight, bidirectional, unidirectional from and unidirectional to colors. <b>Reset colors</b> restores the colors listed above.
+	</p>
+	<p>
+		<b>REJECT lump</b><br>
+		The mode shows the REJECT lump stored with the map. It does not change while you edit sectors. The mode does not start when the map has no REJECT lump, when the lump is empty, or when it is smaller than the current number of sectors needs (for example after sectors were added since the lump was built). A lump that is larger than needed is used, with a warning.
+	</p>
+</div>
+</body>

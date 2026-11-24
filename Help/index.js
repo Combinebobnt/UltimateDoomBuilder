@@ -62,7 +62,8 @@ var contents = [
 		{ name: "Features", src: "gzdb/features/features.html", items: [
 			{ name: "General Interface", src: "gzdb/features/features.html#general", items: [
 				{ name: "Rendering toolbar", src: "gzdb/features/general/rendering_toolbar.html" },
-				{ name: "Multiple engines per game configuration", src: "gzdb/features/general/multi_engines.html" }
+				{ name: "Multiple engines per game configuration", src: "gzdb/features/general/multi_engines.html" },
+				{ name: "Baking lightmaps", src: "gzdb/features/general/lightmap_baking.html" }
 			]},
 			{ name: "Scripting", src: "gzdb/features/features.html#scripting", items: [
 				{ name: "Enhanced scripting workflow", src: "gzdb/features/scripting/acs.html" },
@@ -91,6 +92,8 @@ var contents = [
 			{ name: "Draw Grid mode", src: "gzdb/features/classic_modes/mode_drawgrid.html" },
 			{ name: "Sound Propagation Mode", src: "gzdb/features/classic_modes/mode_soundpropagation.html" },
 			{ name: "Sound Environment Mode", src: "gzdb/features/classic_modes/mode_soundenvironment.html" },
+			{ name: "Reject Explorer Mode", src: "gzdb/features/classic_modes/mode_rejectexplorer.html" },
+			{ name: "Automap Mode", src: "gzdb/features/classic_modes/mode_automap.html" },
 			{ name: "3D Floor Mode", src: "gzdb/features/classic_modes/mode_3dfloor.html" },
 			{ name: "Draw Slope Mode/Slope Mode", src: "gzdb/features/classic_modes/mode_slopes.html" },
 			{ name: "Randomize mode", src: "gzdb/features/all_modes/jitter.html" },

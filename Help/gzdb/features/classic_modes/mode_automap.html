@@ -1,0 +1,95 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+
+	<title>Automap Mode</title>
+
+	<meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+	<link rel="stylesheet" type="text/css" href="../../../default.css" media="screen" title="Default" />
+</head>
+<body>
+
+	<object type="application/x-oleobject" classid="clsid:1e2a7bd0-dab9-11d0-b93a-00c04fc99f9e">
+	<param name="keyword" value="Automap Mode">
+	</object>
+
+	<div id="gz_title"><h1>Automap Mode</h1></div>
+
+	<div id="contents">
+	<p>
+		<span class="fat">This mode is based on the Automap Mode plugin by Boris Iwanski (<a href="https://github.com/biwa/automapmode">https://github.com/biwa/automapmode</a>).</span><br>
+		<br>
+		This mode displays the map as it is shown in the game's automap, and lets you edit the automap related flags of lines and sectors. Available in all map formats.<br>
+		<b>Menu path:</b> Mode -&gt; Automap Mode<br>
+		<b>Action category:</b> Modes.<br>
+		<b>Default key:</b> None.<br>
+	</p>
+	<p>
+		<b>What is shown</b><br>
+		Like the game's automap, only lines that matter on the automap are drawn by default: one-sided lines, lines with the "Shown as 1-sided on automap" flag, and two-sided lines between sectors of different floor or ceiling height. Lines with the "Not shown on automap" flag are left out.<br>
+		<br>
+		Line colors with the Doom color preset:
+	</p>
+	<table border="1" cellpadding="5" cellspacing="0">
+		<tr>
+			<th>Color</th>
+			<th>Line</th>
+		</tr>
+		<tr>
+			<td>Red</td>
+			<td>one-sided line, or a line with the "Shown as 1-sided on automap" flag</td>
+		</tr>
+		<tr>
+			<td>Brown</td>
+			<td>two-sided line between sectors with different floor heights</td>
+		</tr>
+		<tr>
+			<td>Yellow</td>
+			<td>two-sided line between sectors with the same floor height but different ceiling heights</td>
+		</tr>
+		<tr>
+			<td>Dark gray</td>
+			<td>two-sided line with no height change (only drawn when hidden lines are shown)</td>
+		</tr>
+		<tr>
+			<td>Light gray</td>
+			<td>line with the "Not shown on automap" flag (only drawn when hidden lines are shown)</td>
+		</tr>
+		<tr>
+			<td>Magenta</td>
+			<td>line of a secret sector, when <b>Show secrets</b> is enabled</td>
+		</tr>
+		<tr>
+			<td>Lock color</td>
+			<td>locked line, when <b>Show locks</b> is enabled; the color comes from the lock's definition in the game data</td>
+		</tr>
+	</table>
+	<p>
+		When several rules apply to a line, a lock color wins over the secret color, which wins over the flag and height colors.
+	</p>
+	<p>
+		<b>Mouse and keys</b><br>
+		The mode has no actions of its own besides the one that switches to it. It uses the standard <b>Select</b> and <b>Edit</b> actions:
+	</p>
+	<ul>
+		<li><b>Left click</b> (Select) on a line toggles its "Shown as 1-sided on automap" flag.</li>
+		<li><b>Right click</b> (Edit) on a line toggles its "Not shown on automap" flag.</li>
+		<li>Hold <b>Ctrl</b> to toggle the display of the lines that are not drawn, either because there is no height change (dark gray) or because the "Not shown on automap" flag is set (light gray). Ctrl inverts the <b>Show hidden lines</b> toolbar setting while it is held.</li>
+		<li><b>[UDMF]</b> Hold <b>Shift</b> to highlight and edit sectors instead of lines. Clicking a sector toggles its "Not shown on textured automap" flag. Sector textures are shown while Shift is held.</li>
+	</ul>
+	<p>
+		Each toggle can be undone. The highlighted line or sector is shown in the info panel.
+	</p>
+	<p>
+		<b>Toolbar</b><br>
+		The mode adds these controls to the toolbar. Their settings are remembered between sessions.
+	</p>
+	<ul>
+		<li><b>Show hidden lines:</b> also draw the lines the automap would not draw (see the table above).</li>
+		<li><b>Show secrets:</b> draw the lines of secret sectors in magenta. A sector is secret when its effect is 9 or has the secret generalized flag in Doom format maps, or when it has the secret generalized flag in Hexen and UDMF format maps.</li>
+		<li><b>Show locks:</b> draw locked lines in their lock color. A line is locked when its action takes a lock number and that argument is set, or in UDMF when its lock number field is set. Not shown for Doom format maps.</li>
+		<li><b>Show textures:</b> draw sector textures under the lines. Sectors with the "Not shown on textured automap" flag are skipped. When disabled, the background is filled with the color preset's background color.</li>
+		<li><b>Color preset:</b> <b>Doom</b>, <b>Hexen</b> or <b>Strife</b> automap colors.</li>
+	</ul>
+</div>
+</body>
