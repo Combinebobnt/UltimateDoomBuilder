@@ -192,7 +192,13 @@ namespace CodeImp.DoomBuilder.ZDoom
 			while(SkipWhitespace(true))
 			{
 				string token = ReadToken().ToLowerInvariant();
-				if(token == "}") { materials.Add(material); return true; }
+				if(token == "}")
+				{
+					// A HardwareShader with no material keyword is written for the default model
+					if(kind != "material" && material.ShaderModel == null) material.ShaderModel = MaterialModel.Default;
+					materials.Add(material);
+					return true;
+				}
 				switch(token)
 				{
 					case "iwad": case "thiswad": case "nomipmap": break;
@@ -201,9 +207,16 @@ namespace CodeImp.DoomBuilder.ZDoom
 					case "map": material.Brightmap = MaterialValue(); break;
 					case "shader": material.Shader = MaterialValue(); break;
 					case "material":
-						material.MaterialType = MaterialValue().ToLowerInvariant();
-						if(Array.IndexOf(new[] { "normal", "brightmap", "specular", "specularbrightmap", "pbr", "pbrbrightmap" }, material.MaterialType) < 0)
-							ReportError("Unknown material type " + material.MaterialType);
+						if(kind == "material")
+						{
+							// UZDoom only reports an unknown keyword here unless gl_strict_gldefs_errors is set
+							LogWarning("Unknown keyword \"material\" in a material block");
+							SkipMaterialProperty();
+							break;
+						}
+						string type = MaterialValue().ToLowerInvariant();
+						material.ShaderModel = MaterialModels.FromShaderType(type);
+						if(material.ShaderModel == null) ReportError("Unknown material type " + type);
 						break;
 					case "speed":
 						string speed = MaterialValue();
@@ -222,30 +235,43 @@ namespace CodeImp.DoomBuilder.ZDoom
 						else if(material.Textures.Count == 7) ReportError("Too many custom material textures (maximum 7)");
 						else material.Textures.Add(new KeyValuePair<string, string>(sampler, path));
 						break;
-					case "brightmap": case "normal": case "specular": case "metallic": case "roughness": case "ao": case "glossiness": case "specularlevel":
+					case "glossiness": case "specularlevel":
+						string number = MaterialValue();
+						float value;
+						if(!float.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out value) || float.IsNaN(value) || float.IsInfinity(value))
+							ReportError("Expected material " + token + ", got " + number);
+						else if(token == "glossiness") material.Glossiness = value;
+						else material.SpecularLevel = value;
+						break;
+					case "brightmap": case "normal": case "specular": case "metallic": case "roughness": case "ao":
 						material.Layers[token] = MaterialValue();
 						if(token == "brightmap") material.Brightmap = material.Layers[token];
 						break;
 					default:
-						// Unknown properties must not consume the enclosing block or the next definition.
-						while(SkipWhitespace(false))
-						{
-							long position = datastream.Position;
-							string value = ReadToken(false);
-							if(value == "}" || value == "\n") { datastream.Position = position; break; }
-							if(value == "{")
-							{
-								datastream.Position = position;
-								SkipStructure();
-								break;
-							}
-						}
+						SkipMaterialProperty();
 						break;
 				}
 				if(HasError) return false;
 			}
 			ReportError("Unclosed material block");
 			return false;
+		}
+
+		// Unknown properties must not consume the enclosing block or the next definition.
+		private void SkipMaterialProperty()
+		{
+			while(SkipWhitespace(false))
+			{
+				long position = datastream.Position;
+				string value = ReadToken(false);
+				if(value == "}" || value == "\n") { datastream.Position = position; break; }
+				if(value == "{")
+				{
+					datastream.Position = position;
+					SkipStructure();
+					break;
+				}
+			}
 		}
 
 		private string MaterialValue()

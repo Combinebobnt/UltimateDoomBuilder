@@ -2879,7 +2879,7 @@ namespace CodeImp.DoomBuilder.Data
 			if(GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName))
 			{
 				foreach(ImageData image in textures.Values.Concat(flats.Values).Select(value => MaterialImageIdentity(value, Lump.MakeLongName(value.ShortName))).Concat(sprites.Values).Distinct())
-					AddAutoBrightmap(image);
+					AddAutoMaterials(image);
 			}
 			DeclareMaterialPrograms();
 		}
@@ -2933,23 +2933,24 @@ namespace CodeImp.DoomBuilder.Data
 			}
 		}
 
-		private void AddAutoBrightmap(ImageData image)
+		private void AddAutoMaterials(ImageData image)
 		{
 			if(image.HasLongName) return;
 			GldefsMaterial material;
-			if(materials.TryGetValue(image, out material) && material.Brightmap != null) return;
-			foreach(string prefix in new[] { "brightmaps/auto/", "materials/brightmaps/auto/" })
+			materials.TryGetValue(image, out material);
+			material = GldefsMaterial.AddAutoLayers(material, image.ShortName, FindAutoMaterialFile);
+			if(material != null) materials[image] = material;
+		}
+
+		private string FindAutoMaterialFile(string name)
+		{
+			for(int i = containers.Count - 1; i >= 0; i--)
 			{
-				for(int i = containers.Count - 1; i >= 0; i--)
-				{
-					var reader = containers[i] as PK3StructuredReader;
-					string path = reader == null ? null : reader.FindMaterialFile(prefix + image.ShortName, true);
-					if(path == null) continue;
-					if(material == null) materials[image] = material = new GldefsMaterial();
-					material.Brightmap = path;
-					return;
-				}
+				var reader = containers[i] as PK3StructuredReader;
+				string path = reader == null ? null : reader.FindMaterialFile(name, true);
+				if(path != null) return path;
 			}
+			return null;
 		}
 
 		private void ClearMaterialImages()
@@ -2973,7 +2974,7 @@ namespace CodeImp.DoomBuilder.Data
 			GldefsMaterial definition;
 			if(!materials.TryGetValue(image, out definition) && GldefsMaterial.IsGZDoom(General.Map.Config.MaterialEngineName))
 			{
-				AddAutoBrightmap(image);
+				AddAutoMaterials(image);
 				materials.TryGetValue(image, out definition);
 			}
 			if(warp.HasValue)
@@ -2987,13 +2988,34 @@ namespace CodeImp.DoomBuilder.Data
 			}
 			else if(definition != null)
 			{
-				UserShaderProgram program = null;
-				if(!string.IsNullOrEmpty(definition.Shader)) materialprograms.TryGetValue(UserShaderBuilder.Key(definition, UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName)), out program);
+				UserShaderDialect dialect = UserShaderBuilder.Dialect(General.Map.Config.MaterialEngineName);
 				resolved = new ResolvedMaterial { Definition = definition, Brightmap = LoadMaterialImage(definition.Brightmap),
-					Textures = definition.Textures.Select(pair => LoadMaterialImage(pair.Value)).ToArray(), Program = program };
+					Textures = definition.Textures.Select(pair => LoadMaterialImage(pair.Value)).ToArray() };
+				// Zandronum has no layered materials, so its layers stay metadata
+				if(dialect == UserShaderDialect.UZDoom)
+				{
+					resolved.Normal = LoadMaterialLayer(definition, "normal");
+					resolved.Specular = LoadMaterialLayer(definition, "specular");
+					resolved.Metallic = LoadMaterialLayer(definition, "metallic");
+					resolved.Roughness = LoadMaterialLayer(definition, "roughness");
+					resolved.Ao = LoadMaterialLayer(definition, "ao");
+					// As in UZDoom, a layer whose image is missing doesn't count towards the model
+					resolved.Model = MaterialModels.Select(resolved.Normal != null, resolved.Specular != null, resolved.Metallic != null,
+						resolved.Roughness != null, resolved.Ao != null, dialect);
+				}
+				UserShaderProgram program = null;
+				if(!string.IsNullOrEmpty(definition.Shader) && MaterialModels.ShaderApplies(definition, resolved.Model, dialect))
+					materialprograms.TryGetValue(UserShaderBuilder.Key(definition, dialect), out program);
+				resolved.Program = program;
 			}
 			cache[image] = resolved;
 			return resolved;
+		}
+
+		private ImageData LoadMaterialLayer(GldefsMaterial definition, string layer)
+		{
+			string path;
+			return definition.Layers.TryGetValue(layer, out path) ? LoadMaterialImage(path) : null;
 		}
 
 		private ImageData LoadMaterialImage(string path)

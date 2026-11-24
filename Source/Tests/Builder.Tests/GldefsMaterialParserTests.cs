@@ -1,5 +1,6 @@
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.GZBuilder.Data;
+using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.ZDoom;
 using System.Text;
 
@@ -117,7 +118,7 @@ namespace Builder.Tests
 			Assert.Equal(MaterialTarget.Any, material.Target);
 			Assert.False(material.Overridable);
 			Assert.Equal(-2.5f, material.Speed);
-			Assert.Equal("pbrbrightmap", material.MaterialType);
+			Assert.Equal(MaterialModel.Pbr, material.ShaderModel);
 			Assert.Equal(new[] { "FIRST", "SECOND 2" }, material.Defines.ToArray());
 			Assert.Equal("detail", material.Textures.Single().Key);
 			Assert.True(material.DisableAlphaTest);
@@ -131,11 +132,108 @@ namespace Builder.Tests
 			Assert.True(result, parser.ErrorDescription);
 			var merged = new GldefsMaterial();
 			foreach(var material in parser.Materials) merged.Merge(material);
-			Assert.Equal(8, merged.Layers.Count);
-			Assert.Equal("32", merged.Layers["glossiness"]);
+			Assert.Equal(6, merged.Layers.Count);
+			Assert.Equal(32f, merged.Glossiness);
+			Assert.Equal(0.5f, merged.SpecularLevel);
 			Assert.Equal("newer", merged.Brightmap);
 			Assert.Equal("new", merged.Shader);
 			Assert.Equal(2f, merged.Speed);
+			Assert.Equal(MaterialModel.Default, merged.ShaderModel);
+		}
+
+		[Fact]
+		public void LayerFloatsDefaultWhenAbsentAndMergeKeepsEarlierValues()
+		{
+			var parser = Parse("material texture TEST { glossiness 1e1 }\nmaterial texture TEST { specularlevel .25 }\nmaterial texture TEST { normal n }", out bool result);
+			Assert.True(result, parser.ErrorDescription);
+			Assert.Null(parser.Materials[2].Glossiness);
+			Assert.Null(parser.Materials[2].SpecularLevel);
+			var merged = new GldefsMaterial();
+			foreach(var material in parser.Materials) merged.Merge(material);
+			Assert.Equal(10f, merged.Glossiness);
+			Assert.Equal(0.25f, merged.SpecularLevel);
+			Assert.Equal(10f, GldefsMaterial.DefaultGlossiness);
+			Assert.Equal(0.1f, GldefsMaterial.DefaultSpecularLevel);
+		}
+
+		// UZDoom's FMaterial rule over every layer combination: Specular first, PBR needs all four, normal is required
+		[Fact]
+		public void ModelSelectionTruthTable()
+		{
+			var failures = new List<string>();
+			for(int mask = 0; mask < 32; mask++)
+			{
+				bool n = (mask & 1) != 0, s = (mask & 2) != 0, m = (mask & 4) != 0, r = (mask & 8) != 0, a = (mask & 16) != 0;
+				MaterialModel expected = !n ? MaterialModel.Default : s ? MaterialModel.Specular : m && r && a ? MaterialModel.Pbr : MaterialModel.Default;
+				if(MaterialModels.Select(n, s, m, r, a, UserShaderDialect.UZDoom) != expected) failures.Add("uzdoom " + mask);
+				if(MaterialModels.Select(n, s, m, r, a, UserShaderDialect.Zandronum) != MaterialModel.Default) failures.Add("zandronum " + mask);
+				if(MaterialModels.Select(n, s, m, r, a, UserShaderDialect.None) != MaterialModel.Default) failures.Add("none " + mask);
+			}
+			Assert.Empty(failures);
+		}
+
+		[Theory]
+		[InlineData("", 0)]
+		[InlineData("material normal", 0)]
+		[InlineData("material brightmap", 0)]
+		[InlineData("material specular", 1)]
+		[InlineData("material specularbrightmap", 1)]
+		[InlineData("material pbr", 2)]
+		[InlineData("material PBRBrightmap", 2)]
+		public void HardwareShaderTypeMapsToModel(string keyword, int expected)
+		{
+			var parser = Parse("hardwareshader TEST { shader s " + keyword + " }", out bool result);
+			Assert.True(result, parser.ErrorDescription);
+			Assert.Equal((MaterialModel)expected, parser.Materials.Single().ShaderModel);
+		}
+
+		[Fact]
+		public void MaterialBlockShaderIsTypedFromLayersAndRejectsTheMaterialKeyword()
+		{
+			var logger = typeof(CodeImp.DoomBuilder.General).GetField("errorlogger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+			object previous = logger.GetValue(null);
+			var errors = new CodeImp.DoomBuilder.ErrorLogger();
+			logger.SetValue(null, errors);
+			try
+			{
+				var parser = Parse("material texture TEST { shader s material pbr\nnormal n }\nhardwareshader NEXT { shader t }", out bool result);
+				Assert.True(result, parser.ErrorDescription);
+				Assert.Null(parser.Materials[0].ShaderModel);
+				Assert.Equal("n", parser.Materials[0].Layers["normal"]);
+				Assert.Equal(MaterialModel.Default, parser.Materials[1].ShaderModel);
+				Assert.True(errors.GetErrors(0).Any(item => item.Description.Contains("Unknown keyword \"material\"")));
+			}
+			finally { logger.SetValue(null, previous); }
+		}
+
+		[Fact]
+		public void ShaderAppliesOnlyToItsModelUnderUZDoom()
+		{
+			var typed = new GldefsMaterial { Shader = "s", ShaderModel = MaterialModel.Specular };
+			Assert.True(MaterialModels.ShaderApplies(typed, MaterialModel.Specular, UserShaderDialect.UZDoom));
+			Assert.False(MaterialModels.ShaderApplies(typed, MaterialModel.Default, UserShaderDialect.UZDoom));
+			Assert.False(MaterialModels.ShaderApplies(new GldefsMaterial { Shader = "s", ShaderModel = MaterialModel.Default }, MaterialModel.Pbr, UserShaderDialect.UZDoom));
+			Assert.True(MaterialModels.ShaderApplies(typed, MaterialModel.Default, UserShaderDialect.Zandronum));
+			Assert.True(MaterialModels.ShaderApplies(new GldefsMaterial { Shader = "s" }, MaterialModel.Pbr, UserShaderDialect.UZDoom));
+		}
+
+		[Fact]
+		public void AutoLayersFillOnlyAbsentLayers()
+		{
+			var files = new HashSet<string> { "brightmaps/auto/WALL", "materials/brightmaps/auto/WALL", "materials/normalmaps/auto/WALL",
+				"materials/specular/auto/WALL", "materials/metallic/auto/WALL", "materials/roughness/auto/WALL", "materials/ao/auto/WALL" };
+			Func<string, string> find = name => files.Contains(name) ? name + ".png" : null;
+			Assert.Null(GldefsMaterial.AddAutoLayers(null, "OTHER", find));
+			var auto = GldefsMaterial.AddAutoLayers(null, "WALL", find)!;
+			Assert.Equal("brightmaps/auto/WALL.png", auto.Brightmap);
+			foreach(var pair in new[] { ("normal", "normalmaps"), ("specular", "specular"), ("metallic", "metallic"), ("roughness", "roughness"), ("ao", "ao") })
+				Assert.Equal("materials/" + pair.Item2 + "/auto/WALL.png", auto.Layers[pair.Item1]);
+			var explicitlayers = new GldefsMaterial { Brightmap = "mine" };
+			explicitlayers.Layers["normal"] = "mynormal";
+			Assert.Same(explicitlayers, GldefsMaterial.AddAutoLayers(explicitlayers, "WALL", find));
+			Assert.Equal("mine", explicitlayers.Brightmap);
+			Assert.Equal("mynormal", explicitlayers.Layers["normal"]);
+			Assert.Equal("materials/ao/auto/WALL.png", explicitlayers.Layers["ao"]);
 		}
 
 		[Fact]
@@ -152,6 +250,8 @@ namespace Builder.Tests
 		[InlineData("material TEST { shader x")]
 		[InlineData("hardwareshader TEST { speed nope }")]
 		[InlineData("hardwareshader TEST { material unknown }")]
+		[InlineData("material TEST { glossiness shiny }")]
+		[InlineData("material TEST { specularlevel NaN }")]
 		public void MalformedBlocksReportErrors(string text)
 		{
 			var parser = Parse(text, out bool result);

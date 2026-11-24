@@ -13,6 +13,22 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		internal ImageData Brightmap;
 		internal ImageData[] Textures;
 		internal UserShaderProgram Program;
+		internal MaterialModel Model;
+		internal ImageData Normal, Specular, Metallic, Roughness, Ao;
+
+		// The layer images the model samples, in texture unit order after the brightmap
+		internal ImageData[] Layers
+		{
+			get
+			{
+				switch(Model)
+				{
+					case MaterialModel.Specular: return new[] { Normal, Specular };
+					case MaterialModel.Pbr: return new[] { Normal, Metallic, Roughness, Ao };
+					default: return new ImageData[0];
+				}
+			}
+		}
 	}
 
 	internal sealed class MaterialLumpImage : ImageData
@@ -48,6 +64,34 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 			return newestfirst.Count > 0 ? newestfirst[0] : null;
 		}
 
+		// UZDoom's AddAutoMaterials search, minus detail and glow maps; the first brightmap prefix found wins
+		private static readonly KeyValuePair<string, string>[] autolayers =
+		{
+			new KeyValuePair<string, string>("brightmap", "brightmaps/auto/"),
+			new KeyValuePair<string, string>("brightmap", "materials/brightmaps/auto/"),
+			new KeyValuePair<string, string>("normal", "materials/normalmaps/auto/"),
+			new KeyValuePair<string, string>("specular", "materials/specular/auto/"),
+			new KeyValuePair<string, string>("metallic", "materials/metallic/auto/"),
+			new KeyValuePair<string, string>("roughness", "materials/roughness/auto/"),
+			new KeyValuePair<string, string>("ao", "materials/ao/auto/"),
+		};
+
+		// Fills the layers a definition left empty from the auto paths; returns the material, new if one was needed
+		internal static GldefsMaterial AddAutoLayers(GldefsMaterial material, string shortname, Func<string, string> find)
+		{
+			foreach(var layer in autolayers)
+			{
+				bool brightmap = layer.Key == "brightmap";
+				if(material != null && (brightmap ? material.Brightmap != null : material.HasLayer(layer.Key))) continue;
+				string path = find(layer.Value + shortname);
+				if(path == null) continue;
+				if(material == null) material = new GldefsMaterial();
+				if(brightmap) material.Brightmap = path;
+				else material.Layers[layer.Key] = path;
+			}
+			return material;
+		}
+
 		internal static bool IsGZDoom(string engine)
 		{
 			return string.Equals(engine, "gzdoom", StringComparison.OrdinalIgnoreCase) || string.Equals(engine, "uzdoom", StringComparison.OrdinalIgnoreCase);
@@ -61,9 +105,14 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 		internal string Shader;
 		internal float Speed = 1.0f;
 		internal bool DisableAlphaTest;
-		internal string MaterialType = "normal";
+		// UZDoom's defaults when a material block gives no value
+		internal const float DefaultGlossiness = 10.0f, DefaultSpecularLevel = 0.1f;
+		internal float? Glossiness, SpecularLevel;
+		// The model a shader is written for; null means a material block's shader, typed from the layers
+		internal MaterialModel? ShaderModel;
 		internal readonly List<string> Defines = new List<string>();
 		internal readonly List<KeyValuePair<string, string>> Textures = new List<KeyValuePair<string, string>>();
+		// Image layer paths by GLDEFS key: brightmap, normal, specular, metallic, roughness, ao
 		internal readonly Dictionary<string, string> Layers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 		internal void Merge(GldefsMaterial definition)
@@ -74,15 +123,23 @@ namespace CodeImp.DoomBuilder.GZBuilder.Data
 				DisableFullbright = definition.DisableFullbright;
 			}
 			foreach(var layer in definition.Layers) Layers[layer.Key] = layer.Value;
+			if(definition.Glossiness.HasValue) Glossiness = definition.Glossiness;
+			if(definition.SpecularLevel.HasValue) SpecularLevel = definition.SpecularLevel;
 			if(definition.Shader == null) return;
 			Shader = definition.Shader;
 			Speed = definition.Speed;
 			DisableAlphaTest = definition.DisableAlphaTest;
-			MaterialType = definition.MaterialType;
+			ShaderModel = definition.ShaderModel;
 			Defines.Clear();
 			Defines.AddRange(definition.Defines);
 			Textures.Clear();
 			Textures.AddRange(definition.Textures);
+		}
+
+		internal bool HasLayer(string name)
+		{
+			string path;
+			return Layers.TryGetValue(name, out path) && !string.IsNullOrEmpty(path);
 		}
 	}
 }
