@@ -2749,7 +2749,7 @@ namespace CodeImp.DoomBuilder
 
 			// The next save writes the bake; a matching map makes it a cache hit
 			IsChanged = true;
-			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + "." +
+			message = "Baked in " + seconds.ToString("0.0") + " s: " + lightmapbake.Summary + (quality != null ? ", quality " + quality.Describe() : "") + "." +
 				(job.EmissiveSummary != null ? " " + job.EmissiveSummary + "." : "") + " Save or Test to use it.";
 			General.WriteLogLine("Lightmap bake done: " + lightmapbake.Summary + (quality != null ? ", quality " + quality.Describe() : ""));
 			return true;
@@ -2793,9 +2793,7 @@ namespace CodeImp.DoomBuilder
 					if(mode != null) mode.OnScriptRunEnd();
 					return false;
 				}
-				General.Settings.ApplyDefaultThingSettings(info);
-				info.Type = LightmapLighting.INFO_THING_TYPE;
-				for(int i = 0; i < info.Args.Length; i++) info.Args[i] = 0;
+				General.Settings.ApplyCleanThingSettings(info, LightmapLighting.INFO_THING_TYPE);
 				RectangleF area = MapSet.CreateArea(map.Vertices);
 				Vector2D centre = (map.Vertices.Count > 0 ? new Vector2D(area.X + area.Width / 2, area.Y + area.Height / 2) : new Vector2D());
 				info.Move(grid.SnappedToGrid(centre));

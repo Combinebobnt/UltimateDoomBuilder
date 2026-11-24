@@ -116,6 +116,12 @@ namespace Builder.Tests
 			brighter.WriteFields(fields, read);
 			Assert.Equal(2.5, fields["lm_sunintensity"].Value);
 
+			// An intensity edit while the sun stays off is no change at all
+			read = LightmapLighting.Read(Fields("lm_sunintensity", UniversalType.Float, 0.0), 0, 0);
+			LightmapLighting dimmed = read.Clone();
+			dimmed["sunintensity"] = 2.5;
+			Assert.False(dimmed.DiffersFrom(read));
+
 			// Turning the sun off needs a baker that reads the intensity key
 			LightmapBakeOption intensity = LightmapBakeOptions.Get("sunintensity");
 			Assert.False(intensity.Available(LightmapBakerFeatures.None));

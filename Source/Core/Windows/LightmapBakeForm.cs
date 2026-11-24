@@ -140,7 +140,6 @@ namespace CodeImp.DoomBuilder.Windows
 			layout.Controls.Add(buttons, 0, 3);
 
 			Controls.Add(layout);
-			AcceptButton = bake;
 			CancelButton = close; // Escape cancels a running bake, else closes
 			close.DialogResult = DialogResult.None; // The CancelButton setter makes it close the form, even mid-bake
 
@@ -406,7 +405,11 @@ namespace CodeImp.DoomBuilder.Windows
 					if(o.Id == "preset")
 					{
 						LightmapQualityPreset preset = (LightmapQualityPreset)value;
-						if(preset == LightmapQualityPreset.Custom) return;
+						if(preset == LightmapQualityPreset.Custom)
+						{
+							LoadRows(); // Custom is only ever the result of an edit
+							return;
+						}
 						LightmapBakeQuality q = LightmapBakeQuality.FromPreset(preset, quality.TextureSize);
 						quality.SampleScale = q.SampleScale;
 						quality.Samples = q.Samples;
@@ -423,10 +426,11 @@ namespace CodeImp.DoomBuilder.Windows
 					if(o.Id == "bakerpath") UpdateAvailability();
 					break;
 			}
+			if(o.Id == "sun") UpdateAvailability();
 			UpdateState();
 		}
 
-		// The map keeps its own quality from the first change on; the program keeps it as the last used
+		// The map keeps its own quality from its first change or bake on; the program keeps it as the last used
 		private void QualityChanged()
 		{
 			General.Map.Options.LightmapBake.Quality = quality.Clone();
@@ -434,9 +438,24 @@ namespace CodeImp.DoomBuilder.Windows
 			LoadRows();
 		}
 
+		// A number typed into a spin box only reaches ValueChanged when it loses focus, which Mono
+		// doesn't do before a button's Click
+		private void CommitTypedNumbers()
+		{
+			foreach(Row r in rows)
+			{
+				NumericUpDown number = r.Control as NumericUpDown;
+				decimal typed;
+				if(number == null || !number.Enabled || !decimal.TryParse(number.Text, NumberStyles.Number, CultureInfo.CurrentCulture, out typed)) continue;
+				typed = Math.Max(number.Minimum, Math.Min(number.Maximum, Math.Round(typed, number.DecimalPlaces)));
+				if(typed != number.Value) number.Value = typed;
+			}
+		}
+
 		private void ApplyLighting()
 		{
-			if(!edited.DiffersFrom(original)) return;
+			CommitTypedNumbers();
+			if(!edited.DiffersFrom(original) || General.Map.LightmapBakeUnavailable() != null) return;
 			General.Map.ApplyLightmapLighting(original, edited);
 			original = General.Map.ReadLightmapLighting(out infocount);
 			edited = original.Clone();
@@ -466,6 +485,14 @@ namespace CodeImp.DoomBuilder.Windows
 					available = features.Has(feature);
 					if(!available && (bool)edited[o.Id]) tip = "Stock ZDRay always bakes a sun. Turning it off needs a ZDRay build with " + feature + " (the fork's README).";
 				}
+				else if(o.Id == "sunintensity" && available && !(bool)edited["sun"])
+				{
+					r.Control.Enabled = false;
+					r.Note.Visible = false;
+					tips.SetToolTip(r.Control, null);
+					if(r.Label != null) tips.SetToolTip(r.Label, null);
+					continue;
+				}
 				else if(o.Id == "bouncesamples" && available && !features.Has("bounce") && !features.Has("surfacelights"))
 				{
 					note = "no effect yet";
@@ -494,7 +521,8 @@ namespace CodeImp.DoomBuilder.Windows
 			foreach(KeyValuePair<LightmapOptionTab, TabPage> p in pages)
 				if(p.Key != LightmapOptionTab.Output) p.Value.Enabled = !running;
 			close.Text = (running ? "Cancel" : "Close");
-			apply.Enabled = !running && edited.DiffersFrom(original);
+			// Not tied to a pending edit: a number still being typed isn't one until Apply commits it
+			apply.Enabled = !running && General.Map.LightmapBakeUnavailable() == null;
 			if(running) return;
 
 			string problem = General.Map.LightmapBakeUnavailable() ?? Settings.BakerProblem();
@@ -514,14 +542,18 @@ namespace CodeImp.DoomBuilder.Windows
 		// probes again when the last answer was none, since a probe that timed out isn't cached.
 		private LightmapBakerFeatures Features(string path, bool wait)
 		{
-			if(probe == null || probepath != path || (wait && probe.IsCompleted && probe.Result.IsEmpty))
+			if(probe == null || probepath != path)
 			{
 				probepath = path;
 				probe = Task.Run(() => LightmapBakerFeatures.Probe(path));
 				Task<LightmapBakerFeatures> started = probe;
 				started.ContinueWith(t => ProbeDone(started));
 			}
-			if(!wait && !probe.IsCompleted) return LightmapBakerFeatures.None;
+			if(!wait) return (probe.IsCompleted ? probe.Result : LightmapBakerFeatures.None);
+			if(!probe.Result.IsEmpty) return probe.Result;
+
+			// Stock ZDRay's answer is cached, so this only runs the baker again after a timeout or failure
+			probe = Task.FromResult(LightmapBakerFeatures.Probe(path));
 			return probe.Result;
 		}
 
@@ -665,9 +697,13 @@ namespace CodeImp.DoomBuilder.Windows
 				job.Baker.Poll(out exitcode);
 				Finish(exitcode);
 			}
-			else if(edited.DiffersFrom(original))
+			else
 			{
-				DialogResult answer = MessageBox.Show(this, "The Lighting tab has changes that aren't on the map yet. Apply them?",
+				CommitTypedNumbers();
+			}
+			if(job == null && edited.DiffersFrom(original) && General.Map.LightmapBakeUnavailable() == null)
+			{
+				DialogResult answer = MessageBox.Show(this, "Some ZDRayInfo values (the Lighting tab and Sky samples) aren't on the map yet. Apply them?",
 					"Bake Lightmaps", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
 				if(answer == DialogResult.Cancel)
 				{

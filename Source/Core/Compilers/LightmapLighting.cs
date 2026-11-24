@@ -112,9 +112,11 @@ namespace CodeImp.DoomBuilder.Compilers
 			return (p > 180 ? p - 360 : p);
 		}
 
+		// With the sun off its intensity isn't stored, so changing it alone changes nothing
 		public IEnumerable<string> ChangedFrom(LightmapLighting original)
 		{
-			return values.Keys.Where(id => !Equals(values[id], original.values[id]));
+			bool sunoff = !(bool)values[SUN];
+			return values.Keys.Where(id => !Equals(values[id], original.values[id]) && !(sunoff && id == SUN_INTENSITY));
 		}
 
 		public bool DiffersFrom(LightmapLighting original)
