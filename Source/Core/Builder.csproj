@@ -680,6 +680,8 @@
     <Compile Include="Map\BakeFingerprint.cs" />
     <Compile Include="Map\LightmapLump.cs" />
     <Compile Include="Map\LightmapData.cs" />
+    <Compile Include="Map\LightmapStats.cs" />
+    <Compile Include="Map\LightmapAtlasExport.cs" />
     <Compile Include="Map\LightmapPreview.cs" />
     <Compile Include="Map\LightmapPreviewState.cs" />
     <Compile Include="Map\GlSubsectors.cs" />

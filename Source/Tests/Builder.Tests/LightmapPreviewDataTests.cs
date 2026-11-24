@@ -10,7 +10,7 @@ namespace Builder.Tests
 		#region ================== Lump builders
 
 		// type, typeIndex, controlSector (-1 none), layer, firstTexCoord
-		private static byte[] Lump(int size, int layers, int[][] surfaces, float[] texcoords, int probes = 0, int subsectors = 0, int version = 0)
+		internal static byte[] Lump(int size, int layers, int[][] surfaces, float[] texcoords, int probes = 0, int subsectors = 0, int version = 0, Func<int, ushort> texel = null)
 		{
 			var body = new MemoryStream();
 			var w = new BinaryWriter(body);
@@ -32,11 +32,11 @@ namespace Builder.Tests
 			}
 			foreach(float f in texcoords) w.Write(f);
 			// Texel i of the whole data holds half(i % 2048) so layers differ
-			for(int i = 0; i < layers * size * size * 3; i++) w.Write((ushort)(0x3C00 + (i % 7)));
+			for(int i = 0; i < layers * size * size * 3; i++) w.Write(texel != null ? texel(i) : (ushort)(0x3C00 + (i % 7)));
 			return Zlib(body.ToArray());
 		}
 
-		private static byte[] Zlib(byte[] raw)
+		internal static byte[] Zlib(byte[] raw)
 		{
 			var output = new MemoryStream();
 			output.WriteByte(0x78);

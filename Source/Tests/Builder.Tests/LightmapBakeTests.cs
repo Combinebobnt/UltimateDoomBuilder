@@ -104,13 +104,30 @@ namespace Builder.Tests
 					if(i == 40) chunked.Feed("   BSP:  5.0%\r", true);
 				}
 				chunked.End();
-				Assert.Equal(string.Join("|", whole.LastLines), string.Join("|", chunked.LastLines));
+				Assert.Equal(string.Join("|", whole.Lines), string.Join("|", chunked.Lines));
 			}
 
-			// Only the last lines are kept, and progress segments never appear in them
-			Assert.Equal(8, whole.LastLines.Length);
-			Assert.Equal("Total time: 1.686 seconds.", whole.LastLines.Last());
-			Assert.False(whole.LastLines.Any(l => l.StartsWith("Sides:") || l.Contains("%")));
+			// Every line is kept, and progress segments never appear in them
+			Assert.Equal("----MAP01----", whole.Lines.First());
+			Assert.Equal("Total time: 1.686 seconds.", whole.LastLine);
+			Assert.Contains("Leaf surfaces: 17", whole.Lines);
+			Assert.False(whole.Lines.Any(l => l.StartsWith("Sides:") || l.Contains("%")));
+		}
+
+		[Fact]
+		public void LogKeepsTheNewestLinesAndCountsTheRest()
+		{
+			var p = new LightmapBakeProgress();
+			int total = LightmapBakeProgress.MAX_LINES + 3;
+			for(int i = 0; i < total; i++) p.Feed("line " + i + "\n", false);
+
+			Assert.Equal(total, p.LineCount);
+			Assert.Equal(3, p.DroppedLines);
+			string[] lines = p.Lines;
+			Assert.Equal(LightmapBakeProgress.MAX_LINES + 1, lines.Length);
+			Assert.Contains("3 earlier lines", lines[0]);
+			Assert.Equal("line 3", lines[1]);
+			Assert.Equal("line " + (total - 1), p.LastLine);
 		}
 
 		[Fact]
@@ -118,9 +135,10 @@ namespace Builder.Tests
 		{
 			var p = new LightmapBakeProgress();
 			p.Feed("Could not open input file", false);
-			Assert.Empty(p.LastLines);
+			Assert.Empty(p.Lines);
+			Assert.Null(p.LastLine);
 			p.End();
-			Assert.Equal(new[] { "Could not open input file" }, p.LastLines);
+			Assert.Equal(new[] { "Could not open input file" }, p.Lines);
 		}
 
 		#endregion

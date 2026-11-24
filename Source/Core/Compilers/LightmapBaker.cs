@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -59,14 +60,18 @@ namespace CodeImp.DoomBuilder.Compilers
 		public readonly string Summary;
 		public readonly LightmapBakeQuality Quality; // null when unknown (a lump not saved by this editor)
 		public readonly string LumpSha;              // SHA-256 of the stored LIGHTMAP lump, null when unread
+		public readonly double Seconds;              // the bake's wall time, negative for a lump the map came with
+		public readonly string[] Log;                // the baker's output, null for a lump the map came with
 
-		public LightmapBakeCache(string wadpath, string fingerprint, string summary, LightmapBakeQuality quality = null, string lumpsha = null)
+		public LightmapBakeCache(string wadpath, string fingerprint, string summary, LightmapBakeQuality quality = null, string lumpsha = null, double seconds = -1, string[] log = null)
 		{
 			WadPath = wadpath;
 			Fingerprint = fingerprint;
 			Summary = summary;
 			Quality = quality;
 			LumpSha = lumpsha;
+			Seconds = seconds;
+			Log = log;
 		}
 	}
 
@@ -117,7 +122,7 @@ namespace CodeImp.DoomBuilder.Compilers
 	// Parses the baker's console output. Progress segments end in '\r', other lines in '\n'.
 	internal sealed class LightmapBakeProgress
 	{
-		private const int MAX_LINES = 8;
+		public const int MAX_LINES = 5000;
 
 		private static readonly Regex SIDES = new Regex(@"^Sides:\s*(\d+)\s*/\s*(\d+)$");
 		private static readonly Regex SUBSECTORS = new Regex(@"^Subsectors:\s*(\d+)\s*/\s*(\d+)$");
@@ -137,7 +142,23 @@ namespace CodeImp.DoomBuilder.Compilers
 			Fraction = -1;
 		}
 
-		public string[] LastLines { get { return lines.ToArray(); } }
+		public int DroppedLines { get; private set; } // the oldest lines past MAX_LINES
+		public int LineCount { get { return DroppedLines + lines.Count; } } // every line seen, so a change shows
+
+		// The log the baker printed, progress segments excluded, newest MAX_LINES kept
+		public string[] Lines
+		{
+			get
+			{
+				if(DroppedLines == 0) return lines.ToArray();
+				List<string> result = new List<string> { "(" + DroppedLines + " earlier lines not kept)" };
+				result.AddRange(lines);
+				return result.ToArray();
+			}
+		}
+
+		// The last line, which holds the reason when the baker stops on an error
+		public string LastLine { get { return lines.Count > 0 ? lines.Last() : null; } }
 
 		// Feeds a chunk of one stream; text may split anywhere
 		public void Feed(string text, bool stderr)
@@ -183,7 +204,11 @@ namespace CodeImp.DoomBuilder.Compilers
 				else if(s.StartsWith("GPU ray tracing ignores --samples", StringComparison.Ordinal)) GpuIgnoredSamples = true;
 				else if(s == "Ray tracing complete") { Stage = "Writing output"; Fraction = -1; }
 				lines.Enqueue(s);
-				while(lines.Count > MAX_LINES) lines.Dequeue();
+				while(lines.Count > MAX_LINES)
+				{
+					lines.Dequeue();
+					DroppedLines++;
+				}
 			}
 		}
 
@@ -297,15 +322,19 @@ namespace CodeImp.DoomBuilder.Compilers
 			}
 		}
 
-		public void Snapshot(out string stage, out double fraction, out string[] lastlines)
+		// linecount moves whenever Lines gains a line
+		public void Snapshot(out string stage, out double fraction, out int linecount)
 		{
 			lock(sync)
 			{
 				stage = progress.Stage;
 				fraction = progress.Fraction;
-				lastlines = progress.LastLines;
+				linecount = progress.LineCount;
 			}
 		}
+
+		public string[] Lines { get { lock(sync) return progress.Lines; } }
+		public string LastLine { get { lock(sync) return progress.LastLine; } }
 
 		// A bake that already exited keeps its result
 		public void Cancel()

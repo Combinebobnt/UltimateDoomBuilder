@@ -2276,19 +2276,13 @@ namespace CodeImp.DoomBuilder
 			return wad.FindLumpIndex(LightmapLump.LUMP_NAME, headerindex + 1, endindex);
 		}
 
-		// SHA-256 (hex) of the map's stored LIGHTMAP lump, null when it has none or can't be read.
-		// Reads exactly the lump's length: a lump stream's Read can return one byte past its end.
+		// SHA-256 (hex) of the map's stored LIGHTMAP lump, null when it has none or can't be read
 		internal static string LightmapLumpSha(WAD wad, string mapheader)
 		{
 			try
 			{
-				int index = FindLightmapIndex(wad, mapheader);
-				if(index < 0) return null;
-				Lump lump = wad.Lumps[index];
-				byte[] data = new byte[lump.Length];
-				lump.Stream.Seek(0, SeekOrigin.Begin);
-				for(int read = 0, n; read < data.Length; read += n)
-					if((n = lump.Stream.Read(data, read, data.Length - read)) <= 0) return null;
+				byte[] data = ReadLightmapLump(wad, mapheader);
+				if(data == null) return null;
 				using(System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
 					return BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "").ToLowerInvariant();
 			}
@@ -2304,6 +2298,46 @@ namespace CodeImp.DoomBuilder
 
 		// Checks a baker output WAD: TEXTMAP, GL ZNODES and a loadable, non-empty LIGHTMAP before
 		// ENDMAP. The baker exits 0 even when it baked nothing. Returns null when valid, else why not.
+		// The stored LIGHTMAP lump's exact bytes, null when the map has none or it is short.
+		// Reads to the lump's length: a lump stream can return a byte past its end.
+		internal static byte[] ReadLightmapLump(WAD wad, string mapheader)
+		{
+			int index = FindLightmapIndex(wad, mapheader);
+			if(index < 0) return null;
+			Lump lump = wad.Lumps[index];
+			byte[] data = new byte[lump.Length];
+			lump.Stream.Seek(0, SeekOrigin.Begin);
+			for(int read = 0, n; read < data.Length; read += n)
+				if((n = lump.Stream.Read(data, read, data.Length - read)) <= 0) return null;
+			return data;
+		}
+
+		// The current bake's LIGHTMAP lump, null with a reason when there is no bake or it can't be read
+		internal byte[] ReadLightmapBakeLump(out LightmapBakeCache bake, out string error)
+		{
+			bake = lightmapbake;
+			error = null;
+			if(bake == null)
+			{
+				error = "there is no lightmap bake";
+				return null;
+			}
+			try
+			{
+				using(WAD wad = new WAD(bake.WadPath, true))
+				{
+					byte[] data = ReadLightmapLump(wad, BUILD_MAP_HEADER);
+					if(data == null) error = "the bake has no readable LIGHTMAP";
+					return data;
+				}
+			}
+			catch(Exception e)
+			{
+				error = e.GetType().Name + " while reading the bake: " + e.Message;
+				return null;
+			}
+		}
+
 		internal static string ValidateBakeOutput(WAD wad, string mapheader, out LightmapLump lightmap)
 		{
 			lightmap = null;
@@ -2708,6 +2742,9 @@ namespace CodeImp.DoomBuilder
 			else if(exitcode != 0)
 			{
 				error = "the baker exited with code " + exitcode;
+				// ZDRay prints why it stopped as its last line (the page limit, an unknown option)
+				string reason = job.Baker.LastLine;
+				if(reason != null) error += ": " + reason.TrimEnd('.');
 				// Upstream ZDRay has no --emissive and exits on an unknown option
 				if(job.EmissivePath != null) error += " (the emissive texture table needs the forked ZDRay build described in its README)";
 			}
@@ -2741,10 +2778,10 @@ namespace CodeImp.DoomBuilder
 				quality.Samples = 256;
 				quality.BounceSamples = 2048;
 			}
-			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString(), quality, lumpsha);
+			double seconds = job.Baker.Elapsed.TotalSeconds;
+			lightmapbake = new LightmapBakeCache(job.TakeOutput(), job.Fingerprint, lightmap.ToString(), quality, lumpsha, seconds, job.Baker.Lines);
 			lightmapsourceversion++;
 			ClearLightmapStale();
-			double seconds = job.Baker.Elapsed.TotalSeconds;
 			job.Dispose();
 
 			// The next save writes the bake; a matching map makes it a cache hit

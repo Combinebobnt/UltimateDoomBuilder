@@ -76,6 +76,42 @@ namespace CodeImp.DoomBuilder.Map
 		// Reads the compressed lump. Returns null with a reason on anything malformed.
 		public static LightmapData Read(byte[] compressed, out string error)
 		{
+			return Read(compressed, true, out error);
+		}
+
+		// Surfaces and texture coordinates only, stopping before the texels, so any texture size reads.
+		// Texels stays null.
+		public static LightmapData ReadLayout(byte[] compressed, out string error)
+		{
+			return Read(compressed, false, out error);
+		}
+
+		// Why the texels of a lump with this header are too large to keep in memory, null when they fit
+		public static string TooLarge(LightmapLump header)
+		{
+			if((long)header.TextureCount * header.TextureSize > MAX_ATLAS_HEIGHT)
+				return header.TextureCount + " layers of " + header.TextureSize + " are taller than " + MAX_ATLAS_HEIGHT + " texels";
+			if((long)header.TextureCount * header.TextureSize * header.TextureSize > MAX_TEXELS)
+				return "the lightmap has more than " + MAX_TEXELS + " texels";
+			return null;
+		}
+
+		// The inflated lump positioned at its first byte; the zlib header is checked by LightmapLump.Read
+		internal static BinaryReader Inflate(byte[] compressed)
+		{
+			MemoryStream stream = new MemoryStream(compressed, false);
+			stream.Position = 2;
+			return new BinaryReader(new DeflateStream(stream, CompressionMode.Decompress));
+		}
+
+		// Inflated bytes before the texel block
+		internal static long LayoutLength(LightmapLump header)
+		{
+			return LightmapLump.HEADER_SIZE + header.LightProbeCount * 24L + header.SurfaceCount * 20L + header.TexCoordCount * 8L;
+		}
+
+		private static LightmapData Read(byte[] compressed, bool texels, out string error)
+		{
 			// The header's limits first, then a pass that inflates without keeping anything, so the
 			// allocations below are backed by real data
 			LightmapLump header = LightmapLump.Read(new MemoryStream(compressed, false), false, out error);
@@ -85,22 +121,13 @@ namespace CodeImp.DoomBuilder.Map
 				error = "the lightmap is empty";
 				return null;
 			}
-			if((long)header.TextureCount * header.TextureSize > MAX_ATLAS_HEIGHT)
-			{
-				error = header.TextureCount + " layers of " + header.TextureSize + " are taller than " + MAX_ATLAS_HEIGHT + " texels";
-				return null;
-			}
-			if((long)header.TextureCount * header.TextureSize * header.TextureSize > MAX_TEXELS)
-			{
-				error = "the lightmap has more than " + MAX_TEXELS + " texels";
-				return null;
-			}
+			if(texels && (error = TooLarge(header)) != null) return null;
 			if(header.SurfaceCount > MAX_SURFACES || header.TexCoordCount > MAX_TEXCOORDS)
 			{
 				error = "too many surfaces (" + header.SurfaceCount + ") or texture coordinates (" + header.TexCoordCount + ")";
 				return null;
 			}
-			if(LightmapLump.Read(new MemoryStream(compressed, false), true, out error) == null) return null;
+			if(texels && LightmapLump.Read(new MemoryStream(compressed, false), true, out error) == null) return null;
 
 			LightmapData data = new LightmapData
 			{
@@ -111,10 +138,13 @@ namespace CodeImp.DoomBuilder.Map
 
 			try
 			{
-				MemoryStream stream = new MemoryStream(compressed, false);
-				stream.Position = 2; // zlib header, checked by the first pass
-				using(DeflateStream inflater = new DeflateStream(stream, CompressionMode.Decompress))
-				using(BinaryReader reader = new BinaryReader(inflater))
+				if(!texels)
+				{
+					// The layout pass only goes as far as the texture coordinates
+					using(BinaryReader check = Inflate(compressed)) Skip(check, LayoutLength(header));
+				}
+
+				using(BinaryReader reader = Inflate(compressed))
 				{
 					Skip(reader, LightmapLump.HEADER_SIZE + header.LightProbeCount * 24L);
 
@@ -162,6 +192,7 @@ namespace CodeImp.DoomBuilder.Map
 						if(float.IsNaN(f) || float.IsInfinity(f)) return Fail("texture coordinate " + (i / 2) + " is not finite", out error);
 						data.TexCoords[i] = f;
 					}
+					if(!texels) return data;
 
 					data.Texels = new ushort[(long)header.TextureCount * header.TextureSize * header.TextureSize * 3];
 					byte[] buffer = new byte[65536];
@@ -266,7 +297,7 @@ namespace CodeImp.DoomBuilder.Map
 			return null;
 		}
 
-		private static void Skip(BinaryReader reader, long count)
+		internal static void Skip(BinaryReader reader, long count)
 		{
 			byte[] buffer = new byte[65536];
 			while(count > 0)
@@ -278,7 +309,7 @@ namespace CodeImp.DoomBuilder.Map
 		}
 
 		// Reads through the BinaryReader so its buffering stays consistent
-		private static int ReadFully(BinaryReader reader, byte[] buffer, int length)
+		internal static int ReadFully(BinaryReader reader, byte[] buffer, int length)
 		{
 			int total = 0, n;
 			while(total < length && (n = reader.Read(buffer, total, length - total)) > 0) total += n;

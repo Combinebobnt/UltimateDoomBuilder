@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using CodeImp.DoomBuilder.Compilers;
 using CodeImp.DoomBuilder.Data;
+using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.ZDoom;
 
 #endregion
@@ -40,6 +41,11 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly Label lightingnotice = new Label();
 		private readonly Button apply = new Button();
 		private readonly TextBox output = new TextBox();
+		private readonly Label stats = new Label();
+		private readonly Button copylog = new Button();
+		private readonly Button savelog = new Button();
+		private readonly Button exportatlas = new Button();
+		private int shownlines = -1; // the running bake's line count the log shows
 		private readonly Label status = new Label();
 		private readonly ProgressBar progress = new ProgressBar();
 		private readonly Button quickbake = new Button();
@@ -149,6 +155,7 @@ namespace CodeImp.DoomBuilder.Windows
 			LoadRows();
 			UpdateAvailability();
 			UpdateState();
+			UpdateOutput(true);
 		}
 
 		private void BuildLightingTab()
@@ -318,12 +325,87 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private void BuildOutputTab()
 		{
+			TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
+			table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			table.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			pages[LightmapOptionTab.Output].Controls.Add(table);
+
+			stats.AutoSize = true;
+			stats.MaximumSize = new Size(600, 0);
+			stats.Margin = new Padding(3, 3, 3, 6);
+			table.Controls.Add(stats, 0, 0);
+
+			FlowLayoutPanel buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false };
+			copylog.Text = "Copy log";
+			copylog.AutoSize = true;
+			copylog.Click += delegate { if(output.TextLength > 0) Clipboard.SetText(output.Text); };
+			savelog.Text = "Save log...";
+			savelog.AutoSize = true;
+			savelog.Click += delegate { SaveLog(); };
+			exportatlas.Text = "Export atlas...";
+			exportatlas.AutoSize = true;
+			exportatlas.Click += delegate { ExportAtlas(); };
+			tips.SetToolTip(exportatlas, "Writes each lightmap texture page of the bake as a PNG, light clamped to full brightness");
+			buttons.Controls.Add(copylog);
+			buttons.Controls.Add(savelog);
+			buttons.Controls.Add(exportatlas);
+			table.Controls.Add(buttons, 0, 1);
+
 			output.Multiline = true;
 			output.ReadOnly = true;
-			output.ScrollBars = ScrollBars.Vertical;
+			output.WordWrap = false;
+			output.ScrollBars = ScrollBars.Both;
 			output.Dock = DockStyle.Fill;
 			output.Font = new Font(FontFamily.GenericMonospace, Font.Size);
-			pages[LightmapOptionTab.Output].Controls.Add(output);
+			table.Controls.Add(output, 0, 2);
+		}
+
+		// The bake's stats, and its log unless a bake's log is already showing
+		private void UpdateOutput(bool showlog)
+		{
+			LightmapBakeCache bake;
+			string error;
+			byte[] lump = General.Map.ReadLightmapBakeLump(out bake, out error);
+			exportatlas.Enabled = (lump != null);
+			if(bake == null)
+			{
+				stats.Text = "No bake yet. Bake or Quick bake fills this tab.";
+				return;
+			}
+			if(showlog) ShowLog(bake.Log ?? new[] { "(The map's lightmap came with the opened file; it has no baker log.)" });
+
+			List<string> lines = new List<string>
+			{
+				"Bake: " + (bake.Seconds >= 0 ? bake.Seconds.ToString("0.0", CultureInfo.InvariantCulture) + " s" : "came with the opened map") +
+				", quality " + (bake.Quality != null ? bake.Quality.Describe() : "unknown"),
+			};
+			LightmapStats s = (lump != null ? LightmapStats.Read(lump, out error) : null);
+			if(s == null) lines.Add("The LIGHTMAP can't be read: " + error + ".");
+			else
+			{
+				lines.Add("Texture pages: " + s.TextureCount + " of " + s.TextureSize + "x" + s.TextureSize +
+					", used texels " + s.UsedTexels.ToString("N0", CultureInfo.InvariantCulture) + " (" + s.Fill.ToString("0.0%", CultureInfo.InvariantCulture) + " of the pages)");
+				lines.Add("Surfaces: " + s.SurfaceCount.ToString("N0", CultureInfo.InvariantCulture) + ", light probes: " + s.LightProbeCount.ToString("N0", CultureInfo.InvariantCulture) +
+					", LIGHTMAP lump: " + FormatBytes(s.CompressedSize) + " compressed");
+				if(s.PreviewRefusal != null) lines.Add("The Visual-mode lightmap preview is off for this bake: " + s.PreviewRefusal + ".");
+			}
+			stats.Text = string.Join(Environment.NewLine, lines);
+		}
+
+		private static string FormatBytes(long bytes)
+		{
+			if(bytes < 1024 * 1024) return (bytes / 1024.0).ToString("0.0", CultureInfo.InvariantCulture) + " KiB";
+			return (bytes / (1024.0 * 1024.0)).ToString("0.0", CultureInfo.InvariantCulture) + " MiB";
+		}
+
+		private void ShowLog(string[] lines)
+		{
+			string text = string.Join(Environment.NewLine, lines);
+			if(output.Text == text) return;
+			output.Text = text;
+			output.SelectionStart = output.TextLength;
+			output.ScrollToCaret();
 		}
 
 		#endregion
@@ -638,6 +720,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
 			output.Text = string.Empty;
+			shownlines = -1;
 			tabs.SelectedTab = pages[LightmapOptionTab.Output];
 			status.Text = "Starting the baker...";
 			progress.Style = ProgressBarStyle.Marquee;
@@ -652,8 +735,8 @@ namespace CodeImp.DoomBuilder.Windows
 
 			string stage;
 			double fraction;
-			string[] lines;
-			job.Baker.Snapshot(out stage, out fraction, out lines);
+			int linecount;
+			job.Baker.Snapshot(out stage, out fraction, out linecount);
 			status.Text = stage + "... (" + job.Baker.Elapsed.TotalSeconds.ToString("0") + " s)";
 			if(fraction < 0) progress.Style = ProgressBarStyle.Marquee;
 			else
@@ -661,8 +744,11 @@ namespace CodeImp.DoomBuilder.Windows
 				progress.Style = ProgressBarStyle.Continuous;
 				progress.Value = (int)Math.Round(fraction * progress.Maximum);
 			}
-			string text = string.Join(Environment.NewLine, lines);
-			if(output.Text != text) output.Text = text;
+			if(linecount != shownlines)
+			{
+				shownlines = linecount;
+				ShowLog(job.Baker.Lines);
+			}
 
 			int exitcode;
 			if(job.Baker.Poll(out exitcode)) Finish(exitcode);
@@ -672,6 +758,7 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			timer.Stop();
 			string message;
+			string[] log = job.Baker.Lines;
 			bool ok = General.Map.FinishLightmapBake(job, exitcode, out message);
 			bakesucceeded = ok;
 			job = null;
@@ -679,6 +766,51 @@ namespace CodeImp.DoomBuilder.Windows
 			progress.Value = (ok ? progress.Maximum : 0);
 			SetResult(message);
 			UpdateState();
+			ShowLog(log);
+			UpdateOutput(false);
+		}
+
+		private void SaveLog()
+		{
+			using(SaveFileDialog dialog = new SaveFileDialog())
+			{
+				dialog.Title = "Save the baker log";
+				dialog.Filter = "Text files (*.txt)|*.txt|All files|*.*";
+				dialog.FileName = General.Map.Options.LevelName + "_lightmap_log.txt";
+				if(NativeFileDialogs.Show(dialog) != DialogResult.OK) return;
+				try { File.WriteAllText(dialog.FileName, output.Text); }
+				catch(Exception ex) when(ex is IOException || ex is UnauthorizedAccessException)
+				{
+					General.ShowErrorMessage("The log could not be saved: " + ex.Message, MessageBoxButtons.OK);
+				}
+			}
+		}
+
+		private void ExportAtlas()
+		{
+			LightmapBakeCache bake;
+			string error;
+			byte[] lump = General.Map.ReadLightmapBakeLump(out bake, out error);
+			if(lump == null)
+			{
+				General.ShowErrorMessage("The atlas can't be exported: " + error + ".", MessageBoxButtons.OK);
+				return;
+			}
+			using(SaveFileDialog dialog = new SaveFileDialog())
+			{
+				dialog.Title = "Export the lightmap atlas";
+				dialog.Filter = "PNG images (*.png)|*.png";
+				dialog.FileName = General.Map.Options.LevelName + "_lightmap.png";
+				if(NativeFileDialogs.Show(dialog) != DialogResult.OK) return;
+				Cursor = Cursors.WaitCursor;
+				List<string> files;
+				try { files = LightmapAtlasExport.Export(lump, dialog.FileName, out error); }
+				finally { Cursor = Cursors.Default; }
+				string written = (files.Count == 1 ? Path.GetFileName(files[0]) : files.Count + " pages, " + string.Join(", ", files.ConvertAll(Path.GetFileName)));
+				General.WriteLogLine("Lightmap atlas export: " + (files.Count > 0 ? written : "nothing") + (error != null ? ", failed: " + error : ""));
+				if(error != null) General.ShowErrorMessage("The atlas export failed: " + error + "." + (files.Count > 0 ? " Written before it: " + written + "." : ""), MessageBoxButtons.OK);
+				else SetResult("Exported the lightmap atlas: " + written + ".");
+			}
 		}
 
 		private void CloseClick(object sender, EventArgs e)
