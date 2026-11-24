@@ -6,7 +6,7 @@ namespace Builder.Tests
 	public class PortalCreationTests
 	{
 		private const int SETPORTAL = 156, QUICKPORTAL = 301, SECTORPORTAL = 57, LINEID = 121;
-		private const int UPPER = 9077, LOWER = 9078;
+		private const int UPPER = 9077, LOWER = 9078, PICKER = 9081;
 
 		private static readonly Dictionary<string, int> Actions = new Dictionary<string, int>
 		{
@@ -16,7 +16,7 @@ namespace Builder.Tests
 
 		private static readonly Dictionary<string, int> ThingClasses = new Dictionary<string, int>
 		{
-			{ "UpperStackLookOnly", UPPER }, { "LowerStackLookOnly", LOWER },
+			{ "UpperStackLookOnly", UPPER }, { "LowerStackLookOnly", LOWER }, { "SkyPicker", PICKER },
 		};
 
 		private static PortalCapabilities Caps(bool hexen = false, bool tids = true, params string[] missing)
@@ -263,6 +263,51 @@ namespace Builder.Tests
 			Assert.Equal(1, plan.Link.Origin.Element.Index);
 			Assert.Equal(new Vector2D(1024, 0), plan.Link.Displacement);
 			Assert.Single(d.Things);
+		}
+
+		[Fact]
+		public void Anchored_DoesNotReuseATagAnotherSectorPortalUses()
+		{
+			// Lines 2 and 3 already make a ceiling portal on sector 0's tag 3, which a new portal must not share
+			PortalMapData d = TwoRooms(new[] { 3 });
+			Extra(d, SECTORPORTAL, new[] { 3, 0, 1, 0 }, null);
+			Extra(d, SECTORPORTAL, new[] { 3, 0, 1, 1 }, null, 1);
+
+			PortalCreatePlan plan = PortalCreation.Plan(d, Caps(), Udmf(), Request(PortalCreateKind.AnchoredSector, 0, 1));
+			Assert.True(plan.CanApply, plan.Refusal);
+			Assert.Equal(new[] { 3, 1 }, plan.SectorEdits.Single().Tags);
+			Assert.Equal(1, Edit(plan, 0).Args[0]);
+			Assert.Equal(1, plan.Link.Destination.Element.Index);
+
+			// One tag per sector: nothing to add and nothing to overwrite
+			plan = PortalCreation.Plan(d, Caps(true), Hexen(), Request(PortalCreateKind.AnchoredSector, 0, 1));
+			Assert.NotNull(plan.Refusal);
+			Assert.Empty(plan.LineEdits);
+		}
+
+		[Fact]
+		public void RecreatingABrokenPairOnTheSameLines_IsStillBlocked()
+		{
+			PortalMapData d = TwoRooms();
+			PortalCreatePlan first = PortalCreation.Plan(d, Caps(), Udmf(), Request(PortalCreateKind.LinePortal, 0, 1, 3));
+			PortalMapData broken = PortalCreation.Apply(d, Caps(), first);
+
+			PortalCreatePlan again = PortalCreation.Plan(broken, Caps(), Udmf(), Request(PortalCreateKind.LinePortal, 0, 1, 3));
+			Assert.Contains(PortalIssueCode.OneSidedTraversable, Codes(again.NewErrors));
+			Assert.False(again.CanApply);
+		}
+
+		[Fact]
+		public void Stacked_SkipsATidASkyboxPickerPointsAt()
+		{
+			PortalMapData d = TwoRooms();
+			d.AddThing(PICKER, 0, new[] { 1 }, new Vector2D(32, 32), 0);
+			PortalCreateRequest req = Request(PortalCreateKind.StackedSectors, 0, 1, 0, 0, 128);
+			req.PositionA = new Vector2D(64, 64);
+			req.PositionB = new Vector2D(1088, 64);
+
+			PortalCreatePlan plan = PortalCreation.Plan(d, Caps(), Udmf(), req);
+			Assert.All(plan.ThingAdds, t => Assert.Equal(2, t.Tid));
 		}
 
 		[Fact]

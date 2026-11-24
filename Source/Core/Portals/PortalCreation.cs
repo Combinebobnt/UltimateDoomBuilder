@@ -234,14 +234,20 @@ namespace CodeImp.DoomBuilder.Portals
 			PortalSector sector = data.Sectors[anchor.Front];
 			int max = Math.Min(ctx.MaxArgument, ctx.MaxTag);
 
-			// The front sector's own tag when no other sector carries it; a sector tag is never overwritten
+			// The front sector's own tag when no other sector carries it and no other sector portal uses it,
+			// since the engine pairs an anchor with the first reference of its tag; a sector tag is never overwritten
 			int tag = 0;
 			foreach(int t in sector.Tags)
-				if(t > 0 && t <= max && !OtherSectorCarries(data, t, sector.Index)) { tag = t; break; }
+				if(t > 0 && t <= max && !OtherSectorCarries(data, t, sector.Index) && !SectorPortalUses(data, caps, t, req)) { tag = t; break; }
 
 			if(tag != 0)
 			{
 				plan.Notes.Add("Sector " + sector.Index + "'s tag " + tag + " is the portal tag.");
+			}
+			else if(!ctx.MultipleTags && sector.Tags.Length > 0 && SectorPortalUses(data, caps, sector.Tags[0], req))
+			{
+				Refuse(plan, "Sector " + sector.Index + "'s tag " + sector.Tags[0] + " already belongs to another sector portal, and this map format allows one tag per sector. Give the sector a tag of its own first.");
+				return;
 			}
 			else if(sector.Tags.Length == 0 || ctx.MultipleTags)
 			{
@@ -273,8 +279,13 @@ namespace CodeImp.DoomBuilder.Portals
 		{
 			if(req.Opacity < 0 || req.Opacity > 255) { Refuse(plan, "Opacity must be 0 to 255."); return; }
 
+			// A skybox picker's arg0 names a viewpoint TID, which a stack thing would also answer to
 			HashSet<int> inuse = new HashSet<int>(ctx.UsedThingIds);
-			foreach(PortalThing t in data.Things) if(t.Tid != 0) inuse.Add(t.Tid);
+			foreach(PortalThing t in data.Things)
+			{
+				if(t.Tid != 0) inuse.Add(t.Tid);
+				if(t.Type == caps.SkyPicker && caps.SkyPicker != 0 && t.Args[0] != 0) inuse.Add(t.Args[0]);
+			}
 			int tid = NewNumber(inuse, ctx.MaxTag, null);
 			if(tid == 0) { Refuse(plan, "No free thing TID is left."); return; }
 
@@ -294,11 +305,15 @@ namespace CodeImp.DoomBuilder.Portals
 			PortalMapData after = Apply(data, caps, plan);
 			PortalReport report = PortalAnalyzer.Analyze(after, caps);
 
+			// An issue naming an element the plan writes is the new portal's, even when the old state had the same one
+			HashSet<PortalElement> touched = new HashSet<PortalElement>();
+			foreach(PortalLineEdit e in plan.LineEdits) touched.Add(new PortalElement(PortalElementType.Linedef, e.Index));
+			for(int t = 0; t < plan.ThingAdds.Count; t++) touched.Add(new PortalElement(PortalElementType.Thing, data.Things.Count + t));
 			HashSet<string> old = new HashSet<string>();
 			foreach(PortalIssue i in before.Issues) old.Add(IssueKey(i));
 			foreach(PortalIssue i in report.Issues)
 			{
-				if(old.Contains(IssueKey(i))) continue;
+				if(old.Contains(IssueKey(i)) && !i.Elements.Exists(touched.Contains)) continue;
 				(i.Severity == PortalSeverity.Error ? plan.NewErrors : plan.NewWarnings).Add(i);
 			}
 
@@ -368,6 +383,18 @@ namespace CodeImp.DoomBuilder.Portals
 		{
 			foreach(PortalLine l in data.Lines)
 				if(l.Index != line && Array.IndexOf(l.Ids, id) >= 0) return true;
+			return false;
+		}
+
+		// Any Sector_SetPortal line besides the two being written that takes this tag as its sector tag or copy source
+		private static bool SectorPortalUses(PortalMapData data, PortalCapabilities caps, int tag, PortalCreateRequest req)
+		{
+			foreach(PortalLine l in data.Lines)
+			{
+				if(l.Action != caps.SectorSetPortal || l.Index == req.A || l.Index == req.B) continue;
+				bool copy = l.Args[1] == 1 || l.Args[1] == 5;
+				if(l.Args[0] == tag || (copy && l.Args[3] == tag)) return true;
+			}
 			return false;
 		}
 

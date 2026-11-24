@@ -331,7 +331,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.createportallinesitem.Name = "createportallinesitem";
             this.createportallinesitem.Size = new System.Drawing.Size(223, 22);
             this.createportallinesitem.Tag = "createportal";
-            this.createportallinesitem.Text = "Create &Portal...";
+            this.createportallinesitem.Text = "Create P&ortal...";
             this.createportallinesitem.ToolTipText = "Create a line or anchored sector portal from the two selected linedefs";
             this.createportallinesitem.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 
@@ -492,7 +492,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
             this.createportalsectorsitem.Name = "createportalsectorsitem";
             this.createportalsectorsitem.Size = new System.Drawing.Size(223, 22);
             this.createportalsectorsitem.Tag = "createportal";
-            this.createportalsectorsitem.Text = "Create &Portal...";
+            this.createportalsectorsitem.Text = "Create P&ortal...";
             this.createportalsectorsitem.ToolTipText = "Create stacked sectors from the two selected sectors";
             this.createportalsectorsitem.Click += new System.EventHandler(this.InvokeTaggedAction);
             // 

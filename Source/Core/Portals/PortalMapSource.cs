@@ -73,7 +73,7 @@ namespace CodeImp.DoomBuilder.Portals
 			return data;
 		}
 
-		// Format limits, plus every tag number in use, args included, so a new tag never meets a dangling reference
+		// Format limits, plus every tag number in use, tag-typed action args included, so a new tag never meets a dangling reference
 		public static PortalCreateContext CreateContext(MapSet map, GameConfiguration config, IMapSetIO io, bool udmf)
 		{
 			PortalCreateContext ctx = new PortalCreateContext

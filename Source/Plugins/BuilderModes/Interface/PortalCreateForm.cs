@@ -250,6 +250,8 @@ namespace CodeImp.DoomBuilder.BuilderModes.Interface
 
 		private void apply_Click(object sender, EventArgs e)
 		{
+			// Enter can press Create before a typed opacity has raised ValueChanged
+			Replan();
 			if(Plan == null || !Plan.CanApply) return;
 			if(Plan.Confirms.Count > 0)
 			{
