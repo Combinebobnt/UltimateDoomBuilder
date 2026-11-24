@@ -1,10 +1,38 @@
 using CodeImp.DoomBuilder;
 using CodeImp.DoomBuilder.Compilers;
+using CodeImp.DoomBuilder.Config;
+using CodeImp.DoomBuilder.IO;
 
 namespace Builder.Tests
 {
-	public class ScriptCompileErrorTests
+	public class ScriptCompileErrorTests : IDisposable
 	{
+		private readonly string directory = Path.Combine(Path.GetTempPath(), "script-compile-" + Guid.NewGuid().ToString("N"));
+
+		public ScriptCompileErrorTests() { Directory.CreateDirectory(directory); }
+
+		public void Dispose() { Directory.Delete(directory, true); }
+
+		// Map Options flags a rebuild only when the compiler changed and there is a script lump to build
+		[Theory]
+		[InlineData("UZDoom_DoomUDMF.cfg", "zdoom_acc", "zt_bcc", true, true)]
+		[InlineData("UZDoom_DoomUDMF.cfg", "zdoom_acc", "zt_bcc", false, false)]
+		[InlineData("UZDoom_DoomUDMF.cfg", "", "zdoom_acc", false, false)]
+		[InlineData("UZDoom_DoomUDMF.cfg", "zdoom_acc", "zdoom_acc", true, false)]
+		[InlineData("Doom_Doom2Doom.cfg", "zdoom_acc", "zt_bcc", true, false)]
+		public void CompilerChangeRebuildsOnlyAScriptLumpThatExists(string configname, string oldcompiler, string newcompiler, bool hasscripts, bool expected)
+		{
+			List<string> names = new List<string> { "TEMPMAP", "TEXTMAP" };
+			if(hasscripts) names.Add("SCRIPTS");
+			names.Add("ENDMAP");
+			using(var wad = new WAD(Path.Combine(directory, Guid.NewGuid().ToString("N") + ".wad")))
+			{
+				for(int i = 0; i < names.Count; i++) wad.Insert(names[i], i, 0);
+				Dictionary<string, MapLumpInfo> lumps = LightmapRetentionTests.MapLumps(configname);
+				Assert.Equal(expected, MapManager.ScriptCompilerChangeNeedsRebuild(oldcompiler, newcompiler, lumps.Values, wad));
+			}
+		}
+
 		// Save Map's warning for a compile that ran but failed
 		[Fact]
 		public void LumpNameDropsQuestionMarkAndLineIsOneBased()

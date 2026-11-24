@@ -3145,6 +3145,15 @@ namespace CodeImp.DoomBuilder
 			return f.DialogResult == DialogResult.OK;
 		}
 
+		// A map with no script lump to build has nothing for a new compiler to rebuild
+		internal static bool ScriptCompilerChangeNeedsRebuild(string oldcompiler, string newcompiler, IEnumerable<MapLumpInfo> maplumps, WAD wad)
+		{
+			if(string.Equals(oldcompiler, newcompiler, StringComparison.Ordinal)) return false;
+			foreach(MapLumpInfo info in maplumps)
+				if(info.ScriptBuild && wad.FindLumpIndex(info.Name) != -1) return true;
+			return false;
+		}
+
 		// Game Configuration action
 		[BeginAction("mapoptions")]
 		internal void ShowMapOptions() 
@@ -3176,9 +3185,6 @@ namespace CodeImp.DoomBuilder
 					if(lightmapbake != null) lightmapstale = true;
 					ResetLightmapCache("the game configuration changed");
 				}
-
-				// A different script compiler must rebuild BEHAVIOR on the next Save Map
-				if(!string.Equals(options.ScriptCompiler, oldscriptcompiler, StringComparison.Ordinal)) scriptschanged = true;
 
 				// Load new game configuration
 				General.WriteLogLine("Loading game configuration \"" + options.ConfigFile + "\"...");
@@ -3217,6 +3223,9 @@ namespace CodeImp.DoomBuilder
 
 				// Create required lumps if they don't exist yet
 				CreateRequiredLumps(tempwadreader.WadFile, TEMP_MAP_HEADER);
+
+				// A different script compiler must rebuild BEHAVIOR on the next Save Map, when the map has a script lump to rebuild
+				if(ScriptCompilerChangeNeedsRebuild(oldscriptcompiler, options.ScriptCompiler, config.MapLumps.Values, tempwadreader.WadFile)) scriptschanged = true;
 
 				// Let the plugins know
 				General.Plugins.MapReconfigure();
