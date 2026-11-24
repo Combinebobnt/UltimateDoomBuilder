@@ -415,6 +415,7 @@ namespace CodeImp.DoomBuilder
 							General.MainWindow.DisplayStatus(StatusType.Warning, "Testing was canceled.");
 							canceled = true;
 						}
+						if (canceled) Cursor.Current = oldcursor;
 					}
 
 					// Check if there's a pre command to run, and try to execute it

@@ -179,7 +179,7 @@ namespace Builder.Tests
 		[InlineData(9500)]
 		public void FingerprintTracksEveryBakerThing(int type)
 		{
-			Assert.Contains(type, BakeFingerprint.BAKER_THING_TYPES);
+			Assert.True(BakeFingerprint.BAKER_THING_TYPES.Contains(type));
 			string others = Thing(3004, 40) + Thing(9876, 200);
 			string baseline = Fingerprint(GEOMETRY + Thing(type, 16, "angle = 0;\narg0 = 1;\n") + others);
 			Assert.NotNull(baseline);
@@ -201,8 +201,8 @@ namespace Builder.Tests
 		{
 			foreach(int spawn in new[] { 3001, 3002 })
 			{
-				Assert.Contains(spawn, BakeFingerprint.HEXEN_POLY_SPAWN_TYPES);
-				Assert.DoesNotContain(spawn, BakeFingerprint.BAKER_THING_TYPES);
+				Assert.True(BakeFingerprint.HEXEN_POLY_SPAWN_TYPES.Contains(spawn));
+				Assert.False(BakeFingerprint.BAKER_THING_TYPES.Contains(spawn));
 
 				// No anchor: Doom's Imp and Demon, moved, removed or added
 				string doom = Fingerprint(GEOMETRY + Thing(9876, 32) + Thing(spawn, 16, "angle = 1;\n"));
