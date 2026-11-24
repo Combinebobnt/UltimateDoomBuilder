@@ -109,6 +109,18 @@ namespace CodeImp.DoomBuilder.Editing
 		private bool geometrychanged;
 		private bool populationchanged;
 		
+		// A run gathering its undos into one level (macros). The level in flight when it began is
+		// parked, so a run that records nothing resumes it exactly and the redos stay untouched.
+		private UndoCompound compound;
+		private bool compoundrollback;
+		private bool compoundpreviouschanged;
+		private UndoSnapshot parkedsnapshot;
+		private bool parkedisredo;
+		private MemoryStream parkedstream;
+		private SerializerStream parkedss;
+		private int parkedcommands;
+		private MapElement parkedprops;
+
 		// Background thread
 		private volatile bool dobackgroundwork;
 		private Thread backgroundthread;
@@ -139,6 +151,8 @@ namespace CodeImp.DoomBuilder.Editing
 			{
 				if(isundosnapshot && (snapshot != null))
 					return snapshot;
+				else if((parkedsnapshot != null) && parkedisredo)
+					return parkedsnapshot;
 				else if(redos.Count > 0)
 					return redos[0];
 				else
@@ -175,6 +189,16 @@ namespace CodeImp.DoomBuilder.Editing
 		/// </summary>
 		public int DiscardedBranchCount { get { return branch.Count; } }
 
+		// True between BeginCompound and EndCompound or RollbackCompound
+		internal bool CompoundActive { get { return compound.Active; } }
+
+		// The run hit a cancel, an undo or redo, or a history clear; read before ending it
+		internal bool CompoundAborted { get { return compound.Aborted; } }
+		internal string CompoundAbortReason { get { return compound.AbortReason; } }
+
+		// The history was cleared under the run (a map switch), which also ended it
+		internal bool CompoundDropped { get { return compound.Dropped; } }
+
 		#endregion
 
 		#region ================== Events
@@ -183,6 +207,9 @@ namespace CodeImp.DoomBuilder.Editing
 		/// Raised after the discarded branch is stashed, swapped or dropped.
 		/// </summary>
 		public event EventHandler BranchChanged;
+
+		// Raised for every CreateUndo outside a compound run, grouped or not
+		internal event UndoCreatedHandler UndoRequested;
 
 		#endregion
 
@@ -196,6 +223,7 @@ namespace CodeImp.DoomBuilder.Editing
 			undos = new List<UndoSnapshot>(MAX_UNDO_LEVELS + 1);
 			redos = new List<UndoSnapshot>(MAX_UNDO_LEVELS + 1);
 			branch = new UndoBranchStash<UndoSnapshot>();
+			compound = new UndoCompound();
 
 			// Bind any methods
 			General.Actions.BindMethods(this);
@@ -233,6 +261,7 @@ namespace CodeImp.DoomBuilder.Editing
 
 				//mxd
 				if(snapshot != null) { snapshot.Dispose(); snapshot = null; }
+				if(parkedsnapshot != null) { parkedsnapshot.Dispose(); parkedsnapshot = null; parkedss = null; parkedstream = null; }
 				if(ss != null) { ss.Dispose(); ss = null; }
 				if(stream != null) { stream.Dispose(); stream = null; }
 				
@@ -296,8 +325,8 @@ namespace CodeImp.DoomBuilder.Editing
 			}
 		}
 
-		private int UndoLevelCount { get { return undos.Count + ((!isundosnapshot && (snapshot != null)) ? 1 : 0); } }
-		private int RedoLevelCount { get { return redos.Count + ((isundosnapshot && (snapshot != null)) ? 1 : 0); } }
+		private int UndoLevelCount { get { return undos.Count + ((!isundosnapshot && (snapshot != null)) ? 1 : 0) + (((parkedsnapshot != null) && !parkedisredo) ? 1 : 0); } }
+		private int RedoLevelCount { get { return redos.Count + ((isundosnapshot && (snapshot != null)) ? 1 : 0) + (((parkedsnapshot != null) && parkedisredo) ? 1 : 0); } }
 
 		// Moves the redo levels, in-flight one first, into the branch stash instead of disposing them.
 		// The caller raises BranchChanged once its own state change is complete.
@@ -601,9 +630,11 @@ namespace CodeImp.DoomBuilder.Editing
 		// This makes a list of the undo levels in order they will be undone
 		public List<UndoSnapshot> GetUndoList()
 		{
-			List<UndoSnapshot> list = new List<UndoSnapshot>(undos.Count + 1);
+			List<UndoSnapshot> list = new List<UndoSnapshot>(undos.Count + 2);
 			if(!isundosnapshot && (snapshot != null))
 				list.Add(snapshot);
+			if((parkedsnapshot != null) && !parkedisredo)
+				list.Add(parkedsnapshot);
 			list.AddRange(undos);
 			return list;
 		}
@@ -611,9 +642,11 @@ namespace CodeImp.DoomBuilder.Editing
 		// This makes a list of the redo levels in order they will be undone
 		public List<UndoSnapshot> GetRedoList()
 		{
-			List<UndoSnapshot> list = new List<UndoSnapshot>(redos.Count + 1);
+			List<UndoSnapshot> list = new List<UndoSnapshot>(redos.Count + 2);
 			if(isundosnapshot && (snapshot != null))
 				list.Add(snapshot);
+			if((parkedsnapshot != null) && parkedisredo)
+				list.Add(parkedsnapshot);
 			list.AddRange(redos);
 			return list;
 		}
@@ -621,6 +654,8 @@ namespace CodeImp.DoomBuilder.Editing
 		// This clears all redos. Plugins call it before CreateUndo, so the levels are stashed, not disposed.
 		public void ClearAllRedos()
 		{
+			// A run stashes the redos when it ends with changes, and must leave them alone when it ends without
+			if(compound.Active) return;
 			if(StashRedos()) RaiseBranchChanged();
 			General.MainWindow.UpdateInterface();
 		}
@@ -628,6 +663,7 @@ namespace CodeImp.DoomBuilder.Editing
 		// This clears all undos (mxd)
 		internal void ClearAllUndos()
 		{
+			DropCompound();
 			ClearUndos();
 			if(DropBranch("undo history cleared")) RaiseBranchChanged();
 			General.MainWindow.UpdateInterface();
@@ -636,6 +672,7 @@ namespace CodeImp.DoomBuilder.Editing
 		// Clears the redos without stashing them and drops the branch, which belongs to the previous map
 		internal void ClearAllRedosAndBranch()
 		{
+			DropCompound();
 			ClearRedos();
 			if(DropBranch("undo history cleared")) RaiseBranchChanged();
 			General.MainWindow.UpdateInterface();
@@ -661,7 +698,18 @@ namespace CodeImp.DoomBuilder.Editing
 		/// <returns>Ticket ID that identifies the created undo level. Returns -1 when no undo level was created.</returns>
 		public int CreateUndo(string description, object groupsource, int groupid, int grouptag)
 		{
-			//UndoSnapshot u;
+			// Inside a run everything records into the run's level
+			if(compound.Active)
+			{
+				General.WriteLogLine("Recording \"" + description + "\" into the compound undo level, Ticket ID " + compound.Ticket + ".");
+				compound.MarkCreate(commandswritten);
+				General.Map.IsChanged = true;
+				if(InteractionLog.Enabled) InteractionLog.UndoCreated(description, true);
+				return -1;
+			}
+
+			if(UndoRequested != null) UndoRequested(description);
+
 			Plugin p = null;
 			string groupsourcename = "Null";
 			
@@ -736,6 +784,17 @@ namespace CodeImp.DoomBuilder.Editing
 		// This removes a previously made undo
 		public void WithdrawUndo()
 		{
+			if(compound.Active)
+			{
+				// Nothing recorded since the step's CreateUndo: a failed precondition, so the run goes on.
+				// Otherwise a cancel: the runner rolls the whole run back once the step returns.
+				if(compound.OnWithdraw(commandswritten, "the step was cancelled") == UndoCompoundWithdraw.NoOp)
+					General.WriteLogLine("Withdrawn undo inside a compound run recorded nothing; ignored.");
+				else
+					General.WriteLogLine("Withdrawn undo inside a compound run; the run will be rolled back.");
+				return;
+			}
+
 			// Previously, withdrawing an undo level was possible, because each undo level contained
 			// an entire snapshot of the map. With the new progressive undo system, you cannot ignore
 			// any changes, so we have to actually perform the undo and trash the redo it creates.
@@ -768,6 +827,167 @@ namespace CodeImp.DoomBuilder.Editing
 			General.Plugins.OnUndoWithdrawn();
 		}
 		
+		// Opens one undo level that every CreateUndo records into until the run ends. The redos are
+		// stashed only when the run ends with changes, and grouping can't merge it with anything.
+		internal int BeginCompound(string description)
+		{
+			if(compound.Active) throw new InvalidOperationException("An undo compound is already active");
+
+			if(snapshot != null)
+			{
+				parkedsnapshot = snapshot;
+				parkedisredo = isundosnapshot;
+				parkedstream = stream;
+				parkedss = ss;
+				parkedcommands = commandswritten;
+				parkedprops = propsrecorded;
+				snapshot = null;
+				stream = null;
+				ss = null;
+			}
+
+			compoundpreviouschanged = General.Map.IsChanged;
+			lastgroupplugin = null;
+			if(++ticketid == int.MaxValue) ticketid = 1;
+			General.WriteLogLine("Creating compound undo snapshot \"" + description + "\", Ticket ID " + ticketid + "...");
+			StartRecording(description);
+			isundosnapshot = false;
+			compound.Begin(ticketid);
+			if(InteractionLog.Enabled) InteractionLog.UndoCreated(description, false);
+			return ticketid;
+		}
+
+		// Keeps the run's level, or discards it without playback when it recorded nothing
+		internal void EndCompound()
+		{
+			if(!compound.Active) return;
+			lastgroupplugin = null;
+
+			if(commandswritten == 0)
+			{
+				DiscardCompoundLevel();
+				ResumeParked();
+				General.Map.IsChanged = compoundpreviouschanged;
+				compound.End();
+				General.WriteLogLine("Compound undo level recorded nothing; discarded.");
+				General.MainWindow.UpdateInterface();
+				return;
+			}
+
+			CommitParked();
+			bool branchchanged = StashRedos();
+			lock(branch) branch.LevelCreated();
+			if(ValidateBranch()) branchchanged = true;
+			General.Map.IsChanged = true;
+			compound.End();
+
+			dobackgroundwork = true;
+			if(branchchanged) RaiseBranchChanged();
+			General.Plugins.OnUndoCreated();
+			General.MainWindow.UpdateInterface();
+		}
+
+		// Plays the run's level back and forgets it, leaving the history as it was before the run.
+		// Returns false when the playback was refused; the level then stays as an ordinary one.
+		internal bool RollbackCompound()
+		{
+			if(!compound.Active) return true;
+			ignorepropchanges = false;
+			if(commandswritten == 0) { EndCompound(); return true; }
+
+			compoundrollback = true;
+			try { PerformUndo(1, false); }
+			finally { compoundrollback = false; }
+
+			// PerformUndo leaves the run's redo in flight when it ran
+			if(!isundosnapshot || (snapshot == null))
+			{
+				General.WriteLogLine("Rolling back the compound undo level was refused; it stays as an undo level.");
+				EndCompound();
+				return false;
+			}
+
+			DiscardCompoundLevel();
+			isundosnapshot = false;
+			ResumeParked();
+			General.Map.IsChanged = compoundpreviouschanged;
+			compound.End();
+			General.WriteLogLine("Compound undo level rolled back.");
+			General.MainWindow.UpdateInterface();
+			return true;
+		}
+
+		// After an exception escaped a rollback: keep whatever is in flight as an ordinary level
+		internal void AbandonCompound()
+		{
+			if(!compound.Active) return;
+			if(!isundosnapshot) { EndCompound(); return; }
+			CommitParked();
+			compound.End();
+			General.MainWindow.UpdateInterface();
+		}
+
+		// A history clear under a run ends it with nothing to keep or roll back
+		private void DropCompound()
+		{
+			if(!compound.Active) return;
+			General.WriteLogLine("Undo history cleared during a compound run; the run stops.");
+			compound.Drop();
+			CommitParked();
+			compound.End();
+		}
+
+		private void DiscardCompoundLevel()
+		{
+			FinishRecording();
+			if(snapshot != null) snapshot.Dispose();
+			snapshot = null;
+			stream = null;
+		}
+
+		// The parked level becomes the in-flight one again, its stream still open
+		private void ResumeParked()
+		{
+			if(parkedsnapshot == null) return;
+			snapshot = parkedsnapshot;
+			isundosnapshot = parkedisredo;
+			stream = parkedstream;
+			ss = parkedss;
+			commandswritten = parkedcommands;
+			propsrecorded = parkedprops;
+			ClearParked();
+		}
+
+		// The parked level is finished and goes on top of its stack, under the run's level
+		private void CommitParked()
+		{
+			if(parkedsnapshot == null) return;
+			if((parkedstream != null) && (parkedss != null))
+			{
+				parkedss.wInt(parkedcommands);
+				parkedss.End();
+			}
+
+			List<UndoSnapshot> list = parkedisredo ? redos : undos;
+			lock(list)
+			{
+				if(list.Count > 0) list[0].StoreOnDisk = true;
+				list.Insert(0, parkedsnapshot);
+				LimitUndoRedoLevel(list);
+			}
+			ClearParked();
+			dobackgroundwork = true;
+		}
+
+		private void ClearParked()
+		{
+			parkedsnapshot = null;
+			parkedstream = null;
+			parkedss = null;
+			parkedcommands = 0;
+			parkedprops = null;
+		}
+
 		// This performs an undo
 		[BeginAction("undo")]
 		public void PerformUndo()
@@ -779,6 +999,12 @@ namespace CodeImp.DoomBuilder.Editing
 		public void PerformUndo(int levels) { PerformUndo(levels, true); }
 		private void PerformUndo(int levels, bool showmessage)
 		{
+			if(compound.Active && !compoundrollback)
+			{
+				compound.Abort("an undo was requested");
+				return;
+			}
+
 			changeversion++;
 			UndoSnapshot u = null;
 			Cursor oldcursor = Cursor.Current;
@@ -882,7 +1108,7 @@ namespace CodeImp.DoomBuilder.Editing
 							// Done with this snapshot
 							u = null;
 							levelsundone++;
-							lock(branch) branch.LevelUndone();
+							if(!compoundrollback) lock(branch) branch.LevelUndone();
 						}
 							
 						General.Map.Map.EndAddRemove();
@@ -932,6 +1158,12 @@ namespace CodeImp.DoomBuilder.Editing
 		public void PerformRedo(int levels) { PerformRedo(levels, true); }
 		private void PerformRedo(int levels, bool showmessage)
 		{
+			if(compound.Active)
+			{
+				compound.Abort("a redo was requested");
+				return;
+			}
+
 			changeversion++;
 			UndoSnapshot r = null;
 			Cursor oldcursor = Cursor.Current;

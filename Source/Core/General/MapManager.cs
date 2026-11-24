@@ -250,6 +250,7 @@ namespace CodeImp.DoomBuilder
 			{
 				// Let the plugins know
 				General.Plugins.OnMapCloseBegin();
+				if(General.Macros != null) General.Macros.OnMapClosing();
 
 				// Stop autosaving
 				General.AutoSaver.StopTimer();

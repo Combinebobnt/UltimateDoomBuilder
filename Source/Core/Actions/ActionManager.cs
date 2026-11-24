@@ -57,6 +57,11 @@ namespace CodeImp.DoomBuilder.Actions
         // Exclusive invokation
         private bool exclusiverequested;
 
+        // Macro recording: user-input nesting, action delegate nesting and the key that began each active action
+        private int userscope;
+        private Dictionary<Action, int> triggerkeys;
+        private Dictionary<Action, int> TriggerKeys { get { return triggerkeys ?? (triggerkeys = new Dictionary<Action, int>()); } }
+
         // Disposing
         private bool isdisposed;
 
@@ -73,6 +78,9 @@ namespace CodeImp.DoomBuilder.Actions
         /// Current executing action. This returns Null when no action is invoked.
         /// </summary>
         public Action Current { get { return currentaction; } internal set { currentaction = value; } }
+
+        // Raised after an action invoked from user input returns
+        internal event ActionInvokedHandler ActionInvoked;
 
         #endregion
 
@@ -420,10 +428,35 @@ namespace CodeImp.DoomBuilder.Actions
         {
             if (Exists(actionname))
             {
-                actions[actionname].Invoke();
+                Action a = actions[actionname];
+                int depth = Action.DelegateDepth;
+                bool volatilebefore = VolatileModeActive();
+                a.Invoke();
+                RaiseActionInvoked(a, 0, depth, volatilebefore);
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Invokes an action on behalf of the user (a button or menu click), so a macro being recorded can include it.
+        /// </summary>
+        public bool InvokeUserAction(string actionname)
+        {
+            userscope++;
+            try { return InvokeAction(actionname); }
+            finally { userscope--; }
+        }
+
+        private static bool VolatileModeActive()
+        {
+            return (General.Editing != null) && (General.Editing.Mode != null) && General.Editing.Mode.Attributes.Volatile;
+        }
+
+        private void RaiseActionInvoked(Action a, int key, int depthatentry, bool volatilebefore)
+        {
+            if ((userscope > 0) && (ActionInvoked != null))
+                ActionInvoked(new ActionInvokedArgs(a, key, depthatentry, volatilebefore));
         }
 
         #endregion
@@ -501,6 +534,13 @@ namespace CodeImp.DoomBuilder.Actions
         // Returns true when the key press has been absorbed
         internal bool KeyPressed(int key)
         {
+            userscope++;
+            try { return KeyPressedCore(key); }
+            finally { userscope--; }
+        }
+
+        private bool KeyPressedCore(int key)
+        {
             int strippedkey = key & ~((int)Keys.Alt | (int)Keys.Shift | (int)Keys.Control);
             if ((strippedkey == (int)Keys.ShiftKey) || (strippedkey == (int)Keys.ControlKey) || (strippedkey == (int)Keys.Alt)) key = strippedkey;
             bool repeat = pressedkeys.Contains(strippedkey);
@@ -515,7 +555,7 @@ namespace CodeImp.DoomBuilder.Actions
             // Add action to active list
             Action[] acts = GetActionsByKey(key);
             bool absorbed = acts.Length > 0;
-            foreach (Action a in acts) if (!activeactions.Contains(a)) activeactions.Add(a);
+            foreach (Action a in acts) if (!activeactions.Contains(a)) { activeactions.Add(a); TriggerKeys[a] = key; }
             if (InteractionLog.Enabled) foreach (Action a in acts) if (!a.BeginBound) InteractionLog.KeyTrigger(a, key);
 
             // Invoke actions
@@ -534,7 +574,9 @@ namespace CodeImp.DoomBuilder.Actions
             if (pressedkeys.Contains(strippedkey)) pressedkeys.Remove(strippedkey);
 
             // End actions that no longer match
-            return EndActiveActions();
+            userscope++;
+            try { return EndActiveActions(); }
+            finally { userscope--; }
         }
 
         // This releases all pressed keys
@@ -544,7 +586,9 @@ namespace CodeImp.DoomBuilder.Actions
             pressedkeys.Clear();
 
             // End actions
-            EndActiveActions();
+            userscope++;
+            try { EndActiveActions(); }
+            finally { userscope--; }
         }
 
         // This updates the modifiers
@@ -554,7 +598,9 @@ namespace CodeImp.DoomBuilder.Actions
             modifiers = mods;
 
             // End actions that no longer match
-            EndActiveActions();
+            userscope++;
+            try { EndActiveActions(); }
+            finally { userscope--; }
         }
 
         // This will call the associated actions for a keypress
@@ -582,7 +628,10 @@ namespace CodeImp.DoomBuilder.Actions
                         // Invoke action
                         begunactions.Add(a);
                         if (InteractionLog.Enabled) InteractionLog.KeyTrigger(a, key);
+                        int depth = Action.DelegateDepth;
+                        bool volatilebefore = VolatileModeActive();
                         a.Begin();
+                        RaiseActionInvoked(a, key, depth, volatilebefore);
                     }
                     else
                     {
@@ -626,7 +675,13 @@ namespace CodeImp.DoomBuilder.Actions
                         activeactions.RemoveAt(i);
                         begunactions.Remove(a);
                         listchanged = true;
+                        int key;
+                        if (TriggerKeys.TryGetValue(a, out key)) TriggerKeys.Remove(a);
+                        bool endonly = !a.BeginBound && a.EndBound;
+                        int depth = Action.DelegateDepth;
+                        bool volatilebefore = VolatileModeActive();
                         a.End();
+                        if (endonly) RaiseActionInvoked(a, key, depth, volatilebefore);
                         break;
                     }
                 }

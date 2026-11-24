@@ -42,7 +42,7 @@ namespace Builder.Tests
 		public void DefaultIsOneTopRowInTodaysOrderWithModesOppositeDockers()
 		{
 			ToolbarLayoutModel m = ToolbarLayoutModel.Default();
-			Assert.Equal("file,script,undo,clipboard,prefabs,filters,view,geometry,rendering,testing", Join(m.Rows(TOP, 0)));
+			Assert.Equal("file,script,undo,clipboard,prefabs,filters,view,geometry,rendering,testing,macros", Join(m.Rows(TOP, 0)));
 			Assert.Equal(ToolbarLayoutModel.EDGE_AUTO, m.Get("modes").Edge);
 			Assert.Equal(RIGHT, ToolbarLayoutModel.ResolveEdge(m.Get("modes").Edge, 0)); // Dockers left
 			Assert.Equal(LEFT, ToolbarLayoutModel.ResolveEdge(m.Get("modes").Edge, 1)); // Dockers right
@@ -126,7 +126,7 @@ namespace Builder.Tests
 			Assert.Equal(1, m.Get("modes").Row); // Bottom rows stay in order
 
 			// Invalid and missing strips go after what is on the top row, in default order
-			Assert.Equal("clipboard,rendering,script,undo,prefabs,filters,view,geometry,testing", Join(m.Rows(TOP, 0)));
+			Assert.Equal("clipboard,rendering,script,undo,prefabs,filters,view,geometry,testing,macros", Join(m.Rows(TOP, 0)));
 			Assert.Equal("", Join(m.Rows(LEFT, 0)));
 		}
 

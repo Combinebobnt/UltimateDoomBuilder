@@ -235,6 +235,7 @@ namespace CodeImp.DoomBuilder.Windows
 				configlabel.Size = new Size((int)(280 * DPIScaler.Width), (int)(18 * DPIScaler.Height));
 			}
 
+			SetupMacroInterface();
 			SetupToolbarDock();
 
 			pluginbuttons = new List<PluginToolbarButton>();
@@ -450,6 +451,7 @@ namespace CodeImp.DoomBuilder.Windows
 			toolbardock.AddStrip("rendering", null, "Rendering", dynamiclightmode, modelrendermode, buttontogglefog, buttontoggleanimatedtextures,
 				buttontogglematerials, buttontogglesky, buttontoggleeventlines, buttontogglevisualvertices, separatorgzmodes);
 			toolbardock.AddStrip("testing", null, "Testing", buttontest, seperatortesting);
+			toolbardock.AddStrip("macros", null, "Macros", buttonmacrorecord, buttonmacrorun);
 			toolbardock.AddStrip(ToolbarLayoutModel.MODES, modestoolbar, "Editing Modes");
 			toolbardock.Install(display, dockersspace, flowLayoutPanel, panelinfo);
 			toolbardock.EdgesResized += delegate { PlaceDockers(); };
@@ -549,9 +551,9 @@ namespace CodeImp.DoomBuilder.Windows
 			this.Update();
 			
 			if(sender is ToolStripItem)
-				General.Actions.InvokeAction(((ToolStripItem)sender).Tag.ToString());
+				General.Actions.InvokeUserAction(((ToolStripItem)sender).Tag.ToString());
 			else if(sender is Control)
-				General.Actions.InvokeAction(((Control)sender).Tag.ToString());
+				General.Actions.InvokeUserAction(((Control)sender).Tag.ToString());
 			else
 				General.Fail("InvokeTaggedAction used on an unexpected control.");
 			
@@ -2322,6 +2324,7 @@ namespace CodeImp.DoomBuilder.Windows
 			buttonsplitjoinedsectors.Checked = General.Settings.SplitJoinedSectors; //mxd
 			buttonautoclearsidetextures.Visible = General.Settings.ToolbarGeometry && maploaded; //mxd
 			buttontest.Visible = General.Settings.ToolbarTesting && maploaded;
+			UpdateMacroInterface();
 			buttontoggleclassicrendering.Visible = General.Settings.ToolbarViewModes && maploaded;
 
 			//mxd
@@ -2474,7 +2477,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.Update();
 			EditModeInfo modeinfo = (EditModeInfo)((sender as ToolStripItem).Tag);
 			string ilogprevious = InteractionLog.BeginAmbient(InteractionLog.Enabled ? InteractionLog.TriggerFor(sender) : null);
-			try { General.Actions.InvokeAction(modeinfo.SwitchAction.GetFullActionName(modeinfo.Plugin.Assembly)); }
+			try { General.Actions.InvokeUserAction(modeinfo.SwitchAction.GetFullActionName(modeinfo.Plugin.Assembly)); }
 			finally { InteractionLog.EndAmbient(ilogprevious); }
 			this.Update();
 		}
@@ -2547,6 +2550,7 @@ namespace CodeImp.DoomBuilder.Windows
 			toggleGeometry.Image = General.Settings.ToolbarGeometry ? Resources.Check : null;
 			toggleTesting.Image = General.Settings.ToolbarTesting ? Resources.Check : null;
 			toggleRendering.Image = General.Settings.GZToolbarGZDoom ? Resources.Check : null;
+			toggleMacros.Image = General.Settings.ToolbarMacros ? Resources.Check : null;
 		}
 
 		private void toolbarContextMenu_Closing(object sender, ToolStripDropDownClosingEventArgs e) 

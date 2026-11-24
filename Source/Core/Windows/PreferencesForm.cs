@@ -51,6 +51,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private bool reloadresources;
 		private static string[] fontnames;
+		private CheckBox toolbar_macros;
 
 		// Degrees per FOV slider tick; the Designer's Minimum/Maximum are in ticks
 		private const int FOV_STEP = 5;
@@ -71,7 +72,13 @@ namespace CodeImp.DoomBuilder.Windows
 			// Initialize
 			InitializeComponent();
 			if(UITiming.Enabled) UITiming.Mark(this, "initialize-component");
-			
+
+			// A third column beside the designer's toolbar checkboxes
+			toolbar_macros = new CheckBox { AutoSize = true, Name = "toolbar_macros", Text = "Macros", UseVisualStyleBackColor = true };
+			int column3 = Math.Max(Math.Max(toolbar_filter.Right, toolbar_viewmodes.Right), Math.Max(Math.Max(toolbar_geometry.Right, toolbar_testing.Right), toolbar_gzdoom.Right)) + 8;
+			toolbar_macros.Location = new Point(column3, toolbar_filter.Top);
+			groupBox5.Controls.Add(toolbar_macros);
+
 			// Interface
 			imagebrightness.Value = General.Settings.ImageBrightness;
 			doublesidedalpha.Value = General.Clamp((int)Math.Round((1.0f - General.Settings.DoubleSidedAlpha) * 10.0f), doublesidedalpha.Minimum, doublesidedalpha.Maximum);
@@ -99,6 +106,7 @@ namespace CodeImp.DoomBuilder.Windows
 			toolbar_viewmodes.Checked = General.Settings.ToolbarViewModes;
 			toolbar_geometry.Checked = General.Settings.ToolbarGeometry;
 			toolbar_testing.Checked = General.Settings.ToolbarTesting;
+			toolbar_macros.Checked = General.Settings.ToolbarMacros;
 			showtexturesizes.Checked = General.Settings.ShowTextureSizes;
             texturesizesbelow.Checked = General.Settings.TextureSizesBelow;
 			cbShowFPS.Checked = General.Settings.ShowFPS;
@@ -389,6 +397,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Settings.ToolbarViewModes = toolbar_viewmodes.Checked;
 			General.Settings.ToolbarGeometry = toolbar_geometry.Checked;
 			General.Settings.ToolbarTesting = toolbar_testing.Checked;
+			General.Settings.ToolbarMacros = toolbar_macros.Checked;
 			General.Settings.GZToolbarGZDoom = toolbar_gzdoom.Checked; //mxd
 			General.Settings.ShowTextureSizes = showtexturesizes.Checked;
             General.Settings.TextureSizesBelow = texturesizesbelow.Checked; // [ZZ]

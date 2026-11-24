@@ -524,7 +524,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void create_Click(object sender, EventArgs e)
 		{
-			General.Actions.InvokeAction("buildermodes_createportal");
+			General.Actions.InvokeUserAction("buildermodes_createportal");
 		}
 
 		private void align_Click(object sender, EventArgs e)

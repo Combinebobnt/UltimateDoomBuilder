@@ -51,6 +51,9 @@ namespace CodeImp.DoomBuilder.Actions
 		private readonly bool disregardalt; //mxd
 		private readonly bool repeat;
 		
+		// How many Begin/End calls are running right now, across all actions
+		private static int delegatedepth;
+
 		// Delegate
 		private readonly List<ActionDelegate> begindelegates;
 		private readonly List<ActionDelegate> enddelegates;
@@ -79,6 +82,7 @@ namespace CodeImp.DoomBuilder.Actions
 		public bool Repeat { get { return repeat; } }
 		public bool BeginBound { get { return (begindelegates.Count > 0); } }
 		public bool EndBound { get { return (enddelegates.Count > 0); } }
+		internal static int DelegateDepth { get { return delegatedepth; } }
 		
 		#endregion
 
@@ -279,10 +283,15 @@ namespace CodeImp.DoomBuilder.Actions
 		// This raises events for this action
 		internal void Begin()
 		{
-			if(!InteractionLog.Enabled) { RaiseBegin(); return; }
-			InteractionLog.Tracker.BeginEnter(this, name);
-			try { RaiseBegin(); }
-			finally { InteractionLog.Tracker.BeginExit(this); }
+			delegatedepth++;
+			try
+			{
+				if(!InteractionLog.Enabled) { RaiseBegin(); return; }
+				InteractionLog.Tracker.BeginEnter(this, name);
+				try { RaiseBegin(); }
+				finally { InteractionLog.Tracker.BeginExit(this); }
+			}
+			finally { delegatedepth--; }
 		}
 
 		private void RaiseBegin()
@@ -307,10 +316,15 @@ namespace CodeImp.DoomBuilder.Actions
 		// This raises events for this action
 		internal void End()
 		{
-			if(!InteractionLog.Enabled || (enddelegates.Count == 0 && !InteractionLog.Tracker.IsOpen(this))) { RaiseEnd(); return; }
-			InteractionLog.Tracker.EndEnter(this, name);
-			try { RaiseEnd(); }
-			finally { InteractionLog.Tracker.EndExit(this); }
+			delegatedepth++;
+			try
+			{
+				if(!InteractionLog.Enabled || (enddelegates.Count == 0 && !InteractionLog.Tracker.IsOpen(this))) { RaiseEnd(); return; }
+				InteractionLog.Tracker.EndEnter(this, name);
+				try { RaiseEnd(); }
+				finally { InteractionLog.Tracker.EndExit(this); }
+			}
+			finally { delegatedepth--; }
 		}
 
 		private void RaiseEnd()

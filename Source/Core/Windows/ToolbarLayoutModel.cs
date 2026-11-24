@@ -70,7 +70,7 @@ namespace CodeImp.DoomBuilder.Windows
 		public const string FILTERS = "filters";
 
 		// Default order along the top row; also the settings keys
-		public static readonly string[] IDS = { "file", "script", "undo", "clipboard", "prefabs", FILTERS, "view", "geometry", "rendering", "testing", MODES };
+		public static readonly string[] IDS = { "file", "script", "undo", "clipboard", "prefabs", FILTERS, "view", "geometry", "rendering", "testing", "macros", MODES };
 
 		// Distance from a window edge, in pixels, within which a drop docks to that edge
 		public const int EDGE_SNAP = 24;

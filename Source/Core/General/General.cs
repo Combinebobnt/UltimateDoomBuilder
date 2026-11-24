@@ -36,6 +36,7 @@ using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.IO;
+using CodeImp.DoomBuilder.Macros;
 using CodeImp.DoomBuilder.Map;
 using CodeImp.DoomBuilder.Plugins;
 using CodeImp.DoomBuilder.Rendering;
@@ -219,6 +220,7 @@ namespace CodeImp.DoomBuilder
 		private static EditingManager editing;
 		private static ActionManager actions;
 		private static HintsManager hints; //mxd
+		private static MacroManager macros;
 		private static PluginManager plugins;
 		private static ColorCollection colors;
 		private static TypesManager types;
@@ -299,6 +301,7 @@ namespace CodeImp.DoomBuilder
 		public static MapManager Map { get { return map; } }
 		public static ActionManager Actions { get { return actions; } }
 		public static HintsManager Hints { get { return hints; } } //mxd
+		internal static MacroManager Macros { get { return macros; } }
 		internal static PluginManager Plugins { get { return plugins; } }
 		public static bool DebugBuild { get { return debugbuild; } }
 		public static TypesManager Types { get { return types; } }
@@ -752,6 +755,9 @@ namespace CodeImp.DoomBuilder
 				//mxd. Create hints manager
 				hints = new HintsManager();
 
+				// Macros bind their actions and listen to every invocation
+				macros = new MacroManager();
+
 				// Initialize static classes
 				MapSet.Initialize();
 
@@ -1148,6 +1154,7 @@ namespace CodeImp.DoomBuilder
 				
 				// Clean up
 				if(map != null) { map.Dispose(); map = null; }
+				if(macros != null) { macros.Dispose(); macros = null; }
 				if(editing != null) { editing.Dispose(); editing = null; }
 				if(plugins != null) { plugins.Dispose(); plugins = null; }
 				if(clipboardhistory != null) { clipboardhistory.Clear(); clipboardhistory = null; }
@@ -1404,6 +1411,7 @@ namespace CodeImp.DoomBuilder
 
 			// Let the plugins know
 			plugins.OnMapCloseBegin();
+			macros.OnMapClosing();
 
 			// Clear the display
 			mainwindow.ClearDisplay();

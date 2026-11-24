@@ -225,25 +225,25 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		private void fliph_Click(object sender, EventArgs e)
 		{
-			General.Actions.InvokeAction("buildermodes_flipselectionh");
+			General.Actions.InvokeUserAction("buildermodes_flipselectionh");
 			General.Interface.FocusDisplay();
 		}
 
 		private void flipv_Click(object sender, EventArgs e)
 		{
-			General.Actions.InvokeAction("buildermodes_flipselectionv");
+			General.Actions.InvokeUserAction("buildermodes_flipselectionv");
 			General.Interface.FocusDisplay();
 		}
 
 		private void rotccw_Click(object sender, EventArgs e)
 		{
-			General.Actions.InvokeAction("buildermodes_rotateselection90ccw");
+			General.Actions.InvokeUserAction("buildermodes_rotateselection90ccw");
 			General.Interface.FocusDisplay();
 		}
 
 		private void rotcw_Click(object sender, EventArgs e)
 		{
-			General.Actions.InvokeAction("buildermodes_rotateselection90cw");
+			General.Actions.InvokeUserAction("buildermodes_rotateselection90cw");
 			General.Interface.FocusDisplay();
 		}
 

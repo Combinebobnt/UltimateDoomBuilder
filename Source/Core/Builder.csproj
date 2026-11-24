@@ -314,12 +314,18 @@
     <Compile Include="Editing\ThingsFilter.cs" />
     <Compile Include="Editing\ThingsFilterRule.cs" />
     <Compile Include="Editing\UndoBranchStash.cs" />
+    <Compile Include="Editing\UndoCompound.cs" />
+    <Compile Include="Macros\Macro.cs" />
+    <Compile Include="Macros\MacroManager.cs" />
+    <Compile Include="Macros\MacroRecording.cs" />
+    <Compile Include="Macros\MacroStore.cs" />
     <Compile Include="Editing\UndoManager.cs" />
     <Compile Include="Editing\UndoSnapshot.cs" />
     <Compile Include="Editing\ClassicMode.cs" />
     <Compile Include="Actions\ActionDelegate.cs" />
     <Compile Include="Actions\Action.cs" />
     <Compile Include="Actions\ActionManager.cs" />
+    <Compile Include="Actions\ActionInvokedArgs.cs" />
     <Compile Include="Config\CompilerInfo.cs" />
     <Compile Include="Config\ConfigurationInfo.cs" />
     <Compile Include="Controls\PairedFloatControl.cs">
@@ -1340,6 +1346,16 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Windows\SettingsPathRemapForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\MacroEditForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\MacroManagerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Windows\MainForm.Macros.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Windows\SettingsTransferForm.cs">
