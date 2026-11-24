@@ -228,21 +228,12 @@ namespace CodeImp.DoomBuilder.Actions
             for (int i = 0; i < methodsCount; i++)
             {
                 MethodInfo m = methods[i];
-                // Check if the method has this attribute
-                ActionAttribute[] attrs = (ActionAttribute[])methods[i].GetCustomAttributes(typeof(BeginActionAttribute), true);
 
-                int attrsCount = attrs.Length;
-                // Go for all attributes
-                //foreach(ActionAttribute a in attrs)
-                for (int j = 0; j < attrsCount; j++)
+                // Go for all action names this method begins
+                foreach (string actionname in GetActionNames(m, typeof(BeginActionAttribute), type.Assembly))
                 {
-                    ActionAttribute a = attrs[j];
-
                     // Create a delegate for this method
                     ActionDelegate del = (ActionDelegate)Delegate.CreateDelegate(typeof(ActionDelegate), obj, m);
-
-                    // Make proper name
-                    string actionname = a.GetFullActionName(type.Assembly);
 
                     // Bind method to action
                     if (Exists(actionname))
@@ -251,20 +242,11 @@ namespace CodeImp.DoomBuilder.Actions
                         throw new ArgumentException("Could not bind " + m.ReflectedType.Name + "." + m.Name + " to action \"" + actionname + "\", that action does not exist! Refer to, or edit Actions.cfg for all available application actions.");
                 }
 
-                // Check if the method has this attribute
-                attrs = (ActionAttribute[])m.GetCustomAttributes(typeof(EndActionAttribute), true);
-                attrsCount = attrs.Length;
-                // Go for all attributes
-                //foreach (ActionAttribute a in attrs)
-                for (int j = 0; j < attrsCount; j++)
+                // Go for all action names this method ends
+                foreach (string actionname in GetActionNames(m, typeof(EndActionAttribute), type.Assembly))
                 {
-                    ActionAttribute a = attrs[j];
-
                     // Create a delegate for this method
                     ActionDelegate del = (ActionDelegate)Delegate.CreateDelegate(typeof(ActionDelegate), obj, m);
-
-                    // Make proper name
-                    string actionname = a.GetFullActionName(type.Assembly);
 
                     // Bind method to action
                     if (Exists(actionname))
@@ -330,44 +312,40 @@ namespace CodeImp.DoomBuilder.Actions
             for(int i = 0; i < methodsCount; i++)
             {
                 MethodInfo m = methods[i];
-                // Check if the method has this attribute
-                ActionAttribute[] attrs = (ActionAttribute[])m.GetCustomAttributes(typeof(BeginActionAttribute), true);
 
-                // Go for all attributes
-                //foreach (ActionAttribute a in attrs)
-                int attrsCount = attrs.Length;
-                for(int j = 0; j < attrsCount; j++)
+                // Go for all action names this method begins
+                foreach (string actionname in GetActionNames(m, typeof(BeginActionAttribute), type.Assembly))
                 {
-                    ActionAttribute a = attrs[j];
                     // Create a delegate for this method
                     ActionDelegate del = (ActionDelegate)Delegate.CreateDelegate(typeof(ActionDelegate), obj, m);
-
-                    // Make proper name
-                    string actionname = a.GetFullActionName(type.Assembly);
 
                     // Unbind method from action
                     actions[actionname].UnbindBegin(del);
                 }
 
-                // Check if the method has this attribute
-                attrs = (ActionAttribute[])m.GetCustomAttributes(typeof(EndActionAttribute), true);
-
-                // Go for all attributes
-                //foreach (ActionAttribute a in attrs)
-                attrsCount = attrs.Length;
-                for (int j = 0; j < attrsCount; j++)
+                // Go for all action names this method ends
+                foreach (string actionname in GetActionNames(m, typeof(EndActionAttribute), type.Assembly))
                 {
-                    ActionAttribute a = attrs[j];
                     // Create a delegate for this method
                     ActionDelegate del = (ActionDelegate)Delegate.CreateDelegate(typeof(ActionDelegate), obj, m);
-
-                    // Make proper name
-                    string actionname = a.GetFullActionName(type.Assembly);
 
                     // Unbind method from action
                     actions[actionname].UnbindEnd(del);
                 }
             }
+        }
+
+        // The full action names of a method's attributes of this type, each once. Mono repeats an
+        // inherited attribute of a virtual method reached through a subclass that doesn't override it.
+        internal static List<string> GetActionNames(MethodInfo m, Type attributetype, Assembly asm)
+        {
+            List<string> names = new List<string>();
+            foreach (ActionAttribute a in m.GetCustomAttributes(attributetype, true))
+            {
+                string actionname = a.GetFullActionName(asm);
+                if (!names.Contains(actionname)) names.Add(actionname);
+            }
+            return names;
         }
 
         // This unbinds a delegate manually
