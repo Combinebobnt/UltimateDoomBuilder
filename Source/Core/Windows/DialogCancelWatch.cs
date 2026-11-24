@@ -20,12 +20,15 @@ namespace CodeImp.DoomBuilder.Windows
 			Control cancel = form.CancelButton as Control;
 			if(cancel == null) return;
 
-			bool clicked = false;
-			cancel.Click += (s, e) => clicked = true;
-			form.FormClosed += (s, e) =>
-			{
-				if(clicked && (Cancelled != null)) Cancelled(form, EventArgs.Empty);
-			};
+			// Either order: a Click handler calling Close() fires FormClosed before this Click handler on Mono
+			bool clicked = false, closed = false;
+			cancel.Click += (s, e) => { clicked = true; if(closed) Report(form); };
+			form.FormClosed += (s, e) => { closed = true; if(clicked) Report(form); };
+		}
+
+		private static void Report(Form form)
+		{
+			if(Cancelled != null) Cancelled(form, EventArgs.Empty);
 		}
 	}
 }

@@ -9,7 +9,7 @@ namespace Builder.Tests
 	// A macro run stops on a cancelled dialog: missing a Cancel lets the run go on, a false one rolls back an OK
 	public class DialogCancelWatchTests
 	{
-		private enum Ending { CancelButton, OkThenClose, OkWithResult }
+		private enum Ending { CancelButton, CancelThenClose, OkThenClose, OkWithResult }
 
 		private static int CancelsReported(Ending how, bool fadein = false)
 		{
@@ -29,6 +29,8 @@ namespace Builder.Tests
 					// The two OK paths upstream dialogs use: Close() alone, or a set result
 					if(how == Ending.OkWithResult) ok.DialogResult = DialogResult.OK;
 					else ok.Click += (s, e) => form.Close();
+					// A designer Cancel handler calling Close() runs before the watch's own: on Mono FormClosed fires inside it
+					if(how == Ending.CancelThenClose) cancel.Click += (s, e) => form.Close();
 
 					failsafe.Tick += (s, e) => { failsafe.Stop(); form.Close(); };
 					// DelayedForm's fade-in: shown at 0% opacity, raised to 100% in OnLoad
@@ -41,7 +43,7 @@ namespace Builder.Tests
 						form.BeginInvoke(new MethodInvoker(() =>
 						{
 							// Escape reaches the same PerformClick through ProcessDialogKey
-							if(how == Ending.CancelButton) cancel.PerformClick();
+							if((how == Ending.CancelButton) || (how == Ending.CancelThenClose)) cancel.PerformClick();
 							else ok.PerformClick();
 						}));
 					};
@@ -61,6 +63,8 @@ namespace Builder.Tests
 			Assert.Equal(0, CancelsReported(Ending.OkWithResult));
 			Assert.Equal(1, CancelsReported(Ending.CancelButton, true));
 			Assert.Equal(0, CancelsReported(Ending.OkThenClose, true));
+			Assert.Equal(1, CancelsReported(Ending.CancelThenClose));
+			Assert.Equal(1, CancelsReported(Ending.CancelThenClose, true));
 		}
 	}
 }
