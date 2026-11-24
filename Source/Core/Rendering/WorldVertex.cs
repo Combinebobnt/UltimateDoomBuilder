@@ -117,6 +117,24 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.light = this.rel = this.foglight = this.lit = 0;
 		}
 
+		// Constructor with a packed light (LightModel.PackLight)
+		public WorldVertex(Vector3D p, int c, Vector2D t, int packedlight) : this(p, c, t)
+		{
+			SetLight(packedlight);
+		}
+
+		// Sets the light attribute from a packed light (LightModel.PackLight), 0 for "c is final"
+		public void SetLight(int packed)
+		{
+			light = (byte)packed;
+			rel = (byte)(packed >> 8);
+			foglight = (byte)(packed >> 16);
+			lit = (byte)(packed >> 24);
+		}
+
+		// The packed light, as SetLight takes it
+		public int PackedLight { get { return light | (rel << 8) | (foglight << 16) | (lit << 24); } }
+
 		// Constructor
 		/*public WorldVertex(float x, float y, float z, float u, float v)
 		{

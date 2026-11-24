@@ -122,7 +122,7 @@ void main()
 				if(!source.Contains("ProcessLight")) fragment.AppendLine("vec4 ProcessLight(Material material, vec4 color) { return color; }");
 			}
 			fragment.AppendLine("void main() {");
-			fragment.AppendLine("vec4 baseLight = useVertexColorUniform > 0.0 ? vertexColor : Color;");
+			fragment.AppendLine("vec4 baseLight = useVertexColorUniform > 0.0 ? sectorLight(vertexColor, lightoverride, PosW) : sectorLight(Color, vSectorLight, PosW);");
 			fragment.AppendLine("baseLight = addWallGlow(baseLight, PosW);");
 			if(dialect == UserShaderDialect.Zandronum)
 			{

@@ -139,7 +139,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 				// A 3D floor's color is always that of the sector it is placed in
 				// (unless it's affected by glow) - mxd
-				if(sd.CeilingGlow == null || !sd.CeilingGlow.Fullbright) floor.color = 0;
+				if(sd.CeilingGlow == null || !sd.CeilingGlow.Fullbright) { floor.color = 0; floor.light = 0; }
 			}
 			else
 			{
@@ -154,7 +154,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				
 				// A 3D floor's color is always that of the sector it is placed in
 				// (unless it's affected by glow) - mxd
-				if(sd.FloorGlow == null || !sd.FloorGlow.Fullbright) ceiling.color = 0;
+				if(sd.FloorGlow == null || !sd.FloorGlow.Fullbright) { ceiling.color = 0; ceiling.light = 0; }
 			}
 
 			//mxd
@@ -191,6 +191,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					if(disablelighting) //mxd
 					{
 						floor.color = 0;
+						floor.light = 0;
 						floor.brightnessbelow = -1;
 						floor.colorbelow = PixelColor.FromInt(0);
 					}
@@ -199,6 +200,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					ceiling.restrictlighting = restrictlighting; //mxd
 					
 					ceiling.color = 0;
+					ceiling.light = 0;
 					ceiling.brightnessbelow = -1;
 					ceiling.colorbelow = PixelColor.FromInt(0);
 				}

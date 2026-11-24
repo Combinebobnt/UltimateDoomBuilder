@@ -34,8 +34,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			// Transfer ceiling brightness, keep sector color
 			PixelColor lightcolor = PixelColor.FromInt(data.Sector.Fields.GetValue("lightcolor", -1));
-			PixelColor brightness = PixelColor.FromInt(General.Map.Renderer3D.CalculateBrightness(sd.Sector.Brightness));
-			data.Ceiling.color = PixelColor.Modulate(lightcolor, brightness).WithAlpha(255).ToInt();
+			data.Ceiling.color = lightcolor.WithAlpha(255).ToInt();
+			data.Ceiling.light = LightModel.PackLight(sd.Sector.Brightness);
 		}
 	}
 }

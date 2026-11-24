@@ -210,16 +210,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		
 		#region ================== Methods
 
-		// This calculates brightness level
-		internal int CalculateBrightness(int level)
+		// The packed vertex light of a plane or thing at this light level (LightModel.PackLight)
+		internal int CalculateLight(int level)
 		{
-			return renderer.CalculateBrightness(level);
+			return LightModel.PackLight(level);
 		}
 
-		//mxd. This calculates brightness level with doom-style shading
-		internal int CalculateBrightness(int level, Sidedef sd) 
+		// The packed vertex light of a wall at this light level, with doom-style shading (fake contrast)
+		internal int CalculateLight(int level, Sidedef sd)
 		{
-			return renderer.CalculateBrightness(level, sd);
+			return LightModel.PackLight(level, renderer.CalculateWallLightLevel(level, sd), level);
 		}
 		
 		// This adds a selected object

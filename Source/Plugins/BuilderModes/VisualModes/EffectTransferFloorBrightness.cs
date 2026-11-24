@@ -34,8 +34,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			// Transfer floor brightness, keep sector color
 			PixelColor lightcolor = PixelColor.FromInt(data.Sector.Fields.GetValue("lightcolor", -1));
-			PixelColor brightness = PixelColor.FromInt(General.Map.Renderer3D.CalculateBrightness(sd.Sector.Brightness));
-			data.Floor.color = PixelColor.Modulate(lightcolor, brightness).WithAlpha(255).ToInt();
+			data.Floor.color = lightcolor.WithAlpha(255).ToInt();
+			data.Floor.light = LightModel.PackLight(sd.Sector.Brightness);
 			data.Floor.brightnessbelow = sd.Floor.brightnessbelow;
 		}
 	}

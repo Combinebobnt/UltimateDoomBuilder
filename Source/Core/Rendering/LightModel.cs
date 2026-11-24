@@ -88,6 +88,39 @@ namespace CodeImp.DoomBuilder.Rendering
 			return s;
 		}
 
+		// Packs the vertex light attribute: level, its fake contrast + 128, black-fog level, and 255 for "set"
+		public static int PackLight(int level, int shadedlevel, int foglevel)
+		{
+			int light = General.Clamp(level, 0, 255);
+			int rel = General.Clamp(General.Clamp(shadedlevel, 0, 255) - light + 128, 0, 255);
+			return light | (rel << 8) | (General.Clamp(foglevel, 0, 255) << 16) | (255 << 24);
+		}
+
+		// A packed light with one level and no fake contrast
+		public static int PackLight(int level)
+		{
+			return PackLight(level, level, level);
+		}
+
+		// The light level a packed light shows: level plus fake contrast, as the shader reads it
+		public static int UnpackLevel(int packed)
+		{
+			return General.Clamp((packed & 0xFF) + ((packed >> 8) & 0xFF) - 128, 0, 255);
+		}
+
+		// The packed light as the shader's lightoverride uniform
+		public static Vector4f LightUniform(int packed)
+		{
+			return new Vector4f((packed & 0xFF) / 255f, ((packed >> 8) & 0xFF) / 255f, ((packed >> 16) & 0xFF) / 255f, ((packed >> 24) & 0xFF) / 255f);
+		}
+
+		// The Editor model's brightness for a level (doomlightlevels' x1.5 curve below 192)
+		public static int EditorBrightness(int level, bool doomcurve)
+		{
+			if(level < 192 && doomcurve) level = (int)(192.0f - (192 - level) * 1.5f);
+			return General.Clamp(level, 0, 255);
+		}
+
 		private static bool IsHardwareMode(int mode)
 		{
 			return mode >= (int)MapInfo.GZDoomLightMode.STANDARD && mode <= (int)MapInfo.GZDoomLightMode.LEGACY;

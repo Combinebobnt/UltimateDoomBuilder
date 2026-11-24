@@ -21,6 +21,13 @@ uniforms
 	vec4 sectorfogcolor;
 	vec4 vertexColor;
 
+	// Light model: x kind (0 Editor, 1 ZDoomSoftware, 2 Hardware), y Editor doom curve, z hardware mode, w distance on
+	vec4 lightmodel;
+	// The vertex light of _vertexcolor programs, in the Light attribute's encoding
+	vec4 lightoverride;
+	// Added to the sector light (dynamic light on things)
+	vec4 vertexColorAdd;
+
 	sampler2D texture1;
 	sampler2D texture2;
 	sampler2D texture3;
@@ -66,6 +73,21 @@ functions
         return colormapColor;
     }
     
+	// The level a Light attribute carries: level plus fake contrast, before any curve
+	float attrLightLevel(vec4 light)
+	{
+		return clamp(round(light.r * 255.0) + round(light.g * 255.0) - 128.0, 0.0, 255.0);
+	}
+
+	// Sector light on a light colour by the map's light model; light.a == 0 means the colour is final
+	vec4 sectorLight(vec4 color, vec4 light, vec3 PosW)
+	{
+		if (light.a < 0.5) return color + vertexColorAdd;
+		float level = attrLightLevel(light);
+		if (lightmodel.y > 0.0 && level < 192.0) level = max(trunc(192.0 - (192.0 - level) * 1.5), 0.0);
+		return vec4(color.rgb * (level / 255.0), color.a) + vertexColorAdd;
+	}
+
     int lightLevelFromVertexColor(vec3 color)
     {
         float result = max(max(color.r, color.g), color.b) * 255;
@@ -75,6 +97,11 @@ functions
         }
         return int(result);
     }
+
+	int classicLightLevel(vec3 color, vec4 light)
+	{
+		return light.a < 0.5 ? lightLevelFromVertexColor(color) : int(attrLightLevel(light));
+	}
         
     int classicLightLevelToColorMapOffset(int lightLevel, vec3 position, vec3 normal, bool hvmod)
     {
@@ -285,7 +312,7 @@ shader world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
 		out.FragColor = desaturate(tcolor);
 
 		#if defined(ALPHA_TEST)
@@ -319,7 +346,7 @@ shader world3d_main_highlight extends world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -389,7 +416,7 @@ shader world3d_main_vertexcolor extends world3d_main
 		v2f.PosW = (world * vec4(in.Position, 1.0)).xyz;
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
-		v2f.Light = in.Light;
+		v2f.Light = lightoverride;
 	}
 }
 
@@ -418,7 +445,7 @@ shader world3d_highlight_vertexcolor extends world3d_main_highlight
 		v2f.PosW = (world * vec4(in.Position, 1.0)).xyz;
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
-		v2f.Light = in.Light;
+		v2f.Light = lightoverride;
 	}
 }
 
@@ -428,7 +455,7 @@ shader world3d_main_fog extends world3d_main
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
+		tcolor = getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -452,7 +479,7 @@ shader world3d_main_highlight_fog extends world3d_main_fog
 	{
 		vec4 tcolor = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		tcolor = mix(tcolor, vec4(stencilColor.rgb, tcolor.a), stencilColor.a);
-		tcolor = vec4(getDynLightContribution(tcolor, getMaterialLight(addWallGlow(v2f.Color, v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal).rgb, tcolor.a);
+		tcolor = vec4(getDynLightContribution(tcolor, getMaterialLight(addWallGlow(sectorLight(v2f.Color, v2f.Light, v2f.PosW), v2f.PosW), v2f.UV), v2f.PosW, v2f.Normal).rgb, tcolor.a);
 		if (tcolor.a == 0.0)
 		{
 			out.FragColor = tcolor;
@@ -485,7 +512,7 @@ shader world3d_main_fog_vertexcolor extends world3d_main_fog
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
-		v2f.Light = in.Light;
+		v2f.Light = lightoverride;
 	}
 }
 
@@ -499,7 +526,7 @@ shader world3d_main_highlight_fog_vertexcolor extends world3d_main_highlight_fog
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
-		v2f.Light = in.Light;
+		v2f.Light = lightoverride;
 	}
 }
 
@@ -527,7 +554,7 @@ shader world3d_classic extends world3d_main
 			vec4 color = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
 		    int entry = int(color.r * 255);
 		    float alpha = color.a;
-		    int lightLevel = lightLevelFromVertexColor(v2f.flatColor.rgb);
+		    int lightLevel = classicLightLevel(v2f.flatColor.rgb, v2f.Light);
             int colorMapOffset = classicLightLevelToColorMapOffset(lightLevel, v2f.PosW, v2f.flatNormal, false);
             pcolor = getColorMappedColor(entry, colorMapOffset);
             pcolor.a = alpha;
@@ -556,7 +583,7 @@ shader world3d_classic_highlight extends world3d_main
 			vec4 color = texture(texture1, v2f.UV + vec2(0.0, (v2f.UV.x - skew.x) * skew.y));
             int entry = int(color.r * 255);
             float alpha = color.a;
-            int lightLevel = lightLevelFromVertexColor(v2f.flatColor.rgb);
+            int lightLevel = classicLightLevel(v2f.flatColor.rgb, v2f.Light);
             int modifiedLightLevel = max(lightLevel, 128);	 
             int colorMapOffset = classicLightLevelToColorMapOffset(modifiedLightLevel, v2f.PosW, v2f.flatNormal, false);
             pcolor = getColorMappedColor(entry, colorMapOffset);

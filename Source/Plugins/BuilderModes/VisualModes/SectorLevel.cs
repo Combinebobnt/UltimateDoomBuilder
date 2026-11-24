@@ -25,9 +25,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// Alpha for translucency (255=opaque)
 		public int alpha;
 		
-		// Color of the plane (includes brightness)
+		// Light color of the plane (brightness is in light)
 		// When this is 0, it takes the color from the sector above
 		public int color;
+
+		// Packed light of the plane (LightModel.PackLight), 0 when color is final
+		public int light;
 		
 		// Color and brightness below the plane
 		// When this is 0, it takes the color from the sector above
@@ -65,6 +68,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			target.plane = this.plane;
 			target.alpha = this.alpha;
 			target.color = this.color;
+			target.light = this.light;
 			target.brightnessbelow = this.brightnessbelow;
 			target.colorbelow = this.colorbelow;
 			target.d64color = this.d64color;
@@ -79,7 +83,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public bool LightPropertiesMatch(SectorLevel other)
 		{
 			return (this.type == other.type && this.lighttype == other.lighttype && this.alpha == other.alpha && this.splitsides == other.splitsides
-				&& this.color == other.color && this.brightnessbelow == other.brightnessbelow && this.colorbelow.ToInt() == other.colorbelow.ToInt()
+				&& this.color == other.color && this.light == other.light && this.brightnessbelow == other.brightnessbelow && this.colorbelow.ToInt() == other.colorbelow.ToInt()
 				&& this.disablelighting == other.disablelighting && this.restrictlighting == other.restrictlighting 
 				&& this.resetlighting == other.resetlighting);
 		}

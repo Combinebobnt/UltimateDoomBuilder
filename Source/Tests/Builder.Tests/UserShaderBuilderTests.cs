@@ -133,6 +133,22 @@ namespace Builder.Tests
 			Assert.True(glow < fragment.IndexOf(dialect == 1 ? "editorBright(vTexCoord.st).rgb" : "desaturate(material.Bright)", glow));
 		}
 
+		// A material surface that skipped the sector light would draw fullbright
+		[Theory]
+		[InlineData(1)]
+		[InlineData(2)]
+		public void SectorLightReachesBothLightSourcesBeforeTheGlow(int dialect)
+		{
+			UserShaderProgram program = Build("vec4 Process(vec4 c) { return c; }", (UserShaderDialect)dialect);
+			Assert.Contains("vSectorLight = AttrLight;", program.VertexSource);
+			Assert.True(System.Text.RegularExpressions.Regex.IsMatch(program.FragmentSource, @"in vec4 [^;]*\bvSectorLight\b"));
+			int baselight = program.FragmentSource.IndexOf("vec4 baseLight =");
+			string line = program.FragmentSource.Substring(baselight, program.FragmentSource.IndexOf('\n', baselight) - baselight);
+			Assert.Contains("sectorLight(vertexColor, lightoverride, PosW)", line);
+			Assert.Contains("sectorLight(Color, vSectorLight, PosW)", line);
+			Assert.True(baselight < program.FragmentSource.IndexOf("addWallGlow(baseLight, PosW)"));
+		}
+
 		[Fact]
 		public void ProgramKeySharesCodeButNotDefinesOrSamplerLayout()
 		{

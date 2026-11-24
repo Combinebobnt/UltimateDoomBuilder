@@ -366,6 +366,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			graphics.SetUniform(UniformName.fogsettings, new Vector4f(-1.0f));
 			graphics.SetUniform(UniformName.fogcolor, General.Colors.Background.ToColorValue());
 			graphics.SetUniform(UniformName.doomlightlevels, General.Map.Config.DoomLightLevels);
+			SetLightModelUniform();
+			ResetThingLight();
             graphics.SetUniform(UniformName.highlightcolor, new Color4()); //mxd
 			graphics.SetUniform(UniformName.modelnormal, Matrix.Identity);
 			TextureFilter texFilter = (!General.Settings.ClassicRendering && General.Settings.VisualBilinear) ? TextureFilter.Linear : TextureFilter.Nearest;
@@ -1088,6 +1090,8 @@ namespace CodeImp.DoomBuilder.Rendering
 							world = CreateThingPositionMatrix(t);
 
 							//mxd. If current thing is light - set it's color to light color
+							int vertexlight = 0;
+							Color4 vertexadd = new Color4();
 							bool usevertexcolor = false;
 							if(t.LightType != null && t.LightType.LightInternal && t.LightType.LightType != GZGeneral.LightType.SUN && !fullbrightness && !General.Settings.ClassicRendering) 
 							{
@@ -1102,7 +1106,9 @@ namespace CodeImp.DoomBuilder.Rendering
 								if(litcolor.ToArgb() != 0)
 								{
 									wantedshaderpass += 4; // Render using one of passes, which uses World3D.VertexColor
-									vertexcolor = new Color4(t.VertexColor) + litcolor;
+									vertexcolor = new Color4(t.VertexColor);
+									vertexlight = t.VertexLight;
+									vertexadd = litcolor;
 									usevertexcolor = true;
 								}
 							}
@@ -1133,6 +1139,8 @@ namespace CodeImp.DoomBuilder.Rendering
 								graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
 							}
                             graphics.SetUniform(UniformName.vertexColor, vertexcolor);
+                            graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(vertexlight));
+                            graphics.SetUniform(UniformName.vertexColorAdd, vertexadd);
                             graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((t == highlighted) && showhighlight, (t.Selected && showselection)));
 
                             // [ZZ] check if we want stencil
@@ -1156,6 +1164,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
                     // [ZZ]
                     graphics.SetUniform(UniformName.stencilColor, new Color4(1f, 1f, 1f, 0f));
+                    ResetThingLight();
                 }
 
                 // Texture addressing
@@ -1163,6 +1172,21 @@ namespace CodeImp.DoomBuilder.Rendering
 				graphics.SetCullMode(Cull.Clockwise); //mxd
 			}
 			UnbindMaterials();
+		}
+
+		// The map's light model for the sector light in the shaders
+		private void SetLightModelUniform()
+		{
+			MapInfo mapinfo = General.Map.Data.MapInfo;
+			LightModelSettings s = LightModel.Resolve(mapinfo.LightMode, General.Map.Config.DefaultLightMode, General.Map.Config.DoomLightLevels, mapinfo.FogDensity, General.Settings.GZDrawFog);
+			graphics.SetUniform(UniformName.lightmodel, new Vector4f((float)s.Kind, s.DoomCurve ? 1f : 0f, s.HardwareMode, s.Distance ? 1f : 0f));
+		}
+
+		// Clears the thing light uniforms so the geometry drawn next reads its own vertex light
+		private void ResetThingLight()
+		{
+			graphics.SetUniform(UniformName.lightoverride, new Vector4f());
+			graphics.SetUniform(UniformName.vertexColorAdd, new Color4());
 		}
 
 		// Wall glow of one geometry, or none
@@ -1481,6 +1505,8 @@ namespace CodeImp.DoomBuilder.Rendering
 						world = CreateThingPositionMatrix(t);
 
 						//mxd. If current thing is light - set it's color to light color
+						int vertexlight = 0;
+						Color4 vertexadd = new Color4();
 						bool usevertexcolor = false;
 						if(t.LightType != null && t.LightType.LightInternal && !fullbrightness && !General.Settings.ClassicRendering)
 						{
@@ -1495,7 +1521,9 @@ namespace CodeImp.DoomBuilder.Rendering
 							if(litcolor.ToArgb() != 0)
 							{
 								wantedshaderpass += 4; // Render using one of passes, which uses World3D.VertexColor
-								vertexcolor = new Color4(t.VertexColor) + litcolor;
+								vertexcolor = new Color4(t.VertexColor);
+								vertexlight = t.VertexLight;
+								vertexadd = litcolor;
 								usevertexcolor = true;
 							}
 						}
@@ -1526,6 +1554,8 @@ namespace CodeImp.DoomBuilder.Rendering
                         // Set the colors to use
                         graphics.SetUniform(UniformName.sectorfogcolor, t.Thing.Sector.FogColor);
                         graphics.SetUniform(UniformName.vertexColor, vertexcolor);
+                        graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(vertexlight));
+                        graphics.SetUniform(UniformName.vertexColorAdd, vertexadd);
                         graphics.SetUniform(UniformName.highlightcolor, CalculateHighlightColor((t == highlighted) && showhighlight, (t.Selected && showselection)));
 
                         // [ZZ] check if we want stencil
@@ -1547,6 +1577,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
                 // [ZZ] check if we want stencil
                 graphics.SetUniform(UniformName.stencilColor, new Color4(1f, 1f, 1f, 0f));
+                ResetThingLight();
 
                 // Texture addressing
                 graphics.SetSamplerState(TextureAddress.Wrap);
@@ -1677,6 +1708,7 @@ namespace CodeImp.DoomBuilder.Rendering
 
                 // Check if model is affected by dynamic lights and set color accordingly
                 graphics.SetUniform(UniformName.vertexColor, vertexcolor);
+                graphics.SetUniform(UniformName.lightoverride, LightModel.LightUniform(t.VertexLight));
 
 				// Determine the shader pass we want to use for this object
 				ShaderName wantedshaderpass = ((((t == highlighted) && showhighlight) || (t.Selected && showselection)) ? highshaderpass : shaderpass);

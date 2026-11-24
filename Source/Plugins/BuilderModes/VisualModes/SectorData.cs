@@ -316,16 +316,16 @@ namespace CodeImp.DoomBuilder.BuilderModes
             ColorWallTop = PixelColor.FromInt(sector.Fields.GetValue("color_walltop", PixelColor.INT_WHITE));
             ColorWallBottom = PixelColor.FromInt(sector.Fields.GetValue("color_wallbottom", PixelColor.INT_WHITE));
 
-            PixelColor floorbrightness = PixelColor.FromInt(mode.CalculateBrightness(lightfloor));
-            PixelColor ceilingbrightness = PixelColor.FromInt(mode.CalculateBrightness(lightceiling));
             PixelColor lightcolor = PixelColor.FromInt(color);
-            PixelColor floorcolor = PixelColor.Modulate(ColorFloor, PixelColor.Modulate(lightcolor, floorbrightness));
-            PixelColor ceilingcolor = PixelColor.Modulate(ColorCeiling, PixelColor.Modulate(lightcolor, ceilingbrightness));
+            PixelColor floorcolor = PixelColor.Modulate(ColorFloor, lightcolor);
+            PixelColor ceilingcolor = PixelColor.Modulate(ColorCeiling, lightcolor);
             floor.color = floorcolor.WithAlpha(255).ToInt();
+            floor.light = mode.CalculateLight(lightfloor);
             floor.brightnessbelow = sector.Brightness;
             floor.colorbelow = lightcolor.WithAlpha(255);
 			floor.d64color = ColorFloor;
             ceiling.color = ceilingcolor.WithAlpha(255).ToInt();
+            ceiling.light = mode.CalculateLight(lightceiling);
             ceiling.brightnessbelow = sector.Brightness;
             ceiling.colorbelow = lightcolor.WithAlpha(255);
 			ceiling.d64color = ColorCeiling;
@@ -336,7 +336,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 			//mxd. We need sector brightness here, unaffected by custom ceiling brightness...
 			ceilingbase.brightnessbelow = sector.Brightness;
-			ceilingbase.color = PixelColor.FromInt(mode.CalculateBrightness(sector.Brightness)).WithAlpha(255).ToInt();
+			ceilingbase.color = PixelColor.INT_WHITE;
+			ceilingbase.light = mode.CalculateLight(sector.Brightness);
 
 			//mxd
 			glowingflateffect.Update();
@@ -379,7 +380,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				{
 					lightlevels[lightlevels.Count - 1].colorbelow = stored.colorbelow;
 					lightlevels[lightlevels.Count - 1].brightnessbelow = stored.brightnessbelow;
-					lightlevels[lightlevels.Count - 1].color = GetLevelColor(stored, lightlevels[lightlevels.Count - 1]);
+					SetLevelLight(stored, lightlevels[lightlevels.Count - 1]);
 				}
 
 				//mxd. Cast light properties from top to bottom
@@ -400,12 +401,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					{
 						l.colorbelow = stored.colorbelow;
 						l.brightnessbelow = stored.brightnessbelow;
-						l.color = GetLevelColor(stored, l);
+						SetLevelLight(stored, l);
 					}
 					else if(l.restrictlighting)
 					{
 						if(!pl.restrictlighting && pl != ceiling) stored = pl;
-						l.color = GetLevelColor(stored, l);
+						SetLevelLight(stored, l);
 
 						// This is the bottom side of extrafloor with "restrict lighting" flag. Make it cast stored light props. 
 						if(l.type == SectorLevelType.Ceiling)
@@ -416,10 +417,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 								// Use light and color settings from previous layer
 								l.colorbelow = pl.colorbelow;
 								l.brightnessbelow = pl.brightnessbelow;
-								l.color = GetLevelColor(pl, l);
+								SetLevelLight(pl, l);
 
 								// Also colorize previous layer using next higher level color 
-								if(i + 2 < lightlevels.Count) pl.color = GetLevelColor(lightlevels[i + 2], pl);
+								if(i + 2 < lightlevels.Count) SetLevelLight(lightlevels[i + 2], pl);
 							}
 							else
 							{
@@ -461,7 +462,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						if(src.colorbelow.a > 0 && src.brightnessbelow != -1)
 						{
 							// Only surface brightness is retained when a glowing flat is used as extrafloor texture
-							if(!l.affectedbyglow) l.color = GetLevelColor(src, l);
+							if(!l.affectedbyglow) SetLevelLight(src, l);
 
 							// Transfer brightnessbelow and colorbelow if current level is not extrafloor top
 							if(!(l.extrafloor != null && l.type == SectorLevelType.Floor))
@@ -483,22 +484,21 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			//mxd. Apply ceiling glow effect?
 			if(CeilingGlow != null && CeilingGlow.Fullbright)
 			{
-				ceiling.color = PixelColor.INT_WHITE;
+				{ ceiling.color = PixelColor.INT_WHITE; ceiling.light = mode.CalculateLight(255); }
 			}
 
 			//mxd. Apply floor glow effect?
 			if(FloorGlow != null)
 			{
 				// Update floor color
-				if(FloorGlow.Fullbright) floor.color = PixelColor.INT_WHITE;
+				if(FloorGlow.Fullbright) { floor.color = PixelColor.INT_WHITE; floor.light = mode.CalculateLight(255); }
 
 				// Update brightness
 				floor.brightnessbelow = (FloorGlow.Fullbright ? 255 : Math.Max(128, floor.brightnessbelow));
 				
 				if(floor.colorbelow.ToInt() == 0)
 				{
-					byte bb = (byte)floor.brightnessbelow;
-					floor.colorbelow = new PixelColor(255, bb, bb, bb);
+					floor.colorbelow = new PixelColor(255, 255, 255, 255);
 				}
 			}
 
@@ -613,19 +613,19 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			return found;
 		}
 
-		//mxd
-		private int GetLevelColor(SectorLevel src, SectorLevel target)
+		// The light colour and level a level takes from the level that lights it
+		private void SetLevelLight(SectorLevel src, SectorLevel target)
 		{
-			PixelColor brightness;
+			int level;
 			if(lightfloorabsolute && target == floor)
-				brightness = PixelColor.FromInt(mode.CalculateBrightness(lightfloor));
+				level = lightfloor;
 			else if(lightceilingabsolute && target == ceiling)
-				brightness = PixelColor.FromInt(mode.CalculateBrightness(lightceiling));
+				level = lightceiling;
 			else
-				brightness = PixelColor.FromInt(mode.CalculateBrightness(src.brightnessbelow));
+				level = src.brightnessbelow;
 
-			PixelColor color = PixelColor.Modulate(target.d64color, PixelColor.Modulate(src.colorbelow, brightness));
-			return color.WithAlpha(255).ToInt();
+			target.color = PixelColor.Modulate(target.d64color, src.colorbelow).WithAlpha(255).ToInt();
+			target.light = mode.CalculateLight(level);
 		}
 		
 		#endregion

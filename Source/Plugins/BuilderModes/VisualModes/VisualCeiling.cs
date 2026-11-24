@@ -125,6 +125,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			// Determine brightness
 			byte alpha = (byte)General.Clamp(level.alpha, 0, 255);
 			int color = PixelColor.FromInt(level.color).WithAlpha(alpha).ToInt();
+			int light = level.light;
 			int targetbrightness;
             SectorData sd = mode.GetSectorData(this.Sector.Sector);
             if (extrafloor != null && !extrafloor.VavoomType && !level.disablelighting)
@@ -150,7 +151,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					{
 						if(sd.LightLevels[i] == level)
 						{
-							if(i > 0) color = PixelColor.FromInt(sd.LightLevels[i - 1].color).WithAlpha(alpha).ToInt();
+							if(i > 0) { color = PixelColor.FromInt(sd.LightLevels[i - 1].color).WithAlpha(alpha).ToInt(); light = sd.LightLevels[i - 1].light; }
 							break;
 						}
 					}
@@ -174,6 +175,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			{
 				// Color shading
 				verts[i].c = color; //mxd
+				verts[i].SetLight(light);
 				
 				// Vertex coordinates
 				verts[i].x = (float)triverts[i].x;

@@ -68,6 +68,25 @@ namespace Builder.Tests
 			Assert.Equal(LightModelKind.Editor, LightModel.Resolve(Unset, 5, true, 0, true).Kind);
 		}
 
+		// The shader reads level + fake contrast back from the packed light; a wrong split shifts every wall
+		[Fact]
+		public void PackedLightCarriesTheShadedLevelAndTheBaseLevel()
+		{
+			var failures = new System.Collections.Generic.List<string>();
+			for(int level = -300; level <= 600; level += 3)
+			{
+				for(int shade = -64; shade <= 64; shade += 8)
+				{
+					int shaded = CodeImp.DoomBuilder.General.Clamp(level + shade, 0, 255);
+					int packed = LightModel.PackLight(level, shaded, level);
+					if(LightModel.UnpackLevel(packed) != shaded || (packed & 0xFF) != CodeImp.DoomBuilder.General.Clamp(level, 0, 255)
+						|| ((packed >> 16) & 0xFF) != CodeImp.DoomBuilder.General.Clamp(level, 0, 255) || ((packed >> 24) & 0xFF) != 255)
+						failures.Add(level + "/" + shade + ": " + packed.ToString("X8"));
+				}
+			}
+			Assert.Empty(failures);
+		}
+
 		[Theory]
 		[InlineData("UZDoom_DoomUDMF.cfg", 8)]
 		[InlineData("Zandronum_DoomUDMF.cfg", -1)]

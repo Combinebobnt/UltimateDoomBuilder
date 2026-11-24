@@ -1,6 +1,6 @@
 // Legacy material API adapted from UZDoom/GZDoom shaders and compatibility patcher.
 // Copyright GZDoom and UZDoom Maintainers and Contributors. GPL-3.0-or-later.
-in vec4 pixelpos, vTexCoord, viewpos, Color;
+in vec4 pixelpos, vTexCoord, viewpos, Color, vSectorLight;
 in vec3 PosW, Normal;
 out vec4 FragColor;
 uniform float timer, fogEnabled, useVertexColorUniform, disableAlphaTest;

@@ -99,15 +99,18 @@ namespace CodeImp.DoomBuilder.Rendering
 				case MapInfo.GZDoomLightMode.STANDARD: usedoomlightlevels = false; break;
 			}
 
-			if(level < 192 && usedoomlightlevels)
-				level = (int)(192.0f - (192 - level) * 1.5f);
-			
-			byte blevel = (byte)General.Clamp(level, 0, 255);
+			byte blevel = (byte)LightModel.EditorBrightness(level, usedoomlightlevels);
 			return new PixelColor(255, blevel, blevel, blevel).ToInt();
 		}
 
 		//mxd. This calculates wall brightness level with doom-style shading
 		public int CalculateBrightness(int level, Sidedef sd) 
+		{
+			return CalculateBrightness(CalculateWallLightLevel(level, sd));
+		}
+
+		// The wall's light level after doom-style shading (fake contrast)
+		public int CalculateWallLightLevel(int level, Sidedef sd)
 		{
 			if(level < 253 && sd != null) 
 			{
@@ -161,7 +164,7 @@ namespace CodeImp.DoomBuilder.Rendering
 				}
 			}
 
-			return CalculateBrightness(level);
+			return level;
 		}
 
 		// This is called when the graphics need to be reset

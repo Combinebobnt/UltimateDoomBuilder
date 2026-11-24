@@ -9,8 +9,11 @@ namespace CodeImp.DoomBuilder.BuilderModes
 {
 	internal class WallPolygon : List<Vector3D>
 	{
-		// The color that the wall should have
+		// The light color that the wall should have
 		public int color;
+
+		// The wall's packed light (LightModel.PackLight), 0 when color is final
+		public int light;
 		
 		// Constructors
 		public WallPolygon() { }
@@ -20,6 +23,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		public void CopyProperties(WallPolygon target)
 		{
 			target.color = this.color;
+			target.light = this.light;
 		}
 	}
 }

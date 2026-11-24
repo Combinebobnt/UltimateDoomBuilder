@@ -33,6 +33,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				// Update ceiling level
 				ceillevel.brightnessbelow = -1; // We need this plane for clipping only,
 				ceillevel.color = 0;            // so we need to reset all shading and coloring
+				ceillevel.light = 0;
 				ceillevel.plane = data.Ceiling.plane;
 				ceillevel.plane.Offset -= data.CeilingGlow.Height;
 			}
@@ -56,6 +57,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				{
 					floorlevel.brightnessbelow = -1; // We need this plane for clipping only,
 					floorlevel.color = 0;            // so we need to reset all shading and coloring
+					floorlevel.light = 0;
 					floorlevel.colorbelow = new PixelColor(0, 0, 0, 0);
 				}
 				else
@@ -63,6 +65,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					// If glow plane is above real ceiling, apply ceiling colouring
 					floorlevel.brightnessbelow = data.Ceiling.brightnessbelow;
 					floorlevel.color = data.Ceiling.color;
+					floorlevel.light = data.Ceiling.light;
 					floorlevel.colorbelow = data.Ceiling.colorbelow;
 				}
 

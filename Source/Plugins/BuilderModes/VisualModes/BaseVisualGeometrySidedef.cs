@@ -219,6 +219,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 								{
 									//mxd. Glow levels should not affect light level
 									np.color = p.color;
+									np.light = p.light;
 								}
 								else
 								{
@@ -232,8 +233,8 @@ namespace CodeImp.DoomBuilder.BuilderModes
 									else
 										lightlevel = l.brightnessbelow;
 
-									PixelColor wallbrightness = PixelColor.FromInt(mode.CalculateBrightness(lightlevel, Sidedef)); //mxd
-									np.color = PixelColor.Modulate(l.colorbelow, wallbrightness).WithAlpha(255).ToInt();
+									np.color = l.colorbelow.WithAlpha(255).ToInt();
+									np.light = mode.CalculateLight(lightlevel, Sidedef);
 								}
 
 								if(p.Count == 0)
@@ -271,9 +272,9 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				{
 					for(int k = 1; k < (p.Count - 1); k++)
 					{
-						verts.Add(new WorldVertex(p[0], p.color, texc[0]));
-						verts.Add(new WorldVertex(p[k], p.color, texc[k]));
-						verts.Add(new WorldVertex(p[k + 1], p.color, texc[k + 1]));
+						verts.Add(new WorldVertex(p[0], p.color, texc[0], p.light));
+						verts.Add(new WorldVertex(p[k], p.color, texc[k], p.light));
+						verts.Add(new WorldVertex(p[k + 1], p.color, texc[k + 1], p.light));
 					}
 				}
 			}

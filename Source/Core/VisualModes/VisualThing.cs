@@ -126,6 +126,7 @@ namespace CodeImp.DoomBuilder.VisualModes
 		
 		//mxd
 		internal int VertexColor { get { return vertices.Length > 0 && vertices[0].Length > 0 ? vertices[0][0].c : 0; } }
+		internal int VertexLight { get { return vertices.Length > 0 && vertices[0].Length > 0 ? vertices[0][0].PackedLight : 0; } }
 		public double CameraDistance { get { return cameradistance; } }
 		public float FogFactor { get { return fogfactor; } }
 		public Vector3f Center

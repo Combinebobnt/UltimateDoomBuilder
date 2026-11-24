@@ -194,6 +194,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			}
 
 			int sectorcolor = new PixelColor(alpha, 255, 255, 255).ToInt();
+			int sectorlight = 0; // Bright things keep their colour as it is
 			fogfactor = 0f; //mxd
 			
 			//mxd. Check thing size 
@@ -285,11 +286,10 @@ namespace CodeImp.DoomBuilder.BuilderModes
 							}
 						}
 
-						PixelColor areabrightness = PixelColor.FromInt(mode.CalculateBrightness(brightness));
-						PixelColor areacolor = PixelColor.Modulate(level.colorbelow, areabrightness);
+						sectorlight = mode.CalculateLight(brightness);
 
                         // [ZZ] if sector is using Doom64 lighting, apply thing color here.
-                        sectorcolor = PixelColor.Modulate(sd.ColorSprites, areacolor).WithAlpha(alpha).ToInt();
+                        sectorcolor = PixelColor.Modulate(sd.ColorSprites, level.colorbelow).WithAlpha(alpha).ToInt();
 
 						//mxd. Calculate fogfactor
 						fogfactor = VisualGeometry.CalculateFogFactor(level.sector, brightness);
@@ -366,6 +366,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 						verts[4] = verts[2];
 						verts[5] = new WorldVertex((float)(+radius + offsets.x), 0.0f, (float)offsets.y, sectorcolor, ur, 1.0f);
 					}
+					for(int j = 0; j < verts.Length; j++) verts[j].SetLight(sectorlight);
 					allverts[i] = verts;
 				}
 				else
@@ -389,6 +390,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 					verts[3] = verts[0];
 					verts[4] = verts[2];
 					verts[5] = new WorldVertex(+radius, 0.0f, 0.0f, sectorcolor, 1.0f, 1.0f);
+					for(int j = 0; j < verts.Length; j++) verts[j].SetLight(sectorlight);
 					allverts[i] = verts;
 				}
 
