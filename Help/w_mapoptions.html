@@ -13,18 +13,28 @@
 	<param name="keyword" value="Map Options Window">
 	<param name="keyword" value="Map Name">
 	<param name="keyword" value="Level Name">
+	<param name="keyword" value="Convert Map Format">
 	</object>
 	
 	<div id="title"><h1>Map Options Window</h1></div>
 	
 	<div id="contents">
 	<p>
-		This dialog window allows you to change some options that apply to the entire map and how it is loaded. You can access it from the Edit menu, or with the default key F2. At the top you can choose the <b>Game Configuration</b> that you wish to use when editing this map. Please note that changing to a configuration of a different file format may cause a loss of information in your map, possibly breaking it. Below the Game Configuration field is the <b>Level Name</b> field. Here you can enter the lump name that is used to store your map in the WAD file. An example level name for a Doom 1 map could be E2M3 which indicates the map is or episode 2, level 3. An example for a Doom 2 map is MAP03 which is level 3.
+		This dialog window allows you to change some options that apply to the entire map and how it is loaded. You can access it from the Edit menu, or with the default key F2. At the top you can choose the <b>Game Configuration</b> that you wish to use when editing this map. Choosing a configuration of a different map format converts the map, as described under <a href="#convert">Converting the map format</a> below. Below the Game Configuration field is the <b>Level Name</b> field. Here you can enter the lump name that is used to store your map in the WAD file. An example level name for a Doom 1 map could be E2M3 which indicates the map is or episode 2, level 3. An example for a Doom 2 map is MAP03 which is level 3.
 		
 		<h2>Resources</h2>
 		The Resources area allows you to specify which resources are loaded when editing this map. The <b>Strictly load patches between P_START and P_END only for this file</b> checkbox applies to the wad file you are editing (where your map is in). When this is checked, Doom Builder will resolve texture patch conflicts by strictly loading patch lumps only from between the P_START and P_END lumps as it was intended by id Software, but most sourceports do not require this (as result, older maps have texture patch lumps that are not in between P_START and P_END).<br />
 		<br />
 		In the list of resources you can see all the resources that will be loaded. Doom Builder shows the items from the game configuration in gray at the top of the list, because those are always loaded first. You can change the resources loaded according to the game configuration in the <a href="w_gameconfigurations.html">Game Configurations Window</a>. You can drag the resource items (except the ones from the game configuration) to change their order. See also the <a href="w_resourceoptions.html">Resource Options Window</a>.
+
+		<h2><a name="convert"></a>Converting the map format</h2>
+		<b>Edit &gt; Convert Map Format...</b> converts the open map between the Doom, Hexen and UDMF formats in any direction. Choose the target format, then the game configuration to use with it: the list holds the enabled configurations (see the <a href="w_gameconfigurations.html">Game Configurations Window</a>) of the same game in that format, starting with the one for the same source port. Below them the window shows what the conversion would do before you press <b>Convert</b>: a summary line, then every lossy change and every property the target format can't hold. <b>Copy report</b> copies the full report, with the number of every map element that loses a property.<br />
+		<br />
+		Linedef and sector specials, activations, thing flags and tags are translated the way ZDoom-family engines read a Doom-format map, using the engine's own translation tables (<code>Configurations/Xlat</code>). So a Doom-format door becomes the Door_Raise special it plays as, and converting back gives the original type. Some Doom types play exactly the same as another type; converting back may give either one. The converter covers the ZDoom, GZDoom and Zandronum configurations for Doom, Heretic and Strife, Hexen-format configurations, and the vanilla, Boom and MBF21 Doom configurations. Converting to one of the latter offers only the line and sector types that configuration lists.<br />
+		<br />
+		UDMF keeps everything the other formats can store. Converting to Hexen keeps one activation per line, and one line ID per line where a special refers to it. Converting to the Doom format drops thing heights, specials and IDs, scripts, and UDMF-only properties such as light and color fields, slopes, vertex heights and texture names over 8 characters. A map the target format can't hold at all, such as one with more elements than the format allows, can't be converted.<br />
+		<br />
+		After converting, the Errors and Warnings window lists what was lost or changed (up to 50 entries of each kind; double-clicking an entry selects its map element), and the full report goes to the log file. The undo history is cleared, because it holds the map in the old format. Changing the Game Configuration in the Map Options window to one of another map format runs the same conversion and shows a short version of the report first.
 	</p>
 	</div>
 </body>

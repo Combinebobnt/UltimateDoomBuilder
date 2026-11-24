@@ -384,7 +384,17 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			List<int> tags = new List<int>(r.Tags);
 			switch(source.Format)
 			{
-				case MapFormat.Doom: special = source.Sectors.Translate(r.Special); tags[0] = (short)tags[0]; break;
+				case MapFormat.Doom:
+				{
+					special = source.Sectors.Translate(r.Special);
+					tags[0] = (short)tags[0];
+					int low = (short)r.Special & ~source.Sectors.MaskBits;
+					if(low != 0 && source.Sectors.Translate(low) == 0)
+						report.Add(ConversionElement.Sector, index, ConversionSeverity.Lossy, "type " + r.Special + " isn't in the engine's table, which reads " + (special == 0 ? "it as no special" : "only its generalized bits"));
+					else if(low != 0 && special == source.Sectors.Translate(r.Special & source.Sectors.MaskBits))
+						report.Add(ConversionElement.Sector, index, ConversionSeverity.Lossy, "type " + r.Special + ": the engine drops type " + low + " when generalized bits are set, and reads only those");
+					break;
+				}
 				case MapFormat.Hexen: special = (short)r.Special; tags[0] = (short)tags[0]; break; // the engine reads both as int16
 				default: special = r.Special; break;
 			}

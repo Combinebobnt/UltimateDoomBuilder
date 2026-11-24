@@ -4001,6 +4001,35 @@ namespace CodeImp.DoomBuilder
 			return MapSetConversion.Plan(map, config, configinfo, target, hasscripts, out unavailable);
 		}
 
+		[BeginAction("convertmapformat")]
+		internal void ShowConvertMapFormat()
+		{
+			General.Editing.DisengageVolatileMode();
+			using(ConvertMapFormatForm form = new ConvertMapFormatForm())
+			{
+				if(form.ShowDialog(General.MainWindow) != DialogResult.OK) return;
+				ConvertMapFormat(form.Target, form.Conversion);
+			}
+		}
+
+		internal void ConvertMapFormat(ConfigurationInfo target, MapSetConversion conversion)
+		{
+			// The Convert Map Format dialog's config switch: Map Options' apply with only the configuration changed
+			if(!conversion.Fits(map)) throw new InvalidOperationException("The map changed after its format conversion was planned");
+			string oldconfigfile = options.ConfigFile;
+			string oldscriptcompiler = options.ScriptCompiler;
+			options.ConfigFile = target.Filename;
+
+			// As Map Options does for a new config, a map with no usable script compiler takes the target's default
+			string compiler = target.DefaultScriptCompiler;
+			if((string.IsNullOrEmpty(options.ScriptCompiler) || !General.CompiledScriptConfigs.ContainsKey(options.ScriptCompiler))
+			   && !string.IsNullOrEmpty(compiler) && General.CompiledScriptConfigs.ContainsKey(compiler))
+				options.ScriptCompiler = compiler;
+
+			IsChanged = true;
+			ApplyConfiguration(oldconfigfile, oldscriptcompiler, conversion);
+		}
+
 		internal void ApplyConfiguration(string oldconfigfile, string oldscriptcompiler, MapSetConversion conversion)
 		{
 			// Switches to options.ConfigFile after the options changed: the conversion (if any) is applied after the new format interface is in place

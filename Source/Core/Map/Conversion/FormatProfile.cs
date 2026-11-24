@@ -69,20 +69,12 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		public static FormatProfile FromConfiguration(string name, Configuration cfg, string xlatfolder)
 		{
-			// xlatfolder holds the bundled tables (Configurations/Xlat); a Doom-format config without xlattranslator, or a non-ZDoom UDMF namespace, has no profile
+			// xlatfolder holds the bundled tables (Configurations/Xlat); a config Covers rejects has no profile
+			if(!Covers(cfg)) return null;
 			FormatProfile p = new FormatProfile();
 			p.Name = name;
 			p.Engine = cfg.ReadSetting("engine", "");
-			switch(cfg.ReadSetting("formatinterface", "").ToLowerInvariant())
-			{
-				case "doommapsetio": p.Format = MapFormat.Doom; break;
-				case "hexenmapsetio": p.Format = MapFormat.Hexen; break;
-				case "universalmapsetio": p.Format = MapFormat.Udmf; break;
-				default: return null;
-			}
-
-			// A UDMF config's engine is its namespace; Eternity, DSDA and other namespaces have other special sets
-			if(p.Format == MapFormat.Udmf && !xlatengines.Contains(p.Engine)) return null;
+			p.Format = FormatOf(cfg).Value;
 
 			ReadFlagTable(cfg, "linedefflagstranslation", p.LineFlagTable);
 			ReadFlagTable(cfg, "thingflagstranslation", p.ThingFlagTable);
@@ -90,7 +82,6 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			if(p.Format == MapFormat.Doom)
 			{
 				string table = cfg.ReadSetting("xlattranslator", "");
-				if(table == "") return null;
 				XlatTable xlat = XlatTable.LoadFromFolder(xlatfolder, table);
 				p.Lines = new LineXlat(xlat);
 				p.Sectors = new SectorXlat(xlat);
@@ -136,6 +127,30 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 
 			return p;
+		}
+
+		public static MapFormat? FormatOf(Configuration cfg)
+		{
+			switch(cfg.ReadSetting("formatinterface", "").ToLowerInvariant())
+			{
+				case "doommapsetio": return MapFormat.Doom;
+				case "hexenmapsetio": return MapFormat.Hexen;
+				case "universalmapsetio": return MapFormat.Udmf;
+				default: return null;
+			}
+		}
+
+		public static bool Covers(Configuration cfg)
+		{
+			// Without loading a table: a Doom-format config needs xlattranslator, and a UDMF config's engine is its namespace,
+			// where Eternity, DSDA and other namespaces have other special sets
+			switch(FormatOf(cfg))
+			{
+				case MapFormat.Doom: return cfg.ReadSetting("xlattranslator", "") != "";
+				case MapFormat.Hexen: return true;
+				case MapFormat.Udmf: return xlatengines.Contains(cfg.ReadSetting("engine", ""));
+				default: return false;
+			}
 		}
 
 		public static FormatProfile FromConfigurationFile(string path, string xlatfolder)

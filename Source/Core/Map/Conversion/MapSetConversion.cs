@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Geometry;
 
@@ -317,9 +318,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		{
 			// The full report, with every element that lost each property, goes to the log file once; the Errors and Warnings panel
 			// gets at most LOG_CAP entries per issue kind and per element kind, each element entry selecting it on click
-			General.WriteLogLine("Map conversion report:" + Environment.NewLine + Report);
-			foreach(DroppedProperty p in Report.Dropped.Values)
-				General.WriteLogLine("Map conversion dropped " + p.Element.ToString().ToLowerInvariant() + " " + p.Name + " from: " + string.Join(", ", p.Indices));
+			General.WriteLogLine("Map conversion report:" + Environment.NewLine + FullReport());
 
 			Dictionary<string, int> perkind = new Dictionary<string, int>();
 			foreach(ConversionIssue i in Report.Issues)
@@ -378,6 +377,15 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				case ConversionElement.Thing: return index >= 0 && index < map.Things.Count ? map.GetThingByIndex(index) : null;
 				default: return null;
 			}
+		}
+
+		public string FullReport()
+		{
+			// The report plus every element that loses each dropped property
+			StringBuilder sb = new StringBuilder(Report.ToString());
+			foreach(DroppedProperty p in Report.Dropped.Values)
+				sb.AppendLine("Dropped " + p.Element.ToString().ToLowerInvariant() + " " + p.Name + " from: " + string.Join(", ", p.Indices));
+			return sb.ToString();
 		}
 
 		public string Describe(int maxlines)

@@ -1336,6 +1336,9 @@
     <Compile Include="Windows\LightmapBakeForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Windows\ConvertMapFormatForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Windows\SettingsPathRemapForm.cs">
       <SubType>Form</SubType>
     </Compile>

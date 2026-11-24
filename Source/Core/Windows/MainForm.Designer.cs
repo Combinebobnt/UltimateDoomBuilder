@@ -90,6 +90,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.selectGroup = new System.Windows.Forms.ToolStripMenuItem();
 			this.clearGroup = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemmapoptions = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemconvertmapformat = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemviewusedtags = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemviewthingtypes = new System.Windows.Forms.ToolStripMenuItem();
 			this.menuview = new System.Windows.Forms.ToolStripMenuItem();
@@ -607,6 +608,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.clearGroup,
 			this.seperatoreditgrid,
 			this.itemmapoptions,
+			this.itemconvertmapformat,
 			this.itemviewusedtags,
 			this.itemviewthingtypes});
 			this.menuedit.Name = "menuedit";
@@ -827,6 +829,14 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemmapoptions.Tag = "builder_mapoptions";
 			this.itemmapoptions.Text = "Map &Options...";
 			this.itemmapoptions.Click += new System.EventHandler(this.InvokeTaggedAction);
+			//
+			// itemconvertmapformat
+			//
+			this.itemconvertmapformat.Name = "itemconvertmapformat";
+			this.itemconvertmapformat.Size = new System.Drawing.Size(219, 22);
+			this.itemconvertmapformat.Tag = "builder_convertmapformat";
+			this.itemconvertmapformat.Text = "Convert Map &Format...";
+			this.itemconvertmapformat.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// itemviewusedtags
 			// 
@@ -3236,6 +3246,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private System.Windows.Forms.ToolStripMenuItem itemimportsettings;
 		private System.Windows.Forms.ToolStripMenuItem menuedit;
 		private System.Windows.Forms.ToolStripMenuItem itemmapoptions;
+		private System.Windows.Forms.ToolStripMenuItem itemconvertmapformat;
 		private System.Windows.Forms.ToolStripMenuItem itemreloadresources;
 		private CodeImp.DoomBuilder.Controls.LinedefInfoPanel linedefinfo;
 		private CodeImp.DoomBuilder.Controls.VertexInfoPanel vertexinfo;

@@ -306,6 +306,28 @@ namespace Builder.Tests
 			Assert.Contains(report.Issues, i => i.Message.Contains("passthrough"));
 		}
 
+		// The engine reads Doom-format thing bit 128 as MBF friendly outside Strife, and reads unknown sector types as no special
+		[Fact]
+		public void FriendlyThingsAndUnknownSectorTypes_FollowTheEngine()
+		{
+			MapRecords map = new MapRecords();
+			map.Things.Add(new ThingRecord { Type = 3004, Bits = 128 | 7 });
+			foreach(int type in new[] { 6, 6 | 0x20, 9 | 0x20, 9, 7 | 0x20 }) map.Sectors.Add(new SectorRecord { Special = type });
+			ConversionReport report;
+			MapRecords udmf = Convert(map, "GZDoom_DoomDoom", "GZDoom_DoomUDMF", out report);
+			Assert.True(udmf.Things[0].Flags.ContainsKey("friend") && udmf.Things[0].Flags["friend"], string.Join(", ", udmf.Things[0].Flags.Keys));
+			int[] specials = udmf.Sectors.Select(s => s.Special).ToArray();
+			Assert.True(specials.Take(3).SequenceEqual(new[] { 0, 0x100, 0x100 }), string.Join(", ", specials)); // nobitmask secret 9 keeps only the damage bits
+			Assert.True(udmf.Sectors[3].Special != 0 && (udmf.Sectors[4].Special & ~0x100) != 0, "known types keep their special");
+			string[] sectorissues = report.Issues.Where(i => i.Element == ConversionElement.Sector).Select(i => i.Index + " " + i.Severity + ": " + i.Message).ToArray();
+			Assert.True(sectorissues.Length == 3 && sectorissues[0].StartsWith("0 Lossy") && sectorissues[1].StartsWith("1 Lossy") && sectorissues[2].StartsWith("2 Lossy"), string.Join("\n", sectorissues));
+			Assert.Equal(128 | 7, Convert(udmf, "GZDoom_DoomUDMF", "GZDoom_DoomDoom", out report).Things[0].Bits);
+
+			foreach(string cfg in new[] { "ZDoom_DoomDoom", "Zandronum_DoomDoom", "GZDoom_HereticDoom", "ZDoom_HereticDoom", "Zandronum_HereticDoom", "MBF21_Doom2Doom" })
+				Assert.True(Profile(cfg).ThingFlagTable.Any(f => f.Flag == 128 && f.Fields.SequenceEqual(new[] { "friend" })), cfg);
+			Assert.DoesNotContain(Profile("GZDoom_StrifeDoom").ThingFlagTable, f => f.Flag == 128);
+		}
+
 		// One line refers to ID 7 per case; a Hexen write must keep ID 7 on the plain line
 		[Fact]
 		public void ReferencedLineIds_EverySpecialThatLooksUpALine()
