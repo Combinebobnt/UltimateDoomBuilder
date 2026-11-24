@@ -120,7 +120,7 @@
 	<p>
 		Visual mode previews the bake that the next save would write: walls, floors, ceilings and 3D floors get the baked light added to their sector light, as in UZDoom, and the lightmap light things stop drawing as dynamic lights while it shows. The status bar says when the preview turns on and why it is off. Any edit turns it off at once; about half a second after the map stops changing, the editor checks it against the bake again, so undoing the edit brings the preview back. <b>View &gt; Lightmap preview (Visual mode)</b> turns it on or off.<br>
 		<br>
-		The preview does not light things and sprites from the bake (UZDoom uses the bake's light probes for them), so things near a lightmap light look darker than in the game. Vavoom-style 3D floors get no baked light in the preview: the baker treats every 3D floor as the standard type, so it lights the wrong side of a Vavoom floor's surfaces. UZDoom draws that light anyway.<br>
+		The preview does not light things and sprites from the bake (UZDoom uses the bake's light probes for them), so things near a lightmap light look darker than in the game. Vavoom-style 3D floors preview the way UZDoom draws them: the baker treats every 3D floor as the standard type, so it lights the wrong side of a Vavoom floor's surfaces, and UZDoom and the preview both show that light as baked.<br>
 		<br>
 		Use <b>Test Map</b> to see the bake in the engine. When the saved test map contains a LIGHTMAP lump, the editor adds the configuration's <b>-enablelightmaps</b> parameter to the engine command line, so make sure the test engine is UZDoom. When you start the map yourself, add <b>-enablelightmaps</b>; without it UZDoom ignores the lump.<br>
 		<br>

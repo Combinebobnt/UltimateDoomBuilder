@@ -96,8 +96,6 @@ namespace CodeImp.DoomBuilder.BuilderModes
 		// The shown lightmap preview's triangles for this flat, or null to use the sector's triangulation
 		protected LightmapFlat GetLightmapFlat(Effect3DFloor extrafloor, bool innerside, bool visualceiling)
 		{
-			// The baker treats every 3D floor as the standard type, so it lights the wrong side of a Vavoom floor's flats
-			if(extrafloor != null && extrafloor.VavoomType) return null;
 			LightmapPreview preview = General.Map.LightmapPreview;
 			builtlightmap = preview;
 			lightmapqueried = true;
