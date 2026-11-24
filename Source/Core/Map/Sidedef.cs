@@ -284,7 +284,7 @@ namespace CodeImp.DoomBuilder.Map
 
 		internal void TranslateFromUDMF(string part)
 		{
-			// Try to translate UDMF texture offsets to regular ones; part comes from FoldedOffsetPart while UDMF is the current format
+			// Try to translate UDMF texture offsets to regular ones; part is FoldedOffsetPart's choice, made by the caller
 			if(part != null)
 			{
 				offsetx += (int)UniFields.GetFloat(this.Fields, "offsetx_" + part);

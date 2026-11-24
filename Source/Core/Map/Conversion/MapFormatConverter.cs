@@ -117,7 +117,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			if(map.OutOfRangeThings > 0)
 				report.Add(ConversionElement.Map, -1, ConversionSeverity.Blocking, map.OutOfRangeThings + " things lie outside -32768..32767, which the format can't store");
 			if(map.FractionalThings > 0)
-				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, map.FractionalThings + " things with fractional coordinates are rounded");
+				report.Add(ConversionElement.Map, -1, ConversionSeverity.Lossy, map.FractionalThings + " things with fractional coordinates lose the fraction (cut toward zero)");
 			if(map.LongTextureNames.Count > 0)
 			{
 				// The names list is capped so the message box and the panel stay readable

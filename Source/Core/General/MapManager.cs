@@ -4004,7 +4004,12 @@ namespace CodeImp.DoomBuilder
 		internal void ApplyConfiguration(string oldconfigfile, string oldscriptcompiler, MapSetConversion conversion)
 		{
 			// Switches to options.ConfigFile after the options changed: the conversion (if any) is applied after the new format interface is in place
-			if(conversion != null) conversion.CheckCounts(map);
+			if(conversion != null && !conversion.Fits(map))
+			{
+				// Nothing is switched yet, so the options go back to the old config with the map
+				options.ConfigFile = oldconfigfile;
+				throw new InvalidOperationException("The map changed after its format conversion was planned");
+			}
 
 			// Stop data manager
 			data.Dispose();

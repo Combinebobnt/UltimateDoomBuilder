@@ -15,7 +15,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 	{
 		#region ================== Constants
 
-		private const int LOG_CAP = 50; // Errors and Warnings entries per issue kind and per dropped property
+		private const int LOG_CAP = 50; // Errors and Warnings entries per issue kind and per element kind
 
 		#endregion
 
@@ -88,7 +88,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			{
 				Vector2D p = v.Position;
 				if(p.x != Math.Floor(p.x) || p.y != Math.Floor(p.y)) m.FractionalVertices++;
-				if(OutOfRange(p.x) || OutOfRange(p.y)) m.OutOfRangeVertices++;
+				if(OutOfRange(Math.Round(p.x)) || OutOfRange(Math.Round(p.y))) m.OutOfRangeVertices++; // the binary writers round vertices
 				if(!udmf) continue;
 				if(!double.IsNaN(v.ZFloor)) Count(m.VertexFields, "zfloor");
 				if(!double.IsNaN(v.ZCeiling)) Count(m.VertexFields, "zceiling");
@@ -160,7 +160,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				t.Args.CopyTo(r.Args, 0);
 				Vector3D p = t.Position;
 				if(p.x != Math.Floor(p.x) || p.y != Math.Floor(p.y)) m.FractionalThings++;
-				if(OutOfRange(p.x) || OutOfRange(p.y)) m.OutOfRangeThings++;
+				if(OutOfRange(Math.Truncate(p.x)) || OutOfRange(Math.Truncate(p.y))) m.OutOfRangeThings++; // and cut things toward zero
 				if(udmf)
 				{
 					r.Flags = new Dictionary<string, bool>(t.Flags);
@@ -229,18 +229,17 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		#region ================== Apply
 
-		internal void CheckCounts(MapSet map)
+		internal bool Fits(MapSet map)
 		{
 			// The records are written back by index, so the map must not have changed since Plan
-			if(map.Linedefs.Count != result.Lines.Count || map.Sectors.Count != result.Sectors.Count || map.Things.Count != result.Things.Count
-			   || map.Sidedefs.Count != foldedparts.Count || map.Vertices.Count != result.VertexCount)
-				throw new InvalidOperationException("The map changed after its format conversion was planned");
+			return map.Linedefs.Count == result.Lines.Count && map.Sectors.Count == result.Sectors.Count && map.Things.Count == result.Things.Count
+			       && map.Sidedefs.Count == foldedparts.Count && map.Vertices.Count == result.VertexCount;
 		}
 
 		internal void Apply(MapSet map, GameConfiguration config)
 		{
 			// Runs after the target configuration and its map format interface are in place, so element flags use the new config's keys
-			CheckCounts(map);
+			if(!Fits(map)) throw new InvalidOperationException("The map changed after its format conversion was planned");
 			bool binary = Target.IsBinary;
 			bool fromudmf = Source.Format == MapFormat.Udmf;
 
@@ -316,18 +315,17 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 
 		internal void LogReport(MapSet map)
 		{
-			// The full report goes to the log file once; the Errors and Warnings panel gets at most LOG_CAP entries per issue kind
-			// and per dropped property, each element entry selecting it on click
+			// The full report, with every element that lost each property, goes to the log file once; the Errors and Warnings panel
+			// gets at most LOG_CAP entries per issue kind and per element kind, each element entry selecting it on click
 			General.WriteLogLine("Map conversion report:" + Environment.NewLine + Report);
+			foreach(DroppedProperty p in Report.Dropped.Values)
+				General.WriteLogLine("Map conversion dropped " + p.Element.ToString().ToLowerInvariant() + " " + p.Name + " from: " + string.Join(", ", p.Indices));
 
 			Dictionary<string, int> perkind = new Dictionary<string, int>();
 			foreach(ConversionIssue i in Report.Issues)
 			{
 				string kind = i.Severity.ToString().ToLowerInvariant() + " " + i.Element.ToString().ToLowerInvariant();
-				int n;
-				perkind.TryGetValue(kind, out n);
-				perkind[kind] = ++n;
-				if(n <= LOG_CAP) LogElement(map, i.Element, i.Index, "Map conversion (" + i.Severity.ToString().ToLowerInvariant() + "): " + i);
+				if(Counted(perkind, kind) <= LOG_CAP) LogElement(map, i.Element, i.Index, "Map conversion (" + i.Severity.ToString().ToLowerInvariant() + "): " + i);
 			}
 			foreach(KeyValuePair<string, int> k in perkind)
 				if(k.Value > LOG_CAP) General.ErrorLogger.Add(ErrorType.Warning, "Map conversion: " + (k.Value - LOG_CAP) + " more " + k.Key + " issues are listed in the log file");
@@ -336,9 +334,9 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			List<KeyValuePair<ConversionElement, int>> order = new List<KeyValuePair<ConversionElement, int>>();
 			foreach(DroppedProperty p in Report.Dropped.Values)
 			{
-				for(int i = 0; i < p.Indices.Count && i < LOG_CAP; i++)
+				foreach(int index in p.Indices)
 				{
-					KeyValuePair<ConversionElement, int> key = new KeyValuePair<ConversionElement, int>(p.Element, p.Indices[i]);
+					KeyValuePair<ConversionElement, int> key = new KeyValuePair<ConversionElement, int>(p.Element, index);
 					List<string> names;
 					if(!perelement.TryGetValue(key, out names))
 					{
@@ -348,10 +346,20 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 					if(!names.Contains(p.Name)) names.Add(p.Name);
 				}
 			}
+			Dictionary<string, int> perelementkind = new Dictionary<string, int>();
 			foreach(KeyValuePair<ConversionElement, int> key in order)
-				LogElement(map, key.Key, key.Value, "Map conversion dropped from " + key.Key + " " + key.Value + ": " + string.Join(", ", perelement[key]));
-			foreach(DroppedProperty p in Report.Dropped.Values)
-				if(p.Indices.Count > LOG_CAP) General.ErrorLogger.Add(ErrorType.Warning, "Map conversion dropped " + p.Element.ToString().ToLowerInvariant() + " " + p.Name + " from " + (p.Indices.Count - LOG_CAP) + " more elements");
+				if(Counted(perelementkind, key.Key.ToString().ToLowerInvariant()) <= LOG_CAP)
+					LogElement(map, key.Key, key.Value, "Map conversion dropped from " + key.Key + " " + key.Value + ": " + string.Join(", ", perelement[key]));
+			foreach(KeyValuePair<string, int> k in perelementkind)
+				if(k.Value > LOG_CAP) General.ErrorLogger.Add(ErrorType.Warning, "Map conversion dropped properties from " + (k.Value - LOG_CAP) + " more " + k.Key + "s, listed in the log file");
+		}
+
+		private static int Counted(Dictionary<string, int> counts, string key)
+		{
+			int n;
+			counts.TryGetValue(key, out n);
+			counts[key] = ++n;
+			return n;
 		}
 
 		private static void LogElement(MapSet map, ConversionElement element, int index, string message)

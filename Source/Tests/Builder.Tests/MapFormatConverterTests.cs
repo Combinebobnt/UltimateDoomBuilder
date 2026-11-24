@@ -432,7 +432,8 @@ namespace Builder.Tests
 			Assert.True(reload >= 0);
 			Assert.True(calls.FindIndex(m => m.Name == "ClearAllUndos") > reload);
 			Assert.True(calls.FindIndex(m => m.Name == "ClearAllRedosAndBranch") > reload);
-			Assert.True(calls.FindIndex(m => m.Name == "CheckCounts") < calls.FindIndex(m => m.Name == "Dispose"));
+			int fits = calls.FindIndex(m => m.Name == "Fits");
+			Assert.True(fits >= 0 && fits < calls.FindIndex(m => m.Name == "Dispose"));
 
 			List<MethodBase> apply = TextureFavoritesRuntimeTests.Calls(typeof(MapSetConversion).GetMethod("Apply", instance)).ToList();
 			Assert.Contains(apply, m => m.Name == "SetConvertedProperties");

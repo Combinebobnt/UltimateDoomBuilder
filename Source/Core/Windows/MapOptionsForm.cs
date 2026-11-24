@@ -265,12 +265,12 @@ namespace CodeImp.DoomBuilder.Windows
 
 						// Warn the user about IO interface change
 						string message = planned == null
-							? "The game configuration you selected uses a different file format than your current map. Because your map was not designed for this format it may cause the map to work incorrectly in the game, and the undo history is cleared. "
-							  + (unavailable != null ? "Map conversion is unavailable for " + unavailable + nl + nl : "")
-							  + "Do you want to continue?"
+							? "The game configuration you selected uses a different file format than your current map. Because your map was not designed for this format it may cause the map to work incorrectly in the game, and the undo history is cleared."
+							  + (unavailable != null ? nl + nl + "Map conversion is unavailable for " + unavailable.TrimEnd('.') + "." : "")
+							  + nl + nl + "Do you want to continue?"
 							: "The game configuration you selected uses a different map format. The map will be converted from " + planned.Source.Format + " to " + planned.Target.Format + ":" + nl + nl
 							  + planned.Describe(12) + nl + nl
-							  + "Everything lost or changed is listed in the Errors and Warnings panel, and the undo history is cleared. Do you want to continue?";
+							  + "Everything lost or changed is listed in the Errors and Warnings panel (in full in the log file), and the undo history is cleared. Do you want to continue?";
 						if(General.ShowWarningMessage(message, MessageBoxButtons.YesNo, MessageBoxDefaultButton.Button2) == DialogResult.No)
 						{
 							SelectOldConfiguration();
