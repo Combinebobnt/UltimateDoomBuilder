@@ -289,6 +289,10 @@ namespace CodeImp.DoomBuilder.Windows
 		private static bool searched;
 		private static bool failed;
 		private static bool hintlogged;
+		private static MethodInfo grabinfo;
+		private static MethodInfo ungrab;
+		private static bool grabfailed;
+		private static bool grablogged;
 
 		public static ZenityResult Run(DialogSpec spec, IWin32Window owner)
 		{
@@ -354,6 +358,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 					while(!p.HasExited)
 					{
+						ReleasePointerGrab();
 						Application.DoEvents();
 						if(!hintdone && (tick++ % 4) == 0) hintdone = ApplyHint(display, p.Id, parent, hinttimer);
 						Thread.Sleep(15);
@@ -400,6 +405,34 @@ namespace CodeImp.DoomBuilder.Windows
 			if(!hintlogged) General.WriteLogLine("Native file dialogs: could not make the chooser transient for UDB (" + reason + ").");
 			hintlogged = true;
 			return true;
+		}
+
+		// A Mono pointer grab (XGrabPointer) left held while the chooser runs swallows every click on the desktop, the chooser's too
+		private static void ReleasePointerGrab()
+		{
+			if(grabfailed) return;
+			try
+			{
+				if(grabinfo == null)
+				{
+					Type xplatui = typeof(Control).Assembly.GetType("System.Windows.Forms.XplatUI");
+					BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+					grabinfo = (xplatui != null ? xplatui.GetMethod("GrabInfo", flags) : null);
+					ungrab = (xplatui != null ? xplatui.GetMethod("UngrabWindow", flags) : null);
+					if(grabinfo == null || ungrab == null) { grabfailed = true; return; }
+				}
+				object[] args = { IntPtr.Zero, false, System.Drawing.Rectangle.Empty };
+				grabinfo.Invoke(null, args);
+				IntPtr grabbed = (IntPtr)args[0];
+				if(grabbed == IntPtr.Zero) return;
+				ungrab.Invoke(null, new object[] { grabbed });
+				if(!grablogged) General.WriteLogLine("Native file dialogs: released a pointer grab held during the chooser.");
+				grablogged = true;
+			}
+			catch(Exception)
+			{
+				grabfailed = true;
+			}
 		}
 
 		private static IEnumerable<Form> EnumerateForms()
