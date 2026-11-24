@@ -142,7 +142,7 @@ namespace CodeImp.DoomBuilder.Compilers
 	// The quality values a bake runs (or ran) with
 	internal sealed class LightmapBakeQuality
 	{
-		// Decision 8 of the dialog plan: scale, shadow samples, bounce samples per preset
+		// Sample distance scale, shadow samples, bounce samples per preset; Final is the baker's default
 		private static readonly Dictionary<LightmapQualityPreset, double[]> PRESETS = new Dictionary<LightmapQualityPreset, double[]>
 		{
 			{ LightmapQualityPreset.Draft, new double[] { 4, 16, 128 } },
