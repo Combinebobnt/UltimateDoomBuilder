@@ -73,6 +73,11 @@ namespace CodeImp.DoomBuilder
 			crc.Update(data);
 		}
 
+		public void Add(byte[] data, int offset, int count)
+		{
+			crc.Update(data, offset, count);
+		}
+
 		public void Reset()
 		{
 			crc.Reset();

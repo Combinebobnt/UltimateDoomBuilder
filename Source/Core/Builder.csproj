@@ -647,7 +647,11 @@
     <Compile Include="IO\IMapSetIO.cs" />
     <Compile Include="General\Launcher.cs" />
     <Compile Include="IO\Lump.cs" />
+    <Compile Include="IO\ArchiveMapScan.cs" />
+    <Compile Include="IO\ArchiveMapSource.cs" />
+    <Compile Include="IO\ArchiveMapStore.cs" />
     <Compile Include="IO\MapLumpScanner.cs" />
+    <Compile Include="IO\ZipDirectory.cs" />
     <Compile Include="IO\MapSetIO.cs" />
     <Compile Include="IO\UniversalMapSetIO.cs" />
     <Compile Include="IO\WAD.cs" />
