@@ -903,7 +903,7 @@ namespace CodeImp.DoomBuilder
 			if(result.State == SettingsImportState.Applied)
 			{
 				toastmanager.ShowToast("settingsimport", ToastType.INFO, "Settings imported",
-					"Applied " + result.UnitCount + " imported entries. Previous settings: " + SettingsTransfer.BACKUP_FILE + ".",
+					result.UnitCount + " entries applied, old settings backed up.",
 					"Imported settings were applied.");
 			}
 			else if(result.State == SettingsImportState.Failed)
