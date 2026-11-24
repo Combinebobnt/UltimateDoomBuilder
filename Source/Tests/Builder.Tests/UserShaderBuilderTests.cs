@@ -130,6 +130,7 @@ namespace Builder.Tests
 			int glow = fragment.IndexOf("baseLight = addWallGlow(baseLight, PosW);");
 			Assert.True(glow > fragment.IndexOf("vec4 baseLight ="));
 			Assert.True(glow < fragment.IndexOf("getDynLightContribution(", glow));
+			Assert.True(glow < fragment.IndexOf(dialect == 1 ? "editorBright(vTexCoord.st).rgb" : "desaturate(material.Bright)", glow));
 		}
 
 		[Fact]

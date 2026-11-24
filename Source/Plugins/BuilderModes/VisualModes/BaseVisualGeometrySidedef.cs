@@ -278,7 +278,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 			}
 
-			// Glow is added after the light in the shader, from the front sector's planes
+			// Glow is added after the light in the shader, from the planes of the sector data passed in
 			SetGlow(sd.CeilingGlow, sd.Ceiling.plane, sd.FloorGlow, sd.Floor.plane);
 
 			//mxd. Interpolate vertex colors?

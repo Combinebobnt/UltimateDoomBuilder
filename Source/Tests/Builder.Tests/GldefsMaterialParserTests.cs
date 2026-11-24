@@ -36,7 +36,7 @@ namespace Builder.Tests
 		[Fact]
 		public void GlowHeightsAreTheEnginesUnits()
 		{
-			var parser = Parse("Glow { Texture \"GLOWA\", 00FF00, 96\nTexture \"GLOWB\", FF0000\nFlats { GLOWC } }", out bool result);
+			var parser = Parse("Glow { Texture \"GLOWA\", 00FF00, 96\nTexture \"GLOWB\", FF0000, 128, fullbright\nFlats { GLOWC } }", out bool result);
 			Assert.True(result);
 			Assert.Equal(96.0, parser.GlowingFlats[CodeImp.DoomBuilder.IO.Lump.MakeLongName("GLOWA", true)].Height);
 			Assert.Equal(128.0, parser.GlowingFlats[CodeImp.DoomBuilder.IO.Lump.MakeLongName("GLOWB", true)].Height);
