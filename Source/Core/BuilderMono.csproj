@@ -673,7 +673,11 @@
     <Compile Include="Windows\ToolbarLayoutModel.cs" />
     <Compile Include="Map\Linedef.cs" />
     <Compile Include="Map\Conversion\LineXlat.cs" />
+    <Compile Include="Map\Conversion\ConversionReport.cs" />
+    <Compile Include="Map\Conversion\FormatProfile.cs" />
     <Compile Include="Map\Conversion\LineCodecs.cs" />
+    <Compile Include="Map\Conversion\MapFormatConverter.cs" />
+    <Compile Include="Map\Conversion\MapRecords.cs" />
     <Compile Include="Map\Conversion\SectorXlat.cs" />
     <Compile Include="Geometry\LinedefSide.cs" />
     <Compile Include="Map\MapOptions.cs" />

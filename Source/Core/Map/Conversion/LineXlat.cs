@@ -317,7 +317,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			return l.Special + ":" + (arg0istag ? "t" : l.Args[0].ToString()) + ":" + l.Args[1] + ":" + l.Args[2] + ":" + l.Args[3] + ":" + l.Args[4] + ":" + (int)l.Activation + ":" + l.Repeat + ":" + l.Monsters + ":" + l.FirstSideOnly;
 		}
 
-		public DoomLine? Find(CanonicalLine c, bool secret)
+		public DoomLine? Find(CanonicalLine c, bool secret, Predicate<int> allowed = null)
 		{
 			BuildIndex();
 			if(c.Special == 0) return new DoomLine { Type = 0, Tag = c.LineId };
@@ -373,6 +373,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			DoomLine? best = null;
 			foreach(DoomLine d in found)
 			{
+				if(allowed != null && !allowed(d.Type)) continue;
 				if(best == null) { best = d; continue; }
 				bool keeps = d.Tag == c.LineId, bestkeeps = best.Value.Tag == c.LineId;
 				if((keeps && !bestkeeps) || (keeps == bestkeeps && d.Type < best.Value.Type)) best = d;
