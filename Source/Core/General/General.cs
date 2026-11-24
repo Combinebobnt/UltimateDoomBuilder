@@ -1152,6 +1152,8 @@ namespace CodeImp.DoomBuilder
 				Application.Exit();
 			}
 
+			HelpServer.Stop();
+
 			// Die.
 			Process.GetCurrentProcess().Kill();
 		}
@@ -2149,16 +2151,35 @@ namespace CodeImp.DoomBuilder
 			if(missing) WriteLogLine("WARNING: Help page \"" + pagefile + "\" not found in \"" + helpdir + "\"");
 			if(path == null) return false;
 
-			WriteLogLine("Opening help: " + path);
+			string url = HelpPageUrl(helpdir, path);
+			WriteLogLine("Opening help: " + path + " as " + url);
 			try
 			{
-				ForkUpdateChecker.StartXdgOpen(HelpPaths.ToUri(path));
+				ForkUpdateChecker.StartXdgOpen(url);
 			}
 			catch(Exception ex)
 			{
-				ShowWarningMessage("Could not open the help page in a browser: " + ex.Message + "\n\n" + path, MessageBoxButtons.OK);
+				ShowWarningMessage("Could not open the help page in a browser: " + ex.Message + "\n\n" + url, MessageBoxButtons.OK);
 			}
 			return true;
+		}
+
+		// Snap and flatpak browsers can't read the AppImage's mount, so serve the manual over loopback HTTP there
+		private static string HelpPageUrl(string helpdir, string path)
+		{
+			if(HelpServer.Wanted(Environment.GetEnvironmentVariable("APPDIR"), Environment.GetEnvironmentVariable(HelpServer.ENABLE_VARIABLE)))
+			{
+				try
+				{
+					string url = HelpPaths.ToHttpUri(HelpServer.Start(helpdir), helpdir, path);
+					if(url != null) return url;
+				}
+				catch(Exception ex)
+				{
+					WriteLogLine("WARNING: Help server failed to start, opening help as a file: " + ex.Message);
+				}
+			}
+			return HelpPaths.ToUri(path);
 		}
 
 		// This returns a unique temp filename

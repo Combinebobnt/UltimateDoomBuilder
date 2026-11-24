@@ -1084,6 +1084,7 @@
     <Compile Include="General\SavePurpose.cs" />
     <Compile Include="General\ForkUpdateChecker.cs" />
     <Compile Include="General\HelpPaths.cs" />
+    <Compile Include="General\HelpServer.cs" />
     <Compile Include="General\UpdateChecker.cs" />
     <Compile Include="Geometry\CurveTools.cs" />
     <Compile Include="Geometry\InterpolationTools.cs" />

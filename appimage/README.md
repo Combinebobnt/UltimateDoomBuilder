@@ -47,6 +47,8 @@ An explicitly configured screenshot destination is preserved. The launcher chang
 into the bundled editor directory, so command-line file paths should be absolute.
 The bundled `usr/lib/Fonts/fonts-native.conf` supplies the Arimo fallback used
 by Mono dialogs. An explicitly set `FONTCONFIG_FILE` overrides that fallback.
+The running editor serves the help pages to the browser on a local
+`http://127.0.0.1` port, so open help pages stop loading once the editor exits.
 
 ## Licenses And Sources
 
