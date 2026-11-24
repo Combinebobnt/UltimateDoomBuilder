@@ -652,6 +652,8 @@
     <Compile Include="IO\ArchiveMapStore.cs" />
     <Compile Include="IO\MapLumpScanner.cs" />
     <Compile Include="IO\ZipDirectory.cs" />
+    <Compile Include="IO\ZipEntryReplacer.cs" />
+    <Compile Include="IO\SiblingFileSwap.cs" />
     <Compile Include="IO\MapSetIO.cs" />
     <Compile Include="IO\UniversalMapSetIO.cs" />
     <Compile Include="IO\WAD.cs" />
