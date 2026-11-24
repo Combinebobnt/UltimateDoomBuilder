@@ -199,19 +199,22 @@ namespace Builder.Tests
 			{
 				UITheme.Apply(UIThemeKind.Dark);
 				Assert.False(UITheme.IsDark);
+				UITheme.Apply(UIThemeKind.System);
+				Assert.Equal(UIThemeKind.Light, UITheme.Current);
 			}
 			finally { UITheme.Reset(); }
 		}
 
 		[Fact]
-		public void SettingReadsOnlyDarkAsDarkAndWritesLowercase()
+		public void SettingReadsMissingOrUnknownAsSystemAndWritesLowercase()
 		{
 			var cases = new (string value, UIThemeKind expected)[]
 			{
 				("dark", UIThemeKind.Dark),
 				("light", UIThemeKind.Light),
-				(null, UIThemeKind.Light),
-				("bogus", UIThemeKind.Light),
+				("system", UIThemeKind.System),
+				(null, UIThemeKind.System),
+				("bogus", UIThemeKind.System),
 			};
 			foreach(var (value, expected) in cases)
 			{
@@ -225,6 +228,134 @@ namespace Builder.Tests
 			Assert.Equal("dark", written.ReadSetting("uitheme", ""));
 			ProgramConfiguration.WriteUITheme(written, UIThemeKind.Light);
 			Assert.Equal("light", written.ReadSetting("uitheme", ""));
+			ProgramConfiguration.WriteUITheme(written, UIThemeKind.System);
+			Assert.Equal("system", written.ReadSetting("uitheme", ""));
+		}
+
+		// Answers any command line containing a reply's key; every other command fails
+		private sealed class FakeRunner : ICommandRunner
+		{
+			public readonly Dictionary<string, string> Replies = new Dictionary<string, string>();
+			public readonly List<string> Calls = new List<string>();
+
+			public string Run(string file, string args, int timeoutms)
+			{
+				Calls.Add(file + " " + args);
+				foreach(KeyValuePair<string, string> reply in Replies)
+					if((file + " " + args).Contains(reply.Key)) return reply.Value;
+				return null;
+			}
+		}
+
+		private const string MATE_THEME = "org.mate.interface gtk-theme";
+		private const string PORTAL = "org.freedesktop.appearance color-scheme";
+		private const string GNOME_SCHEME = "org.gnome.desktop.interface color-scheme";
+		private const string GNOME_THEME = "org.gnome.desktop.interface gtk-theme";
+
+		private static Func<string, string> Env(params string[] pairs)
+		{
+			var env = new Dictionary<string, string>();
+			for(int i = 0; i + 1 < pairs.Length; i += 2) env[pairs[i]] = pairs[i + 1];
+			return name => env.TryGetValue(name, out string value) ? value : null;
+		}
+
+		[Fact]
+		public void DetectorReadsGtkThemeFirst()
+		{
+			var runner = new FakeRunner();
+			runner.Replies[PORTAL] = "(<<uint32 2>>,)\n";
+			DesktopThemeResult r = DesktopTheme.Detect(Env("GTK_THEME", "Adwaita:dark", "XDG_CURRENT_DESKTOP", "MATE"), runner);
+			Assert.Equal(UIThemeKind.Dark, r.Kind);
+			Assert.Contains("GTK_THEME", r.Source);
+			Assert.Empty(runner.Calls);
+
+			r = DesktopTheme.Detect(Env("GTK_THEME", "Adwaita"), runner);
+			Assert.Equal(UIThemeKind.Light, r.Kind);
+		}
+
+		[Fact]
+		public void DetectorReadsMateThemeNameBeforeThePortal()
+		{
+			var runner = new FakeRunner();
+			runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
+			runner.Replies[MATE_THEME] = "'Yaru-dark'\n";
+			DesktopThemeResult r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
+			Assert.Equal(UIThemeKind.Dark, r.Kind);
+			Assert.Equal("MATE gtk-theme 'Yaru-dark'", r.Source);
+
+			// The portal answers dark from GNOME's key, which MATE's Appearance dialog doesn't change
+			runner.Replies[MATE_THEME] = "'Yaru-red'\n";
+			r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
+			Assert.Equal(UIThemeKind.Light, r.Kind);
+			Assert.Equal("MATE gtk-theme 'Yaru-red'", r.Source);
+
+			// Outside MATE the MATE key isn't asked
+			r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "GNOME"), runner);
+			Assert.Equal(UIThemeKind.Dark, r.Kind);
+			Assert.Contains("portal", r.Source);
+		}
+
+		[Fact]
+		public void DetectorReadsThePortalThenGnome()
+		{
+			var runner = new FakeRunner();
+			runner.Replies[GNOME_SCHEME] = "'prefer-dark'\n";
+			runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
+			DesktopThemeResult r = DesktopTheme.Detect(Env(), runner);
+			Assert.Equal(UIThemeKind.Dark, r.Kind);
+			Assert.Contains("portal", r.Source);
+
+			runner.Replies[PORTAL] = "(<<uint32 2>>,)\n";
+			r = DesktopTheme.Detect(Env(), runner);
+			Assert.Equal(UIThemeKind.Light, r.Kind);
+			Assert.Contains("portal", r.Source);
+
+			// 0 is "no preference": falls through to GNOME's key
+			runner.Replies[PORTAL] = "(<<uint32 0>>,)\n";
+			r = DesktopTheme.Detect(Env(), runner);
+			Assert.Equal(UIThemeKind.Dark, r.Kind);
+			Assert.Equal("GNOME color-scheme 'prefer-dark'", r.Source);
+
+			// GNOME's 'default' scheme falls back to its theme name
+			runner.Replies[GNOME_SCHEME] = "'default'\n";
+			runner.Replies[GNOME_THEME] = "'Yaru-Red-light'\n";
+			r = DesktopTheme.Detect(Env(), runner);
+			Assert.Equal(UIThemeKind.Light, r.Kind);
+			Assert.Equal("GNOME gtk-theme 'Yaru-Red-light'", r.Source);
+		}
+
+		[Fact]
+		public void DetectorWithNoAnswerIsLight()
+		{
+			var runner = new FakeRunner();
+			DesktopThemeResult r = DesktopTheme.Detect(Env("XDG_CURRENT_DESKTOP", "MATE"), runner);
+			Assert.Equal(UIThemeKind.Light, r.Kind);
+			Assert.Equal("no desktop preference found", r.Source);
+			Assert.Equal(4, runner.Calls.Count);
+		}
+
+		[Fact]
+		public void SystemAppliesTheDetectedTheme()
+		{
+			try
+			{
+				var runner = new FakeRunner();
+				runner.Replies[PORTAL] = "(<<uint32 1>>,)\n";
+				var backend = new FakeBackend();
+				UITheme.Apply(UIThemeKind.System, backend, Env(), runner);
+				Assert.Equal(1, backend.PaletteCalls);
+				Assert.Equal(1, backend.RendererCalls);
+				Assert.Equal(UIThemeKind.Dark, UITheme.Current);
+				UITheme.Reset();
+
+				runner.Replies[PORTAL] = "(<<uint32 2>>,)\n";
+				backend = new FakeBackend();
+				UITheme.Apply(UIThemeKind.System, backend, Env(), runner);
+				Assert.Equal(0, backend.PaletteCalls);
+				Assert.Equal(0, backend.RendererCalls);
+				Assert.Equal(UIThemeKind.Light, UITheme.Current);
+			}
+			finally { UITheme.Reset(); }
 		}
 	}
 }

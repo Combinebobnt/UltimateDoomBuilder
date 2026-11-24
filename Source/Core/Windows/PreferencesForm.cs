@@ -37,6 +37,9 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private const float VIEW_DISTANCE_STEP_SIZE = 500.0f;
 
+		// The interface theme combo's items, in order
+		private static readonly UIThemeKind[] UITHEME_KINDS = { UIThemeKind.System, UIThemeKind.Light, UIThemeKind.Dark };
+
 		#endregion
 
 		#region ================== Variables
@@ -276,7 +279,7 @@ namespace CodeImp.DoomBuilder.Windows
 			scriptcolorpresets.SelectedIndex = 0;
 
 			blackbrowsers.Checked = General.Settings.BlackBrowsers;
-			uitheme.SelectedIndex = (General.Settings.UITheme == UIThemeKind.Dark ? 1 : 0);
+			uitheme.SelectedIndex = Math.Max(0, Array.IndexOf(UITHEME_KINDS, General.Settings.UITheme));
 			if(!UITheme.IsSupported)
 			{
 				uitheme.Enabled = false;
@@ -463,7 +466,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 			General.Colors.CreateAssistColors();
 			General.Settings.BlackBrowsers = blackbrowsers.Checked;
-			if(uitheme.Enabled) General.Settings.UITheme = (uitheme.SelectedIndex == 1 ? UIThemeKind.Dark : UIThemeKind.Light);
+			if(uitheme.Enabled && uitheme.SelectedIndex >= 0) General.Settings.UITheme = UITHEME_KINDS[uitheme.SelectedIndex];
 			General.Settings.ClassicBilinear = classicbilinear.Checked;
 			General.Settings.VisualBilinear = visualbilinear.Checked;
 			General.Settings.QualityDisplay = qualitydisplay.Checked;

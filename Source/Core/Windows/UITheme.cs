@@ -17,6 +17,8 @@ namespace CodeImp.DoomBuilder.Windows
 	{
 		Light,
 		Dark,
+		// A setting value only: Apply resolves it to Light or Dark from the desktop's preference
+		System,
 	}
 
 	// What UITheme needs from the toolkit, so tests can apply a theme without touching process-global state
@@ -121,12 +123,24 @@ namespace CodeImp.DoomBuilder.Windows
 		public static void Apply(UIThemeKind kind)
 		{
 			if(kind == UIThemeKind.Light || !IsSupported) return;
-			Apply(kind, new MonoThemeBackend());
+			Apply(kind, new MonoThemeBackend(), Environment.GetEnvironmentVariable, new ProcessCommandRunner());
+		}
+
+		// Tests pass the desktop detector's environment and command runner
+		internal static void Apply(UIThemeKind kind, IThemeBackend backend, Func<string, string> getenv, ICommandRunner runner)
+		{
+			if(kind == UIThemeKind.System)
+			{
+				DesktopThemeResult desktop = DesktopTheme.Detect(getenv, runner);
+				kind = desktop.Kind;
+				General.WriteLogLine("Interface theme: system -> " + (kind == UIThemeKind.Dark ? "dark" : "light") + " (" + desktop.Source + ")");
+			}
+			Apply(kind, backend);
 		}
 
 		internal static void Apply(UIThemeKind kind, IThemeBackend backend)
 		{
-			if(kind == UIThemeKind.Light) return;
+			if(kind != UIThemeKind.Dark) return;
 
 			IDictionary<KnownColor, Color> previous = null;
 			try

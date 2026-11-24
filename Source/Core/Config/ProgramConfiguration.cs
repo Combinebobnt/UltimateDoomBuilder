@@ -524,16 +524,25 @@ namespace CodeImp.DoomBuilder.Config
 			return false;
 		}
 
-		// Anything but "dark" reads as light, and is saved back as "light"
+		// A missing or unknown value reads as "system", and is saved back as "system"
 		internal static UIThemeKind ReadUITheme(Configuration config)
 		{
-			string value = config.ReadSetting("uitheme", "light");
-			return string.Equals(value, "dark", StringComparison.OrdinalIgnoreCase) ? UIThemeKind.Dark : UIThemeKind.Light;
+			string value = config.ReadSetting("uitheme", "system");
+			if(string.Equals(value, "dark", StringComparison.OrdinalIgnoreCase)) return UIThemeKind.Dark;
+			if(string.Equals(value, "light", StringComparison.OrdinalIgnoreCase)) return UIThemeKind.Light;
+			return UIThemeKind.System;
 		}
 
 		internal static void WriteUITheme(Configuration config, UIThemeKind kind)
 		{
-			config.WriteSetting("uitheme", kind == UIThemeKind.Dark ? "dark" : "light");
+			string value;
+			switch(kind)
+			{
+				case UIThemeKind.Dark: value = "dark"; break;
+				case UIThemeKind.Light: value = "light"; break;
+				default: value = "system"; break;
+			}
+			config.WriteSetting("uitheme", value);
 		}
 
 		// This saves the program configuration
