@@ -50,6 +50,8 @@ namespace Builder.Tests
 		{
 			Configuration cfg = Load(name);
 			Assert.False(cfg.SettingExists("thingtypes.lightmaplights"));
+			Assert.Contains("scalex_top", Keys(cfg, "universalfields.sidedef"));
+			Assert.Contains("health", Keys(cfg, "universalfields.thing"));
 			foreach(string element in new[] { "linedef", "sidedef", "sector", "thing" })
 				Assert.Empty(Keys(cfg, "universalfields." + element).Where(k => k.StartsWith("lm_")));
 		}

@@ -69,7 +69,6 @@ namespace CodeImp.DoomBuilder
 		private bool lightmapdropped; // A rewrite removed the baked LIGHTMAP; the next real save reports it
 		private LightmapBakeCache lightmapbake; // The last successful bake, re-applied while the map matches it
 		private bool lightmapbakemissed; // A save found the map no longer matches the bake
-		private bool changedbeforebake; // The changed flag when the running bake started
 		private bool savedwithlightmap; // The last save wrote a LIGHTMAP
 		private string restoredbackup; // Deleted only once the load that restored it is done
 
@@ -2152,16 +2151,20 @@ namespace CodeImp.DoomBuilder
 			if(error != null) return null;
 
 			// Creating and disposing the copy's sidedefs sets the changed flag (Sidedef.SetSectorP); the copy is no edit
-			changedbeforebake = changed;
-			MapSet outputset = CloneForOutput();
-			MemoryStream textmap = new MemoryStream();
-			new UniversalStreamWriter().Write(outputset, textmap, config.EngineName);
-			outputset.Dispose();
-			byte[] data = textmap.ToArray();
-			if(changed != changedbeforebake)
+			bool waschanged = changed;
+			MapSet outputset = null;
+			byte[] data;
+			try
 			{
-				changed = changedbeforebake;
-				General.MainWindow.UpdateMapChangedStatus();
+				outputset = CloneForOutput();
+				MemoryStream textmap = new MemoryStream();
+				new UniversalStreamWriter().Write(outputset, textmap, config.EngineName);
+				data = textmap.ToArray();
+			}
+			finally
+			{
+				if(outputset != null) outputset.Dispose();
+				if(!waschanged) ForceMapIsChangedFalse();
 			}
 
 			string fingerprint = BakeFingerprint.Compute(BakedTextmap.Lines(UniversalStreamReader.ENCODING.GetString(data)),
@@ -2217,14 +2220,6 @@ namespace CodeImp.DoomBuilder
 				message = "Bake failed: " + error + ".";
 				General.WriteLogLine("Lightmap bake failed: " + error);
 				job.Dispose();
-
-				// A failed or cancelled bake leaves the map as it found it, so a loaded LIGHTMAP survives the next save
-				if(changed && !changedbeforebake)
-				{
-					General.WriteLogLine("Restoring the unchanged map state the bake started from.");
-					changed = false;
-					General.MainWindow.UpdateMapChangedStatus();
-				}
 				return false;
 			}
 
