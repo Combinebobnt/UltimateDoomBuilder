@@ -532,19 +532,58 @@ namespace CodeImp.DoomBuilder
 			{
 				ZipEntryRecord written = ZipEntryReplacer.Replace(archivesource, filepathname, ArchiveMapSource.DateTimeToDos(DateTime.Now), BackupArchiveEntry);
 				archivesource.Update(written);
-				File.SetLastWriteTime(filepathname, archivesource.EntryTime);
 				archivecommitpending = false;
-				General.WriteLogLine("Map written back into \"" + archivesource.DisplayName + "\"");
-				return true;
 			}
 			catch(Exception e) when(e is IOException || e is InvalidDataException || e is ZipNotWritableException || e is UnauthorizedAccessException || e is NotSupportedException)
 			{
 				data.Resume();
 				General.WriteLogLine("Writing the map back into \"" + archivesource.ArchivePath + "\" failed: " + e.Message);
-				General.ShowErrorMessage("Unable to write the map back into \"" + archivesource.ArchivePath + "\":\n" + e.Message
-					+ "\n\nThe archive is unchanged and the map is still unsaved.", MessageBoxButtons.OK);
+				string state = File.Exists(archivesource.ArchivePath) ? "The archive is unchanged and the map is still unsaved." : "The archive is missing; the message above says where its new contents are.";
+				General.ShowErrorMessage("Unable to write the map back into \"" + archivesource.ArchivePath + "\":\n" + e.Message + "\n\n" + state, MessageBoxButtons.OK);
 				General.MainWindow.UpdateMapChangedStatus();
 				return false;
+			}
+
+			// The archive is written; a working copy time stamp that won't stick only affects crash restore
+			try { File.SetLastWriteTime(filepathname, archivesource.EntryTime); }
+			catch(Exception e) when(e is IOException || e is UnauthorizedAccessException) { General.WriteLogLine("Warning: " + e.Message); }
+			General.WriteLogLine("Map written back into \"" + archivesource.DisplayName + "\"");
+			return true;
+		}
+
+		// Puts the archive's entry back into the working WAD, dropping saved changes that never reached the archive
+		private void RestoreWorkingFromArchive()
+		{
+			string restored = filepathname + ".restore";
+			data.Suspend();
+			try
+			{
+				ZipDirectory zip;
+				using(FileStream s = File.Open(archivesource.ArchivePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+				{
+					zip = ZipDirectory.Read(s);
+					int matches;
+					ZipEntryRecord entry = archivesource.FindByName(zip, out matches);
+					if(entry == null) throw new InvalidDataException("the archive no longer holds exactly one \"" + archivesource.EntryName + "\"");
+					using(FileStream output = File.Create(restored))
+						zip.Extract(s, entry, output);
+					archivesource.Update(entry);
+				}
+
+				File.Copy(restored, filepathname, true);
+				File.SetLastWriteTime(filepathname, archivesource.EntryTime);
+				archivecommitpending = false;
+				General.WriteLogLine("Working copy of \"" + archivesource.DisplayName + "\" restored from the archive");
+			}
+			catch(Exception e) when(e is IOException || e is InvalidDataException || e is UnauthorizedAccessException || e is NotSupportedException)
+			{
+				General.ErrorLogger.Add(ErrorType.Warning, "Could not restore \"" + archivesource.DisplayName + "\" from the archive, so its unsaved changes stay in the working copy: " + e.Message);
+			}
+			finally
+			{
+				try { if(File.Exists(restored)) File.Delete(restored); }
+				catch(IOException) { }
+				data.Resume();
 			}
 		}
 
@@ -728,7 +767,10 @@ namespace CodeImp.DoomBuilder
 #if DEBUG
 			DebugConsole.Clear();
 #endif
-			
+
+			// A declined map's failed write-back must not ride along with the next map's save
+			if(archivecommitpending) RestoreWorkingFromArchive();
+
 			this.changed = false;
 			this.lightmapdropped = false;
 			ClearLightmapStale();

@@ -188,6 +188,25 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void AFailedBackupOrAnInPlaceChangeLeavesTheArchiveUntouched()
+		{
+			string path = Write("mod.pk3", Zip(E("a.txt", "a"), E("maps/MAP01.wad", Wad(DoomMap("MAP01")))));
+			byte[] before = File.ReadAllBytes(path);
+
+			Assert.ThrowsAny<IOException>(() => ZipEntryReplacer.Replace(SourceOf(path, "maps/MAP01.wad"), Write("new.wad", Wad(DoomMap("MAP02"))), DOSTIME,
+				(s, zip, target) => { throw new IOException("backup failed"); }));
+			AssertUntouched(path, before);
+
+			// Same place in the archive, different contents than when the map was read
+			ArchiveMapSource source = SourceOf(path, "maps/MAP01.wad");
+			ZipEntryRecord changed = ZipDirectory.Read(path).Entries[1];
+			changed.Crc ^= 1;
+			source.Update(changed);
+			Assert.Throws<ZipNotWritableException>(() => ZipEntryReplacer.Replace(source, Write("new.wad", Wad(DoomMap("MAP02"))), DOSTIME));
+			AssertUntouched(path, before);
+		}
+
+		[Fact]
 		public void TheOldEntryIsReadableBeforeTheSwap()
 		{
 			byte[] oldmap = Wad(DoomMap("MAP01"));

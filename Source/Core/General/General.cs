@@ -1811,7 +1811,13 @@ namespace CodeImp.DoomBuilder
 				savefile.InitialDirectory = map.SourceDirectory;
 			}
 
-			if(NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK && !IsSourceArchive(savefile.FileName))
+			bool picked = NativeFileDialogs.Show(savefile, mainwindow) == DialogResult.OK;
+			if(picked && map.ArchiveSource != null && ArchiveMapStore.NormalizePath(savefile.FileName) == ArchiveMapStore.NormalizePath(map.FilePathName))
+			{
+				// The working copy itself: a plain Save, which runs the archive checks
+				result = SaveMap();
+			}
+			else if(picked && !IsSourceArchive(savefile.FileName))
 			{
 				// Display status
 				mainwindow.DisplayStatus(StatusType.Busy, "Saving map file...");
@@ -1819,7 +1825,7 @@ namespace CodeImp.DoomBuilder
 
 				// Set this to false so we can see if errors are added
 				errorlogger.IsErrorAdded = false;
-				
+
 				// Save the map
 				plugins.OnMapSaveBegin(SavePurpose.IntoFile);
 				if(map.SaveMap(savefile.FileName, SavePurpose.IntoFile))

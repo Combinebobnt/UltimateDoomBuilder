@@ -68,10 +68,8 @@ namespace CodeImp.DoomBuilder.IO
 
 		#region ================== Replace
 
-		// Writes newdatapath's bytes as the source's entry and swaps the result in. Returns the entry's new record.
-		// beforeswap runs once the new archive is verified, with the original still open (entry backups).
-		// Throws ZipNotWritableException (refused, archive untouched), InvalidDataException (verification failed,
-		// archive untouched) or IOException.
+		// Writes newdatapath as the source's entry; beforeswap sees the verified result's original (entry backups).
+		// Refusal (ZipNotWritableException) and failed verification (InvalidDataException) leave the archive untouched.
 		public static ZipEntryRecord Replace(ArchiveMapSource source, string newdatapath, uint dostime,
 			Action<Stream, ZipDirectory, ZipEntryRecord> beforeswap = null, Action<string> afterwrite = null)
 		{
@@ -85,6 +83,7 @@ namespace CodeImp.DoomBuilder.IO
 					string reason = CheckWritable(original, zip, source, out target);
 					if(reason != null) throw new ZipNotWritableException(reason);
 					if(!source.IsSameEntry(target)) throw new ZipNotWritableException("\"" + source.EntryName + "\" moved in the archive since it was opened.");
+					if(source.ContentDiffers(target)) throw new ZipNotWritableException("\"" + source.EntryName + "\" was changed by another program during the save.");
 
 					Dictionary<ZipEntryRecord, byte[]> rangehashes;
 					using(FileStream output = new FileStream(swap.SiblingPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
