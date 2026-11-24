@@ -111,7 +111,7 @@
 		Other cases:
 	</p>
 	<ul>
-		<li><b>Reopening a saved baked map:</b> the LIGHTMAP lump is kept through saves that change nothing (for example Save As to a copy). The first real edit drops it, so bake again.</li>
+		<li><b>Reopening a saved baked map:</b> the map's own nodes and LIGHTMAP count as its bake, so the lump is kept through saves that change nothing, edits that are undone, testing from the current position and the Nodes Viewer's Rebuild nodes button. Any other edit drops it, so bake again. A map restored from a crash backup doesn't get this.</li>
 		<li><b>Autosave:</b> never contains the lightmap. The next real save writes a bake that still matches.</li>
 		<li><b>Bake discarded:</b> closing the map, opening another map, or changing the game configuration discards a bake that was not saved.</li>
 	</ul>
