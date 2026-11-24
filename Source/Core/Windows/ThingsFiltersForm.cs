@@ -201,6 +201,14 @@ namespace CodeImp.DoomBuilder.Windows
 			return filters;
 		}
 
+		private readonly Dictionary<string, string> renames = new Dictionary<string, string>();
+
+		private string RenamedTo(string name)
+		{
+			string current;
+			return (renames.TryGetValue(name, out current) ? current : name);
+		}
+
 		private HashSet<string> FilterNames(ThingsFilter except)
 		{
 			HashSet<string> names = new HashSet<string>();
@@ -218,8 +226,9 @@ namespace CodeImp.DoomBuilder.Windows
 		{
 			//mxd. Store current filter name
 			string currentfiltername = string.Empty;
-			if(!(General.Map.ThingsFilter is NullThingsFilter)) currentfiltername = General.Map.ThingsFilter.Name;
-			
+			if(!(General.Map.ThingsFilter is NullThingsFilter)) currentfiltername = RenamedTo(General.Map.ThingsFilter.Name);
+			if(General.Map.LastThingsFilterName != null) General.Map.LastThingsFilterName = RenamedTo(General.Map.LastThingsFilterName);
+
 			// Clear all filters and add the new ones
 			General.Map.ConfigSettings.ThingsFilters.Clear();
 			ThingsFilter currentfilter = new NullThingsFilter(); //mxd
@@ -496,7 +505,13 @@ namespace CodeImp.DoomBuilder.Windows
 								if(r.Subject == ThingsFilterRuleSubject.MatchesFilter && r.Key == oldname) r.Key = f.Name;
 					}
 					ValidateAllFilters();
-					ShowRules(f);
+					ShowRules(f, SelectedRuleIndex);
+
+					// Original name -> current name, so Apply can carry the active and remembered filters across
+					string original = oldname;
+					foreach(KeyValuePair<string, string> kv in renames)
+						if(kv.Value == oldname) { original = kv.Key; break; }
+					renames[original] = f.Name;
 				}
 			}
 		}
@@ -644,7 +659,11 @@ namespace CodeImp.DoomBuilder.Windows
 			arg4.Setup(arginfo[4]);
 
 			// Argument rules are labelled with the action's argument names
-			if(!settingup) RefreshRuleRows();
+			if(!settingup)
+			{
+				RefreshRuleRows();
+				LoadRuleEditor();
+			}
 		}
 		
 		private void browseaction_Click(object sender, EventArgs e)
@@ -795,6 +814,9 @@ namespace CodeImp.DoomBuilder.Windows
 				row.DefaultCellStyle.SelectionForeColor = (color == SystemColors.WindowText ? SystemColors.HighlightText : color);
 				foreach(DataGridViewCell cell in row.Cells) cell.ToolTipText = tip;
 			}
+
+			// Mono doesn't repaint the selected row when only its style changes
+			rulesgrid.Invalidate();
 		}
 
 		private static string KeyTitle(ThingsFilter f, ThingsFilterRule r)

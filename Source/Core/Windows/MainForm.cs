@@ -1938,7 +1938,8 @@ namespace CodeImp.DoomBuilder.Windows
 					ThingsFilter f = (item != null ? item.Tag as ThingsFilter : null);
 					if(f == null) continue;
 
-					if(f == General.Map.ThingsFilter)
+					// Show all makes a fresh NullThingsFilter each time, so match it by kind
+					if(f == General.Map.ThingsFilter || (f is NullThingsFilter && General.Map.ThingsFilter is NullThingsFilter))
 					{
 						item.Checked = true;
 						thingfilters.Text = f.Name;

@@ -99,9 +99,24 @@ namespace CodeImp.DoomBuilder.Editing
 				case ThingsFilterRuleSubject.Tag: return HasThingTag;
 				case ThingsFilterRuleSubject.Arg: return HasActionArgs;
 				case ThingsFilterRuleSubject.Field: return HasCustomFields;
-				case ThingsFilterRuleSubject.Flag: return KnownFlags == null || KnownFlags.Contains(rule.Key);
+				// An unpicked flag is an error to show, not a flag this format lacks
+				case ThingsFilterRuleSubject.Flag: return KnownFlags == null || rule.Key.Trim().Length == 0 || KnownFlags.Contains(rule.Key);
 				default: return true;
 			}
+		}
+
+		private readonly Dictionary<ThingsFilter, bool> cyclecache = new Dictionary<ThingsFilter, bool>();
+
+		// Whether following target's "Matches filter" rules ever comes back to a filter already on the path
+		public bool ReachesCycle(ThingsFilter target)
+		{
+			bool result;
+			if(!cyclecache.TryGetValue(target, out result))
+			{
+				result = ThingsFilter.ReachesCycle(target, this, new HashSet<ThingsFilter>());
+				cyclecache[target] = result;
+			}
+			return result;
 		}
 
 		public static ThingsFilterContext FromMap(IEnumerable<ThingsFilter> filters)
@@ -178,11 +193,11 @@ namespace CodeImp.DoomBuilder.Editing
 
 		internal ThingsFilterRule(Configuration cfg, string path)
 		{
-			subject = (ThingsFilterRuleSubject)cfg.ReadSetting(path + ".subject", -1);
-			op = (ThingsFilterRuleOperator)cfg.ReadSetting(path + ".operator", -1);
+			subject = (ThingsFilterRuleSubject)ReadInt(cfg, path + ".subject", -1);
+			op = (ThingsFilterRuleOperator)ReadInt(cfg, path + ".operator", -1);
 			key = ReadString(cfg, path + ".key");
 			value = ReadString(cfg, path + ".value");
-			includesubcategories = cfg.ReadSetting(path + ".subcategories", false);
+			includesubcategories = ReadBool(cfg, path + ".subcategories", false);
 			Parse();
 		}
 
@@ -191,6 +206,23 @@ namespace CodeImp.DoomBuilder.Editing
 		{
 			object o = cfg.ReadSettingObject(path, string.Empty);
 			return (o == null ? string.Empty : Convert.ToString(o, CultureInfo.InvariantCulture));
+		}
+
+		// Hand-edited settings may hold the wrong type; fall back instead of failing the whole load
+		internal static int ReadInt(Configuration cfg, string path, int def)
+		{
+			object o = cfg.ReadSettingObject(path, def);
+			if(o is int) return (int)o;
+			int i;
+			return (o != null && int.TryParse(Convert.ToString(o, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out i) ? i : def);
+		}
+
+		internal static bool ReadBool(Configuration cfg, string path, bool def)
+		{
+			object o = cfg.ReadSettingObject(path, def);
+			if(o is bool) return (bool)o;
+			bool b;
+			return (o != null && bool.TryParse(Convert.ToString(o, CultureInfo.InvariantCulture), out b) ? b : def);
 		}
 
 		internal void WriteSettings(Configuration cfg, string path)
@@ -525,8 +557,9 @@ namespace CodeImp.DoomBuilder.Editing
 
 				case ThingsFilterRuleSubject.MatchesFilter:
 				{
+					// Every rule on a reference cycle fails, whatever its operator
 					ThingsFilter target = ctx.Resolve(key);
-					if(target == null || ctx.Visiting.Contains(target)) return false;
+					if(target == null || ctx.Visiting.Contains(target) || ctx.ReachesCycle(target)) return false;
 					bool result = target.Qualifies(t, ti, ctx);
 					return (op == ThingsFilterRuleOperator.IsTrue ? result : !result);
 				}
@@ -579,7 +612,8 @@ namespace CodeImp.DoomBuilder.Editing
 		private bool MatchField(Thing t)
 		{
 			UniValue uv;
-			bool present = t.Fields.TryGetValue(key.Trim(), out uv) && uv != null && uv.Value != null;
+			// Map loading lowercases UDMF field names
+			bool present = t.Fields.TryGetValue(key.Trim().ToLowerInvariant(), out uv) && uv != null && uv.Value != null;
 			if(op == ThingsFilterRuleOperator.Exists) return present;
 			if(op == ThingsFilterRuleOperator.IsAbsent) return !present;
 			if(!present) return (op == ThingsFilterRuleOperator.NotEquals);

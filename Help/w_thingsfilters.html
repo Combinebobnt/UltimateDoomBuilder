@@ -37,7 +37,7 @@
 		<tr><td>Category</td><td>is, is not</td><td>A category; the rule's own <b>Subcategories</b> box includes the categories inside it</td></tr>
 		<tr><td>Class name, Title</td><td>equals, not equals, contains, matches</td><td>Text, ignoring case. <b>matches</b> takes wildcards: <b>*</b> for any text, <b>?</b> for one character, so <b>*Light*</b> matches every class with Light in its name.</td></tr>
 		<tr><td>Flag</td><td>is set, is not set</td><td>The Key is the flag</td></tr>
-		<tr><td>UDMF field</td><td>exists, is absent, equals, not equals, &lt;, &lt;=, &gt;, &gt;=, contains</td><td>The Key is the field name. Numbers are compared as numbers, other values as text ignoring case. A field the Thing doesn't have only passes <b>is absent</b> and <b>not equals</b>.</td></tr>
+		<tr><td>UDMF field</td><td>exists, is absent, equals, not equals, &lt;, &lt;=, &gt;, &gt;=, contains</td><td>The Key is the field name, ignoring case. Numbers are compared as numbers, other values as text ignoring case. A field the Thing doesn't have only passes <b>is absent</b> and <b>not equals</b>.</td></tr>
 		<tr><td>Unknown type</td><td>is true, is false</td><td>Things whose type the game configuration and resources don't define</td></tr>
 		<tr><td>Matches filter</td><td>is true, is false</td><td>The Key is another filter. Its tabs, rules and Invert apply; its display mode doesn't. That filter doesn't need to be the active one.</td></tr>
 	</table>
@@ -51,6 +51,15 @@
 		Renaming a filter updates the Matches filter rules that use it. Deleting a filter that other filters use asks first.<br />
 		<br />
 		The rule list and the subcategory option are saved with the filters in the program's settings. The original Ultimate Doom Builder doesn't know about them, and if it saves the same settings file they are lost from it.
+	</p>
+
+	<h2>Switching filters</h2>
+	<p>
+		The <b>View</b> menu, below <b>Configure Things Filters</b>, has actions for switching filters without opening this window. They have no default keys; you can bind them under Preferences, Controls.<br />
+		<br />
+		<b>Toggle Things Filter</b> switches from the active filter to showing all Things, and back to the filter used last (the first filter in the list if that one is gone).<br />
+		<b>Next Things Filter</b> and <b>Previous Things Filter</b> step through "show all" and the filters in the order of the toolbar's filter list.<br />
+		<b>New Things Filter from Selection</b> makes a new filter with one Type rule listing the types of the selected Things, named after them, and makes it active. In Visual mode it uses the selected Things, or the Thing under the cursor. It is also at the bottom of the toolbar's filter list.
 	</p>
 	</div>
 </body>

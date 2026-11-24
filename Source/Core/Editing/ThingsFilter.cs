@@ -189,12 +189,18 @@ namespace CodeImp.DoomBuilder.Editing
 			}
 
 			// Rules, probed in written order (sections load sorted, so rule10 would come before rule2)
-			includesubcategories = cfg.ReadSetting(path + ".subcategories", false);
-			int mm = cfg.ReadSetting(path + ".matchmode", 0);
+			includesubcategories = ThingsFilterRule.ReadBool(cfg, path + ".subcategories", false);
+			int mm = ThingsFilterRule.ReadInt(cfg, path + ".matchmode", 0);
 			matchmode = (mm == (int)ThingsFilterMatchMode.Any ? ThingsFilterMatchMode.Any : ThingsFilterMatchMode.All);
 			rules = new List<ThingsFilterRule>();
-			for(int i = 0; cfg.SettingExists(path + ".rules.rule" + i.ToString(CultureInfo.InvariantCulture)); i++)
-				rules.Add(new ThingsFilterRule(cfg, path + ".rules.rule" + i.ToString(CultureInfo.InvariantCulture)));
+			int count = 0;
+			for(; cfg.SettingExists(path + ".rules.rule" + count.ToString(CultureInfo.InvariantCulture)); count++)
+				rules.Add(new ThingsFilterRule(cfg, path + ".rules.rule" + count.ToString(CultureInfo.InvariantCulture)));
+
+			// A hand-edited gap in the numbering ends the list; say so, since the next save drops the rest
+			IDictionary rulesection = cfg.ReadSetting(path + ".rules", new Hashtable());
+			if(rulesection.Count > count && General.ErrorLogger != null)
+				General.ErrorLogger.Add(ErrorType.Warning, "Things filter \"" + name + "\": rules after rule" + count.ToString(CultureInfo.InvariantCulture) + " were not loaded (numbering has a gap).");
 
 			AdjustForMapFormat();
 			
@@ -361,11 +367,11 @@ namespace CodeImp.DoomBuilder.Editing
 			return name + more;
 		}
 
-		// Any rule that doesn't parse, names a missing filter or reaches a reference cycle
+		// Any rule this map format uses that doesn't parse, names a missing filter or reaches a reference cycle
 		internal bool HasInvalidRules(ThingsFilterContext ctx)
 		{
 			foreach(ThingsFilterRule r in rules)
-				if(RuleError(r, ctx) != null) return true;
+				if(ctx.IsAvailable(r) && RuleError(r, ctx) != null) return true;
 			return false;
 		}
 
@@ -381,7 +387,7 @@ namespace CodeImp.DoomBuilder.Editing
 			return null;
 		}
 
-		private static bool ReachesCycle(ThingsFilter f, ThingsFilterContext ctx, HashSet<ThingsFilter> visiting)
+		internal static bool ReachesCycle(ThingsFilter f, ThingsFilterContext ctx, HashSet<ThingsFilter> visiting)
 		{
 			if(!visiting.Add(f)) return true;
 			try

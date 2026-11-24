@@ -929,7 +929,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemthingsfilterfromselection.Name = "itemthingsfilterfromselection";
 			this.itemthingsfilterfromselection.Size = new System.Drawing.Size(215, 22);
 			this.itemthingsfilterfromselection.Tag = "builder_thingsfilterfromselection";
-			this.itemthingsfilterfromselection.Text = "New Things Filter from &Selection";
+			this.itemthingsfilterfromselection.Text = "New Things Filter fro&m Selection";
 			this.itemthingsfilterfromselection.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// itemthingsfilterlist

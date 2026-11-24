@@ -179,6 +179,7 @@ namespace CodeImp.DoomBuilder
 		public IMapSetIO FormatInterface { get { return io; } }
 		internal Launcher Launcher { get { return launcher; } }
 		public ThingsFilter ThingsFilter { get { return thingsfilter; } }
+		internal string LastThingsFilterName { get { return lastthingsfiltername; } set { lastthingsfiltername = value; } }
 		internal List<CompilerError> Errors { get { return errors; } }
 		internal ScriptEditorForm ScriptEditor { get { return scriptwindow; } }
 		public VisualCamera VisualCamera { get { return visualcamera; } set { visualcamera = value; } }

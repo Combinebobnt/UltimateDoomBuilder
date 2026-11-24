@@ -211,6 +211,8 @@ namespace Builder.Tests
 					(ThingsFilterRuleOperator.Equals, "user_on", "True", true),
 					(ThingsFilterRuleOperator.Equals, "user_none", "1", false),
 					(ThingsFilterRuleOperator.NotEquals, "user_none", "1", true),
+					(ThingsFilterRuleOperator.Exists, "User_HP", "", true),
+					(ThingsFilterRuleOperator.IsAbsent, " USER_HP ", "", false),
 				};
 				List<string> failures = new List<string>();
 				foreach(var c in table)
@@ -233,6 +235,12 @@ namespace Builder.Tests
 				Assert.Equal(ThingsFilterRuleOutcome.Skip, Eval(Rule(ThingsFilterRuleSubject.Field, ThingsFilterRuleOperator.Exists, "user_hp"), t, null, doom));
 				Assert.Equal(ThingsFilterRuleOutcome.Skip, Eval(Rule(ThingsFilterRuleSubject.Flag, ThingsFilterRuleOperator.IsTrue, "dm"), t, null, doom));
 				Assert.Equal(ThingsFilterRuleOutcome.Pass, Eval(Rule(ThingsFilterRuleSubject.Flag, ThingsFilterRuleOperator.IsTrue, "skill1"), t, null, doom));
+				Assert.True(Eval(Rule(ThingsFilterRuleSubject.Flag, ThingsFilterRuleOperator.IsTrue, ""), t, null, doom) == ThingsFilterRuleOutcome.Fail, "an unpicked flag is broken, not skipped");
+
+				// A skipped rule doesn't mark its filter invalid, even when it wouldn't parse
+				ThingsFilter skipped = MakeFilter("s", ThingsFilterMatchMode.All, Rule(ThingsFilterRuleSubject.Tag, ThingsFilterRuleOperator.IsOneOf, "", "x"));
+				Assert.False(skipped.HasInvalidRules(doom));
+				Assert.True(skipped.HasInvalidRules(Ctx()));
 			}
 		}
 
@@ -325,8 +333,12 @@ namespace Builder.Tests
 				ThingsFilter a = MakeFilter("A", ThingsFilterMatchMode.Any, Rule(ThingsFilterRuleSubject.MatchesFilter, ThingsFilterRuleOperator.IsFalse, "B"));
 				ThingsFilter b = MakeFilter("B", ThingsFilterMatchMode.Any, Rule(ThingsFilterRuleSubject.MatchesFilter, ThingsFilterRuleOperator.IsFalse, "A"));
 				ThingsFilterContext cyc = Ctx(a, b);
-				a.Qualifies(imp, ti, cyc);
+				Assert.False(a.Qualifies(imp, ti, cyc), "a rule on a cycle fails, so Any over it fails");
+				Assert.False(b.Qualifies(imp, ti, cyc));
 				Assert.Empty(cyc.Visiting);
+				ThingsFilter outside = MakeFilter("O", ThingsFilterMatchMode.Any, Rule(ThingsFilterRuleSubject.MatchesFilter, ThingsFilterRuleOperator.IsFalse, "A"));
+				Assert.False(outside.Qualifies(imp, ti, Ctx(outside, a, b)), "a rule leading into a cycle fails too");
+				Assert.True(outside.HasInvalidRules(Ctx(outside, a, b)));
 				Assert.True(a.HasInvalidRules(cyc));
 				Assert.True(b.HasInvalidRules(cyc));
 				ThingsFilter self = MakeFilter("S", ThingsFilterMatchMode.All, Rule(ThingsFilterRuleSubject.MatchesFilter, ThingsFilterRuleOperator.IsFalse, "S"));
@@ -428,7 +440,9 @@ namespace Builder.Tests
 
 				string hand = "thingsfilters { old { name = \"Old\"; type = 3001; }\n"
 					+ "odd { name = \"Odd\"; matchmode = 7; rules { rule0 { subject = 2; operator = 4; key = \"\"; value = 64; }\n"
-					+ "rule1 { subject = 99; operator = 42; key = \"k\"; value = \"v\"; subcategories = true; } } } }";
+					+ "rule1 { subject = 99; operator = 42; key = \"k\"; value = \"v\"; subcategories = true; } } }\n"
+					+ "bad { name = \"Bad\"; matchmode = \"x\"; subcategories = \"nope\"; rules { rule0 { subject = \"z\"; operator = 1; }\n"
+					+ "rule2 { subject = 0; operator = 0; value = \"1\"; } } } }";
 				Configuration hc = new Configuration(true);
 				Assert.True(hc.InputConfiguration(hand, true), hc.ErrorDescription);
 
@@ -445,6 +459,13 @@ namespace Builder.Tests
 				Assert.True(odd.Rules[0].IsValidRule);
 				Assert.False(odd.Rules[1].IsValidRule);
 				Assert.True(odd.HasInvalidRules(Ctx(odd)));
+
+				// Wrong value types fall back to defaults; a numbering gap ends the list
+				ThingsFilter bad = new ThingsFilter(hc, "thingsfilters.bad");
+				Assert.Equal(ThingsFilterMatchMode.All, bad.MatchMode);
+				Assert.False(bad.IncludeSubcategories);
+				Assert.Equal(1, bad.Rules.Count);
+				Assert.False(bad.Rules[0].IsValidRule);
 
 				Configuration rewritten = new Configuration(true);
 				odd.WriteSettings(rewritten, "f");
