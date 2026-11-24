@@ -41,10 +41,27 @@ namespace CodeImp.DoomBuilder.Windows
 		private string selectedmapname;
 		private readonly ResourceWarningResize warningresize;
 
+		// Archive mode: the maps of every WAD inside a PK3/ZIP
+		private readonly ArchiveMapScan scan;
+		private readonly ArchiveMapStore store;
+		private readonly Dictionary<ArchiveMapCandidate, Configuration> candidatesettings = new Dictionary<ArchiveMapCandidate, Configuration>();
+		private ArchiveMapCandidate selectedcandidate;
+		private string preselectentry;
+		private string preselectmap;
+		private readonly MapOptions initialoptions;
+
+		private sealed class ArchiveRow
+		{
+			public ArchiveMapCandidate Candidate;
+			public string MapName;
+		}
+
 		// Properties
 		//public string FilePathName { get { return filepathname; } }
 		public MapOptions Options { get { return options; } }
-		
+		public ArchiveMapCandidate SelectedCandidate { get { return selectedcandidate; } }
+		private bool ArchiveMode { get { return scan != null; } }
+
 		// Constructor
 		public OpenMapOptionsForm(string filepathname)
 		{
@@ -73,6 +90,95 @@ namespace CodeImp.DoomBuilder.Windows
 			datalocations.IsMapControl = true;
 		}
 
+		// Archive mode. options, when given, preselects its map and configuration (command line -map).
+		public OpenMapOptionsForm(ArchiveMapScan scan, MapOptions options)
+		{
+			InitializeComponent();
+			warningresize = new ResourceWarningResize(this, panelres, datalocations, apply);
+			General.ApplyMonoListViewFix(mapslist);
+			this.scan = scan;
+			this.store = ArchiveMapStore.ForArchive(scan.ArchivePath);
+			this.Text = "Open Map from " + Path.GetFileName(scan.ArchivePath);
+			this.filepathname = scan.ArchivePath;
+			this.options = options;
+			this.initialoptions = options;
+			datalocations.StartPath = scan.ArchivePath;
+			datalocations.IsMapControl = true;
+
+			// Two columns, so maps with the same name in different entries can be told apart
+			mapslist.Columns.Clear();
+			mapslist.Columns.Add("Map", 90);
+			mapslist.Columns.Add("Archive entry", mapslist.ClientSize.Width - 90 - SystemInformation.VerticalScrollBarWidth);
+			mapslist.View = View.Details;
+			mapslist.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+			mapslist.Sorting = SortOrder.None;
+
+			string lastentry, lastmap;
+			store.ReadIndex(out lastentry, out lastmap);
+			preselectentry = lastentry;
+			preselectmap = (options != null && !string.IsNullOrEmpty(options.CurrentName)) ? options.CurrentName : lastmap;
+			if(options != null && !string.IsNullOrEmpty(options.CurrentName) && lastmap != options.CurrentName) preselectentry = null;
+		}
+
+		// The stored map settings of an archive entry, read once
+		private Configuration SettingsFor(ArchiveMapCandidate candidate)
+		{
+			if(candidate == null) return mapsettings;
+
+			Configuration settings;
+			if(!candidatesettings.TryGetValue(candidate, out settings))
+			{
+				string dbsfile = store.SettingsFile(candidate.Source);
+				settings = new Configuration(true);
+				if(File.Exists(dbsfile))
+				{
+					try { settings = new Configuration(dbsfile, true); }
+					catch(Exception) { settings = new Configuration(true); }
+				}
+				candidatesettings[candidate] = settings;
+			}
+
+			return settings;
+		}
+
+		// A map's resource list from its settings. A map never opened from the archive gets the archive itself, visible and removable.
+		private DataLocationList MapResources(ArchiveMapCandidate candidate, string mapname)
+		{
+			Configuration settings = SettingsFor(candidate);
+			if(candidate != null && !settings.SettingExists("maps." + mapname))
+			{
+				DataLocationList archiveonly = new DataLocationList();
+				archiveonly.Add(new DataLocation(DataLocation.RESOURCE_PK3, scan.ArchivePath, false, false, false, null));
+				return archiveonly;
+			}
+
+			return new DataLocationList(settings, "maps." + mapname + ".resources");
+		}
+
+		private string ArchiveEmptyMessage()
+		{
+			string message = "This archive contains no WAD files with maps for any game configuration.";
+			if(scan.Warnings.Count > 0) message += "\n\n" + string.Join("\n", scan.Warnings);
+			return message;
+		}
+
+		// "maps/X.wad" holding a map not named X: GZDoom-family engines name that map X
+		private static string EngineNameHint(ArchiveMapCandidate candidate, string mapname)
+		{
+			string entry = candidate.Source.EntryName.Replace('\\', '/');
+			if(!entry.StartsWith("maps/", StringComparison.OrdinalIgnoreCase) || entry.IndexOf('/', 5) != -1) return string.Empty;
+			string filename = Path.GetFileNameWithoutExtension(entry);
+			return string.Equals(filename, mapname, StringComparison.OrdinalIgnoreCase) ? string.Empty : " (engine name: " + filename.ToUpperInvariant() + ")";
+		}
+
+		private bool MatchesAny(Configuration cfg)
+		{
+			if(!ArchiveMode) return MatchConfiguration(cfg, wadfile);
+			foreach(ArchiveMapCandidate c in scan.Candidates)
+				if(MatchConfiguration(cfg, c.Wad)) return true;
+			return false;
+		}
+
 		private GameConfiguration GetGameConfiguration()
 		{
 			if (config.Items.Count == 0 || config.SelectedIndex < 0) return null;
@@ -89,8 +195,14 @@ namespace CodeImp.DoomBuilder.Windows
 			// Busy
 			Cursor.Current = Cursors.WaitCursor;
 
+			if(ArchiveMode)
+			{
+				// The last opened entry's settings pick the configuration
+				ArchiveMapCandidate last = scan.Candidates.Find(c => ArchiveMapStore.EntryKey(c.Source.EntryNameBytes) == preselectentry);
+				mapsettings = last != null ? SettingsFor(last) : new Configuration(true);
+			}
 			// Check if the file exists
-			if(!File.Exists(filepathname))
+			else if(!File.Exists(filepathname))
 			{
 				// WAD file does not exist
 				MessageBox.Show(this, "Could not open the WAD file: The file does not exist.", Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -98,30 +210,33 @@ namespace CodeImp.DoomBuilder.Windows
 				this.Close();
 				return;
 			}
-			
-			try
+
+			if(!ArchiveMode)
 			{
-				// Open the WAD file
-				wadfile = new WAD(filepathname, true);
-			}
-			catch(Exception)
-			{
-				// Unable to open WAD file (or its config)
-				MessageBox.Show(this, "Could not open the WAD file for reading. Please make sure the file you selected is valid and is not in use by any other application.", Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
-				if(wadfile != null) wadfile.Dispose();
-				this.DialogResult = DialogResult.Cancel;
-				this.Close();
-				return;
+				try
+				{
+					// Open the WAD file
+					wadfile = new WAD(filepathname, true);
+				}
+				catch(Exception)
+				{
+					// Unable to open WAD file (or its config)
+					MessageBox.Show(this, "Could not open the WAD file for reading. Please make sure the file you selected is valid and is not in use by any other application.", Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+					if(wadfile != null) wadfile.Dispose();
+					this.DialogResult = DialogResult.Cancel;
+					this.Close();
+					return;
+				}
+
+				// Open the Map Settings configuration
+				string dbsfile = filepathname.Substring(0, filepathname.Length - 4) + ".dbs";
+				if(File.Exists(dbsfile))
+					try { mapsettings = new Configuration(dbsfile, true); }
+					catch(Exception) { mapsettings = new Configuration(true); }
+				else
+					mapsettings = new Configuration(true);
 			}
 
-			// Open the Map Settings configuration
-			string dbsfile = filepathname.Substring(0, filepathname.Length - 4) + ".dbs";
-			if(File.Exists(dbsfile))
-				try { mapsettings = new Configuration(dbsfile, true); }
-				catch(Exception) { mapsettings = new Configuration(true); }
-			else
-				mapsettings = new Configuration(true);
-			
 			// Check strict patches box, check what game configuration is preferred
 			if(options != null) 
 			{
@@ -157,7 +272,7 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(ConfigurationInfo info in General.Configs)
 				{
 					// Check if a resource location is set for this configuration, if so, match the wad against this configuration
-					if(info.Enabled && info.Resources.Count > 0 && MatchConfiguration(info.Configuration, wadfile))
+					if(info.Enabled && info.Resources.Count > 0 && MatchesAny(info.Configuration))
 					{
 						//mxd. Already added?
 						index = config.Items.IndexOf(info);
@@ -176,7 +291,7 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(ConfigurationInfo info in General.Configs)
 				{
 					// Check if a resource location is set for this configuration, if so, match the wad against this configuration
-					if(!info.Enabled && info.Resources.Count > 0 && MatchConfiguration(info.Configuration, wadfile))
+					if(!info.Enabled && info.Resources.Count > 0 && MatchesAny(info.Configuration))
 					{
 						//mxd. Already added?
 						index = config.Items.IndexOf(info);
@@ -195,7 +310,7 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(ConfigurationInfo info in General.Configs)
 				{
 					// Check if a resource location is not set for this configuration, if so, match the wad against this configuration
-					if(info.Enabled && info.Resources.Count == 0 && MatchConfiguration(info.Configuration, wadfile))
+					if(info.Enabled && info.Resources.Count == 0 && MatchesAny(info.Configuration))
 					{
 						//mxd. Already added?
 						index = config.Items.IndexOf(info);
@@ -214,7 +329,7 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(ConfigurationInfo info in General.Configs)
 				{
 					// Check if a resource location is not set for this configuration, if so, match the wad against this configuration
-					if(!info.Enabled && info.Resources.Count == 0 && MatchConfiguration(info.Configuration, wadfile))
+					if(!info.Enabled && info.Resources.Count == 0 && MatchesAny(info.Configuration))
 					{
 						//mxd. Already added?
 						index = config.Items.IndexOf(info);
@@ -227,12 +342,12 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 
             // [ZZ] dispose of wadfile
-            wadfile.Dispose();
+            if(wadfile != null) wadfile.Dispose();
 
             //mxd. Bail out if still no dice...
             if (config.SelectedIndex == -1 || mapslist.Items.Count == 0)
 			{
-				General.ShowWarningMessage("Unable to find maps using any game configuration.\nDoes this wad contain any maps at all?..", MessageBoxButtons.OK);
+				General.ShowWarningMessage(ArchiveMode ? ArchiveEmptyMessage() : "Unable to find maps using any game configuration.\nDoes this wad contain any maps at all?..", MessageBoxButtons.OK);
 				cancel_Click(this, EventArgs.Empty);
 			}
 			else
@@ -253,6 +368,40 @@ namespace CodeImp.DoomBuilder.Windows
 			return MapLumpScanner.Matches(cfg, wadfile);
 		}
 
+		// One row per map per entry, by entry then map; keeps the selected row, else the preselected one
+		private void FillArchiveMaps(Configuration cfg)
+		{
+			ArchiveRow selected = mapslist.SelectedItems.Count > 0 ? mapslist.SelectedItems[0].Tag as ArchiveRow : null;
+			List<ArchiveMapCandidate> candidates = new List<ArchiveMapCandidate>(scan.Candidates);
+			candidates.Sort((a, b) => string.Compare(a.Source.EntryName, b.Source.EntryName, StringComparison.OrdinalIgnoreCase));
+
+			mapslist.Items.Clear();
+			ListViewItem reselect = null;
+			ListViewItem preselect = null;
+			foreach(ArchiveMapCandidate c in candidates)
+			{
+				List<string> maps = MapLumpScanner.FindMaps(cfg, c.Wad, true);
+				maps.Sort(StringComparer.OrdinalIgnoreCase);
+				foreach(string mapname in maps)
+				{
+					string entry = c.Source.EntryName + EngineNameHint(c, mapname) + (c.Writable ? "" : " (read-only: Save will ask for a new WAD)");
+					ListViewItem item = new ListViewItem(new[] { mapname, entry }) { Tag = new ArchiveRow { Candidate = c, MapName = mapname } };
+					mapslist.Items.Add(item);
+
+					if(selected != null && selected.Candidate == c && selected.MapName == mapname) reselect = item;
+					bool entrymatches = preselectentry == null || ArchiveMapStore.EntryKey(c.Source.EntryNameBytes) == preselectentry;
+					if(preselect == null && entrymatches && mapname == preselectmap) preselect = item;
+				}
+			}
+
+			ListViewItem pick = reselect ?? preselect;
+			if(pick != null)
+			{
+				pick.Selected = true;
+				pick.EnsureVisible();
+			}
+		}
+
 		// Configuration is selected
 		private void config_SelectedIndexChanged(object sender, EventArgs e)
 		{
@@ -271,24 +420,30 @@ namespace CodeImp.DoomBuilder.Windows
 			//mxd. Get configuration
 			Configuration cfg = ci.Configuration;
 
-			List<string> mapnames = MapLumpScanner.FindMaps(cfg, wadfile, true);
-
 			// Clear the list and add the new map names
 			mapslist.BeginUpdate();
-			mapslist.Items.Clear();
-            foreach (string mapname in mapnames)
-                mapslist.Items.Add(mapname);
-			mapslist.Sort();
-
-			// Go for all items in the list
-			foreach(ListViewItem item in mapslist.Items) 
+			if(ArchiveMode)
 			{
-				// Was this item previously selected?
-				if(item.Text == selectedname) 
+				FillArchiveMaps(cfg);
+			}
+			else
+			{
+				List<string> mapnames = MapLumpScanner.FindMaps(cfg, wadfile, true);
+				mapslist.Items.Clear();
+				foreach(string mapname in mapnames)
+					mapslist.Items.Add(mapname);
+				mapslist.Sort();
+
+				// Go for all items in the list
+				foreach(ListViewItem item in mapslist.Items)
 				{
-					// Select it again
-					item.Selected = true;
-					break;
+					// Was this item previously selected?
+					if(item.Text == selectedname)
+					{
+						// Select it again
+						item.Selected = true;
+						break;
+					}
 				}
 			}
 			if((mapslist.SelectedItems.Count == 0) && (mapslist.Items.Count > 0))
@@ -363,7 +518,8 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			
 			// Check if we should warn the user for missing resources
-			if((!wadfile.IsIWAD) && (locations.Count == 0) && (configinfo.Resources.Count == 0))
+			WAD selectedwad = ArchiveMode ? selectedcandidate.Wad : wadfile;
+			if((!selectedwad.IsIWAD) && (locations.Count == 0) && (configinfo.Resources.Count == 0))
 			{
 				if(MessageBox.Show(this, "You are about to load a map without selecting any resources. Textures, flats and " +
 										 "sprites may not be shown correctly or may not show up at all. Do you want to continue?", Application.ProductName,
@@ -398,7 +554,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(longtexturenames.Enabled) options.UseLongTextureNames = longtexturenames.Checked;
 
 			// Hide window
-			wadfile.Dispose();
+			if(wadfile != null) wadfile.Dispose();
 			this.DialogResult = DialogResult.OK;
 			this.Close();
 		}
@@ -407,7 +563,7 @@ namespace CodeImp.DoomBuilder.Windows
 		private void cancel_Click(object sender, EventArgs e)
 		{
 			// Just hide window
-			wadfile.Dispose();
+			if(wadfile != null) wadfile.Dispose();
 			this.DialogResult = DialogResult.Cancel;
 			this.Close();
 		}
@@ -422,7 +578,18 @@ namespace CodeImp.DoomBuilder.Windows
 			LoadSettings();
 
 			// Show
-			if (options != null)
+			if(ArchiveMode)
+			{
+				// Command line resources join the selected map's own
+				if(initialoptions != null && initialoptions.Resources.Count > 0)
+				{
+					DataLocationList listed = datalocations.GetResources();
+					foreach(DataLocation dl in initialoptions.Resources)
+						if(!listed.Contains(dl)) listed.Add(dl);
+					datalocations.EditResourceLocationList(listed);
+				}
+			}
+			else if (options != null)
 				datalocations.EditResourceLocationList(options.Resources);
 		}
 
@@ -449,7 +616,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(!string.IsNullOrEmpty(selectedmapname))
 			{
 				// Get locations from previous selected map settings
-				locations = new DataLocationList(mapsettings, "maps." + selectedmapname + ".resources");
+				locations = MapResources(selectedcandidate, selectedmapname);
 				listedlocations = datalocations.GetResources();
 				
 				// Remove data locations that this map has in its config
@@ -461,6 +628,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 				// Done
 				selectedmapname = null;
+				selectedcandidate = null;
 			}
 			
 			// Anything selected?
@@ -468,10 +636,12 @@ namespace CodeImp.DoomBuilder.Windows
 			{
 				// Get the map name
 				selectedmapname = mapslist.SelectedItems[0].Text;
-				options = new MapOptions(mapsettings, selectedmapname, longtexturenames.Enabled);
+				ArchiveRow row = mapslist.SelectedItems[0].Tag as ArchiveRow;
+				selectedcandidate = row != null ? row.Candidate : null;
+				options = new MapOptions(SettingsFor(selectedcandidate), selectedmapname, longtexturenames.Enabled);
 				
 				// Get locations from previous selected map settings
-				locations = new DataLocationList(mapsettings, "maps." + selectedmapname + ".resources");
+				locations = MapResources(selectedcandidate, selectedmapname);
 				listedlocations = datalocations.GetResources();
 
 				// Add data locations that this map has in its config

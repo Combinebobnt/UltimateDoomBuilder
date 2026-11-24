@@ -79,6 +79,8 @@ namespace CodeImp.DoomBuilder
 		private string filepathname;
 		private string temppath;
 		private string origmapconfigname; //mxd. Map configuration, which was used to open the map.
+		private ArchiveMapSource archivesource; // Null unless the map was opened from a PK3/ZIP
+		private ArchiveMapStore archivestore;
 
 		// Main objects
 		private MapSet map;
@@ -113,8 +115,14 @@ namespace CodeImp.DoomBuilder
 
 		#region ================== Properties
 
+		// The WAD file the map lives in. For a map opened from a PK3/ZIP this is the extracted working copy in the temp folder.
 		public string FilePathName { get { return filepathname; } }
 		public string FileTitle { get { return filetitle; } internal set { filetitle = value; } } //mxd. Added setter
+		// The file the user opened: the archive for a map opened from a PK3/ZIP, else FilePathName
+		public string SourcePathName { get { return archivesource != null ? archivesource.ArchivePath : filepathname; } }
+		public string SourceDirectory { get { return string.IsNullOrEmpty(SourcePathName) ? string.Empty : Path.GetDirectoryName(SourcePathName); } }
+		public string DisplayTitle { get { return archivesource != null ? archivesource.DisplayName : filetitle; } }
+		internal ArchiveMapSource ArchiveSource { get { return archivesource; } }
 		public string TempPath { get { return temppath; } }
 		public MapOptions Options { get { return options; } }
 		public MapSet Map { get { return map; } }
@@ -391,6 +399,49 @@ namespace CodeImp.DoomBuilder
 			General.WriteLogLine("Map creation done");
 			General.MainWindow.UpdateMapChangedStatus(); //mxd
 			return true;
+		}
+
+		// Opens a map from a WAD inside a PK3/ZIP: the WAD is copied to <temp>/source and edited there
+		internal bool InitializeOpenArchiveMap(ArchiveMapCandidate candidate, MapOptions options)
+		{
+			string sourcedir = Path.Combine(temppath, "source");
+			Directory.CreateDirectory(sourcedir);
+			string workingpath = Path.Combine(sourcedir, candidate.Source.EntryFileName);
+			File.Copy(candidate.ScanPath, workingpath, true);
+			File.SetLastWriteTime(workingpath, candidate.Source.EntryTime);
+
+			archivesource = candidate.Source;
+			archivestore = ArchiveMapStore.ForArchive(archivesource.ArchivePath);
+			General.WriteLogLine("Opening \"" + archivesource.DisplayName + "\" through working copy \"" + workingpath + "\"");
+
+			return InitializeOpenMap(workingpath, options);
+		}
+
+		// The .dbs for a WAD path; an archive map's own working WAD keeps its settings in the archive store
+		internal string SettingsFilePath(string wadpathname)
+		{
+			if(archivesource != null && wadpathname == filepathname)
+			{
+				Directory.CreateDirectory(archivestore.Folder);
+				return archivestore.SettingsFile(archivesource);
+			}
+
+			return wadpathname.Substring(0, wadpathname.Length - 4) + ".dbs";
+		}
+
+		// Crash-restore file for the current map, or null when the WAD has no usable name
+		private string GetRestorePath(string wadpathname, MapOptions mapoptions)
+		{
+			if(archivesource != null && wadpathname == filepathname)
+			{
+				string entryname = Path.GetFileNameWithoutExtension(archivesource.EntryFileName);
+				return Path.Combine(General.MapRestorePath, entryname + "." + ArchiveMapStore.RestoreKey(archivesource, mapoptions.LevelName) + ".restore");
+			}
+
+			string wadname = Path.GetFileNameWithoutExtension(wadpathname);
+			if(string.IsNullOrEmpty(wadname)) return null;
+			string hash = MurmurHash2.Hash(wadname + mapoptions.LevelName + File.GetLastWriteTime(wadpathname)).ToString();
+			return Path.Combine(General.MapRestorePath, wadname + "." + hash + ".restore");
 		}
 
 		// Initializes for an existing map
@@ -672,12 +723,9 @@ namespace CodeImp.DoomBuilder
 		{
 			maprestored = false;
 			restoredbackup = null;
-			string wadname = Path.GetFileNameWithoutExtension(filepathname);
-			if(!string.IsNullOrEmpty(wadname))
+			string backuppath = GetRestorePath(filepathname, options);
+			if(backuppath != null)
 			{
-				string hash = MurmurHash2.Hash(wadname + options.LevelName + File.GetLastWriteTime(filepathname)).ToString();
-				string backuppath = Path.Combine(General.MapRestorePath, wadname + "." + hash + ".restore");
-
 				// Backup exists and it's newer than the map itself?
 				if(File.Exists(backuppath) && File.GetLastWriteTime(backuppath) > File.GetLastWriteTime(filepathname))
 				{
@@ -764,6 +812,12 @@ namespace CodeImp.DoomBuilder
 			// cacowardwinner.wad.MAP01
 			// the SaveMap method will add an ".autosaveX" due to the save purpose being Autosave
 			string autosavefilename = filepathname + "." + options.CurrentName;
+			if(archivesource != null)
+			{
+				// The working WAD is in temp; an archive map's autosaves live in the archive store
+				archivestore.EnsureEntryFolder(archivesource);
+				autosavefilename = archivestore.EntryFileBase(archivesource) + "." + options.CurrentName;
+			}
 			General.Plugins.OnMapSaveBegin(SavePurpose.Autosave);
 			bool result = SaveMap(autosavefilename, SavePurpose.Autosave);
 			General.Plugins.OnMapSaveEnd(SavePurpose.Autosave);
@@ -1152,9 +1206,10 @@ namespace CodeImp.DoomBuilder
 								File.Move($"{autosavefilepathname}.autosave{i}", $"{autosavefilepathname}.autosave{i + 1}");
 						}
 					}
-					else
+					else if(archivesource == null || newfilepathname != filepathname)
 					{
-						// Backup existing file, if any. Copy first, so a failed copy ages no backup
+						// Backup existing file, if any. Copy first, so a failed copy ages no backup.
+						// Not for an archive map's working WAD, which lives in temp; the archive commit backs up the entry.
 						string newbackup = newfilepathname + ".backup.new";
 						try
 						{
@@ -1226,8 +1281,16 @@ namespace CodeImp.DoomBuilder
 			if(purpose != SavePurpose.Testing && purpose != SavePurpose.Autosave) 
 			{
 				// Saved in a different file?
-				if(newfilepathname != filepathname) 
+				if(newfilepathname != filepathname)
 				{
+					// A map opened from an archive now lives in the new file
+					if(archivesource != null)
+					{
+						General.WriteLogLine("Map detached from \"" + archivesource.DisplayName + "\"");
+						archivesource = null;
+						archivestore = null;
+					}
+
 					// Keep new filename
 					filepathname = newfilepathname;
 					filetitle = Path.GetFileName(filepathname);
@@ -1239,7 +1302,7 @@ namespace CodeImp.DoomBuilder
 				try 
 				{
 					// Open or create the map settings
-					settingsfile = newfilepathname.Substring(0, newfilepathname.Length - 4) + ".dbs";
+					settingsfile = SettingsFilePath(newfilepathname);
 					options.WriteConfiguration(settingsfile);
 				} 
 				catch(Exception e) 
@@ -1289,10 +1352,10 @@ namespace CodeImp.DoomBuilder
 		{
 			try 
 			{
-				string settingsfile = newfilepathname.Substring(0, newfilepathname.Length - 4) + ".dbs";
+				string settingsfile = SettingsFilePath(newfilepathname);
 				options.WriteConfiguration(settingsfile);
-			} 
-			catch(Exception e) 
+			}
+			catch(Exception e)
 			{
 				// Warning only
 				General.ErrorLogger.Add(ErrorType.Warning, "Could not write the map settings configuration file. " + e.GetType().Name + ": " + e.Message);
@@ -1315,13 +1378,11 @@ namespace CodeImp.DoomBuilder
 			try
 			{
 #endif
-				string wadname = Path.GetFileNameWithoutExtension(filepathname);
-				if(!string.IsNullOrEmpty(wadname))
+				string backuppath = GetRestorePath(filepathname, options);
+				if(backuppath != null)
 				{
 					// Make backup file path
 					if(!Directory.Exists(General.MapRestorePath)) Directory.CreateDirectory(General.MapRestorePath);
-					string hash = MurmurHash2.Hash(wadname + options.LevelName + File.GetLastWriteTime(filepathname)).ToString();
-					string backuppath = Path.Combine(General.MapRestorePath, wadname + "." + hash + ".restore");
 
 					// Export map
 					MemoryStream ms = map.Serialize();
