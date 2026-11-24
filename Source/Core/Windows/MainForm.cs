@@ -3335,7 +3335,7 @@ namespace CodeImp.DoomBuilder.Windows
 			itemtogglefog.Checked = General.Settings.GZDrawFog;
 			buttontogglefog.Checked = General.Settings.GZDrawFog;
 
-			General.MainWindow.DisplayStatus(StatusType.Action, "Fog rendering is " + (General.Settings.GZDrawFog ? "ENABLED" : "DISABLED"));
+			General.MainWindow.DisplayStatus(StatusType.Action, "Fog and distance lighting are " + (General.Settings.GZDrawFog ? "ENABLED" : "DISABLED"));
 			General.MainWindow.RedrawDisplay();
 			General.MainWindow.UpdateGZDoomPanel();
 		}

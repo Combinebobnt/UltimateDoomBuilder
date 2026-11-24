@@ -1815,7 +1815,7 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemtogglefog.Name = "itemtogglefog";
 			this.itemtogglefog.Size = new System.Drawing.Size(273, 22);
 			this.itemtogglefog.Tag = "builder_gztogglefog";
-			this.itemtogglefog.Text = "Render fog (Visual mode)";
+			this.itemtogglefog.Text = "Render fog and distance lighting (Visual mode)";
 			this.itemtogglefog.Click += new System.EventHandler(this.InvokeTaggedAction);
 			this.itemtoggleanimatedtextures.CheckOnClick = true;
 			this.itemtoggleanimatedtextures.Image = global::CodeImp.DoomBuilder.Properties.Resources.ImageStack;
