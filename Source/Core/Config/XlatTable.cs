@@ -144,9 +144,9 @@ namespace CodeImp.DoomBuilder.Config
 			return table;
 		}
 
-		// Loads from a folder holding the table files and actionspecials.h; "xlat/" include prefixes resolve inside it
 		public static XlatTable LoadFromFolder(string folder, string filename)
 		{
+			// The folder holds the tables and actionspecials.h; "xlat/" include prefixes resolve inside it
 			Func<string, string> opener = name =>
 			{
 				string path = Path.Combine(folder, Path.GetFileName(name.Replace('\\', '/')));
@@ -398,14 +398,13 @@ namespace CodeImp.DoomBuilder.Config
 			}
 		}
 
-		// strtoll clamps out-of-range numbers to LLONG_MAX
 		private static long ParseSaturated(string digits, int radix)
 		{
 			long v = 0;
 			foreach(char ch in digits)
 			{
 				int d = ch <= '9' ? ch - '0' : char.ToLowerInvariant(ch) - 'a' + 10;
-				if(v > (long.MaxValue - d) / radix) return long.MaxValue;
+				if(v > (long.MaxValue - d) / radix) return long.MaxValue; // strtoll clamps to LLONG_MAX
 				v = v * radix + d;
 			}
 			return v;
@@ -434,9 +433,9 @@ namespace CodeImp.DoomBuilder.Config
 			table.Warnings.Add(new XlatWarning { File = file, Line = line, Message = message });
 		}
 
-		// An identifier the lexer would pass as SYM: not a keyword, symbol or special name
 		private bool IsUnknownName(int ahead = 0)
 		{
+			// What the engine's lexer passes as SYM: not a keyword, symbol or special name
 			Token t = Peek(ahead);
 			return t.Kind == TokenKind.Ident && !IsReserved(t.Text) && !symbols.ContainsKey(t.Text) && !table.SpecialNames.ContainsKey(t.Text);
 		}
@@ -656,9 +655,9 @@ namespace CodeImp.DoomBuilder.Config
 			table.SimpleLines[type] = new XlatLineEntry { Type = type, Special = special, Flags = flags, Args = args.ToArray(), File = file, Line = line };
 		}
 
-		// FBoomTranslator and FBoomArg field widths
 		private void ParseBoom()
 		{
+			// The masks below are FBoomTranslator's and FBoomArg's field widths
 			int line = Peek().Line;
 			Expect("[");
 			XlatBoomRange range = new XlatBoomRange();

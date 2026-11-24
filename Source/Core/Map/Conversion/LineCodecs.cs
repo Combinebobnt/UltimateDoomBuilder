@@ -21,6 +21,14 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 		public const int Scroll_Texture_Model = 222;
 
 		public const int Init_SectorLink = 3;
+
+		// Line specials the engine applies at map load whatever the line's activation (maploader/specials.cpp
+		// SpawnSpecials, SpawnScrollers, SpawnPushers, SpawnFriction, sector contents; SetLineID; slopes, polyobjects, 3D floors)
+		public static readonly HashSet<int> LoadTime = new HashSet<int>
+		{
+			1, 5, 16, 48, 51, 57, 58, 100, 101, 102, 103, 118, 121, 156, 160, 161, 181, 190,
+			208, 209, 210, 211, 218, 219, 220, 221, 222, 223, 224, 225, 227, 301,
+		};
 	}
 
 	// A line's special as the Hexen format stores it
@@ -72,7 +80,7 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 				case Specials.Polyobj_StartLine: keeparg = false; return 3;
 				case Specials.Polyobj_ExplicitLine: keeparg = false; return 4;
 				case Specials.Plane_Align: keeparg = false; return 2;
-				case Specials.Line_SetPortal: return 1;
+				case Specials.Line_SetPortal: keeparg = false; return 1; // the portal finds its partner by line ID, never by arg1
 				case Specials.Static_Init: return args[1] == Specials.Init_SectorLink ? 0 : -1;
 				default: return -1;
 			}
@@ -146,21 +154,23 @@ namespace CodeImp.DoomBuilder.Map.Conversion
 			}
 		}
 
-		// needid: some special references this line's ID. requiresactivation: false for specials the engine runs at load
-		public static HexenLine Write(CanonicalLine c, bool needid, List<string> issues, bool requiresactivation = true)
+		public static HexenLine Write(CanonicalLine c, bool needid, List<string> issues)
 		{
+			// needid: some special references this line's ID, so it must survive
 			int spac = 0;
 			string dropped = null;
+			bool loadtime = Specials.LoadTime.Contains(c.Special);
 			if(c.Special < 0 || c.Special > 255)
 			{
 				dropped = "special " + c.Special + " doesn't fit Hexen's one-byte action";
 			}
-			else if(c.Special != 0 && (c.Activation != LineActivation.None || requiresactivation))
+			else if(c.Special != 0 && (c.Activation != LineActivation.None || !loadtime))
 			{
 				int? s = ToSpac(c.Activation);
 				if(s == null)
 				{
 					s = FirstSpac(c.Activation);
+					if(s == null && loadtime) s = 0; // the engine applies it at load anyway
 					if(s == null) dropped = "special " + c.Special + (c.Activation == LineActivation.None ? " has no activation" : " has activation " + c.Activation) + ", which Hexen can't hold";
 					else issues.Add("activation " + c.Activation + " has no Hexen equivalent, kept " + FromSpac(s.Value));
 				}

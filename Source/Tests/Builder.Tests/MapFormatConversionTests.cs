@@ -333,10 +333,17 @@ namespace Builder.Tests
 				Assert.True(h.Action == 121 && h.Args[0] == 4 && issues.Count == 1, c + " with its ID wrote " + h.Action);
 			}
 
+			// Load-time specials run whatever the activation: kept, reported only when an activation is lost
 			List<string> none = new List<string>();
 			CanonicalLine slope = new CanonicalLine { Special = 181, Args = new[] { 1, 0, 0, 0, 0 } };
-			Assert.Equal(181, HexenLineCodec.Write(slope, false, none, false).Action); // a load-time special needs no activation
+			Assert.Equal(181, HexenLineCodec.Write(slope, false, none).Action);
+			CanonicalLine sky = new CanonicalLine { Special = 190, Args = new[] { 5, 255, 0, 0, 0 } };
+			Assert.Equal(190, HexenLineCodec.Write(sky, false, none).Action);
 			Assert.Empty(none);
+			CanonicalLine translucent = new CanonicalLine { Special = 208, Args = new[] { 0, 128, 0, 0, 0 }, Activation = LineActivation.Death };
+			Assert.Equal(208, HexenLineCodec.Write(translucent, false, none).Action);
+			Assert.Single(none);
+			none.Clear();
 
 			CanonicalLine walk = new CanonicalLine { Special = 80, Activation = LineActivation.Cross | LineActivation.Walking };
 			Assert.Equal(0, HexenLineCodec.Write(walk, false, none).Spac);
@@ -359,6 +366,11 @@ namespace Builder.Tests
 			issues.Clear();
 			CanonicalLine same = new CanonicalLine { Special = 208, Args = new[] { 5, 128, 0, 0, 0 }, Activation = LineActivation.Cross, LineId = 5 };
 			Assert.Equal(5, HexenLineCodec.Write(same, true, issues).Args[0]);
+			Assert.Empty(issues);
+
+			// Line_SetPortal's arg1 is only the ID, so the writer fills it
+			CanonicalLine portal = new CanonicalLine { Special = 156, Args = new[] { 7, 0, 0, 0, 0 }, LineId = 3 };
+			Assert.Equal(3, HexenLineCodec.Write(portal, true, issues).Args[1]);
 			Assert.Empty(issues);
 		}
 
