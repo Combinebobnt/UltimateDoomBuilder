@@ -4,7 +4,7 @@
 
 `#name Fan Sectors`;
 
-`#description Splits each selected or highlighted sector into triangles that all share one corner, for vertex-height terrain. With one sector, run it from a script slot hotkey to fan from the corner nearest the mouse; otherwise the origin option picks the corner. Rejects sectors with holes, self-intersecting outlines and Plane_Align lines. Slope things and Doom-format slope specials are not checked: convert such slopes first.`;
+`#description Splits each selected or highlighted sector into triangles that all share one corner, for vertex-height terrain. With one sector, run it from a script slot hotkey to fan from the corner nearest the mouse; otherwise the origin option picks the corner. Rejects sectors with holes, self-intersecting outlines and Plane_Align or Plane_Copy lines. Slope things and Doom-format slope specials are not checked: convert such slopes first.`;
 
 `#scriptoptions
 
@@ -28,13 +28,13 @@ if(sectors.length == 0)
 
 const mouse = UDB.Map.mousePosition;
 const useMouse = sectors.length == 1 && mouse.isFinite();
-const planeAlign = UDB.Map.isDoom ? null : 181;
+const slopeActions = UDB.Map.isDoom ? [] : [ 181, 118 ]; // Plane_Align, Plane_Copy
 
 // Work out every fan from positions first; sectors split while drawing
 const fans = [];
 for(const s of sectors)
 {
-	const traced = SectorMesh.traceSectorLoop(s, planeAlign);
+	const traced = SectorMesh.traceSectorLoop(s, slopeActions);
 	if(traced.error)
 		UDB.die('Sector ' + s.index + ': ' + traced.error);
 	const loop = SectorMesh.cleanLoop(traced.loop);
@@ -42,7 +42,10 @@ for(const s of sectors)
 		UDB.die('Sector ' + s.index + ': its outline intersects itself');
 	if(loop.length < 4)
 	{
-		UDB.log('Sector ' + s.index + ' is already a triangle, skipped');
+		if(traced.loop.length > 3)
+			UDB.log('Sector ' + s.index + ' has three corners but ' + traced.loop.length + ' vertices, skipped. Merge the vertices on its straight edges away so vertex heights apply.');
+		else
+			UDB.log('Sector ' + s.index + ' is already a triangle, skipped');
 		continue;
 	}
 

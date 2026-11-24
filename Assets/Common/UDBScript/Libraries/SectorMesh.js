@@ -62,10 +62,11 @@ var SectorMesh = (function()
 	function onSegment(p, a, b)
 	{
 		const len = dist(a, b);
-		if(Math.abs(cross(a, b, p)) > EPS * Math.max(len, 1) * Math.max(len, 1))
+		const margin = EPS * Math.max(len, 1);
+		if(Math.abs(cross(a, b, p)) > margin * Math.max(len, 1))
 			return false;
-		return Math.min(a.x, b.x) - EPS <= p.x && p.x <= Math.max(a.x, b.x) + EPS &&
-			Math.min(a.y, b.y) - EPS <= p.y && p.y <= Math.max(a.y, b.y) + EPS;
+		return Math.min(a.x, b.x) - margin <= p.x && p.x <= Math.max(a.x, b.x) + margin &&
+			Math.min(a.y, b.y) - margin <= p.y && p.y <= Math.max(a.y, b.y) + margin;
 	}
 
 	// Closed segment intersection, touching counts
@@ -179,7 +180,8 @@ var SectorMesh = (function()
 		return (1 - u) * (1 - v) * values[0] + u * (1 - v) * values[1] + u * v * values[2] + (1 - u) * v * values[3];
 	}
 
-	// Grid points P[i][j], i along corner 0 -> corner 1 (columns), j along corner 0 -> corner 3 (rows)
+	// Grid points P[i][j], i along corner 0 -> corner 1 (columns), j along corner 0 -> corner 3 (rows).
+	// round snaps interior points only: boundary points must stay exactly on their edge to split it.
 	function quadGrid(corners, cols, rows, round)
 	{
 		const grid = [];
@@ -189,14 +191,15 @@ var SectorMesh = (function()
 			for(let j = 0; j <= rows; j++)
 			{
 				const u = i / cols, v = j / rows;
+				const boundary = i == 0 || j == 0 || i == cols || j == rows;
 				let x = bilinear(corners.map(c => c.x), u, v);
 				let y = bilinear(corners.map(c => c.y), u, v);
-				if(round)
+				if(round && !boundary)
 				{
 					x = Math.round(x);
 					y = Math.round(y);
 				}
-				grid[i].push({ x: x, y: y, u: u, v: v });
+				grid[i].push({ x: x, y: y, u: u, v: v, boundary: boundary });
 			}
 		}
 		return grid;
@@ -219,7 +222,8 @@ var SectorMesh = (function()
 
 	// Traces a sector's boundary from its sidedefs. Returns { loop } or { error }. Each point carries
 	// the vertex and its index, and for the edge to the next point its line and the sector on the other side.
-	function traceSectorLoop(sector, planeAlignAction)
+	// slopeActions: line specials that slope only the sectors on that line (Plane_Align, Plane_Copy)
+	function traceSectorLoop(sector, slopeActions)
 	{
 		const edges = new Map();
 		const sidedefs = sector.getSidedefs();
@@ -228,8 +232,8 @@ var SectorMesh = (function()
 			const line = sd.line;
 			if(sd.other !== null && sd.other.sector !== null && sd.other.sector.index == sector.index)
 				return { error: 'line ' + line.index + ' has the sector on both sides' };
-			if(planeAlignAction !== null && line.action == planeAlignAction)
-				return { error: 'line ' + line.index + ' has a Plane_Align slope, convert it to a plane-equation slope first' };
+			if(slopeActions.includes(line.action))
+				return { error: 'line ' + line.index + ' has a line-based slope (special ' + line.action + '), convert it to a plane-equation slope first' };
 			const from = sd.isFront ? line.start : line.end, to = sd.isFront ? line.end : line.start;
 			if(edges.has(from.index))
 				return { error: 'its boundary touches itself at vertex ' + from.index };
