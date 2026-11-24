@@ -655,6 +655,9 @@
     <Compile Include="Windows\MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Windows\ToolbarDock.cs" />
+    <Compile Include="Windows\ToolbarDragController.cs" />
+    <Compile Include="Windows\ToolbarLayoutModel.cs" />
     <Compile Include="Map\Linedef.cs" />
     <Compile Include="Geometry\LinedefSide.cs" />
     <Compile Include="Map\MapOptions.cs" />

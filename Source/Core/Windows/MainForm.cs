@@ -134,6 +134,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private bool preventupdateseperators;
 		private bool updatingfilters;
 		private bool toolbarContextMenuShiftPressed; //mxd
+		private ToolbarDock toolbardock;
+		private ToolbarDragController toolbardrag;
 		
 		// Statusbar
 		private StatusInfo status;
@@ -229,6 +231,8 @@ namespace CodeImp.DoomBuilder.Windows
 				linedefcolorpresets.Size = new Size((int)(120 * DPIScaler.Width), (int)(22 * DPIScaler.Height));
 				configlabel.Size = new Size((int)(280 * DPIScaler.Width), (int)(18 * DPIScaler.Height));
 			}
+
+			SetupToolbarDock();
 
 			pluginbuttons = new List<PluginToolbarButton>();
 			editmodeitems = new List<ToolStripItem>();
@@ -376,7 +380,6 @@ namespace CodeImp.DoomBuilder.Windows
 				int targetindex = this.Controls.IndexOf(display) + 1; //mxd
 				if(General.Settings.DockersPosition == 0)
 				{
-					modestoolbar.Dock = DockStyle.Right; //mxd
 					dockersspace.Dock = DockStyle.Left;
 					AdjustDockersSpace(targetindex); //mxd
 					dockerspanel.Setup(false);
@@ -385,7 +388,6 @@ namespace CodeImp.DoomBuilder.Windows
 				}
 				else
 				{
-					modestoolbar.Dock = DockStyle.Left; //mxd
 					dockersspace.Dock = DockStyle.Right;
 					AdjustDockersSpace(targetindex); //mxd
 					dockerspanel.Setup(true);
@@ -405,7 +407,63 @@ namespace CodeImp.DoomBuilder.Windows
 			{
 				dockerspanel.Visible = false;
 				dockersspace.Visible = false;
-				modestoolbar.Dock = DockStyle.Left; //mxd
+			}
+
+			// The modes strip's automatic edge follows the docker position
+			toolbardock.PerformLayout();
+		}
+
+		// Keeps the docker panel on its space after the toolbar edges around it changed
+		private void PlaceDockers()
+		{
+			if(!dockerspanel.Visible || !dockersspace.Visible) return;
+			int left = (General.Settings.DockersPosition == 0) ? dockersspace.Left : dockersspace.Right - dockerspanel.Width;
+			dockerspanel.Location = new Point(left, dockersspace.Top);
+			dockerspanel.Height = dockersspace.Height;
+		}
+
+		private void SetupToolbarDock()
+		{
+			toolbardock = new ToolbarDock(this, toolbarContextMenu);
+			toolbardock.AddStrip("file", toolbar, "File");
+			toolbardock.AddStrip("script", null, "Script", buttonscripteditor, seperatorscript);
+			toolbardock.AddStrip("undo", null, "Undo", buttonundo, buttonredo, seperatorundo);
+			toolbardock.AddStrip("clipboard", null, "Clipboard", buttoncut, buttoncopy, buttonpaste, seperatorcopypaste);
+			toolbardock.AddStrip("prefabs", null, "Prefabs", buttoninsertprefabfile, buttoninsertpreviousprefab, seperatorprefabs);
+			toolbardock.AddStrip(ToolbarLayoutModel.FILTERS, null, "Filters", buttonthingsfilter, thingfilters, separatorlinecolors, buttonlinededfcolors, linedefcolorpresets);
+			toolbardock.AddStrip("view", null, "View", separatorfilters, buttonfullbrightness, buttontogglegrid, buttontogglecomments, buttontogglefixedthingsscale,
+				separatorfullbrightness, buttonviewnormal, buttonviewbrightness, buttonviewfloors, buttonviewceilings, buttontoggleclassicrendering, seperatorviews);
+			toolbardock.AddStrip("geometry", null, "Geometry", buttonmergegeoclassic, buttonmergegeo, buttonplacegeo, separatorgeomergemodes,
+				buttonsnaptogrid, buttontoggledynamicgrid, buttonautomerge, buttonsplitjoinedsectors, buttonautoclearsidetextures, seperatorgeometry);
+			toolbardock.AddStrip("rendering", null, "Rendering", dynamiclightmode, modelrendermode, buttontogglefog, buttontoggleanimatedtextures,
+				buttontogglematerials, buttontogglesky, buttontoggleeventlines, buttontogglevisualvertices, separatorgzmodes);
+			toolbardock.AddStrip("testing", null, "Testing", buttontest, seperatortesting);
+			toolbardock.AddStrip(ToolbarLayoutModel.MODES, modestoolbar, "Editing Modes");
+			toolbardock.Install(display, dockersspace, flowLayoutPanel, panelinfo);
+			toolbardock.EdgesResized += delegate { PlaceDockers(); };
+			toolbardrag = new ToolbarDragController(this, toolbardock);
+			toolbardock.SetAllowed(ToolbarLayoutModel.MODES, false);
+			toolbardock.PerformLayout();
+			this.Shown += delegate { toolbardock.PerformLayout(); }; // Items measure their real size once shown
+		}
+
+		// The toolbar strip a plugin section's buttons go to, and the item they are inserted before (null appends)
+		private ToolStrip SectionStrip(ToolbarSection section, out ToolStripItem anchor)
+		{
+			anchor = null;
+			switch(section)
+			{
+				case ToolbarSection.File: anchor = seperatorfile; return toolbardock.Strip("file");
+				case ToolbarSection.Script: anchor = seperatorscript; return toolbardock.Strip("script");
+				case ToolbarSection.UndoRedo: anchor = seperatorundo; return toolbardock.Strip("undo");
+				case ToolbarSection.CopyPaste: anchor = seperatorcopypaste; return toolbardock.Strip("clipboard");
+				case ToolbarSection.Prefabs: anchor = seperatorprefabs; return toolbardock.Strip("prefabs");
+				case ToolbarSection.Things: return toolbardock.Strip(ToolbarLayoutModel.FILTERS);
+				case ToolbarSection.Views: anchor = seperatorviews; return toolbardock.Strip("view");
+				case ToolbarSection.Geometry: anchor = seperatorgeometry; return toolbardock.Strip("geometry");
+				case ToolbarSection.Helpers: anchor = separatorgzmodes; return toolbardock.Strip("rendering");
+				case ToolbarSection.Testing: anchor = seperatortesting; return toolbardock.Strip("testing");
+				default: return null;
 			}
 		}
 
@@ -1464,6 +1522,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// When a key is pressed
 		private void MainForm_KeyDown(object sender, KeyEventArgs e)
 		{
+			if(toolbardrag != null && toolbardrag.HandleKeyDown(e)) return;
 			int mod = 0;
 			
 			// Keep key modifiers
@@ -1528,6 +1587,7 @@ namespace CodeImp.DoomBuilder.Windows
 		// When a key is released
 		private void MainForm_KeyUp(object sender, KeyEventArgs e)
 		{
+			if(toolbardrag != null && toolbardrag.HandleKeyUp(e)) return;
 			int mod = 0;
 
 			// Keep key modifiers
@@ -2007,17 +2067,17 @@ namespace CodeImp.DoomBuilder.Windows
 		//mxd
 		public void BeginToolbarUpdate()
 		{
-			toolbar.SuspendLayout();
-			modestoolbar.SuspendLayout();
+			toolbardock.BeginUpdate();
+			foreach(ToolStrip strip in toolbardock.Strips) strip.SuspendLayout();
 			modecontrolsloolbar.SuspendLayout();
 		}
 
 		//mxd
 		public void EndToolbarUpdate()
 		{
-			toolbar.ResumeLayout(true);
-			modestoolbar.ResumeLayout(true);
+			foreach(ToolStrip strip in toolbardock.Strips) strip.ResumeLayout(true);
 			modecontrolsloolbar.ResumeLayout(true);
+			toolbardock.EndUpdate();
 		}
 
 		// This adds a button to the toolbar
@@ -2043,18 +2103,14 @@ namespace CodeImp.DoomBuilder.Windows
 			// Insert the button in the right section
 			switch(section)
 			{
-				case ToolbarSection.File: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorfile), button); break;
-				case ToolbarSection.Script: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorscript), button); break;
-				case ToolbarSection.UndoRedo: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorundo), button); break;
-				case ToolbarSection.CopyPaste: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorcopypaste), button); break;
-				case ToolbarSection.Prefabs: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorprefabs), button); break;
-				case ToolbarSection.Things: toolbar.Items.Insert(toolbar.Items.IndexOf(buttonviewnormal), button); break;
-				case ToolbarSection.Views: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorviews), button); break;
-				case ToolbarSection.Geometry: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatorgeometry), button); break;
-				case ToolbarSection.Helpers: toolbar.Items.Insert(toolbar.Items.IndexOf(separatorgzmodes), button); break; //mxd
-				case ToolbarSection.Testing: toolbar.Items.Insert(toolbar.Items.IndexOf(seperatortesting), button); break;
 				case ToolbarSection.Modes: modestoolbar.Items.Add(button); break; //mxd
 				case ToolbarSection.Custom: modecontrolsloolbar.Items.Add(button); modecontrolsloolbar.Visible = true; break; //mxd
+				default:
+					ToolStripItem anchor;
+					ToolStrip strip = SectionStrip(section, out anchor);
+					if(anchor != null) strip.Items.Insert(strip.Items.IndexOf(anchor), button);
+					else strip.Items.Add(button);
+					break;
 			}
 			
 			UpdateToolbar();
@@ -2123,10 +2179,12 @@ namespace CodeImp.DoomBuilder.Windows
 						modecontrolsloolbar.Visible = (modecontrolsloolbar.Items.Count > 0);
 						break;
 					default:
-						toolbar.Items.Remove(button);
+						ToolStrip strip = toolbardock.StripOf(button);
+						if(strip != null) strip.Items.Remove(button);
 						break;
 				}
-				
+				toolbardock.RestoreItemStyle(button);
+
 				UpdateSeparators();
 			}
 		}
@@ -2144,12 +2202,17 @@ namespace CodeImp.DoomBuilder.Windows
 		// This hides redundant separators
 		internal void UpdateSeparators()
 		{
-			UpdateToolStripSeparators(toolbar.Items, false);
+			if(toolbardock == null) return;
+			foreach(ToolStrip strip in toolbardock.Strips)
+				if(strip != modestoolbar) UpdateToolStripSeparators(strip.Items, false);
 			UpdateToolStripSeparators(menumode.DropDownItems, true);
 
 			//mxd
 			UpdateToolStripSeparators(modestoolbar.Items, true);
 			UpdateToolStripSeparators(modecontrolsloolbar.Items, true);
+
+			// Strips show and hide with their items
+			toolbardock.RequestLayout();
 		}
 		
 		// This hides redundant separators
@@ -2168,8 +2231,8 @@ namespace CodeImp.DoomBuilder.Windows
 					i.Visible = separatorvisible;
 				}
 
-				// Keep as previous visible item
-				if(i.Visible || separatorvisible || (defaultvisible && !(i is ToolStripSeparator))) pvi = i;
+				// Keep as previous visible item. Available, since Visible is false while the strip is hidden.
+				if(i.Available || separatorvisible || (defaultvisible && !(i is ToolStripSeparator))) pvi = i;
 			}
 
 			// Hide last item if it is a seperator
@@ -2238,27 +2301,20 @@ namespace CodeImp.DoomBuilder.Windows
 			buttontogglevisualvertices.Visible = General.Settings.GZToolbarGZDoom && maploaded && General.Map.UDMF;
 			separatorgzmodes.Visible = General.Settings.GZToolbarGZDoom && maploaded;
 
-			foreach (ToolStripItem item in toolbar.Items)
+			foreach(ToolStrip strip in toolbardock.Strips)
 			{
-				if (item is ToolStripActionButton)
-					((ToolStripActionButton)item).UpdateToolTip();
+				if(strip == modestoolbar) continue;
+				foreach(ToolStripItem item in strip.Items)
+				{
+					if(item is ToolStripActionButton)
+						((ToolStripActionButton)item).UpdateToolTip();
+				}
 			}
 
 			//mxd. Show/hide additional panels
-			modestoolbar.Visible = maploaded;
+			toolbardock.SetAllowed(ToolbarLayoutModel.MODES, maploaded);
 			panelinfo.Visible = maploaded;
 			modecontrolsloolbar.Visible = (maploaded && modecontrolsloolbar.Items.Count > 0);
-			
-			//mxd. modestoolbar index in Controls gets messed up when it's invisible. This fixes it.
-			//TODO: find out why this happens in the first place
-			if(modestoolbar.Visible) 
-			{
-				int toolbarpos = this.Controls.IndexOf(toolbar);
-				if(this.Controls.IndexOf(modestoolbar) > toolbarpos) 
-				{
-					this.Controls.SetChildIndex(modestoolbar, toolbarpos);
-				}
-			}
 
 			// Update plugin buttons
 			foreach(PluginToolbarButton p in pluginbuttons)
@@ -2273,6 +2329,7 @@ namespace CodeImp.DoomBuilder.Windows
 					case ToolbarSection.Things: p.button.Visible = General.Settings.ToolbarFilter; break;
 					case ToolbarSection.Views: p.button.Visible = General.Settings.ToolbarViewModes; break;
 					case ToolbarSection.Geometry: p.button.Visible = General.Settings.ToolbarGeometry; break;
+					case ToolbarSection.Helpers: p.button.Visible = General.Settings.GZToolbarGZDoom; break;
 					case ToolbarSection.Testing: p.button.Visible = General.Settings.ToolbarTesting; break;
 				}
 
