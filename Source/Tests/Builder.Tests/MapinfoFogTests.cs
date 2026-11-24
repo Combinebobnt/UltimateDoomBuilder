@@ -5,6 +5,7 @@ using CodeImp.DoomBuilder.Config;
 using CodeImp.DoomBuilder.Data;
 using CodeImp.DoomBuilder.GZBuilder.Data;
 using CodeImp.DoomBuilder.Map;
+using CodeImp.DoomBuilder.Rendering;
 using CodeImp.DoomBuilder.Types;
 using CodeImp.DoomBuilder.VisualModes;
 using CodeImp.DoomBuilder.ZDoom;
@@ -274,6 +275,33 @@ namespace Builder.Tests
 				Assert.Equal(SectorFogMode.FADE, sector.FogMode);
 				AssertDensity(sector, 32);
 			}
+		}
+
+		[Fact]
+		public void FogBoundaryDrawsWithItsOwnProgramOnlyInFogPasses()
+		{
+			ShaderName program = ShaderName.world3d_main_fog;
+			Assert.True(Renderer3D.TranslucentGeometryProgram(VisualGeometryType.FOG_BOUNDARY, true, ref program));
+			Assert.Equal(ShaderName.world3d_fogboundary, program);
+
+			program = ShaderName.world3d_main;
+			Assert.False(Renderer3D.TranslucentGeometryProgram(VisualGeometryType.FOG_BOUNDARY, false, ref program));
+
+			program = ShaderName.world3d_main_fog;
+			Assert.True(Renderer3D.TranslucentGeometryProgram(VisualGeometryType.WALL_MIDDLE, true, ref program));
+			Assert.Equal(ShaderName.world3d_main_fog, program);
+		}
+
+		[Fact]
+		public void FogBoundaryProgramKeepsTheFixedProgramOffsets()
+		{
+			Assert.Equal((int)ShaderName.world3d_main + 8, (int)ShaderName.world3d_main_fog);
+			Assert.Equal((int)ShaderName.world3d_main_highlight + 8, (int)ShaderName.world3d_main_highlight_fog);
+			Assert.Equal((int)ShaderName.world3d_main_vertexcolor + 8, (int)ShaderName.world3d_main_fog_vertexcolor);
+			Assert.Equal((int)ShaderName.world3d_main_highlight_vertexcolor + 8, (int)ShaderName.world3d_main_highlight_fog_vertexcolor);
+			Assert.Equal((int)ShaderName.world3d_classic + 2, (int)ShaderName.world3d_classic_highlight);
+			foreach(ShaderName name in Enum.GetValues(typeof(ShaderName)))
+				Assert.True((int)name < DataManager.FirstMaterialProgram, name + " overlaps the material programs");
 		}
 	}
 }

@@ -1190,6 +1190,14 @@ namespace CodeImp.DoomBuilder.Rendering
 				&& LightModel.UsesFogPrograms(lightsettings, s.HasBlackFade);
 		}
 
+		// Fog boundaries take their own program, and draw only where the fog programs run; false skips the geometry
+		internal static bool TranslucentGeometryProgram(VisualGeometryType type, bool fogpass, ref ShaderName program)
+		{
+			if(type != VisualGeometryType.FOG_BOUNDARY) return true;
+			program = ShaderName.world3d_fogboundary;
+			return fogpass;
+		}
+
 		// The sector light's per-sector parameters (black fog density) for the geometry or thing drawn next
 		private void SetSectorLightParams(Sector s)
 		{
@@ -1390,6 +1398,7 @@ namespace CodeImp.DoomBuilder.Rendering
                     if (fogpass)
                         wantedshaderpass += 8;
 					wantedshaderpass = MaterialShader(material, wantedshaderpass, fogpass, false);
+					if(!TranslucentGeometryProgram(g.GeometryType, fogpass, ref wantedshaderpass)) continue;
 
                     // Switch shader pass?
                     if (currentshaderpass != wantedshaderpass)
