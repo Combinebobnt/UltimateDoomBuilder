@@ -255,6 +255,45 @@ namespace CodeImp.DoomBuilder.Data
 			BatchMode = true;
 		}
 
+		// Batch mode keeps the file open, so a suspended archive could not be replaced on disk without this
+		public override void Suspend()
+		{
+			lock (this)
+			{
+				CloseArchive();
+			}
+
+			base.Suspend();
+		}
+
+		// The archive reopens on the next read
+		public override void Resume()
+		{
+			lock (this)
+			{
+				CloseArchive();
+			}
+
+			base.Resume();
+		}
+
+		private void CloseArchive()
+		{
+			if (archive != null)
+			{
+				archive.Dispose();
+				archive = null;
+			}
+
+			entryindex = null;
+
+			if (filestream != null)
+			{
+				filestream.Dispose();
+				filestream = null;
+			}
+		}
+
         #endregion
 
         #region ================== Textures

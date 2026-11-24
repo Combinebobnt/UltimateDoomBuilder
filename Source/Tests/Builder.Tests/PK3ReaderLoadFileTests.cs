@@ -111,6 +111,38 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void SuspendReleasesTheFileSoItCanBeReplaced()
+		{
+			string path = NewPath();
+			WriteZip(path, new[] { Entry("a.txt", "old") });
+
+			PK3Reader reader = Open(path);
+			typeof(PK3StructuredReader).GetField("wads", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(reader, new List<WADReader>());
+			try
+			{
+				Assert.Equal("old", Load(reader, "a.txt"));
+
+				reader.Suspend();
+
+				// Exclusive open fails while any handle remains (Mono emulates share modes in-process)
+				using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+
+				string replacement = NewPath();
+				WriteZip(replacement, new[] { Entry("a.txt", "new") });
+				File.Delete(path);
+				File.Move(replacement, path);
+
+				reader.Resume();
+
+				Assert.Equal("new", Load(reader, "a.txt"));
+			}
+			finally
+			{
+				reader.BatchMode = false;
+			}
+		}
+
+		[Fact]
 		public void LookupCostDoesNotGrowWithTheEntryCount()
 		{
 			// A ratio on purpose: a scan makes the big archive hundreds of times slower, no scan about equal
