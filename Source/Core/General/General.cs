@@ -1627,7 +1627,16 @@ namespace CodeImp.DoomBuilder
 					mainwindow.UpdateInterface();
 					return result;
 				}
-				
+
+				// A map from an archive is written back into it; these checks may ask questions, so they run first
+				ArchiveCommitCheck archivecheck = map.PrepareArchiveCommit();
+				if(archivecheck == ArchiveCommitCheck.Cancel)
+				{
+					mainwindow.DisplayStatus(StatusType.Info, "Map saving cancelled.");
+					return false;
+				}
+				if(archivecheck == ArchiveCommitCheck.SaveAsInstead) return SaveMapAs();
+
 				// Display status
 				mainwindow.DisplayStatus(StatusType.Busy, "Saving map file...");
 				Cursor.Current = Cursors.WaitCursor;

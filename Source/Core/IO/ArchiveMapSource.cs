@@ -8,6 +8,9 @@ using System.Linq;
 
 namespace CodeImp.DoomBuilder.IO
 {
+	// What Save does with a map opened from an archive, decided before resources are suspended
+	internal enum ArchiveCommitCheck { Proceed, SaveAsInstead, Cancel }
+
 	// The archive entry a map was opened from, as stored, so Save replaces exactly that entry
 	internal sealed class ArchiveMapSource
 	{

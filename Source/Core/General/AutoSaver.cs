@@ -89,7 +89,7 @@ namespace CodeImp.DoomBuilder
 		/// <param name="args">The event arguments</param>
 		private static void TryAutosave(object sender, EventArgs args)
 		{
-			if (Clock.CurrentTime > lasttime + General.Settings.AutosaveInterval * 60 * 1000 && General.Map != null && General.Map.Map != null && General.Map.Map.IsSafeToAccess && General.Map.IsChanged)
+			if (Clock.CurrentTime > lasttime + General.Settings.AutosaveInterval * 60 * 1000 && General.Map != null && General.Map.Map != null && General.Map.Map.IsSafeToAccess && General.Map.IsChanged && !General.Map.IsSaving)
 			{
 				// Check if the current editing mode prevents autosaving. If it does return without setting the time,
 				// so that autosaving will be retried ASAP

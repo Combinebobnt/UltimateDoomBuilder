@@ -81,6 +81,7 @@ namespace CodeImp.DoomBuilder
 		private string origmapconfigname; //mxd. Map configuration, which was used to open the map.
 		private ArchiveMapSource archivesource; // Null unless the map was opened from a PK3/ZIP
 		private ArchiveMapStore archivestore;
+		private bool archivecommitpending; // The working WAD is newer than the map's entry in the archive
 
 		// Main objects
 		private MapSet map;
@@ -129,7 +130,7 @@ namespace CodeImp.DoomBuilder
 		public DataManager Data { get { return data; } }
 		public TextureHistory TextureHistory { get { return texturehistory; } }
 		internal TextureFavorites Favorites { get { return favorites; } }
-		public bool IsChanged { get { return changed | CheckScriptChanged(); } set { changed |= value; if(!maploading) General.MainWindow.UpdateMapChangedStatus(); } }
+		public bool IsChanged { get { return changed | archivecommitpending | CheckScriptChanged(); } set { changed |= value; if(!maploading) General.MainWindow.UpdateMapChangedStatus(); } }
 		public bool IsDisposed { get { return isdisposed; } }
 		// changed, not IsChanged: the backup holds no scripts, and an unchanged map must not raise a restore prompt
 		internal bool ShouldBackupOnCrash { get { return changed && !maploading && !isdisposed; } }
@@ -450,6 +451,125 @@ namespace CodeImp.DoomBuilder
 			if(string.IsNullOrEmpty(wadname)) return null;
 			string hash = MurmurHash2.Hash(wadname + mapoptions.LevelName + File.GetLastWriteTime(wadpathname)).ToString();
 			return Path.Combine(General.MapRestorePath, wadname + "." + hash + ".restore");
+		}
+
+		// Checks before saving an archive map, run before resources are suspended so their dialogs are safe
+		internal ArchiveCommitCheck PrepareArchiveCommit()
+		{
+			if(archivesource == null) return ArchiveCommitCheck.Proceed;
+			string archive = archivesource.ArchivePath;
+			string name = Path.GetFileName(archive);
+
+			if(!File.Exists(archive)) return AskSaveAsInstead("\"" + archive + "\" no longer exists.");
+
+			FileInfo info = new FileInfo(archive);
+			if(info.IsReadOnly)
+			{
+				if(General.ShowWarningMessage("Unable to save the map: \"" + name + "\" is read-only.\nRemove read-only flag and save the map anyway?", MessageBoxButtons.YesNo) != DialogResult.Yes)
+					return ArchiveCommitCheck.Cancel;
+
+				try
+				{
+					info.IsReadOnly = false;
+				}
+				catch(Exception e)
+				{
+					General.ShowErrorMessage("Failed to remove read-only flag from \"" + archive + "\":" + Environment.NewLine + Environment.NewLine + e.Message, MessageBoxButtons.OK);
+					return ArchiveCommitCheck.Cancel;
+				}
+			}
+
+			// The archive's own PK3 resource holds it open until suspended; the dialog waits for the resume
+			FileLockChecker.FileLockCheckResult lockresult;
+			data.Suspend();
+			try { lockresult = FileLockChecker.CheckFile(archive); }
+			finally { data.Resume(); }
+			if(!string.IsNullOrEmpty(lockresult.Error))
+			{
+				General.ShowErrorMessage(lockresult.Error, MessageBoxButtons.OK);
+				return ArchiveCommitCheck.Cancel;
+			}
+
+			string reason;
+			ZipEntryRecord target = null;
+			try
+			{
+				using(FileStream s = File.Open(archive, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+					reason = ZipEntryReplacer.CheckWritable(s, ZipDirectory.Read(s), archivesource, out target);
+			}
+			catch(Exception e) when(e is IOException || e is InvalidDataException || e is UnauthorizedAccessException)
+			{
+				reason = e.Message;
+			}
+			if(reason != null) return AskSaveAsInstead("The map can't be written back into \"" + name + "\": " + reason);
+
+			if(archivesource.ContentDiffers(target))
+			{
+				DialogResult answer = General.ShowWarningMessage("\"" + archivesource.EntryName + "\" in \"" + name + "\" was changed by another program since it was opened or last saved.\n\n"
+					+ "Yes: overwrite it with this map.\nNo: save this map as a WAD file instead.\nCancel: don't save.", MessageBoxButtons.YesNoCancel, MessageBoxDefaultButton.Button3);
+				if(answer == DialogResult.No) return ArchiveCommitCheck.SaveAsInstead;
+				if(answer != DialogResult.Yes) return ArchiveCommitCheck.Cancel;
+				General.WriteLogLine("Overwriting \"" + archivesource.DisplayName + "\", which changed outside the editor");
+			}
+
+			// Repacked or overwritten elsewhere: write over the entry as it is now
+			archivesource.Update(target);
+			return ArchiveCommitCheck.Proceed;
+		}
+
+		private static ArchiveCommitCheck AskSaveAsInstead(string message)
+		{
+			General.WriteLogLine("Archive save check: " + message);
+			return General.ShowWarningMessage(message + "\n\nSave the map as a WAD file instead?", MessageBoxButtons.YesNo) == DialogResult.Yes
+				? ArchiveCommitCheck.SaveAsInstead : ArchiveCommitCheck.Cancel;
+		}
+
+		// Writes the saved working WAD back into the archive. Called with resources suspended; resumes them on failure.
+		private bool CommitToArchive()
+		{
+			archivecommitpending = true;
+			try
+			{
+				ZipEntryRecord written = ZipEntryReplacer.Replace(archivesource, filepathname, ArchiveMapSource.DateTimeToDos(DateTime.Now), BackupArchiveEntry);
+				archivesource.Update(written);
+				File.SetLastWriteTime(filepathname, archivesource.EntryTime);
+				archivecommitpending = false;
+				General.WriteLogLine("Map written back into \"" + archivesource.DisplayName + "\"");
+				return true;
+			}
+			catch(Exception e) when(e is IOException || e is InvalidDataException || e is ZipNotWritableException || e is UnauthorizedAccessException || e is NotSupportedException)
+			{
+				data.Resume();
+				General.WriteLogLine("Writing the map back into \"" + archivesource.ArchivePath + "\" failed: " + e.Message);
+				General.ShowErrorMessage("Unable to write the map back into \"" + archivesource.ArchivePath + "\":\n" + e.Message
+					+ "\n\nThe archive is unchanged and the map is still unsaved.", MessageBoxButtons.OK);
+				General.MainWindow.UpdateMapChangedStatus();
+				return false;
+			}
+		}
+
+		// The entry's previous contents go to <store>/<entry>/<file>.backup1..3 before the archive is replaced
+		private void BackupArchiveEntry(Stream archive, ZipDirectory zip, ZipEntryRecord entry)
+		{
+			archivestore.EnsureEntryFolder(archivesource);
+			string basepath = archivestore.EntryFileBase(archivesource);
+			string newbackup = basepath + ".backup.new";
+			try
+			{
+				using(FileStream output = File.Create(newbackup))
+					zip.Extract(archive, entry, output);
+				if(File.Exists(basepath + ".backup3")) File.Delete(basepath + ".backup3");
+				if(File.Exists(basepath + ".backup2")) File.Move(basepath + ".backup2", basepath + ".backup3");
+				if(File.Exists(basepath + ".backup1")) File.Move(basepath + ".backup1", basepath + ".backup2");
+				File.Move(newbackup, basepath + ".backup1");
+			}
+			catch
+			{
+				try { if(File.Exists(newbackup)) File.Delete(newbackup); }
+				catch(IOException) { }
+				catch(UnauthorizedAccessException) { }
+				throw;
+			}
 		}
 
 		// Initializes for an existing map
@@ -1282,6 +1402,12 @@ namespace CodeImp.DoomBuilder
 				options.PreviousName = string.Empty;
 			}
 
+			// The working WAD is complete and current, so a failed commit can be retried by the next save
+			if(archivesource != null && newfilepathname == filepathname && purpose != SavePurpose.Testing && purpose != SavePurpose.Autosave)
+			{
+				if(!CommitToArchive()) return false;
+			}
+
 			// Resume data resources
 			data.Resume();
 
@@ -1297,6 +1423,7 @@ namespace CodeImp.DoomBuilder
 						General.WriteLogLine("Map detached from \"" + archivesource.DisplayName + "\"");
 						archivesource = null;
 						archivestore = null;
+						archivecommitpending = false;
 					}
 
 					// Keep new filename
@@ -1343,7 +1470,7 @@ namespace CodeImp.DoomBuilder
 		//mxd. Don't save the map if it was not changed
 		internal bool MapSaveRequired(string newfilepathname, SavePurpose purpose)
 		{
-			return (changed || scriptschanged || CheckScriptChanged() || options.LevelNameChanged || newfilepathname != filepathname || purpose != SavePurpose.Normal);
+			return (changed || scriptschanged || archivecommitpending || CheckScriptChanged() || options.LevelNameChanged || newfilepathname != filepathname || purpose != SavePurpose.Normal);
 		}
 
 		// Logs the last compile's errors as one save error, also when an up-to-date map skips the save
