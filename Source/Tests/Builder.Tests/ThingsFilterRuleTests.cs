@@ -357,6 +357,39 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void ToggleAndCycle_Order()
+		{
+			var names = new List<string> { "A", "B", "C" };
+			Assert.Equal(-1, ThingsFilter.ToggleIndex(names, 1, "B"));
+			Assert.Equal(1, ThingsFilter.ToggleIndex(names, -1, "B"));
+			Assert.Equal(0, ThingsFilter.ToggleIndex(names, -1, "Deleted"));
+			Assert.Equal(0, ThingsFilter.ToggleIndex(names, -1, null));
+			Assert.Equal(-1, ThingsFilter.ToggleIndex(new List<string>(), -1, "A"));
+
+			Assert.Equal(0, ThingsFilter.CycleIndex(3, -1, 1));
+			Assert.Equal(-1, ThingsFilter.CycleIndex(3, 2, 1));
+			Assert.Equal(2, ThingsFilter.CycleIndex(3, -1, -1));
+			Assert.Equal(-1, ThingsFilter.CycleIndex(3, 0, -1));
+			Assert.Equal(-1, ThingsFilter.CycleIndex(0, -1, 1));
+		}
+
+		[Fact]
+		public void FromSelection_NameAndTypeList()
+		{
+			Assert.Equal("Imp", ThingsFilter.NameForTypes(new List<string> { "Imp" }));
+			Assert.Equal("Imp, Demon", ThingsFilter.NameForTypes(new List<string> { "Imp", "Demon" }));
+			Assert.Equal("Imp, Demon +3", ThingsFilter.NameForTypes(new List<string> { "Imp", "Demon", "A", "B", "C" }));
+			string longname = ThingsFilter.NameForTypes(new List<string> { new string('x', 40), new string('y', 40), "z" });
+			Assert.True(longname.Length <= 50 && longname.EndsWith("... +1"), longname);
+
+			string list = ThingsFilterRule.FormatNumberList(new[] { 3003, 9, 3001, 3002, 9, 11, 12 });
+			Assert.Equal("9, 11, 12, 3001-3003", list);
+			string error;
+			Assert.NotNull(ThingsFilterRule.ParseNumberList(list, out error));
+			Assert.Equal("-3..-1, 5", ThingsFilterRule.FormatNumberList(new[] { -1, -2, -3, 5 }));
+		}
+
+		[Fact]
 		public void CopyConstructor_CopiesRulesDeeply()
 		{
 			using(new FakeMap())

@@ -331,6 +331,36 @@ namespace CodeImp.DoomBuilder.Editing
 			}
 		}
 
+		// Toggle target as an index into the filter list, -1 for show all: active filter -> show all -> the remembered filter, else the first
+		internal static int ToggleIndex(IList<string> names, int current, string remembered)
+		{
+			if(current >= 0 || names.Count == 0) return -1;
+			int i = (remembered != null ? names.IndexOf(remembered) : -1);
+			return (i >= 0 ? i : 0);
+		}
+
+		// Next/previous in dropdown order, show all (-1) first, wrapping around
+		internal static int CycleIndex(int count, int current, int delta)
+		{
+			int n = count + 1;
+			int pos = Math.Max(-1, Math.Min(current, count - 1)) + 1;
+			return ((pos + delta) % n + n) % n - 1;
+		}
+
+		// "Imp, Demon +3" from the selected types' titles
+		internal static string NameForTypes(IList<string> titles)
+		{
+			const int shown = 2;
+			const int maxlength = 50;
+			if(titles.Count == 0) return DEFAULT_NAME;
+			List<string> parts = new List<string>();
+			for(int i = 0; i < titles.Count && i < shown; i++) parts.Add(titles[i]);
+			string more = (titles.Count > shown ? " +" + (titles.Count - shown).ToString(CultureInfo.InvariantCulture) : "");
+			string name = string.Join(", ", parts.ToArray());
+			if(name.Length + more.Length > maxlength) name = name.Substring(0, Math.Max(1, maxlength - more.Length - 3)).TrimEnd() + "...";
+			return name + more;
+		}
+
 		// Any rule that doesn't parse, names a missing filter or reaches a reference cycle
 		internal bool HasInvalidRules(ThingsFilterContext ctx)
 		{

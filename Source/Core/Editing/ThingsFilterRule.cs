@@ -452,6 +452,23 @@ namespace CodeImp.DoomBuilder.Editing
 			return result;
 		}
 
+		// The reverse of ParseNumberList: sorted, distinct, runs of three or more as ranges
+		internal static string FormatNumberList(IEnumerable<int> numbers)
+		{
+			List<int> sorted = new List<int>(new SortedSet<int>(numbers));
+			List<string> parts = new List<string>();
+			for(int i = 0; i < sorted.Count; )
+			{
+				int j = i;
+				while(j + 1 < sorted.Count && sorted[j + 1] == sorted[j] + 1) j++;
+				string sep = (sorted[i] < 0 || sorted[j] < 0 ? ".." : "-");
+				if(j - i >= 2) parts.Add(sorted[i].ToString(CultureInfo.InvariantCulture) + sep + sorted[j].ToString(CultureInfo.InvariantCulture));
+				else for(int k = i; k <= j; k++) parts.Add(sorted[k].ToString(CultureInfo.InvariantCulture));
+				i = j + 1;
+			}
+			return string.Join(", ", parts.ToArray());
+		}
+
 		private static Regex WildcardRegex(string pattern)
 		{
 			string re = "^" + Regex.Escape(pattern).Replace(@"\*", ".*").Replace(@"\?", ".") + "$";

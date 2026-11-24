@@ -107,6 +107,7 @@ namespace CodeImp.DoomBuilder
 		private CopyPasteManager copypaste;
 		private Launcher launcher;
 		private ThingsFilter thingsfilter;
+		private string lastthingsfiltername; // the toggle action's way back, by name since Apply replaces the filters
 		private ScriptEditorForm scriptwindow;
 		private List<CompilerError> errors;
 		private VisualCamera visualcamera;
@@ -3747,6 +3748,7 @@ namespace CodeImp.DoomBuilder
 
 			// Change
 			thingsfilter = newfilter;
+			if(!(newfilter is NullThingsFilter)) lastthingsfiltername = newfilter.Name;
 
 			// Activate filter
 			thingsfilter.Activate();
@@ -4113,6 +4115,80 @@ namespace CodeImp.DoomBuilder
 		internal void ShowThingsFiltersSetup() 
 		{
 			new ThingsFiltersForm().ShowDialog(General.MainWindow);
+		}
+
+		// Active filter -> show all -> the filter used last
+		[BeginAction("thingsfiltertoggle")]
+		internal void ToggleThingsFilter()
+		{
+			List<ThingsFilter> filters = new List<ThingsFilter>(configinfo.ThingsFilters);
+			List<string> names = filters.ConvertAll(f => f.Name);
+			SwitchThingsFilter(filters, ThingsFilter.ToggleIndex(names, filters.IndexOf(thingsfilter), lastthingsfiltername));
+		}
+
+		[BeginAction("thingsfilternext")]
+		internal void NextThingsFilter()
+		{
+			List<ThingsFilter> filters = new List<ThingsFilter>(configinfo.ThingsFilters);
+			SwitchThingsFilter(filters, ThingsFilter.CycleIndex(filters.Count, filters.IndexOf(thingsfilter), 1));
+		}
+
+		[BeginAction("thingsfilterprevious")]
+		internal void PreviousThingsFilter()
+		{
+			List<ThingsFilter> filters = new List<ThingsFilter>(configinfo.ThingsFilters);
+			SwitchThingsFilter(filters, ThingsFilter.CycleIndex(filters.Count, filters.IndexOf(thingsfilter), -1));
+		}
+
+		// Index -1 shows all things
+		private void SwitchThingsFilter(List<ThingsFilter> filters, int index)
+		{
+			if(index < 0 && filters.Count == 0 && thingsfilter is NullThingsFilter)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "There are no things filters. Use View > Configure Things Filters to make one.");
+				return;
+			}
+			ChangeThingFilter(index >= 0 ? filters[index] : null);
+			General.Interface.DisplayStatus(StatusType.Action, "Things filter: " + thingsfilter.Name);
+		}
+
+		// A new filter with one "Type is one of" rule listing the selected things' types
+		[BeginAction("thingsfilterfromselection")]
+		internal void NewThingsFilterFromSelection()
+		{
+			List<Thing> things = new List<Thing>();
+			VisualMode vm = General.Editing.Mode as VisualMode;
+			if(vm != null)
+			{
+				foreach(VisualThing vt in vm.GetSelectedVisualThings(true)) things.Add(vt.Thing);
+			}
+			else
+			{
+				things.AddRange(map.GetSelectedThings(true));
+			}
+
+			if(things.Count == 0)
+			{
+				General.Interface.DisplayStatus(StatusType.Warning, "This action requires a selection!");
+				return;
+			}
+
+			SortedSet<int> types = new SortedSet<int>();
+			foreach(Thing t in things) types.Add(t.Type);
+			List<string> titles = new List<string>();
+			foreach(int type in types) titles.Add(data.GetThingInfo(type).Title);
+			HashSet<string> taken = new HashSet<string>();
+			foreach(ThingsFilter other in configinfo.ThingsFilters) taken.Add(other.Name);
+
+			ThingsFilter f = new ThingsFilter();
+			f.Name = ThingsFilter.UniqueName(ThingsFilter.NameForTypes(titles), taken);
+			f.Rules.Add(new ThingsFilterRule(ThingsFilterRuleSubject.Type, ThingsFilterRuleOperator.IsOneOf, "", ThingsFilterRule.FormatNumberList(types)));
+			configinfo.ThingsFilters.Add(f);
+
+			ChangeThingFilter(f);
+			General.MainWindow.UpdateThingsFilters();
+			configinfo.Changed = true;
+			General.Interface.DisplayStatus(StatusType.Action, "Made things filter \"" + f.Name + "\"");
 		}
 
 		//mxd. This shows the linedef color presets window

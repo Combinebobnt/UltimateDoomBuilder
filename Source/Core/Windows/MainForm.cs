@@ -1834,7 +1834,7 @@ namespace CodeImp.DoomBuilder.Windows
 				// Deselect other items...
 				foreach(var item in thingfilters.DropDown.Items)
 				{
-					if(item != clickeditem) ((ToolStripMenuItem)item).Checked = false;
+					if(item != clickeditem && item is ToolStripMenuItem mi && mi.Tag is ThingsFilter) mi.Checked = false;
 				}
 
 				// Update button text
@@ -1858,9 +1858,9 @@ namespace CodeImp.DoomBuilder.Windows
 				// Anything selected?
 				foreach(var item in thingfilters.DropDown.Items)
 				{
-					if(((ToolStripMenuItem)item).Checked)
+					if(item is ToolStripMenuItem mi && mi.Tag is ThingsFilter && mi.Checked)
 					{
-						oldfilter = ((ToolStripMenuItem)item).Tag as ThingsFilter;
+						oldfilter = mi.Tag as ThingsFilter;
 						break;
 					}
 				}
@@ -1880,6 +1880,12 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(ThingsFilter f in General.Map.ConfigSettings.ThingsFilters)
 					thingfilters.DropDown.Items.Add(CreateThingsFilterMenuItem(f));
 
+				// The View > Things Filter submenu mirrors these too
+				thingfilters.DropDown.Items.Add(new ToolStripSeparator());
+				ToolStripMenuItem fromselection = new ToolStripMenuItem("New Things Filter from Selection") { Tag = "builder_thingsfilterfromselection" };
+				fromselection.Click += InvokeTaggedAction;
+				thingfilters.DropDown.Items.Add(fromselection);
+
 				updatingfilters = false;
 				
 				// No filter selected?
@@ -1887,7 +1893,7 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(var i in thingfilters.DropDown.Items)
 				{
 					ToolStripMenuItem item = i as ToolStripMenuItem;
-					if(item.Checked)
+					if(item != null && item.Tag is ThingsFilter && item.Checked)
 					{
 						selecteditem = item;
 						break;
@@ -1929,7 +1935,8 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(var i in thingfilters.DropDown.Items)
 				{
 					ToolStripMenuItem item = i as ToolStripMenuItem;
-					ThingsFilter f = item.Tag as ThingsFilter;
+					ThingsFilter f = (item != null ? item.Tag as ThingsFilter : null);
+					if(f == null) continue;
 
 					if(f == General.Map.ThingsFilter)
 					{
@@ -1972,7 +1979,7 @@ namespace CodeImp.DoomBuilder.Windows
 			item.Checked = (f == General.Map.ThingsFilter);
 			
 			// Update icon
-			if(!(f is NullThingsFilter) && !f.IsValid())
+			if(!(f is NullThingsFilter) && (!f.IsValid() || f.HasInvalidRules(ThingsFilterContext.FromMap(General.Map.ConfigSettings.ThingsFilters))))
 			{
 				item.Image = Resources.Warning;
 				//item.ImageScaling = ToolStripItemImageScaling.None;

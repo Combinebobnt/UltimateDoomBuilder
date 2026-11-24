@@ -94,6 +94,10 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemviewthingtypes = new System.Windows.Forms.ToolStripMenuItem();
 			this.menuview = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemthingsfilter = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemthingsfiltertoggle = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemthingsfilternext = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemthingsfilterprevious = new System.Windows.Forms.ToolStripMenuItem();
+			this.itemthingsfilterfromselection = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemlinedefcolors = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemthingsfilterlist = new System.Windows.Forms.ToolStripMenuItem();
 			this.itemlinedefcolorpresetlist = new System.Windows.Forms.ToolStripMenuItem();
@@ -844,6 +848,10 @@ namespace CodeImp.DoomBuilder.Windows
 			// 
 			this.menuview.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
 			this.itemthingsfilter,
+			this.itemthingsfiltertoggle,
+			this.itemthingsfilternext,
+			this.itemthingsfilterprevious,
+			this.itemthingsfilterfromselection,
 			this.itemthingsfilterlist,
 			this.itemlinedefcolors,
 			this.itemlinedefcolorpresetlist,
@@ -891,6 +899,38 @@ namespace CodeImp.DoomBuilder.Windows
 			this.itemthingsfilter.Tag = "builder_thingsfilterssetup";
 			this.itemthingsfilter.Text = "Configure &Things Filters...";
 			this.itemthingsfilter.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemthingsfiltertoggle
+			// 
+			this.itemthingsfiltertoggle.Name = "itemthingsfiltertoggle";
+			this.itemthingsfiltertoggle.Size = new System.Drawing.Size(215, 22);
+			this.itemthingsfiltertoggle.Tag = "builder_thingsfiltertoggle";
+			this.itemthingsfiltertoggle.Text = "T&oggle Things Filter";
+			this.itemthingsfiltertoggle.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemthingsfilternext
+			// 
+			this.itemthingsfilternext.Name = "itemthingsfilternext";
+			this.itemthingsfilternext.Size = new System.Drawing.Size(215, 22);
+			this.itemthingsfilternext.Tag = "builder_thingsfilternext";
+			this.itemthingsfilternext.Text = "&Next Things Filter";
+			this.itemthingsfilternext.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemthingsfilterprevious
+			// 
+			this.itemthingsfilterprevious.Name = "itemthingsfilterprevious";
+			this.itemthingsfilterprevious.Size = new System.Drawing.Size(215, 22);
+			this.itemthingsfilterprevious.Tag = "builder_thingsfilterprevious";
+			this.itemthingsfilterprevious.Text = "Pre&vious Things Filter";
+			this.itemthingsfilterprevious.Click += new System.EventHandler(this.InvokeTaggedAction);
+			// 
+			// itemthingsfilterfromselection
+			// 
+			this.itemthingsfilterfromselection.Name = "itemthingsfilterfromselection";
+			this.itemthingsfilterfromselection.Size = new System.Drawing.Size(215, 22);
+			this.itemthingsfilterfromselection.Tag = "builder_thingsfilterfromselection";
+			this.itemthingsfilterfromselection.Text = "New Things Filter from &Selection";
+			this.itemthingsfilterfromselection.Click += new System.EventHandler(this.InvokeTaggedAction);
 			// 
 			// itemthingsfilterlist
 			// 
@@ -3234,6 +3274,10 @@ namespace CodeImp.DoomBuilder.Windows
 		private CodeImp.DoomBuilder.Controls.ToolStripActionButton buttonscripteditor;
 		private System.Windows.Forms.ToolStripMenuItem menuview;
 		private System.Windows.Forms.ToolStripMenuItem itemthingsfilter;
+		private System.Windows.Forms.ToolStripMenuItem itemthingsfiltertoggle;
+		private System.Windows.Forms.ToolStripMenuItem itemthingsfilternext;
+		private System.Windows.Forms.ToolStripMenuItem itemthingsfilterprevious;
+		private System.Windows.Forms.ToolStripMenuItem itemthingsfilterfromselection;
 		private System.Windows.Forms.ToolStripSeparator seperatorviewthings;
 		private System.Windows.Forms.ToolStripMenuItem itemviewnormal;
 		private System.Windows.Forms.ToolStripMenuItem itemviewbrightness;
