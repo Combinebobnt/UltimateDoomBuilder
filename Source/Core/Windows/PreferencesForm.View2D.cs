@@ -82,7 +82,9 @@ namespace CodeImp.DoomBuilder.Windows
 				toolTip1.SetToolTip(combo, SAME_SIZE + " uses the size above");
 			}
 
-			textlabelbackalpha = MakeSlider(127, y, 0, 10, (int)Math.Round(General.Settings.TextLabelBackAlpha / 10.0));
+			textlabelbackalpha = MakeSlider(127, y, 0, 100, General.Settings.TextLabelBackAlpha);
+			textlabelbackalpha.LargeChange = 10;
+			textlabelbackalpha.TickFrequency = 10;
 			textlabelbackalphalabel = new Label { AutoSize = true, Location = new Point(249, y + 12) };
 			textlabelbackalpha.ValueChanged += (s, e) => UpdateTextLabelBackAlphaLabel();
 			UpdateTextLabelBackAlphaLabel();
@@ -109,7 +111,11 @@ namespace CodeImp.DoomBuilder.Windows
 				foreach(Control c in page.Controls)
 					if(c.Dock == DockStyle.None && (c.Anchor & AnchorStyles.Bottom) == 0) needed = Math.Max(needed, c.Bottom + 8);
 			int deficit = needed - tabs.DisplayRectangle.Height;
-			if(deficit > 0) Height += deficit;
+			if(deficit > 0)
+			{
+				Height += deficit;
+				CenterToParent();
+			}
 		}
 
 		private void ApplyView2DSettings()
@@ -121,7 +127,7 @@ namespace CodeImp.DoomBuilder.Windows
 				if(!int.TryParse(textlabelkindsizes[i].Text, out size)) size = 0;
 				General.Settings.SetTextLabelKindSize(SIZE_KINDS[i], size);
 			}
-			General.Settings.TextLabelBackAlpha = textlabelbackalpha.Value * 10;
+			General.Settings.TextLabelBackAlpha = textlabelbackalpha.Value;
 			General.Colors.SectorLabels = colorsectorlabels.Color;
 			General.Colors.MeasureLabels = colormeasurelabels.Color;
 		}
@@ -133,7 +139,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private void UpdateTextLabelBackAlphaLabel()
 		{
-			textlabelbackalphalabel.Text = (textlabelbackalpha.Value * 10) + "%" + (textlabelbackalpha.Value == 10 ? " (default)" : "");
+			textlabelbackalphalabel.Text = textlabelbackalpha.Value + "%" + (textlabelbackalpha.Value == 100 ? " (default)" : "");
 		}
 
 		private static TransparentTrackBar MakeSlider(int x, int y, int min, int max, int value)

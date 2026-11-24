@@ -71,7 +71,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 					labels[apos].TransformCoords = true;
 					labels[apos].AlignX = TextAlignmentX.Center;
 					labels[apos].AlignY = TextAlignmentY.Middle;
-					labels[apos].BackColor = General.Colors.Background.WithAlpha(128);
+					labels[apos].BackColor = General.Colors.LabelBack(128);
 					labels[apos].Location = location;
 
 					if (highlighted)

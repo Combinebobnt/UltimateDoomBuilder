@@ -81,6 +81,12 @@ namespace CodeImp.DoomBuilder.BuilderModes
 
 		#region ================== Methods
 
+		// Large vertex squares stay grabbable across their whole drawn area
+		private double VertexPickRange()
+		{
+			return Math.Max(BuilderPlug.Me.HighlightRange, renderer.VertexSize + 1) / renderer.Scale;
+		}
+
 		/// <summary>
 		/// Create a blockmap containing linedefs. This is used to speed up determining the closest line
 		/// to the mouse cursor
@@ -465,7 +471,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 			else if(paintselectpressed && !editpressed && !selecting)  //mxd. Drag-select
 			{
 				// Find the nearest thing within highlight range
-				Vertex v = General.Map.Map.NearestVertexSquareRange(mousemappos, BuilderPlug.Me.HighlightRange / renderer.Scale);
+				Vertex v = General.Map.Map.NearestVertexSquareRange(mousemappos, VertexPickRange());
 
 				if(v != null) 
 				{
@@ -557,7 +563,7 @@ namespace CodeImp.DoomBuilder.BuilderModes
 				}
 				
 				// Find the nearest vertex within highlight range
-				Vertex v = General.Map.Map.NearestVertexSquareRange(mousemappos, BuilderPlug.Me.HighlightRange / renderer.Scale);
+				Vertex v = General.Map.Map.NearestVertexSquareRange(mousemappos, VertexPickRange());
 
 				// Highlight if not the same
 				if(v != highlighted) Highlight(v);

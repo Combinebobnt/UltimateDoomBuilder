@@ -413,6 +413,13 @@ namespace CodeImp.DoomBuilder.Rendering
         // stroke is about thickness px wide perpendicular to the line. Coordinates are already transformed.
         private void DrawLineThick(int x1, int y1, int x2, int y2, ref PixelColor c, uint mask, int thickness)
         {
+            // Outside the screen for sure; the span never exceeds thickness * sqrt 2
+            int margin = thickness * 2;
+            if (((x1 < -margin) && (x2 < -margin)) ||
+               ((x1 > visiblewidth + margin) && (x2 > visiblewidth + margin)) ||
+               ((y1 < -margin) && (y2 < -margin)) ||
+               ((y1 > visibleheight + margin) && (y2 > visibleheight + margin))) return;
+
             int dx = x2 - x1;
             int dy = y2 - y1;
             int dxabs = Math.Abs(dx);
@@ -425,12 +432,6 @@ namespace CodeImp.DoomBuilder.Rendering
             int span = (major == 0) ? thickness : Math.Max(1, (int)Math.Round(thickness * Math.Sqrt((double)dx * dx + (double)dy * dy) / major));
             int lo = -(span - 1) / 2;
             int hi = span / 2;
-
-            // Outside the screen for sure, allowing for the span
-            if (((x1 < -span) && (x2 < -span)) ||
-               ((x1 > visiblewidth + span) && (x2 > visiblewidth + span)) ||
-               ((y1 < -span) && (y2 < -span)) ||
-               ((y1 > visibleheight + span) && (y2 > visibleheight + span))) return;
 
             int majstart = xmajor ? x1 : y1;
             int minstart = xmajor ? y1 : x1;

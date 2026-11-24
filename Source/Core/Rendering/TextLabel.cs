@@ -114,7 +114,7 @@ namespace CodeImp.DoomBuilder.Rendering
 		public Vector2D Location { get { return location; } set { location = value; updateneeded = true; } } //mxd
 		public string Text { get { return text; } set { if(text != value) { text = value; textsize = Size.Empty; textureupdateneeded = true; } } }
 		public Font Font { get { return font; } set { font.Dispose(); font = value; textsize = Size.Empty; textureupdateneeded = true; } } //mxd
-		public TextLabelKind Kind { get { return kind; } set { if(kind != value) { kind = value; RefreshFont(); } } }
+		public TextLabelKind Kind { get { return kind; } set { if(kind != value) { bool resize = General.Settings.GetTextLabelFontSize(kind) != General.Settings.GetTextLabelFontSize(value); kind = value; if(resize) RefreshFont(); } } }
 		public bool TransformCoords { get { return transformcoords; } set { transformcoords = value; updateneeded = true; } }
 		public SizeF TextSize { get { if(textureupdateneeded) Update(General.Map.Graphics, General.Map.Renderer2D.TranslateX, General.Map.Renderer2D.TranslateY, General.Map.Renderer2D.Scale, -General.Map.Renderer2D.Scale); return textsize; } }
 		public TextAlignmentX AlignX { get { return alignx; } set { alignx = value; updateneeded = true; } }

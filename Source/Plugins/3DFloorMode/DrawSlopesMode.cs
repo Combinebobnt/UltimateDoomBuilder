@@ -213,7 +213,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 							label.Location = new Vector2D(x, y);
 							label.AlignX = TextAlignmentX.Center;
 							label.AlignY = TextAlignmentY.Middle;
-							label.BackColor = General.Colors.Background.WithAlpha(128);
+							label.BackColor = General.Colors.LabelBack(128);
 							label.Text = value;
 							label.Color = white;
 

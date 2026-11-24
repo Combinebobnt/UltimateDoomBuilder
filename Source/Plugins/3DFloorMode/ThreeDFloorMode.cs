@@ -177,7 +177,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 					labelarray[i].AlignX = TextAlignmentX.Center;
 					labelarray[i].AlignY = TextAlignmentY.Middle;
 					labelarray[i].Color = General.Colors.Highlight.WithAlpha(255);
-					labelarray[i].BackColor = General.Colors.Background.WithAlpha(128);
+					labelarray[i].BackColor = General.Colors.LabelBack(128);
 				}
 				labels.Add(s, labelarray);
 			}
@@ -279,7 +279,7 @@ namespace CodeImp.DoomBuilder.ThreeDFloorMode
 				for (int i = 0; i < group.Key.Labels.Count; i++)
 				{
 					TextLabel l = labelarray[i];
-					l.Color = General.Colors.InfoLine;
+					l.Color = General.Colors.SectorLabels;
 
 					// Render only when enough space for the label to see. MeasureString is expensive, so cache the result
 					if (!sizecache.ContainsKey(group.Value[0]))

@@ -189,6 +189,8 @@ namespace Builder.Tests
 			// Fully off screen
 			Plotter off = new Plotter(W, H, false);
 			Line(off, -5000000, -100, 5000000, -90, 5);
+			// A width that overflows int is skipped before any maths runs on it
+			Line(off, -1, -100, int.MaxValue, -100, 5);
 			Assert.Equal(0, CountAll(Pixels(off)));
 		}
 
@@ -216,12 +218,17 @@ namespace Builder.Tests
 				{
 					Plotter p = new Plotter(64, 48, false);
 					p.DrawVertexSolid(v[0], p.Height - v[1], 10, ref c, ref l, ref d);
+
+					// The same vertex drawn whole on a bigger plotter is the colour oracle for every visible pixel
+					Plotter whole = new Plotter(164, 148, false);
+					whole.DrawVertexSolid(v[0] + 50, whole.Height - (v[1] + 50), 10, ref c, ref l, ref d);
 					for(int y = 0; y < 48; y++)
 					{
 						for(int x = 0; x < 64; x++)
 						{
 							bool inside = Math.Abs(x - v[0]) <= 10 && Math.Abs(y - v[1]) <= 10;
-							Assert.True(inside == (p.GetPixel(x, y).ToInt() != 0), "vertex " + v[0] + "," + v[1] + " pixel " + x + "," + y);
+							int expected = inside ? whole.GetPixel(x + 50, y + 50).ToInt() : 0;
+							Assert.True(expected == p.GetPixel(x, y).ToInt(), "vertex " + v[0] + "," + v[1] + " pixel " + x + "," + y);
 						}
 					}
 				}
