@@ -4057,8 +4057,23 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Plugins.OnHighlightLost();
 			// [ZZ]
 			panelinfo.ResumeLayout();
+			PaintInfoPanelNow();
 		}
 		
+		// Mono services one paint per message-loop pass, after expired timers, so with the processor
+		// rendering a frame per tick the panel would otherwise repaint one control per frame
+		private void PaintInfoPanelNow()
+		{
+			if(Environment.OSVersion.Platform == PlatformID.Unix && processor.Enabled) UpdateControlTree(panelinfo);
+		}
+
+		private static void UpdateControlTree(Control c)
+		{
+			c.Update();
+			foreach(Control child in c.Controls)
+				if(child.Visible) UpdateControlTree(child);
+		}
+
 		// This refreshes info
 		public void RefreshInfo()
 		{
@@ -4072,6 +4087,7 @@ namespace CodeImp.DoomBuilder.Windows
 			panelinfo.SuspendLayout();
 			General.Plugins.OnHighlightRefreshed(lastinfoobject);
 			panelinfo.ResumeLayout();
+			PaintInfoPanelNow();
 		}
 
 		//mxd
@@ -4154,6 +4170,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Plugins.OnHighlightLinedef(l);
 			// [ZZ]
 			panelinfo.ResumeLayout();
+			PaintInfoPanelNow();
 		}
 
 		// Show vertex info
@@ -4186,6 +4203,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Plugins.OnHighlightVertex(v);
 			// [ZZ]
 			panelinfo.ResumeLayout();
+			PaintInfoPanelNow();
 		}
 
 		//mxd. Show sector info
@@ -4230,6 +4248,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Plugins.OnHighlightSector(s);
 			// [ZZ]
 			panelinfo.ResumeLayout();
+			PaintInfoPanelNow();
 		}
 
 		// Show thing info
@@ -4263,6 +4282,7 @@ namespace CodeImp.DoomBuilder.Windows
 			General.Plugins.OnHighlightThing(t);
 			// [ZZ]
 			panelinfo.ResumeLayout();
+			PaintInfoPanelNow();
 		}
 
 		#endregion
