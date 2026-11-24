@@ -147,6 +147,9 @@ namespace CodeImp.DoomBuilder.Rendering.Shaders
                         case "Normal":
                             location = 3;
                             break;
+                        case "Light":
+                            location = 4;
+                            break;
                         default:
                             throw new ShaderCompileException("Invalid input field {0} (not supported)", field.Name);
                     }

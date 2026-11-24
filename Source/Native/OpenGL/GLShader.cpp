@@ -109,6 +109,7 @@ void GLShader::CreateProgram(GLRenderDevice* device)
 	glBindAttribLocation(mProgram, (GLuint)DeclarationUsage::Color, "AttrColor");
 	glBindAttribLocation(mProgram, (GLuint)DeclarationUsage::TextureCoordinate, "AttrUV");
 	glBindAttribLocation(mProgram, (GLuint)DeclarationUsage::Normal, "AttrNormal");
+	glBindAttribLocation(mProgram, (GLuint)DeclarationUsage::Light, "AttrLight");
 	glLinkProgram(mProgram);
 
 	GLint status = 0;

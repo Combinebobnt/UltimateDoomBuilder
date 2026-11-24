@@ -28,7 +28,7 @@ namespace CodeImp.DoomBuilder.Rendering
     public struct WorldVertex
 	{
 		// Vertex format
-		public const int Stride = 36; //mxd: 9 * 4, was 6 * 4
+		public const int Stride = 40; //mxd: 9 * 4, was 6 * 4; plus the 4-byte light
 
 		// Members
 		public float x;
@@ -42,6 +42,12 @@ namespace CodeImp.DoomBuilder.Rendering
 		public float nx;
 		public float ny;
 		public float nz;
+
+		// Sector light for the shader: level, fake contrast + 128, black-fog level, 255 when set (0: c is final)
+		public byte light;
+		public byte rel;
+		public byte foglight;
+		public byte lit;
 
 		// Constructor
 		public WorldVertex(float x, float y, float z, int c, float u, float v)
@@ -57,6 +63,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nx = 0.0f;
 			this.ny = 0.0f;
 			this.nz = 0.0f;
+
+			this.light = this.rel = this.foglight = this.lit = 0;
 		}
 
 		// Constructor
@@ -105,6 +113,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nx = 0.0f;
 			this.ny = 0.0f;
 			this.nz = 0.0f;
+
+			this.light = this.rel = this.foglight = this.lit = 0;
 		}
 
 		// Constructor
@@ -217,6 +227,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nx = 0.0f;
 			this.ny = 0.0f;
 			this.nz = 0.0f;
+
+			this.light = this.rel = this.foglight = this.lit = 0;
 		}
 
 		// Constructor
@@ -233,6 +245,8 @@ namespace CodeImp.DoomBuilder.Rendering
 			this.nx = 0.0f;
 			this.ny = 0.0f;
 			this.nz = 0.0f;
+
+			this.light = this.rel = this.foglight = this.lit = 0;
 		}
 	}
 }

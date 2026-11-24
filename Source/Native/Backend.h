@@ -26,7 +26,7 @@
 
 enum class CubeMapFace : int { PositiveX, PositiveY, PositiveZ, NegativeX, NegativeY, NegativeZ };
 enum class VertexFormat : int32_t { Flat, World };
-enum class DeclarationUsage : int32_t { Position, Color, TextureCoordinate, Normal };
+enum class DeclarationUsage : int32_t { Position, Color, TextureCoordinate, Normal, Light };
 
 enum class Cull : int { None, Clockwise };
 enum class Blend : int { InverseSourceAlpha, SourceAlpha, One };
@@ -110,7 +110,7 @@ public:
 	virtual ~VertexBuffer() = default;
 
 	static const int FlatStride = 24;
-	static const int WorldStride = 36;
+	static const int WorldStride = 40;
 };
 
 class IndexBuffer

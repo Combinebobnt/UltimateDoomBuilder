@@ -219,6 +219,7 @@ shader world3d_main
 		vec4 Color;
 		vec2 TextureCoordinate;
 		vec3 Normal;
+		vec4 Light;
 	}
 
 	v2f
@@ -230,6 +231,7 @@ shader world3d_main
 		vec4 viewpos;
 		vec3_flat flatNormal;
 		vec4_flat flatColor;
+		vec4 Light;
 	}
 
 	out
@@ -247,6 +249,7 @@ shader world3d_main
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
 		v2f.flatColor = in.Color;
 		v2f.flatNormal = normalize(in.Normal);
+		v2f.Light = in.Light;
 	}
 	
 	fragment
@@ -354,8 +357,10 @@ shader world3d_main_vertexcolor extends world3d_main
 	{
 		v2f.viewpos = view * world * vec4(in.Position, 1.0);
 		gl_Position = projection * v2f.viewpos;
+		v2f.PosW = (world * vec4(in.Position, 1.0)).xyz;
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
+		v2f.Light = in.Light;
 	}
 }
 
@@ -381,8 +386,10 @@ shader world3d_highlight_vertexcolor extends world3d_main_highlight
 	{
 		v2f.viewpos = view * world * vec4(in.Position, 1.0);
 		gl_Position = projection * v2f.viewpos;
+		v2f.PosW = (world * vec4(in.Position, 1.0)).xyz;
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
+		v2f.Light = in.Light;
 	}
 }
 
@@ -449,6 +456,7 @@ shader world3d_main_fog_vertexcolor extends world3d_main_fog
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
+		v2f.Light = in.Light;
 	}
 }
 
@@ -462,6 +470,7 @@ shader world3d_main_highlight_fog_vertexcolor extends world3d_main_highlight_fog
 		v2f.Color = vertexColor;
 		v2f.UV = in.TextureCoordinate;
 		v2f.Normal = normalize((modelnormal * vec4(in.Normal, 1.0)).xyz);
+		v2f.Light = in.Light;
 	}
 }
 

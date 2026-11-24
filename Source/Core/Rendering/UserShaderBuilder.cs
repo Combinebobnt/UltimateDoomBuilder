@@ -84,9 +84,10 @@ layout(location=0) in vec3 AttrPosition;
 layout(location=1) in vec4 AttrColor;
 layout(location=2) in vec2 AttrUV;
 layout(location=3) in vec3 AttrNormal;
+layout(location=4) in vec4 AttrLight;
 uniform mat4 world, view, projection, modelnormal;
 uniform vec2 skew;
-out vec4 pixelpos, vTexCoord, viewpos, Color;
+out vec4 pixelpos, vTexCoord, viewpos, Color, vSectorLight;
 out vec3 PosW, Normal;
 void main()
 {
@@ -96,6 +97,7 @@ void main()
     PosW = pos.xyz;
     Normal = normalize((modelnormal * vec4(AttrNormal, 1.0)).xyz);
     Color = AttrColor;
+    vSectorLight = AttrLight;
     pixelpos = vec4(pos.xzy, -viewpos.z / viewpos.w);
     vTexCoord = vec4(AttrUV + vec2(0.0, (AttrUV.x - skew.x) * skew.y), 0.0, 1.0);
 }
