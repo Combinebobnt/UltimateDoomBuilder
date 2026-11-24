@@ -38,6 +38,7 @@ namespace CodeImp.DoomBuilder.Windows
 		bool AutoMerge { get; }
 		bool SnapToGrid { get; }
 		bool MouseExclusive { get; }
+		bool VisualCursorFree { get; }
 		MouseButtons MouseButtons { get; }
 		bool IsActiveWindow { get; }
 		string ActiveDockerTabName { get; } //mxd

@@ -2,6 +2,7 @@
 
 using System;
 using System.Windows.Forms;
+using CodeImp.DoomBuilder.Actions;
 using CodeImp.DoomBuilder.Editing;
 using CodeImp.DoomBuilder.VisualModes;
 
@@ -89,6 +90,31 @@ namespace CodeImp.DoomBuilder.Windows
 			ToolStripMenuItem item = new ToolStripMenuItem(text) { Tag = action };
 			item.Click += InvokeTaggedAction;
 			return item;
+		}
+
+		#endregion
+
+		#region ================== Visual mode cursor
+
+		// Visual mode holds the mouse; freeing it is one more break level, so alt-tab still balances
+		private bool visualcursorfree;
+
+		public bool VisualCursorFree { get { return visualcursorfree; } }
+
+		[BeginAction("togglevisualcursor")]
+		internal void ToggleVisualCursor()
+		{
+			if(!mouseexclusive) return;
+			visualcursorfree = !visualcursorfree;
+			if(visualcursorfree)
+			{
+				BreakExclusiveMouseInput();
+				DisplayStatus(StatusType.Action, "Mouse cursor freed. Click the 3D view to take it back.");
+			}
+			else
+			{
+				ResumeExclusiveMouseInput();
+			}
 		}
 
 		#endregion

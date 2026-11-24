@@ -1289,6 +1289,13 @@ namespace CodeImp.DoomBuilder.Windows
 				case MouseButtons.XButton2: key = (int)Keys.XButton2; break;
 			}
 			
+			// A click back in the view only recaptures a freed visual-mode cursor
+			if(visualcursorfree)
+			{
+				ToggleVisualCursor();
+				return;
+			}
+
 			// Invoke any actions associated with this key
 			General.Actions.KeyPressed(key | mod);
 			
@@ -1433,6 +1440,7 @@ namespace CodeImp.DoomBuilder.Windows
 				StopMouseExclusive();
 				mouseexclusive = false;
 				mouseexclusivebreaklevel = 0;
+				visualcursorfree = false;
 			}
 		}
 
@@ -2836,8 +2844,8 @@ namespace CodeImp.DoomBuilder.Windows
 				// Tag set for this item?
 				if(item.Tag is string)
 				{
-					// Check if the tag does not already begin with the assembly name
-					if(!((string)item.Tag).StartsWith(plugin.Name + "_", StringComparison.OrdinalIgnoreCase))
+					// Check if the tag does not already begin with the assembly name, or name a core action
+					if(!((string)item.Tag).StartsWith(plugin.Name + "_", StringComparison.OrdinalIgnoreCase) && !((string)item.Tag).StartsWith("builder_", StringComparison.Ordinal))
 					{
 						// Change the tag to a fully qualified action name
 						item.Tag = plugin.Name.ToLowerInvariant() + "_" + (string)item.Tag;
