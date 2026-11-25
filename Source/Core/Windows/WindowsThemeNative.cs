@@ -72,6 +72,11 @@ namespace CodeImp.DoomBuilder.Windows
 				header.ThemeHeader();
 				window = header;
 			}
+			else if(c is TextBoxBase || c is ListBox || c is UpDownBase)
+			{
+				window = new DarkBorder(c, c is UpDownBase);
+				window.AssignHandle(c.Handle);
+			}
 			else return;
 			// The window table holds subclasses weakly; the control keeps the current one alive
 			subclasses.Remove(c);
@@ -247,6 +252,98 @@ namespace CodeImp.DoomBuilder.Windows
 
 		[DllImport("user32.dll")]
 		private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wparam, IntPtr lparam);
+	}
+
+	// Repaints a sunken border dark after Windows draws it: the non-client edge of an edit or list box,
+	// or the frame an up-down control paints inside its client area
+	internal sealed class DarkBorder : NativeWindow
+	{
+		private const int WM_PAINT = 0x000F;
+		private const int WM_NCPAINT = 0x0085;
+		private const int GWL_EXSTYLE = -20;
+		private const int WS_EX_CLIENTEDGE = 0x200;
+
+		private static readonly Pen outer = new Pen(UITheme.DarkPalette[KnownColor.ControlLight]);
+		private static bool loggedfailure;
+
+		private readonly Control control;
+		private readonly bool clientframe;
+		private bool failed;
+
+		public DarkBorder(Control control, bool clientframe)
+		{
+			this.control = control;
+			this.clientframe = clientframe;
+		}
+
+		protected override void WndProc(ref Message m)
+		{
+			base.WndProc(ref m);
+			if(failed) return;
+			if(m.Msg == WM_NCPAINT && !clientframe) Paint(true);
+			else if(m.Msg == WM_PAINT && clientframe) Paint(false);
+		}
+
+		private void Paint(bool nonclient)
+		{
+			try
+			{
+				Size size;
+				IntPtr dc;
+				if(nonclient)
+				{
+					if((GetWindowLong(Handle, GWL_EXSTYLE) & WS_EX_CLIENTEDGE) == 0) return;
+					RECT r;
+					GetWindowRect(Handle, out r);
+					size = new Size(r.right - r.left, r.bottom - r.top);
+					dc = GetWindowDC(Handle);
+				}
+				else
+				{
+					if(((UpDownBase)control).BorderStyle != BorderStyle.Fixed3D) return;
+					size = control.ClientSize;
+					dc = GetDC(Handle);
+				}
+				if(dc == IntPtr.Zero || size.Width < 4 || size.Height < 4) return;
+				try
+				{
+					using(Graphics g = Graphics.FromHdc(dc))
+					using(Pen inner = new Pen(control.BackColor))
+					{
+						g.DrawRectangle(outer, 0, 0, size.Width - 1, size.Height - 1);
+						g.DrawRectangle(inner, 1, 1, size.Width - 3, size.Height - 3);
+					}
+				}
+				finally { ReleaseDC(Handle, dc); }
+			}
+			catch(Exception e)
+			{
+				failed = true;
+				if(!loggedfailure)
+				{
+					loggedfailure = true;
+					General.WriteLogLine("Interface theme: a border was left light (" + e.GetType().Name + ": " + e.Message + ")");
+				}
+			}
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		private struct RECT { public int left, top, right, bottom; }
+
+		[DllImport("user32.dll")]
+		private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+		[DllImport("user32.dll")]
+		private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetWindowDC(IntPtr hwnd);
+
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetDC(IntPtr hwnd);
+
+		[DllImport("user32.dll")]
+		private static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
 	}
 
 	// Darkens a ListView's header: the dark theme class for its background, custom draw for its text,

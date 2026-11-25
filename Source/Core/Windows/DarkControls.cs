@@ -64,7 +64,7 @@ namespace CodeImp.DoomBuilder.Windows
 		public string WindowTheme;
 		public bool Titlebar;
 		public bool OwnerDrawTabs;
-		// INativeTheming.SubclassForDark: the parts Windows draws itself (tab strip, list header)
+		// INativeTheming.SubclassForDark: the parts Windows draws itself (tab strip, list header, sunken borders)
 		public bool Subclass;
 		// A visual-style group box draws its caption in the theme's color unless ForeColor is set on it
 		public bool PinForeColor;
@@ -102,6 +102,16 @@ namespace CodeImp.DoomBuilder.Windows
 
 			ch.BackColor = Convert(info.BackColor);
 			ch.ForeColor = Convert(info.ForeColor);
+			// Their sunken border is drawn by Windows in light system colors, owner drawn or not
+			switch(info.Kind)
+			{
+				case DarkControlKind.TextBox:
+				case DarkControlKind.RichTextBox:
+				case DarkControlKind.ListBox:
+				case DarkControlKind.NumericUpDown:
+					ch.Subclass = true;
+					break;
+			}
 			if(info.OwnerDraw) return ch;
 
 			switch(info.Kind)

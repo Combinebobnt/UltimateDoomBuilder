@@ -68,10 +68,12 @@ namespace Builder.Tests
 				("system group", Info(DarkControlKind.GroupBox, FlatStyle.System), ch => ch.FlatStyle == FlatStyle.Standard && ch.PinForeColor),
 				("group", Info(DarkControlKind.GroupBox), ch => ch.FlatStyle == null && ch.PinForeColor),
 				("label", Info(DarkControlKind.Label), ch => ch.FlatStyle == null),
-				("textbox", Info(DarkControlKind.TextBox), ch => ch.WindowTheme == null),
-				("multiline", new DarkControlInfo { Kind = DarkControlKind.TextBox, Multiline = true }, ch => ch.WindowTheme == EXPLORER),
-				("richtext", Info(DarkControlKind.RichTextBox), ch => ch.WindowTheme == EXPLORER),
-				("listbox", Info(DarkControlKind.ListBox), ch => ch.WindowTheme == EXPLORER),
+				("textbox", Info(DarkControlKind.TextBox), ch => ch.WindowTheme == null && ch.Subclass),
+				("multiline", new DarkControlInfo { Kind = DarkControlKind.TextBox, Multiline = true }, ch => ch.WindowTheme == EXPLORER && ch.Subclass),
+				("richtext", Info(DarkControlKind.RichTextBox), ch => ch.WindowTheme == EXPLORER && ch.Subclass),
+				("listbox", Info(DarkControlKind.ListBox), ch => ch.WindowTheme == EXPLORER && ch.Subclass),
+				("owner-drawn listbox", new DarkControlInfo { Kind = DarkControlKind.ListBox, OwnerDraw = true }, ch => ch.WindowTheme == null && ch.Subclass),
+				("numeric", Info(DarkControlKind.NumericUpDown), ch => ch.Subclass),
 				("tree", Info(DarkControlKind.TreeView), ch => ch.WindowTheme == EXPLORER),
 				("list", Info(DarkControlKind.ListView), ch => ch.WindowTheme == EXPLORER && ch.Subclass),
 				("scrollbar", Info(DarkControlKind.ScrollBar), ch => ch.WindowTheme == EXPLORER),
@@ -370,8 +372,9 @@ namespace Builder.Tests
 				Add("list", List);
 				Add("group", Group);
 				// The strip itself takes the tool strip renderer's colors, which this test doesn't install
-				var hosted = new TextBox();
-				var strip = new ToolStrip { Dock = DockStyle.None };
+				// A fixed size and no overflow, so the box is laid out on the strip (an autosized strip here collapsed to its grip)
+				var hosted = new TextBox { Width = 120 };
+				var strip = new ToolStrip { Dock = DockStyle.None, AutoSize = false, Size = new Size(160, 30), CanOverflow = false, GripStyle = ToolStripGripStyle.Hidden };
 				strip.Items.Add(new ToolStripControlHost(hosted));
 				flow.Controls.Add(strip);
 				Cells.Add(("hosted textbox", hosted));
@@ -487,8 +490,12 @@ namespace Builder.Tests
 
 						foreach(var (name, r) in cells)
 						{
-							// The dark palette has no pure black: a black area was never painted
-							var (light, sentinel, black, _) = pixels.Measure(r, 255, Color.Black);
+							var (light, sentinel, _, _) = pixels.Measure(r, 255, Color.Black);
+							// The dark palette has no pure black, so black inside the border was never painted.
+							// .NET 8 draws a grid's single border in the real, black WindowFrame.
+							Rectangle inside = r;
+							inside.Inflate(-2, -2);
+							double black = pixels.Measure(inside, 255, Color.Black).exact;
 							report.Add(string.Format("{0} {1}: light {2:P0}, sentinel {3:P0}, black {4:P0}", mode, name, light, sentinel, black));
 							if(sentinel > MAX_SENTINEL_SHARE) failures.Add(string.Format("{0} {1}: {2:P0} never painted", mode, name, sentinel));
 							else if(themed && black > MAX_SENTINEL_SHARE) failures.Add(string.Format("dark {0}: {1:P0} black", name, black));
