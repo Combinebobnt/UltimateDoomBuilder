@@ -23,6 +23,8 @@ namespace Builder.Tests
 			public bool ThrowOnCreate;
 			public bool ThrowOnInstall;
 			public bool ThrowOnFormTheming;
+			// What the table held before the palette was written
+			public Color PreviousControlDark = Color.FromArgb(1, 2, 3);
 			public readonly List<string> Calls = new List<string>();
 
 			public IDictionary<KnownColor, Color> ApplyPalette(IReadOnlyDictionary<KnownColor, Color> palette)
@@ -31,7 +33,7 @@ namespace Builder.Tests
 				Calls.Add("palette");
 				if(Throw) throw new MissingMemberException("no color table");
 				Palette = palette;
-				Previous = new Dictionary<KnownColor, Color> { { KnownColor.ControlDark, Color.FromArgb(1, 2, 3) } };
+				Previous = new Dictionary<KnownColor, Color> { { KnownColor.ControlDark, PreviousControlDark } };
 				return Previous;
 			}
 
@@ -165,6 +167,28 @@ namespace Builder.Tests
 
 				// Light values survive the remap for settings that must not pick up dark colors
 				Assert.Equal(Color.FromArgb(1, 2, 3).ToArgb(), UITheme.LightSystemColor(KnownColor.ControlDark).ToArgb());
+			}
+			finally { UITheme.Reset(); }
+		}
+
+		// Windows refills the table from the OS on a color change: the palette goes back on, and the refilled values are the new light ones
+		[Fact]
+		public void ReapplyRewritesThePaletteOnlyWhenDark()
+		{
+			var backend = new FakeBackend();
+			try
+			{
+				UITheme.ReapplyPalette(backend);
+				Assert.Empty(backend.Calls);
+
+				UITheme.Apply(UIThemeKind.Dark, backend);
+				backend.Calls.Clear();
+				backend.Palette = null;
+				backend.PreviousControlDark = Color.FromArgb(4, 5, 6);
+				UITheme.ReapplyPalette(backend);
+				Assert.Equal("palette", string.Join(" ", backend.Calls));
+				Assert.Same(UITheme.DarkPalette, backend.Palette);
+				Assert.Equal(Color.FromArgb(4, 5, 6).ToArgb(), UITheme.LightSystemColor(KnownColor.ControlDark).ToArgb());
 			}
 			finally { UITheme.Reset(); }
 		}

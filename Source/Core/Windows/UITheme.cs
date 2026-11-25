@@ -44,6 +44,9 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private static UIThemeKind current = UIThemeKind.Light;
 		private static IDictionary<KnownColor, Color> lightcolors;
+#if !MONO_WINFORMS
+		private static bool? supportedbuild;
+#endif
 
 		private static readonly IReadOnlyDictionary<KnownColor, Color> darkpalette = CreateDarkPalette();
 
@@ -60,7 +63,7 @@ namespace CodeImp.DoomBuilder.Windows
 		public static UIThemeKind Current { get { return current; } }
 		public static bool IsDark { get { return current == UIThemeKind.Dark; } }
 
-		// The system-color remap only reaches native controls on Mono WinForms; Windows needs its own backend first
+		// Windows needs build 17763 (10 version 1809) for its dark theme classes
 		public static bool IsSupported
 		{
 			get
@@ -68,7 +71,8 @@ namespace CodeImp.DoomBuilder.Windows
 #if MONO_WINFORMS
 				return true;
 #else
-				return false;
+				if(!supportedbuild.HasValue) supportedbuild = WindowsDarkSupport.For(WindowsDarkSupport.CurrentBuild()).Supported;
+				return supportedbuild.Value;
 #endif
 			}
 		}
@@ -126,7 +130,8 @@ namespace CodeImp.DoomBuilder.Windows
 		// Called once at startup, before the main window exists. Never throws.
 		public static void Apply(UIThemeKind kind)
 		{
-			if(kind == UIThemeKind.Light || !IsSupported) return;
+			// An unsupported Windows build is turned down below, where the log says why
+			if(kind == UIThemeKind.Light) return;
 			UIThemeEnvironment env;
 			try { env = UIThemeEnvironment.Current(); }
 			catch(Exception e)
@@ -212,6 +217,13 @@ namespace CodeImp.DoomBuilder.Windows
 				if(General.ErrorLogger != null) General.ErrorLogger.Add(ErrorType.Warning, message);
 				else General.WriteLogLine(message);
 			}
+		}
+
+		// Windows refills the color table from the OS when a system color changes; its backend calls this right after
+		internal static void ReapplyPalette(IThemeBackend backend)
+		{
+			if(!IsDark) return;
+			lightcolors = backend.ApplyPalette(darkpalette);
 		}
 
 		// Test hook: back to the startup state

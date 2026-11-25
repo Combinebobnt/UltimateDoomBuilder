@@ -290,7 +290,7 @@ namespace CodeImp.DoomBuilder.Windows
 			if(!UITheme.IsSupported)
 			{
 				uitheme.Enabled = false;
-				toolTip1.SetToolTip(uithemelabel, "Dark theme is only available on the Linux build for now.");
+				toolTip1.SetToolTip(uithemelabel, "Dark theme needs Windows 10 version 1809 or later.");
 			}
 			classicbilinear.Checked = General.Settings.ClassicBilinear;
 			visualbilinear.Checked = General.Settings.VisualBilinear;

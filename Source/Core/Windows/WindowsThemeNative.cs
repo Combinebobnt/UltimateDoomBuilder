@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 #endregion
 
@@ -502,12 +503,16 @@ namespace CodeImp.DoomBuilder.Windows
 		public void InstallFormTheming()
 		{
 			if(hook != IntPtr.Zero) throw new InvalidOperationException("Form theming is already installed");
+			// ApplyPalette already forced the color table, whose own refill handler therefore runs before this one
+			SystemEvents.UserPreferenceChanging += OnUserPreferenceChanging;
 			hookproc = CbtProc;
 			hook = SetWindowsHookEx(WH_CBT, hookproc, IntPtr.Zero, GetCurrentThreadId());
 			if(hook == IntPtr.Zero)
 			{
+				int error = Marshal.GetLastWin32Error();
 				hookproc = null;
-				throw new Win32Exception(Marshal.GetLastWin32Error(), "SetWindowsHookEx failed");
+				SystemEvents.UserPreferenceChanging -= OnUserPreferenceChanging;
+				throw new Win32Exception(error, "SetWindowsHookEx failed");
 			}
 			// Dark context menus and scrollbars; nothing depends on it
 			string appmodestate = SetAppMode(true) ? appmode.ToString() : "unavailable";
@@ -520,7 +525,19 @@ namespace CodeImp.DoomBuilder.Windows
 			UnhookWindowsHookEx(hook);
 			hook = IntPtr.Zero;
 			hookproc = null;
+			SystemEvents.UserPreferenceChanging -= OnUserPreferenceChanging;
 			SetAppMode(false);
+		}
+
+		// The color table refills itself from the OS on a Color change, which would leave table-painted surfaces light
+		private void OnUserPreferenceChanging(object sender, UserPreferenceChangingEventArgs e)
+		{
+			if(e.Category != UserPreferenceCategory.Color) return;
+			try { UITheme.ReapplyPalette(this); }
+			catch(Exception ex)
+			{
+				General.WriteLogLine("Interface theme: dark palette not reapplied after a color change (" + ex.GetType().Name + ": " + ex.Message + ")");
+			}
 		}
 
 		// An undocumented call, so any failure only leaves menus and scrollbars light
