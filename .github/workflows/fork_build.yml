@@ -117,12 +117,21 @@ jobs:
       - name: Build and run x64 tests
         if: matrix.platform == 'x64'
         shell: pwsh
+        env:
+          UDB_THEME_CENSUS_DIR: ${{ github.workspace }}\theme-census
         run: |
           $project = 'Source\Tests\Builder.Tests\Builder.Tests.csproj'
           & $env:MSBUILD $project -restore '-property:Configuration=Release' '-property:Platform=x64' '-property:BuildProjectReferences=false' -verbosity:minimal
           if ($LASTEXITCODE -ne 0) { throw 'Test build failed' }
           dotnet test $project --no-build -c Release -p:Platform=x64
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+      - uses: actions/upload-artifact@v7
+        if: failure() && matrix.platform == 'x64'
+        with:
+          name: theme-census
+          path: theme-census/
+          if-no-files-found: ignore
+          retention-days: 7
 
   linux:
     needs: version

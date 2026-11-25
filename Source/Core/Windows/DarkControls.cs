@@ -64,6 +64,10 @@ namespace CodeImp.DoomBuilder.Windows
 		public string WindowTheme;
 		public bool Titlebar;
 		public bool OwnerDrawTabs;
+		// INativeTheming.SubclassForDark: the parts Windows draws itself (tab strip, list header)
+		public bool Subclass;
+		// A visual-style group box draws its caption in the theme's color unless ForeColor is set on it
+		public bool PinForeColor;
 		public bool DarkGrid;
 		// The change only reaches a handle created after it
 		public bool NeedsNewHandle;
@@ -74,6 +78,7 @@ namespace CodeImp.DoomBuilder.Windows
 	{
 		public const string EXPLORER_THEME = "DarkMode_Explorer";
 		public const string COMBOBOX_THEME = "DarkMode_CFD";
+		public const string HEADER_THEME = "DarkMode_ItemsView";
 
 		// A system color's dark palette value; null for named, transparent, ARGB and unpaletted system colors
 		public static Color? Convert(Color c)
@@ -117,18 +122,26 @@ namespace CodeImp.DoomBuilder.Windows
 
 				// FlatStyle.System draws through Windows, which ignores ForeColor
 				case DarkControlKind.Label:
+					LeaveSystemStyle(info, ch);
+					break;
+
 				case DarkControlKind.GroupBox:
 					LeaveSystemStyle(info, ch);
+					ch.PinForeColor = true;
 					break;
 
 				case DarkControlKind.TextBox:
 					if(info.Multiline) ch.WindowTheme = EXPLORER_THEME;
 					break;
 
+				case DarkControlKind.ListView:
+					ch.WindowTheme = EXPLORER_THEME;
+					ch.Subclass = true;
+					break;
+
 				case DarkControlKind.RichTextBox:
 				case DarkControlKind.ListBox:
 				case DarkControlKind.TreeView:
-				case DarkControlKind.ListView:
 				case DarkControlKind.ScrollBar:
 				case DarkControlKind.UpDownButtons:
 					ch.WindowTheme = EXPLORER_THEME;
@@ -149,6 +162,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 				case DarkControlKind.TabControl:
 					ch.OwnerDrawTabs = true;
+					ch.Subclass = true;
 					ch.NeedsNewHandle = true;
 					break;
 
@@ -192,9 +206,6 @@ namespace CodeImp.DoomBuilder.Windows
 		private readonly INativeTheming native;
 		private readonly int titlebarattribute;
 		private readonly ConditionalWeakTable<Control, Walked> walked = new ConditionalWeakTable<Control, Walked>();
-		private readonly SolidBrush tabback = new SolidBrush(UITheme.DarkPalette[KnownColor.Control]);
-		private readonly SolidBrush tabselected = new SolidBrush(UITheme.DarkPalette[KnownColor.ControlLight]);
-		private readonly Color tabtext = UITheme.DarkPalette[KnownColor.ControlText];
 
 		public DarkControlWalker(INativeTheming native, int titlebarattribute)
 		{
@@ -220,6 +231,8 @@ namespace CodeImp.DoomBuilder.Windows
 
 			if(ch.BackColor.HasValue) c.BackColor = ch.BackColor.Value;
 			if(ch.ForeColor.HasValue) c.ForeColor = ch.ForeColor.Value;
+			// Setting the inherited value stores it on the control
+			else if(ch.PinForeColor) c.ForeColor = c.ForeColor;
 			c.BackColorChanged += OnBackColorChanged;
 			c.ForeColorChanged += OnForeColorChanged;
 
@@ -241,7 +254,7 @@ namespace CodeImp.DoomBuilder.Windows
 			}
 			if(ch.DarkGrid) DarkenGrid((DataGridView)c);
 
-			if(ch.WindowTheme != null || ch.Titlebar)
+			if(ch.WindowTheme != null || ch.Titlebar || ch.Subclass)
 			{
 				if(c.IsHandleCreated) OnHandle(c, ch);
 				c.HandleCreated += (s, e) => OnHandle(c, ch);
@@ -276,6 +289,7 @@ namespace CodeImp.DoomBuilder.Windows
 				native.AllowDarkForWindow(c.Handle);
 				native.SetTitlebarDark(c.Handle, titlebarattribute);
 			}
+			if(ch.Subclass) native.SubclassForDark(c);
 		}
 
 		private static DarkControlInfo Describe(Control c)
@@ -400,14 +414,50 @@ namespace CodeImp.DoomBuilder.Windows
 			if(host != null) Theme(host.Control, IntPtr.Zero);
 		}
 
-		private void OnDrawTab(object sender, DrawItemEventArgs e)
+		// Only reached when the strip isn't subclassed (DarkTabStrip paints the whole control)
+		private static void OnDrawTab(object sender, DrawItemEventArgs e)
 		{
 			TabControl tabs = (TabControl)sender;
 			if(e.Index < 0 || e.Index >= tabs.TabPages.Count) return;
-			bool selected = e.Index == tabs.SelectedIndex;
-			e.Graphics.FillRectangle(selected ? tabselected : tabback, e.Bounds);
-			TextRenderer.DrawText(e.Graphics, tabs.TabPages[e.Index].Text, e.Font, e.Bounds, tabtext,
+			DarkTabs.DrawTab(e.Graphics, tabs, e.Index, e.Bounds, e.Index == tabs.SelectedIndex, e.Font);
+		}
+	}
+
+	// Dark tab painting, shared by the owner-draw handler and the subclassed strip
+	internal static class DarkTabs
+	{
+		private static readonly SolidBrush back = new SolidBrush(UITheme.DarkPalette[KnownColor.Control]);
+		private static readonly SolidBrush selectedback = new SolidBrush(UITheme.DarkPalette[KnownColor.ControlLight]);
+		private static readonly Pen frame = new Pen(UITheme.DarkPalette[KnownColor.ControlLight]);
+		private static readonly Color text = UITheme.DarkPalette[KnownColor.ControlText];
+
+		public static void DrawTab(Graphics g, TabControl tabs, int index, Rectangle bounds, bool selected, Font font)
+		{
+			g.FillRectangle(selected ? selectedback : back, bounds);
+			TabPage page = tabs.TabPages[index];
+			Rectangle textbounds = bounds;
+			ImageList images = tabs.ImageList;
+			int image = images == null ? -1 : page.ImageIndex >= 0 ? page.ImageIndex
+				: string.IsNullOrEmpty(page.ImageKey) ? -1 : images.Images.IndexOfKey(page.ImageKey);
+			if(image >= 0 && image < images.Images.Count)
+			{
+				Size size = images.ImageSize;
+				int x = bounds.X + 4;
+				images.Draw(g, x, bounds.Y + (bounds.Height - size.Height) / 2, image);
+				textbounds = Rectangle.FromLTRB(x + size.Width + 2, bounds.Y, bounds.Right, bounds.Bottom);
+			}
+			TextRenderer.DrawText(g, page.Text, font, textbounds, text,
 				TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+		}
+
+		// The whole control: strip background, page frame and every tab
+		public static void DrawControl(Graphics g, TabControl tabs)
+		{
+			g.FillRectangle(back, tabs.ClientRectangle);
+			Rectangle page = tabs.DisplayRectangle;
+			g.DrawRectangle(frame, page.X - 1, page.Y - 1, page.Width + 1, page.Height + 1);
+			for(int i = 0; i < tabs.TabCount; i++)
+				DrawTab(g, tabs, i, tabs.GetTabRect(i), i == tabs.SelectedIndex, tabs.Font);
 		}
 	}
 }
