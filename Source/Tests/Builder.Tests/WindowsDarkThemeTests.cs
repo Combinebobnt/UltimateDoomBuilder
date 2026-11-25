@@ -32,6 +32,15 @@ namespace Builder.Tests
 		}
 
 		[Fact]
+		public void GridBackgroundDefaultIsDarkOnBothRuntimes()
+		{
+			Assert.Equal(Dark(KnownColor.AppWorkspace).ToArgb(), DarkControlRules.ConvertGridBackground(SystemColors.AppWorkspace)!.Value.ToArgb());
+			Assert.Equal(Dark(KnownColor.AppWorkspace).ToArgb(), DarkControlRules.ConvertGridBackground(SystemColors.ControlDark)!.Value.ToArgb());
+			Assert.Equal(Dark(KnownColor.Window).ToArgb(), DarkControlRules.ConvertGridBackground(SystemColors.Window)!.Value.ToArgb());
+			Assert.Null(DarkControlRules.ConvertGridBackground(Color.FromArgb(0x82, 0x82, 0x82)));
+		}
+
+		[Fact]
 		public void LightMakesNoChanges()
 		{
 			foreach(DarkControlKind kind in Enum.GetValues(typeof(DarkControlKind)))

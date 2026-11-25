@@ -83,6 +83,13 @@ namespace CodeImp.DoomBuilder.Windows
 			return UITheme.DarkPalette.TryGetValue(c.ToKnownColor(), out dark) ? dark : (Color?)null;
 		}
 
+		// The empty grid area defaults to AppWorkspace on .NET Framework and ControlDark on .NET 8, a light grey in the palette
+		public static Color? ConvertGridBackground(Color c)
+		{
+			if(c.IsSystemColor && c.ToKnownColor() == KnownColor.ControlDark) return UITheme.DarkPalette[KnownColor.AppWorkspace];
+			return Convert(c);
+		}
+
 		public static DarkControlChanges Decide(DarkControlInfo info, bool dark)
 		{
 			DarkControlChanges ch = new DarkControlChanges();
@@ -335,7 +342,7 @@ namespace CodeImp.DoomBuilder.Windows
 
 		private static void DarkenGrid(DataGridView grid)
 		{
-			Color? c = DarkControlRules.Convert(grid.BackgroundColor);
+			Color? c = DarkControlRules.ConvertGridBackground(grid.BackgroundColor);
 			if(c.HasValue) grid.BackgroundColor = c.Value;
 			c = DarkControlRules.Convert(grid.GridColor);
 			if(c.HasValue) grid.GridColor = c.Value;
