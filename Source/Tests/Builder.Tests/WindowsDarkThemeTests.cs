@@ -429,6 +429,18 @@ namespace Builder.Tests
 					}
 				return total == 0 ? (0, 1, 0, 0) : ((double)light / total, (double)sentinel / total, (double)exact / total, above);
 			}
+
+			// Light share of the outer 2 pixels, where Windows draws a sunken border
+			public double RingLight(Rectangle r)
+			{
+				r.Intersect(Bounds);
+				Rectangle inside = r;
+				inside.Inflate(-2, -2);
+				int ring = r.Width * r.Height - inside.Width * inside.Height;
+				if(ring <= 0) return 0;
+				double light = Measure(r, 255, Color.Black).light * r.Width * r.Height - Measure(inside, 255, Color.Black).light * inside.Width * inside.Height;
+				return light / ring;
+			}
 		}
 
 		private static void Pump()
@@ -496,12 +508,20 @@ namespace Builder.Tests
 							Rectangle inside = r;
 							inside.Inflate(-2, -2);
 							double black = pixels.Measure(inside, 255, Color.Black).exact;
-							report.Add(string.Format("{0} {1}: light {2:P0}, sentinel {3:P0}, black {4:P0}", mode, name, light, sentinel, black));
+							report.Add(string.Format("{0} {1} {5}: light {2:P0}, sentinel {3:P0}, black {4:P0}", mode, name, light, sentinel, black, r));
 							if(sentinel > MAX_SENTINEL_SHARE) failures.Add(string.Format("{0} {1}: {2:P0} never painted", mode, name, sentinel));
 							else if(themed && black > MAX_SENTINEL_SHARE) failures.Add(string.Format("dark {0}: {1:P0} black", name, black));
 							else if(themed && light >= MAX_LIGHT_SHARE) failures.Add(string.Format("dark {0}: {1:P0} light", name, light));
 							// The negative control: a census that can't see light controls proves nothing
 							else if(!themed && light < MAX_LIGHT_SHARE) failures.Add(string.Format("light {0}: only {1:P0} light, the census is blind", name, light));
+						}
+
+						// Sunken borders are too thin to move a whole control's share; gated dark only
+						foreach(var (name, r) in cells.Where(c => new[] { "multiline", "textbox", "read-only textbox", "richtext", "listbox", "numeric", "hosted textbox" }.Contains(c.Item1)))
+						{
+							double ring = pixels.RingLight(r);
+							report.Add(string.Format("{0} {1} border: light {2:P0}", mode, name, ring));
+							if(themed && ring >= MAX_LIGHT_SHARE) failures.Add(string.Format("dark {0} border: {1:P0} light", name, ring));
 						}
 
 						if(themed)
