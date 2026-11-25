@@ -324,6 +324,9 @@ namespace Builder.Tests
 			public readonly TabControl Tabs = new TabControl { Size = new Size(200, 100) };
 			public readonly ListView List = new ListView { View = View.Details, Size = new Size(200, 100), FullRowSelect = true };
 			public readonly GroupBox Group = new GroupBox { Text = "Group", Size = new Size(140, 70) };
+			public readonly NumericUpDown Numeric = new NumericUpDown { Width = 120 };
+			// A named color the walker leaves alone: where it lands in the capture proves the coordinates
+			public readonly Panel Anchor = new Panel { BackColor = Color.Red, Size = new Size(40, 40) };
 
 			public CensusForm()
 			{
@@ -331,6 +334,7 @@ namespace Builder.Tests
 				Form.Controls.Add(flow);
 				void Add(string name, Control c) { flow.Controls.Add(c); Cells.Add((name, c)); }
 
+				flow.Controls.Add(Anchor);
 				Add("button", new Button { Text = "b", Size = new Size(120, 40) });
 				Add("multiline", new TextBox { Multiline = true, Size = new Size(120, 60) });
 				Add("textbox", new TextBox { Width = 120 });
@@ -347,7 +351,7 @@ namespace Builder.Tests
 				grid.Columns.Add("c", "c");
 				grid.Rows.Add("x");
 				Add("grid", grid);
-				Add("numeric", new NumericUpDown { Width = 120 });
+				Add("numeric", Numeric);
 				Add("scrollbar", new VScrollBar { Size = new Size(17, 80) });
 				Add("richtext", new RichTextBox { Size = new Size(120, 60) });
 				var listbox = new ListBox { Size = new Size(120, 60) };
@@ -404,22 +408,23 @@ namespace Builder.Tests
 				bmp.UnlockBits(locked);
 			}
 
-			// Shares of light and sentinel pixels, and the count above a luminance
-			public (double light, double sentinel, int above) Measure(Rectangle r, int threshold)
+			// Shares of light, sentinel and exactly-colored pixels, and the count above a luminance
+			public (double light, double sentinel, double exact, int above) Measure(Rectangle r, int threshold, Color exactcolor)
 			{
 				r.Intersect(Bounds);
-				int total = r.Width * r.Height, light = 0, sentinel = 0, above = 0;
+				int total = r.Width * r.Height, light = 0, sentinel = 0, exact = 0, above = 0;
 				for(int y = r.Top; y < r.Bottom; y++)
 					for(int x = r.Left; x < r.Right; x++)
 					{
 						int i = y * stride + x * 3;
 						int b = data[i], g = data[i + 1], red = data[i + 2];
 						if(red == SENTINEL.R && g == SENTINEL.G && b == SENTINEL.B) sentinel++;
+						if(red == exactcolor.R && g == exactcolor.G && b == exactcolor.B) exact++;
 						double lum = 0.299 * red + 0.587 * g + 0.114 * b;
 						if(lum > 200) light++;
 						if(lum > threshold) above++;
 					}
-				return total == 0 ? (0, 1, 0) : ((double)light / total, (double)sentinel / total, above);
+				return total == 0 ? (0, 1, 0, 0) : ((double)light / total, (double)sentinel / total, (double)exact / total, above);
 			}
 		}
 
@@ -467,11 +472,26 @@ namespace Builder.Tests
 					{
 						bmp.Save(Path.Combine(dir, mode + ".png"), System.Drawing.Imaging.ImageFormat.Png);
 						var pixels = new Pixels(bmp);
-						foreach(var (name, control) in census.Cells)
+						// Every share below means nothing if the capture is offset from the client area
+						double anchored = pixels.Measure(InForm(form, census.Anchor), 255, Color.Red).exact;
+						report.Add(string.Format("{0} anchor: {1:P0} red", mode, anchored));
+						if(anchored < 0.95) failures.Add(string.Format("{0}: the anchor is only {1:P0} red, the capture is misplaced", mode, anchored));
+
+						// Parts a whole-control share is too coarse for
+						var cells = census.Cells.Select(c => (c.name, InForm(form, c.control))).ToList();
+						Rectangle last = census.Tabs.GetTabRect(census.Tabs.TabCount - 1);
+						Rectangle strip = Rectangle.FromLTRB(last.Right + 2, last.Top, census.Tabs.ClientSize.Width - 2, last.Bottom - 2);
+						cells.Add(("empty tab strip", form.RectangleToClient(census.Tabs.RectangleToScreen(strip))));
+						Control arrows = census.Numeric.Controls.Cast<Control>().Single(c => c.GetType().Name == "UpDownButtons");
+						cells.Add(("spin arrows", InForm(form, arrows)));
+
+						foreach(var (name, r) in cells)
 						{
-							var (light, sentinel, _) = pixels.Measure(InForm(form, control), 255);
-							report.Add(string.Format("{0} {1}: light {2:P0}, sentinel {3:P0}", mode, name, light, sentinel));
+							// The dark palette has no pure black: a black area was never painted
+							var (light, sentinel, black, _) = pixels.Measure(r, 255, Color.Black);
+							report.Add(string.Format("{0} {1}: light {2:P0}, sentinel {3:P0}, black {4:P0}", mode, name, light, sentinel, black));
 							if(sentinel > MAX_SENTINEL_SHARE) failures.Add(string.Format("{0} {1}: {2:P0} never painted", mode, name, sentinel));
+							else if(themed && black > MAX_SENTINEL_SHARE) failures.Add(string.Format("dark {0}: {1:P0} black", name, black));
 							else if(themed && light >= MAX_LIGHT_SHARE) failures.Add(string.Format("dark {0}: {1:P0} light", name, light));
 							// The negative control: a census that can't see light controls proves nothing
 							else if(!themed && light < MAX_LIGHT_SHARE) failures.Add(string.Format("light {0}: only {1:P0} light, the census is blind", name, light));
@@ -482,11 +502,13 @@ namespace Builder.Tests
 							// Light text must show on the dark parts Windows draws itself
 							Rectangle header = WindowInForm(form, SendMessage(census.List.Handle, LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero));
 							Rectangle tab = form.RectangleToClient(census.Tabs.RectangleToScreen(census.Tabs.GetTabRect(0)));
-							Rectangle caption = InForm(form, census.Group);
-							caption.Height = census.Group.Font.Height + 2;
+							// Only the gap the caption leaves in the frame line
+							Rectangle group = InForm(form, census.Group);
+							Size text = TextRenderer.MeasureText(census.Group.Text, census.Group.Font);
+							Rectangle caption = new Rectangle(group.Left + 8, group.Top, text.Width, census.Group.Font.Height);
 							foreach(var (name, r) in new[] { ("list header text", header), ("tab text", tab), ("group caption", caption) })
 							{
-								int above = pixels.Measure(r, 128).above;
+								int above = pixels.Measure(r, 128, Color.Black).above;
 								report.Add(string.Format("dark {0}: {1} pixels above 128", name, above));
 								if(above < 3) failures.Add("dark " + name + " is unreadable");
 							}
@@ -505,13 +527,16 @@ namespace Builder.Tests
 			Directory.CreateDirectory(dir);
 			var failures = new List<string>();
 			var report = new List<string>();
-			RunUI(() =>
+			try
 			{
-				// Unthemed first, before anything dark is installed in the process
-				Census(false, dir, failures, report);
-				Census(true, dir, failures, report);
-			});
-			File.WriteAllLines(Path.Combine(dir, "census.txt"), report);
+				RunUI(() =>
+				{
+					// Unthemed first, before anything dark is installed in the process
+					Census(false, dir, failures, report);
+					Census(true, dir, failures, report);
+				});
+			}
+			finally { File.WriteAllLines(Path.Combine(dir, "census.txt"), report); }
 			Assert.True(failures.Count == 0, string.Join("; ", failures));
 		}
 

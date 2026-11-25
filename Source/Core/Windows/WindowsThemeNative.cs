@@ -28,6 +28,7 @@ namespace CodeImp.DoomBuilder.Windows
 	// Compiled into both builds; only Win32NT code paths call it
 	internal sealed class Win32ThemeNative : INativeTheming
 	{
+		private const int REFRESH_IMMERSIVE_COLOR_POLICY_STATE = 104;
 		private const int ALLOW_DARK_MODE_FOR_WINDOW = 133;
 		private const int SET_PREFERRED_APP_MODE = 135;
 		private const int FLUSH_MENU_THEMES = 136;
@@ -42,11 +43,13 @@ namespace CodeImp.DoomBuilder.Windows
 		[UnmanagedFunctionPointer(CallingConvention.Winapi)]
 		private delegate int AppModeProc(int mode);
 
+		// RefreshImmersiveColorPolicyState and FlushMenuThemes
 		[UnmanagedFunctionPointer(CallingConvention.Winapi)]
-		private delegate void FlushMenuThemesProc();
+		private delegate void VoidProc();
 
 		private readonly AllowDarkModeForWindowProc allowdarkforwindow;
-		private readonly ConditionalWeakTable<Control, NativeWindow> subclasses = new ConditionalWeakTable<Control, NativeWindow>();
+		// Static: a subclass must outlive this object while its window lives
+		private static readonly ConditionalWeakTable<Control, NativeWindow> subclasses = new ConditionalWeakTable<Control, NativeWindow>();
 
 		public Win32ThemeNative()
 		{
@@ -82,10 +85,16 @@ namespace CodeImp.DoomBuilder.Windows
 			if(proc == IntPtr.Zero) return false;
 			int mode = !dark ? APP_MODE_DEFAULT : call == DarkAppModeCall.SetPreferredAppMode ? APP_MODE_FORCE_DARK : 1;
 			((AppModeProc)Marshal.GetDelegateForFunctionPointer(proc, typeof(AppModeProc)))(mode);
-			// Context menus pick the mode up only after this
-			IntPtr flush = UxthemeOrdinal(FLUSH_MENU_THEMES);
-			if(flush != IntPtr.Zero) ((FlushMenuThemesProc)Marshal.GetDelegateForFunctionPointer(flush, typeof(FlushMenuThemesProc)))();
+			// Context menus pick the mode up only after these
+			CallVoidOrdinal(REFRESH_IMMERSIVE_COLOR_POLICY_STATE);
+			CallVoidOrdinal(FLUSH_MENU_THEMES);
 			return true;
+		}
+
+		private static void CallVoidOrdinal(int ordinal)
+		{
+			IntPtr proc = UxthemeOrdinal(ordinal);
+			if(proc != IntPtr.Zero) ((VoidProc)Marshal.GetDelegateForFunctionPointer(proc, typeof(VoidProc)))();
 		}
 
 		public void SetWindowTheme(IntPtr hwnd, string subappname)
@@ -131,6 +140,8 @@ namespace CodeImp.DoomBuilder.Windows
 		private const int WM_PAINT = 0x000F;
 		private const int WM_ERASEBKGND = 0x0014;
 		private const int WM_PRINTCLIENT = 0x0318;
+		private const int WM_QUERYUISTATE = 0x0129;
+		private const int UISF_HIDEFOCUS = 0x1;
 
 		private static bool loggedfailure;
 
@@ -190,9 +201,11 @@ namespace CodeImp.DoomBuilder.Windows
 
 				Rectangle client = tabs.ClientRectangle;
 				if(client.Width <= 0 || client.Height <= 0) return true;
+				// Focus cues hide until the keyboard is used, as Windows decides per window
+				bool focuscue = tabs.Focused && ((int)SendMessage(tabs.Handle, WM_QUERYUISTATE, IntPtr.Zero, IntPtr.Zero) & UISF_HIDEFOCUS) == 0;
 				using(BufferedGraphics buffer = BufferedGraphicsManager.Current.Allocate(hdc, client))
 				{
-					DarkTabs.DrawControl(buffer.Graphics, tabs);
+					DarkTabs.DrawControl(buffer.Graphics, tabs, focuscue);
 					buffer.Render(hdc);
 				}
 				return true;
@@ -231,6 +244,9 @@ namespace CodeImp.DoomBuilder.Windows
 
 		[DllImport("user32.dll", CharSet = CharSet.Unicode)]
 		private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string classname, string windowname);
+
+		[DllImport("user32.dll")]
+		private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wparam, IntPtr lparam);
 	}
 
 	// Darkens a ListView's header: the dark theme class for its background, custom draw for its text,

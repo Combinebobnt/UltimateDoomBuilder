@@ -451,13 +451,22 @@ namespace CodeImp.DoomBuilder.Windows
 		}
 
 		// The whole control: strip background, page frame and every tab
-		public static void DrawControl(Graphics g, TabControl tabs)
+		public static void DrawControl(Graphics g, TabControl tabs, bool focuscue)
 		{
 			g.FillRectangle(back, tabs.ClientRectangle);
 			Rectangle page = tabs.DisplayRectangle;
 			g.DrawRectangle(frame, page.X - 1, page.Y - 1, page.Width + 1, page.Height + 1);
 			for(int i = 0; i < tabs.TabCount; i++)
-				DrawTab(g, tabs, i, tabs.GetTabRect(i), i == tabs.SelectedIndex, tabs.Font);
+			{
+				Rectangle bounds = tabs.GetTabRect(i);
+				bool selected = i == tabs.SelectedIndex;
+				DrawTab(g, tabs, i, bounds, selected, tabs.Font);
+				if(selected && focuscue)
+				{
+					bounds.Inflate(-3, -3);
+					ControlPaint.DrawFocusRectangle(g, bounds, text, selectedback.Color);
+				}
+			}
 		}
 	}
 }
